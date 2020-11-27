@@ -1,0 +1,16 @@
+[package]
+name = "minus"
+version = "0.1.0"
+authors = ["Arijit Dey <arijid79@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+termion = "1.5.5"
+futures = "^0.3.8"
+async-std = "*"
+
+[[example]]
+name = "basic"
+path = "examples/basic.rs"
