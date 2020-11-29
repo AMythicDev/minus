@@ -10,6 +10,7 @@ edition = "2018"
 termion = "1.5.5"
 futures = "^0.3.8"
 async-std = "*"
+crossterm = "*"
 
 [[example]]
 name = "basic"
