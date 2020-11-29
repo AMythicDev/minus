@@ -93,16 +93,10 @@ async fn draw(lines: Lines) {
     }
 }
 
-/*
-*/
-
 pub async fn run<T>(cx: Receiver<Signal<T>>)
 where
     T: std::fmt::Display + Into<String> + Clone,
 {
     let lines: Lines = Rc::new(RefCell::new(Vec::new()));
     join!(update_string(cx, lines.clone()), draw(lines));
-
-    // let stdout = stdout().into_raw_mode().unwrap();
-    // let height = termion::terminal_size().unwrap().1;
 }
