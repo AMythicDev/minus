@@ -5,12 +5,12 @@ use crossterm::{
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    terminal::{Clear, ClearType},
+    terminal::{Clear, ClearType, ScrollUp},
 };
 use futures::join;
 use std::cell::RefCell;
 use std::io::{prelude::*, stdout};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 
@@ -31,7 +31,7 @@ where
     Close,
 }
 
-type Lines = Rc<RefCell<Vec<String>>>;
+type Lines = Arc<Mutex<Vec<String>>>;
 
 async fn update_string<T>(cx: Receiver<Signal<T>>, lines: Lines)
 where
@@ -40,14 +40,13 @@ where
     loop {
         match cx.try_recv() {
             Ok(Signal::Data(text)) => {
-                let mut lines = lines.borrow_mut();
+                let mut lines = lines.lock().unwrap();
                 let string: String = text.into();
                 let buf_line: Vec<&str> = string.split_terminator('\n').collect();
                 buf_line.iter().for_each(|item| {
                     lines.push(item.to_string());
                 });
                 drop(lines);
-                sleep(Duration::from_millis(500)).await;
             }
             Ok(Signal::Close) => {
                 break;
@@ -63,7 +62,7 @@ async fn draw(lines: Lines) {
     let mut last_printed = 0;
 
     loop {
-        let borrow = lines.borrow();
+        let borrow = lines.lock().unwrap();
         if last_printed < borrow.len() {
             print!("{}{}", Clear(ClearType::All), MoveTo(0, 0),);
             for line in borrow.iter() {
@@ -73,7 +72,7 @@ async fn draw(lines: Lines) {
         }
         drop(borrow);
 
-        if poll(Duration::from_millis(500)).unwrap() {
+        if poll(Duration::from_millis(10)).unwrap() {
             match read().unwrap() {
                 Event::Key(KeyEvent {
                     code: KeyCode::Char('q'),
@@ -86,17 +85,28 @@ async fn draw(lines: Lines) {
                     let _ = disable_raw_mode();
                     std::process::exit(0);
                 }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::NONE,
+                }) => {
+                    ScrollUp(1);
+                }
                 _ => {}
             }
         }
-        sleep(Duration::from_millis(500)).await;
     }
 }
 
-pub async fn run<T>(cx: Receiver<Signal<T>>)
+pub async fn run<T: 'static>(cx: Receiver<Signal<T>>)
 where
-    T: std::fmt::Display + Into<String> + Clone,
+    T: std::fmt::Display + Into<String> + Clone + Send,
 {
-    let lines: Lines = Rc::new(RefCell::new(Vec::new()));
-    join!(update_string(cx, lines.clone()), draw(lines));
+    let lines: Lines = Arc::new(Mutex::new(Vec::new()));
+    let draw_handle = async_std::task::spawn(
+        draw(lines.clone())
+    );
+    let update_handle = async_std::task::spawn(
+        update_string(cx, lines.clone())
+    );
+    join!(update_handle, draw_handle);
 }

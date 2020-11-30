@@ -9,8 +9,8 @@ edition = "2018"
 [dependencies]
 termion = "1.5.5"
 futures = "^0.3.8"
-async-std = "*"
-crossterm = "*"
+async-std = "1.7.0"
+crossterm = "0.18.2"
 
 [[example]]
 name = "basic"
