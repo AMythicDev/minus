@@ -9,7 +9,7 @@ fn main() {
     let output = Arc::new(Mutex::new(String::new()));
     let increment = async {
         let mut counter: u8 = 0;
-        while counter <= 20 {
+        while counter <= 30 {
             let mut output = output.lock().unwrap();
             writeln!(output, "{}", counter.to_string());
             counter += 1;

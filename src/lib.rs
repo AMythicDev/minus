@@ -8,7 +8,7 @@ use crossterm::{
 };
 use futures::join;
 use std::io::{prelude::*, stdout};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::sync::mpsc::Receiver;
 use std::time::Duration;
 use async_std::task::{self, JoinHandle};
@@ -16,11 +16,29 @@ use async_std::task::sleep;
 
 type Lines = Arc<Mutex<String>>;
 
+fn draw(lines: &MutexGuard<String>, rows: usize, upper_mark: usize) {
+    let lines: Vec<&str> = lines.split_terminator('\n').collect();
+    let mut lower_mark = upper_mark + rows;
+    if lower_mark >= lines.len() {
+        lower_mark = lines.len();
+    }
+    let range = &lines[upper_mark..lower_mark];
+
+    let format_lines = range.connect("\n\r");
+    print!("{}{}", Clear(ClearType::All), MoveTo(0,0));
+    println!("\r{}", format_lines);
+}
+
 pub async fn refreshable(mutex: Lines) {
     task::spawn(async move {
         let _ = execute!(stdout(), EnterAlternateScreen);
         let _ = enable_raw_mode();
+
+        let (cols, rows) = crossterm::terminal::size().unwrap();
+        let rows = rows as usize;
+        let upper_mark = 0 as usize;
         let mut last_copy = String::new();
+
         loop {
             let string = mutex.try_lock();
             if string.is_err() {
@@ -28,13 +46,11 @@ pub async fn refreshable(mutex: Lines) {
             }
             let string = string.unwrap();
             if !string.eq(&last_copy) {
-                let lines: Vec<&str> = string.split_terminator('\n').collect();
-                let format_lines = lines.connect("\n\r");
-                print!("{}", Clear(ClearType::All));
-                println!("\r{}", format_lines);
+                draw(&string, rows, upper_mark);
                 last_copy = string.clone();
             }
             drop(string);
+
             if poll(Duration::from_millis(10)).unwrap() {
                 match read().unwrap() {
                     Event::Key(KeyEvent {
