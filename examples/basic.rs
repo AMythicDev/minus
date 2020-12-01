@@ -1,22 +1,24 @@
 use async_std::task::sleep;
 use futures::{executor::block_on, join};
 use minus::*;
-use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::fmt::Write;
 
 fn main() {
-    let (tx, cx) = channel();
+    let output = Arc::new(Mutex::new(String::new()));
     let increment = async {
-        let mut counter = 0;
-        while counter <= 100 {
-            let _ = tx.send(Signal::Data(counter.to_string()));
+        let mut counter: u8 = 0;
+        while counter <= 20 {
+            let mut output = output.lock().unwrap();
+            writeln!(output, "{}", counter.to_string());
             counter += 1;
+            drop(output);
             sleep(Duration::from_millis(100)).await;
         }
-        let _ = tx.send(Signal::Close);
     };
     let run = async {
-        join!(increment, run(cx));
+        join!(refreshable(output.clone()), increment);
     };
     block_on(run);
 }
