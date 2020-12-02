@@ -73,7 +73,7 @@ fn init(mutex: Lines) {
 /// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
 /// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_refreshable(mutex: Lines) {
+pub async fn tokio_updating(mutex: Lines) {
     use tokio::task;
     task::spawn(async move {
         init(mutex);
@@ -90,7 +90,7 @@ pub async fn tokio_refreshable(mutex: Lines) {
 /// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
 /// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_refreshable(mutex: Lines) {
+pub async fn async_std_updating(mutex: Lines) {
     use async_std::task;
     task::spawn(async move {
         init(mutex);

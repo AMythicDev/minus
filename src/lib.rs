@@ -6,7 +6,7 @@ mod rt_wrappers;
 pub type Lines = Arc<Mutex<String>>;
 
 #[cfg(feature = "tokio_lib")]
-pub use rt_wrappers::tokio_refreshable;
+pub use rt_wrappers::tokio_updating;
 
 #[cfg(feature = "async_std_lib")]
-pub use rt_wrappers::async_std_refreshable;
+pub use rt_wrappers::async_std_updating;
