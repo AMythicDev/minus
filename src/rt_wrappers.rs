@@ -67,8 +67,33 @@ fn init(mutex: Lines) {
 /// Run the pager inside a [`tokio task`](tokio::task)
 ///
 /// This function is only available when `tokio_lib` feature is enabled
-/// This function switches to the [`Alternate Screen`] of the TTY and switches to
-/// [`raw mode`]
+/// It takes a [`Lines`] and updates the page with new information when Lines
+/// is updated
+///
+/// This function switches to the [`Alternate Screen`] of the TTY and 
+/// switches to [`raw mode`]
+/// ## Example
+/// ``` 
+/// use std::sync::{Arc, Mutex};
+/// use futures::join;
+/// #[tokio::main]
+/// async fn main() {
+///     let output = Arc::new(Mutex::new(String::new()));
+///     let push_data = async {
+///         for i in 1..=100 {
+///             let mut guard = output.lock().unwrap();
+///             guard.push_str(&i.to_string());
+///             // If you have furthur asynchronous blocking code, drop the borrow here
+///             drop(guard);
+///             // Otherwise it is automatically dropped here
+///         }
+///    };
+///    join!(minus::tokio_updating(output.clone()), push_data);
+/// }
+/// ```
+/// **Please do note that you should never lock the output data, since this will cause
+/// the paging thread to be paused. Only borrow it when it is required and drop it
+/// if you have furthur asynchronous blocking code**
 ///
 /// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
 /// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
@@ -80,15 +105,41 @@ pub async fn tokio_updating(mutex: Lines) {
     });
 }
 
-/// Run the pager inside a [`async_std task`]
+/// Initialize a updating pager inside a [`async_std task`]
 ///
 /// This function is only available when `async_std_lib` feature is enabled
-/// This function switches to the [`Alternate Screen`] of the TTY and switches to
-/// [`raw mode`]
+/// It takes a [`Lines`] and updates the page with new information when Lines
+/// is updated
+/// This function switches to the [`Alternate Screen`] of the TTY and 
+/// switches to [`raw mode`]
+///
+/// ## Example
+/// ``` 
+/// use std::sync::{Arc, Mutex};
+/// use futures::join;
+/// #[async_std::main]
+/// async fn main() {
+///     let output = Arc::new(Mutex::new(String::new()));
+///     let push_data = async {
+///         for i in 1..=100 {
+///             let mut guard = output.lock().unwrap();
+///             guard.push_str(&i.to_string());
+///             // If you have furthur asynchronous blocking code, drop the borrow here
+///             drop(guard);
+///             // Otherwise it is automatically dropped here
+///         }
+///    };
+///    join!(minus::async_std_updating(output.clone()), push_data);
+/// }
+/// ```
+/// **Please do note that you should never lock the output data, since this will cause
+/// the paging thread to be paused. Only borrow it when it is required and drop it
+/// if you have furthur asynchronous blocking code**
 ///
 /// [`async_std task`]: async_std::task
 /// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
 /// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
+/// [`Lines`]: Lines
 #[cfg(feature = "async_std_lib")]
 pub async fn async_std_updating(mutex: Lines) {
     use async_std::task;
