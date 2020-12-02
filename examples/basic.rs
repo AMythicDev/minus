@@ -18,7 +18,7 @@ fn main() {
         }
     };
     let run = async {
-        join!(refreshable(output.clone()), increment);
+        join!(async_std_refreshable(output.clone()), increment);
     };
     block_on(run);
 }
