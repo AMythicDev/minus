@@ -37,7 +37,7 @@ use std::sync::{Arc, Mutex};
 async fn main() {
     let output = Arc::new(Mutex::new(String::new()));
     // Asynchronously push numbers to a string
-    let incrementor = async {
+    let increment = async {
         for i in 0..100 {
             let guard = output.lock().unwrap();
             // Always use writeln to add a \n after the line
@@ -48,7 +48,7 @@ async fn main() {
             tokio::task::sleep(std::Duration::new(1,0)).await;
         }
     }
-    join!(minus::tokio_updating(output.clone()), push_data);
+    join!(minus::tokio_updating(output.clone()), increment);
 }
 ```
 
@@ -64,7 +64,7 @@ use std::fmt::Write;
 async fn main() {
     let output = Arc::new(Mutex::new(String::new()));
     // Asynchronously push numbers to a string
-    let incrementor = async {
+    let increment = async {
         for i in 0..100 {
             let guard = output.lock().unwrap();
             // Always use writeln to add a \n after the line
@@ -75,7 +75,7 @@ async fn main() {
             async_std::task::sleep(std::Duration::new(1,0)).await;
         }
     }
-    join!(minus::async_std_updating(output.clone()), push_data);
+    join!(minus::async_std_updating(output.clone()), increment);
 }
 ```
 
