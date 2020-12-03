@@ -2,6 +2,7 @@ use crossterm::{
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    cursor::{Hide, Show}
 };
 use std::io::{prelude::*, stdout};
 use std::time::Duration;
@@ -11,6 +12,7 @@ use crate::utils::draw;
 fn init(mutex: Lines) {
     let _ = execute!(stdout(), EnterAlternateScreen);
     let _ = enable_raw_mode();
+    let _ = execute!(stdout(), Hide);
 
     let (_, rows) = crossterm::terminal::size().unwrap();
     let rows = rows as usize;
@@ -40,6 +42,7 @@ fn init(mutex: Lines) {
                 }) => {
                     let _ = execute!(stdout(), LeaveAlternateScreen);
                     let _ = disable_raw_mode();
+                    let _ = execute!(stdout(), Show);
                     std::process::exit(0);
                 }
                 Event::Key(KeyEvent {
