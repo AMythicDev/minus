@@ -9,6 +9,7 @@ use std::time::Duration;
 use crate::Lines;
 use crate::utils::draw;
 
+
 fn init(mutex: Lines) {
     // Initialize the terminal
     let _ = execute!(stdout(), EnterAlternateScreen);
@@ -35,7 +36,7 @@ fn init(mutex: Lines) {
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
         if !string.eq(&last_copy) {
-            draw(&string, rows, &mut upper_mark.clone());
+            draw(string.clone(), rows, &mut upper_mark.clone());
             // Update the last copy, cloning here becaue string is inside MutexGuard
             last_copy = string.clone();
         }
@@ -64,9 +65,9 @@ fn init(mutex: Lines) {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
+                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
                 }
-                // If Down arrow is pressed, subtract 1 from the marker and update the string
+                // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
@@ -74,7 +75,7 @@ fn init(mutex: Lines) {
                     if upper_mark != 0 {
                         upper_mark -= 1;
                     }
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
+                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
                 }
                 _ => {}
             }

@@ -7,7 +7,7 @@ use std::io::Write as IOWrite;
 
 const LINE_NUMBERS: bool = false;
 
-pub(crate) fn draw(lines: &MutexGuard<String>, rows: usize, upper_mark: &mut usize) {
+pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     // Split the String on each \n
     let lines: Vec<&str> = lines.split_terminator('\n').collect();
     // Calculate the lower mark
@@ -42,16 +42,16 @@ pub(crate) fn draw(lines: &MutexGuard<String>, rows: usize, upper_mark: &mut usi
         let mut output = String::new();
         for (index, line) in range.iter().enumerate() {
             // Put the output to output variable
-            writeln!(output, "\r{}. {}\n", *upper_mark + index + 1, line);
+            let _ = writeln!(output, "\r{}. {}\n", *upper_mark + index + 1, line);
         }
         // Output the data
         // Printing each line to terminal can be slow, so write the data to a variable and finally flush it
         print!("{}", output);
-        std::io::stdout().flush();
+        let _ = std::io::stdout().flush();
     }
 
     // Display the prompt
     print!("{}{}Press q or Ctrl+C to quit", MoveTo(0, rows as u16),Attribute::Reverse);
-    std::io::stdout().flush();
+    let _ = std::io::stdout().flush();
     print!("{}", Attribute::Reset);
 }

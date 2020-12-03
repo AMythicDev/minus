@@ -13,7 +13,20 @@ tokio = { version = "^0.3.5", optional = true, features = ["rt"] }
 [features]
 async_std_lib = [ "async-std" ]
 tokio_lib = [ "tokio" ]
+static_output = []
+
+[dev-dependencies]
+async-std = { version = "^1.7.0", features = ["attributes"] }
+tokio = { version = "^0.3.5", features = ["rt", "macros", "rt-multi-thread", "time"] }
 
 [[example]]
-name = "basic"
-path = "examples/basic.rs"
+name = "dyn_async_std"
+path = "examples/dyn_async_std.rs"
+
+[[example]]
+name = "dyn_tokio"
+path = "examples/dyn_tokio.rs"
+
+[[example]]
+name = "static"
+path = "examples/static.rs"
