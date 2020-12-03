@@ -16,6 +16,17 @@ use std::io::Write;
 ///
 /// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
 /// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
+///
+/// ## Example
+/// ```
+/// fn main() {
+///     let mut output = String::new();
+///     for i in 1..=30 {
+///         let _ = writeln!(output, "{}", i);
+///     }
+///     minus::page_all(output);
+/// }
+/// ```
 pub fn page_all(lines: String) {
 
     // Get terminal rows and convert it to usize
