@@ -49,7 +49,7 @@ async fn main() {
             // Always use writeln to add a \n after the line
             let _ = writeln!(output, "{}", guard);
             // Drop here explicitly, if you have further asynchronous blocking code
-            drop(borrow);
+            drop(guard);
             // Some asynchronous blocking code
             tokio::task::sleep(std::Duration::new(1,0)).await;
         }
@@ -76,7 +76,7 @@ async fn main() {
             // Always use writeln to add a \n after the line
             let _ = writeln!(output, "{}", guard);
             // Drop here explicitly, if you have further asynchronous blocking code
-            drop(borrow);
+            drop(guard);
             // Some asynchronous blocking code
             async_std::task::sleep(std::Duration::new(1,0)).await;
         }
