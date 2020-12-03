@@ -10,29 +10,42 @@ use crate::Lines;
 use crate::utils::draw;
 
 fn init(mutex: Lines) {
+    // Initialize the terminal
     let _ = execute!(stdout(), EnterAlternateScreen);
     let _ = enable_raw_mode();
     let _ = execute!(stdout(), Hide);
 
+    // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size().unwrap();
     let rows = rows as usize;
+    // The upper mark of scrolling
     let mut upper_mark = 0 as usize;
+    // Copy of the last displayed string
+    // Only needed when there is less data then the number of rows
     let mut last_copy = String::new();
 
     loop {
+        // Lock the data and check errors
         let string = mutex.try_lock();
         if string.is_err() {
             continue;
         }
+        // If no errors, compare it with the last displayed string
+        // If they are not equal, display the new data
         let string = string.unwrap();
+        // Use .eq() here as == cannot compare MutexGuard with a normal string
         if !string.eq(&last_copy) {
             draw(&string, rows, &mut upper_mark.clone());
+            // Update the last copy, cloning here becaue string is inside MutexGuard
             last_copy = string.clone();
         }
+        // Drop the string
         drop(string);
 
+        // Poll for keypresses
         if poll(Duration::from_millis(10)).unwrap() {
             match read().unwrap() {
+                // If q or Ctrl+C is pressed, reset all changes to the terminal and quit
                 Event::Key(KeyEvent {
                     code: KeyCode::Char('q'),
                     modifiers: KeyModifiers::NONE,
@@ -45,6 +58,7 @@ fn init(mutex: Lines) {
                     let _ = execute!(stdout(), Show);
                     std::process::exit(0);
                 }
+                // If Down arrow is pressed, add 1 to the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Down,
                     modifiers: KeyModifiers::NONE,
@@ -52,6 +66,7 @@ fn init(mutex: Lines) {
                     upper_mark += 1;
                     draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
                 }
+                // If Down arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
