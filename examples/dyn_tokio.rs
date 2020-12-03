@@ -1,9 +1,9 @@
-use tokio::time::sleep;
 use futures::join;
 use minus::*;
+use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::fmt::Write;
+use tokio::time::sleep;
 
 #[tokio::main]
 async fn main() {

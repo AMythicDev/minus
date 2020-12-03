@@ -1,9 +1,12 @@
-use std::sync::MutexGuard;
-use crossterm::{terminal::{Clear, ClearType}, cursor::MoveTo};
-use std::io::prelude::*;
 use crossterm::style::Attribute;
+use crossterm::{
+    cursor::MoveTo,
+    terminal::{Clear, ClearType},
+};
 use std::fmt::Write;
+use std::io::prelude::*;
 use std::io::Write as IOWrite;
+use std::sync::MutexGuard;
 
 const LINE_NUMBERS: bool = false;
 
@@ -29,7 +32,7 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     // Get the range of lines between upper mark and lower mark
     let range = &lines[*upper_mark..lower_mark];
     // Clear the screen and place cursor at the very top left
-    print!("{}{}", Clear(ClearType::All), MoveTo(0,0));
+    print!("{}{}", Clear(ClearType::All), MoveTo(0, 0));
 
     if LINE_NUMBERS == false {
         // Join the range with \n\r
@@ -51,7 +54,11 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     }
 
     // Display the prompt
-    print!("{}{}Press q or Ctrl+C to quit", MoveTo(0, rows as u16),Attribute::Reverse);
+    print!(
+        "{}{}Press q or Ctrl+C to quit",
+        MoveTo(0, rows as u16),
+        Attribute::Reverse
+    );
     let _ = std::io::stdout().flush();
     print!("{}", Attribute::Reset);
 }

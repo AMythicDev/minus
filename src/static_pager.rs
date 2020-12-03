@@ -1,9 +1,9 @@
 use crate::utils::draw;
 use crossterm::{
+    cursor::{Hide, Show},
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    cursor::{Hide, Show}
 };
 use std::io::stdout;
 use std::io::Write;
@@ -28,13 +28,12 @@ use std::io::Write;
 /// }
 /// ```
 pub fn page_all(lines: String) {
-
     // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size().unwrap();
     let rows = rows as usize;
 
     // If the number of lines in the output is less than the number of rows
-    // then print it and quit 
+    // then print it and quit
     {
         let range: Vec<&str> = lines.split_terminator("\n").collect();
         if rows > range.len() {
@@ -63,9 +62,10 @@ pub fn page_all(lines: String) {
                 Event::Key(KeyEvent {
                     code: KeyCode::Char('q'),
                     modifiers: KeyModifiers::NONE,
-                }) | Event::Key(KeyEvent {
+                })
+                | Event::Key(KeyEvent {
                     code: KeyCode::Char('c'),
-                    modifiers: KeyModifiers::CONTROL
+                    modifiers: KeyModifiers::CONTROL,
                 }) => {
                     let _ = execute!(stdout(), LeaveAlternateScreen);
                     let _ = disable_raw_mode();

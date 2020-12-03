@@ -1,9 +1,9 @@
 use async_std::task::sleep;
 use futures::join;
 use minus::*;
+use std::fmt::Write;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::fmt::Write;
 
 #[async_std::main]
 async fn main() {

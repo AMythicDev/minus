@@ -5,7 +5,7 @@
 //!
 //! ## Why use minus
 //! * Pager runs in a separate thread which is asynchronous
-//! * Works with both tokio and async_std, these are individual features you can 
+//! * Works with both tokio and async_std, these are individual features you can
 //! enable. So you are confirmed that you don't put bloat in your software
 //! * Completely cross-platform
 //!
@@ -15,10 +15,10 @@
 //! * `static_output`: Enable this if you only want to page static data
 //!
 //! ## Examples
-//! See [page_all] for static output examples or [async_std_updating] and 
+//! See [page_all] for static output examples or [async_std_updating] and
 //! [tokio_updating] for examples of dynamic output generation using different runtimes
 
-#![allow(unused_imports)] 
+#![allow(unused_imports)]
 
 mod utils;
 use std::sync::{Arc, Mutex};

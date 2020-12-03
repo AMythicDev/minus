@@ -1,14 +1,13 @@
+use crate::utils::draw;
+use crate::Lines;
 use crossterm::{
+    cursor::{Hide, Show},
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    cursor::{Hide, Show}
 };
 use std::io::{prelude::*, stdout};
 use std::time::Duration;
-use crate::Lines;
-use crate::utils::draw;
-
 
 fn init(mutex: Lines) {
     // Initialize the terminal
@@ -50,9 +49,10 @@ fn init(mutex: Lines) {
                 Event::Key(KeyEvent {
                     code: KeyCode::Char('q'),
                     modifiers: KeyModifiers::NONE,
-                }) | Event::Key(KeyEvent {
+                })
+                | Event::Key(KeyEvent {
                     code: KeyCode::Char('c'),
-                    modifiers: KeyModifiers::CONTROL
+                    modifiers: KeyModifiers::CONTROL,
                 }) => {
                     let _ = execute!(stdout(), LeaveAlternateScreen);
                     let _ = disable_raw_mode();
@@ -89,10 +89,10 @@ fn init(mutex: Lines) {
 /// It takes a [`Lines`] and updates the page with new information when Lines
 /// is updated
 ///
-/// This function switches to the [`Alternate Screen`] of the TTY and 
+/// This function switches to the [`Alternate Screen`] of the TTY and
 /// switches to [`raw mode`]
 /// ## Example
-/// ``` 
+/// ```
 /// use std::sync::{Arc, Mutex};
 /// use futures::join;
 /// use std::fmt::Write;
@@ -133,11 +133,11 @@ pub async fn tokio_updating(mutex: Lines) {
 /// This function is only available when `async_std_lib` feature is enabled
 /// It takes a [`Lines`] and updates the page with new information when Lines
 /// is updated
-/// This function switches to the [`Alternate Screen`] of the TTY and 
+/// This function switches to the [`Alternate Screen`] of the TTY and
 /// switches to [`raw mode`]
 ///
 /// ## Example
-/// ``` 
+/// ```
 /// use std::sync::{Arc, Mutex};
 /// use futures::join;
 /// #[async_std::main]
@@ -169,5 +169,6 @@ pub async fn async_std_updating(mutex: Lines) {
     use async_std::task;
     task::spawn(async move {
         init(mutex);
-    }).await;
+    })
+    .await;
 }
