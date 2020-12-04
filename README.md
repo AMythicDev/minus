@@ -28,7 +28,7 @@ minus = { version = "1.0.1" , features = ["tokio_lib"] }
 minus = { version = "1.0.1", features = ["async_std_lib"] }
 
 # For static output
-minus = { version = "1.0.0", features = ["static_output"] }
+minus = { version = "1.0.1", features = ["static_output"] }
 ```
 
 ## Example
@@ -97,6 +97,9 @@ fn main() {
     minus::page_all(output);
 }
 ```
+
+If there are more rows in the terminal than the number of lines in the given data. Minus will simply print the
+data and quit. This only works in static paging only
 
 ## Contributing
 Issues, pull requests are more than welcome
