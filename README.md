@@ -22,13 +22,13 @@ In your `Cargo.toml` file
 ```toml
 [dependencies]
 # For tokio
-minus = { git = "https://github.com/arijit79/minus.git", features = ["tokio_lib"], tag = "v1.0.0" }
+minus = { version = "1.0.0" , features = ["tokio_lib"] }
 
 # For async_std
-minus = { git = "https://github.com/arijit79/minus.git", features = ["async_std_lib"], tag = "v1.0.0" }
+minus = { version = "1.0.0", features = ["async_std_lib"] }
 
 # For static output
-minus = { git = "https://github.com/arijit79/minus.git", features = ["static_output"], tag = "v1.0.0" }
+minus = { version = "1.0.0", features = ["static_output"] }
 ```
 
 ## Example
