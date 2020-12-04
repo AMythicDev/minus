@@ -10,9 +10,8 @@ fn short_no_line_numbers() {
 
     assert!(write_lines(&mut out, lines, rows, &mut upper_mark, LineNumbers::No).is_ok());
 
-    let exp = "A line\nAnother line\n";
     assert_eq!(
-        exp,
+        "A line\nAnother line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(upper_mark, 0);
@@ -25,9 +24,8 @@ fn short_no_line_numbers() {
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
-    let exp = "A line\nAnother line\n";
     assert_eq!(
-        exp,
+        "A line\nAnother line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(upper_mark, 0);
