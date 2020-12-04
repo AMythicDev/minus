@@ -55,7 +55,9 @@ fn write_lines(
     // String cannot yield an infinite iterator, at worst a very long one.
     let line_count = lines.lines().count();
 
-    let mut lower_mark = *upper_mark + rows - 1;
+    // This will either do '-1' or '-0' depending on the lines having a blank
+    // line at the end or not.
+    let mut lower_mark = *upper_mark + rows - lines.ends_with('\n') as usize;
 
     // Do some necessary checking.
     // Lower mark should not be more than the length of lines vector.
