@@ -101,19 +101,21 @@ fn init(mutex: Lines) {
 /// use std::sync::{Arc, Mutex};
 /// use futures::join;
 /// use std::fmt::Write;
+/// use std::time::Duration;
+/// use tokio::time::sleep;
 ///
 /// #[tokio::main]
 /// async fn main() {
 ///     let output = Arc::new(Mutex::new(String::new()));
 ///     let push_data = async {
 ///         for i in 1..=100 {
-///             let guard = output.lock().unwrap();
+///             let mut guard = output.lock().unwrap();
 ///             // Always use writeln to add a \n after the line
-///             writeln!(output, "{}", guard);
+///             writeln!(guard, "{}", i);
 ///             // If you have furthur asynchronous blocking code, drop the borrow here
 ///             drop(guard);
 ///             // Some asynchronous blocking code
-///             tokio::task::sleep(std::Duration::new(1,0)).await;
+///             sleep(Duration::new(1,0)).await;
 ///         }
 ///    };
 ///    join!(minus::tokio_updating(output.clone()), push_data);
@@ -145,6 +147,8 @@ pub async fn tokio_updating(mutex: Lines) {
 /// ```
 /// use std::sync::{Arc, Mutex};
 /// use futures::join;
+/// use std::time::Duration;
+///
 /// #[async_std::main]
 /// async fn main() {
 ///     let output = Arc::new(Mutex::new(String::new()));
@@ -155,7 +159,7 @@ pub async fn tokio_updating(mutex: Lines) {
 ///             // If you have furthur asynchronous blocking code, drop the borrow here
 ///             drop(guard);
 ///             // Some asynchronous blocking code
-///             tokio::task::sleep(std::Duration::new(1,0)).await;
+///             async_std::task::sleep(Duration::new(1,0)).await;
 ///         }
 ///    };
 ///    join!(minus::async_std_updating(output.clone()), push_data);
