@@ -1,6 +1,6 @@
 //! Minus is a library for creating paged output for othe terminal based
 //! applications. It is threaded as well as asynchronous, which means your
-//! applications can give output dynamic information. It is also cross-platform
+//! applications can give dynamic information. It is also cross-platform
 //! which means your applications are assured to be 100% compatible with all OSs
 //!
 //! ## Why use minus
