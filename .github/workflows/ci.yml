@@ -28,7 +28,26 @@ jobs:
     - name: Build crate
       run: cargo build --verbose
     # This step helps separate buildtime and runtime errors in tests.
+    # '--tests --lib' ensures the examples are not run since they each depend
+    # on a specific feature.
     - name: Build tests
-      run: cargo build --verbose --tests
+      run: cargo test --verbose --tests --lib --no-run
     - name: Run Tests
-      run: cargo test --verbose --all-features
+      run: cargo test --verbose --tests --lib
+
+  examples:
+    name: examples
+    env:
+      # Emit backtraces on panics.
+      RUST_BACKTRACE: 1
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    # No terminal available in CI, only check the examples.
+    - name: Tokio
+      run: cargo check --example=dyn_tokio --features=tokio_lib
+    - name: Async-std
+      run: cargo check --example=dyn_async_std --features=async_std_lib
+    - name: Static
+      run: cargo check --example=static --features=static_output
