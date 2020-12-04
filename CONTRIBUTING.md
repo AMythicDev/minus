@@ -7,7 +7,7 @@ Contributing to a project on Github is pretty straight forward. If this is you'r
 - Fork this repo.
 - Read the code available and change the part you don't like! Your change should not break the existing code.
 
-If you're adding a new functionality, start from the branch **master**. It would be a better practice to create a new branch and work in there.
+If you're adding a new functionality, start from the branch **main**. It would be a better practice to create a new branch and work in there.
 
 When you're done, submit a pull request for one of the maintainers to check it out. We would let you know if there is any problem or any changes that should be considered.
 
