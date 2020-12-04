@@ -19,6 +19,7 @@
 //! [tokio_updating] for examples of dynamic output generation using different runtimes
 
 #![allow(unused_imports)]
+#![allow(dead_code)]
 
 mod utils;
 use std::sync::{Arc, Mutex};
