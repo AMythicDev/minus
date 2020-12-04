@@ -13,22 +13,23 @@ Minus was started by me as my work on pijul. I had dissatisfaction with all exis
 * Moins
     * The output could only be defined once and for all. It is not asynchronous and does not support updating
 
-## Installation
+## Usage
 * If you use `tokio` for your application, use the `tokio_lib` feature
 * If you use `async_std` for your application, use the `async_std_lib` feature
 * If you only want too show static information, use `static_output` feature
 
 In your `Cargo.toml` file
 ```toml
-[dependencies]
+[dependencies.minus]
+version = "^1.0" 
 # For tokio
-minus = { version = "1.0.1" , features = ["tokio_lib"] }
+features = ["tokio_lib"]
 
 # For async_std
-minus = { version = "1.0.1", features = ["async_std_lib"] }
+features = ["async_std_lib"]
 
 # For static output
-minus = { version = "1.0.1", features = ["static_output"] }
+features = ["static_output"]
 ```
 
 ## Example
@@ -104,5 +105,7 @@ data and quit. This only works in static paging only
 ## Contributing
 Issues, pull requests are more than welcome
 Unless explicitly stated otherwise, all works to minus are dual licensed under the MIT and Apache License 2.0
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to minus
 
 See the licenses in their respective files

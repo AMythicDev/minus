@@ -30,7 +30,7 @@ use std::io::Write;
 pub fn page_all(lines: String) {
     // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size().unwrap();
-    let rows = rows as usize;
+    let mut rows = rows as usize;
 
     // If the number of lines in the output is less than the number of rows
     // then print it and quit
@@ -93,7 +93,7 @@ pub fn page_all(lines: String) {
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
+                    draw(lines.clone(), rows, &mut upper_mark)
                 }
                 _ => {}
             }
