@@ -90,6 +90,11 @@ pub fn page_all(lines: String) {
                     }
                     draw(lines.clone(), rows, &mut upper_mark)
                 }
+                // When terminal is resized, update the rows and redraw
+                Event::Resize(_, height) => {
+                    rows = height as usize;
+                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
+                }
                 _ => {}
             }
         }

@@ -17,7 +17,7 @@ fn init(mutex: Lines) {
 
     // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size().unwrap();
-    let rows = rows as usize;
+    let mut rows = rows as usize;
     // The upper mark of scrolling
     let mut upper_mark = 0 as usize;
     // Copy of the last displayed string
@@ -75,6 +75,11 @@ fn init(mutex: Lines) {
                     if upper_mark != 0 {
                         upper_mark -= 1;
                     }
+                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
+                }
+                // When terminal is resized, update the rows and redraw
+                Event::Resize(_, height) => {
+                    rows = height as usize;
                     draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
                 }
                 _ => {}
