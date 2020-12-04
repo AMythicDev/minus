@@ -22,10 +22,10 @@ In your `Cargo.toml` file
 ```toml
 [dependencies]
 # For tokio
-minus = { version = "1.0.0" , features = ["tokio_lib"] }
+minus = { version = "1.0.1" , features = ["tokio_lib"] }
 
 # For async_std
-minus = { version = "1.0.0", features = ["async_std_lib"] }
+minus = { version = "1.0.1", features = ["async_std_lib"] }
 
 # For static output
 minus = { version = "1.0.0", features = ["static_output"] }
