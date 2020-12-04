@@ -105,4 +105,6 @@ data and quit. This only works in static paging only
 Issues, pull requests are more than welcome
 Unless explicitly stated otherwise, all works to minus are dual licensed under the MIT and Apache License 2.0
 
+See [CONTRIBUTING.md] on how to contribute to minus
+
 See the licenses in their respective files
