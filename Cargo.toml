@@ -3,6 +3,11 @@ name = "minus"
 version = "1.0.0"
 authors = ["Arijit Dey <arijid79@gmail.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/arijit79/minus"
+description = "An asynchronous paging library for Rust"
+keywords = ["pager", "asynchronous", "dynamic", "less", "more"]
+categories = ["Text processing", "Command-line interface", "Asynchronous"]
 
 [dependencies]
 futures = "^0.3.8"
