@@ -8,11 +8,10 @@ use crossterm::{
 use std::io::stdout;
 use std::io::Write;
 
-/// Unimplemented
 /// Outputs static information
 ///
-///. Once called, string passed to this function can never be changed. If you want /
-// dynamic information, see [`async_std_updating`] and [`tokio_updating`]
+///. Once called, string passed to this function can never be changed. If you want
+/// dynamic information, see [`async_std_updating`] and [`tokio_updating`]
 ///
 /// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
 /// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
