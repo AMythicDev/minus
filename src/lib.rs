@@ -20,6 +20,8 @@
 
 #![allow(unused_imports)]
 #![allow(dead_code)]
+#![deny(clippy::all)]
+#![warn(clippy::pedantic)]
 
 mod utils;
 use std::sync::{Arc, Mutex};
