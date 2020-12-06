@@ -19,7 +19,7 @@ fn init(mutex: Lines) {
     let (_, rows) = crossterm::terminal::size().unwrap();
     let mut rows = rows as usize;
     // The upper mark of scrolling
-    let mut upper_mark = 0 as usize;
+    let mut upper_mark = 0;
     // Copy of the last displayed string
     // Only needed when there is less data then the number of rows
     let mut last_copy = String::new();

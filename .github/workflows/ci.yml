@@ -51,3 +51,19 @@ jobs:
       run: cargo check --example=dyn_async_std --features=async_std_lib
     - name: Static
       run: cargo check --example=static --features=static_output
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+          profile: minimal
+          components: clippy
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features

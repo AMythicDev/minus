@@ -34,7 +34,7 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     // Clear the screen and place cursor at the very top left
     print!("{}{}", Clear(ClearType::All), MoveTo(0, 0));
 
-    if LINE_NUMBERS == false {
+    if !LINE_NUMBERS {
         // Join the range with \n\r
         let format_lines = range.join("\n\r");
         // Write the text, make sure to \r before and after output for
