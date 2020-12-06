@@ -35,8 +35,9 @@ fn init(mutex: &Lines) {
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
         if !string.eq(&last_copy) {
-            draw(&string, rows, &mut upper_mark.clone());
-            // Update the last copy, cloning here because string is inside MutexGuard
+            // FIXME(poliorcetics): handle unused Result.
+            let _ = draw(string.clone(), rows, &mut upper_mark.clone());
+            // Update the last copy, cloning here becaue string is inside MutexGuard
             last_copy = string.clone();
         }
         // Drop the string
@@ -65,20 +66,25 @@ fn init(mutex: &Lines) {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
+                    // FIXME(poliorcetics): handle unused Result.
+                    let _ = draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark);
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
                 }) => {
-                    upper_mark = upper_mark.saturating_sub(1);
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
+                    if upper_mark != 0 {
+                        upper_mark -= 1;
+                    }
+                    // FIXME(poliorcetics): handle unused Result.
+                    let _ = draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark);
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
+                    // FIXME(poliorcetics): handle unused Result.
+                    let _ = draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark);
                 }
                 _ => {}
             }

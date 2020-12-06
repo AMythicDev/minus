@@ -21,29 +21,25 @@ const LINE_NUMBERS: LineNumbers = LineNumbers::No;
 /// this).
 ///
 /// It will no wrap long lines.
-pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
-    let mut stdout = io::stdout();
+pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) -> io::Result<()> {
+    let stdout = io::stdout();
     let mut out = stdout.lock();
 
     // Clear the screen and place cursor at the very top left.
-    // FIXME(poliorcetics): handle result.
-    let _ = write!(&mut out, "{}{}", Clear(ClearType::All), MoveTo(0, 0));
+    write!(&mut out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    // FIXME(poliorcetics): handle result.
-    let _ = write_lines(&mut out, &lines, rows, upper_mark, LINE_NUMBERS);
+    write_lines(&mut out, &lines, rows, upper_mark, LINE_NUMBERS)?;
 
-    // Display the prompt
-    // FIXME(poliorcetics): handle result.
-    let _ = write!(
+    // Display the prompt.
+    write!(
         &mut out,
         "{}{}Press q or Ctrl+C to quit{}",
         MoveTo(0, rows as u16),
         Attribute::Reverse,
         Attribute::Reset,
-    );
+    )?;
 
-    drop(out);
-    let _ = stdout.flush();
+    out.flush()
 }
 
 /// Writes the given `lines` to the given `out`put.

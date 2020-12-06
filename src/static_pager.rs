@@ -1,17 +1,18 @@
 use crate::utils::draw;
+
 use crossterm::{
     cursor::{Hide, Show},
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::io::stdout;
-use std::io::Write;
+
+use std::io::{stdout, Write};
 
 /// Outputs static information
 ///
-///. Once called, string passed to this function can never be changed. If you want
-/// dynamic information, see [`async_std_updating`] and [`tokio_updating`]
+///. Once called, string passed to this function can never be changed. If you
+/// want dynamic information, see [`async_std_updating`] and [`tokio_updating`].
 ///
 /// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
 /// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
@@ -50,7 +51,8 @@ pub fn page_all(lines: &str) {
     let mut upper_mark = 0;
 
     // Draw at the very beginning
-    draw(&lines, rows, &mut upper_mark);
+    // FIXME(poliorcetics): handle unused Result.
+    let _ = draw(lines.clone(), rows, &mut upper_mark);
 
     loop {
         if poll(std::time::Duration::from_millis(10)).unwrap() {
@@ -75,20 +77,25 @@ pub fn page_all(lines: &str) {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    draw(&lines, rows, &mut upper_mark)
+                    // FIXME(poliorcetics): handle unused Result.
+                    let _ = draw(lines.clone(), rows, &mut upper_mark);
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
                 }) => {
-                    upper_mark = upper_mark.saturating_sub(1);
-                    draw(&lines, rows, &mut upper_mark)
+                    if upper_mark != 0 {
+                        upper_mark -= 1;
+                    }
+                    // FIXME(poliorcetics): handle unused Result.
+                    let _ = draw(lines.clone(), rows, &mut upper_mark);
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    draw(&lines, rows, &mut upper_mark)
+                    // FIXME(poliorcetics): handle unused Result.
+                    let _ = draw(lines.clone(), rows, &mut upper_mark);
                 }
                 _ => {}
             }
