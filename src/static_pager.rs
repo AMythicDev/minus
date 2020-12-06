@@ -18,13 +18,11 @@ use std::io::Write;
 ///
 /// ## Example
 /// ```
-/// fn main() {
 ///     let mut output = String::new();
 ///     for i in 1..=30 {
 ///         let _ = writeln!(output, "{}", i);
 ///     }
 ///     minus::page_all(output);
-/// }
 /// ```
 pub fn page_all(lines: String) {
     // Get terminal rows and convert it to usize
@@ -34,7 +32,7 @@ pub fn page_all(lines: String) {
     // If the number of lines in the output is less than the number of rows
     // then print it and quit
     {
-        let range: Vec<&str> = lines.split_terminator("\n").collect();
+        let range: Vec<&str> = lines.split_terminator('\n').collect();
         if rows > range.len() {
             for line in range {
                 println!("{}", line);
@@ -49,7 +47,7 @@ pub fn page_all(lines: String) {
     let _ = execute!(stdout(), Hide);
 
     // The upper mark of scrolling
-    let mut upper_mark = 0 as usize;
+    let mut upper_mark = 0;
 
     // Draw at the very beginning
     draw(lines.clone(), rows, &mut upper_mark);
