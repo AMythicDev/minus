@@ -1,11 +1,11 @@
-//! Minus is a library for creating paged output for othe terminal based
+//! Minus is a library for creating paged output for other terminal based
 //! applications. It is threaded as well as asynchronous, which means your
 //! applications can give dynamic information. It is also cross-platform
 //! which means your applications are assured to be 100% compatible with all OSs
 //!
 //! ## Why use minus
 //! * Pager runs in a separate thread which is asynchronous
-//! * Works with both tokio and async_std, these are individual features you can
+//! * Works with both tokio and `async_std`, these are individual features you can
 //! enable. So you are confirmed that you don't put bloat in your software
 //! * Completely cross-platform
 //!
@@ -15,8 +15,8 @@
 //! * `static_output`: Enable this if you only want to page static data
 //!
 //! ## Examples
-//! See [page_all] for static output examples or [async_std_updating] and
-//! [tokio_updating] for examples of dynamic output generation using different runtimes
+//! See [`page_all`] for static output examples or [`async_std_updating`] and
+//! [`tokio_updating`] for examples of dynamic output generation using different runtimes
 
 #![allow(unused_imports)]
 #![allow(dead_code)]

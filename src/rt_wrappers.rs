@@ -9,7 +9,7 @@ use crossterm::{
 use std::io::{prelude::*, stdout};
 use std::time::Duration;
 
-fn init(mutex: Lines) {
+fn init(mutex: &Lines) {
     // Initialize the terminal
     let _ = execute!(stdout(), EnterAlternateScreen);
     let _ = enable_raw_mode();
@@ -35,8 +35,8 @@ fn init(mutex: Lines) {
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
         if !string.eq(&last_copy) {
-            draw(string.clone(), rows, &mut upper_mark.clone());
-            // Update the last copy, cloning here becaue string is inside MutexGuard
+            draw(&string, rows, &mut upper_mark.clone());
+            // Update the last copy, cloning here because string is inside MutexGuard
             last_copy = string.clone();
         }
         // Drop the string
@@ -65,22 +65,20 @@ fn init(mutex: Lines) {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
                 }) => {
-                    if upper_mark != 0 {
-                        upper_mark -= 1;
-                    }
-                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
+                    upper_mark = upper_mark.saturating_sub(1);
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark)
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)
                 }
                 _ => {}
             }
@@ -112,7 +110,7 @@ fn init(mutex: Lines) {
 ///             let mut guard = output.lock().unwrap();
 ///             // Always use writeln to add a \n after the line
 ///             writeln!(guard, "{}", i);
-///             // If you have furthur asynchronous blocking code, drop the borrow here
+///             // If you have further asynchronous blocking code, drop the borrow here
 ///             drop(guard);
 ///             // Some asynchronous blocking code
 ///             sleep(Duration::new(1,0)).await;
@@ -123,7 +121,7 @@ fn init(mutex: Lines) {
 /// ```
 /// **Please do note that you should never lock the output data, since this will cause
 /// the paging thread to be paused. Only borrow it when it is required and drop it
-/// if you have furthur asynchronous blocking code**
+/// if you have further asynchronous blocking code**
 ///
 /// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
 /// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
@@ -131,7 +129,7 @@ fn init(mutex: Lines) {
 pub async fn tokio_updating(mutex: Lines) {
     use tokio::task;
     task::spawn(async move {
-        init(mutex);
+        init(&mutex);
     });
 }
 
@@ -156,7 +154,7 @@ pub async fn tokio_updating(mutex: Lines) {
 ///         for i in 1..=100 {
 ///             let mut guard = output.lock().unwrap();
 ///             guard.push_str(&i.to_string());
-///             // If you have furthur asynchronous blocking code, drop the borrow here
+///             // If you have further asynchronous blocking code, drop the borrow here
 ///             drop(guard);
 ///             // Some asynchronous blocking code
 ///             async_std::task::sleep(Duration::new(1,0)).await;
@@ -167,7 +165,7 @@ pub async fn tokio_updating(mutex: Lines) {
 /// ```
 /// **Please do note that you should never lock the output data, since this will cause
 /// the paging thread to be paused. Only borrow it when it is required and drop it
-/// if you have furthur asynchronous blocking code**
+/// if you have further asynchronous blocking code**
 ///
 /// [`async_std task`]: async_std::task
 /// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
@@ -177,7 +175,7 @@ pub async fn tokio_updating(mutex: Lines) {
 pub async fn async_std_updating(mutex: Lines) {
     use async_std::task;
     task::spawn(async move {
-        init(mutex);
+        init(&mutex);
     })
     .await;
 }
