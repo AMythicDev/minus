@@ -1,3 +1,4 @@
+//! See the [`draw`] function exposed by this module.
 use crossterm::{
     cursor::MoveTo,
     style::Attribute,
@@ -11,11 +12,20 @@ use std::{
 
 const LINE_NUMBERS: LineNumbers = LineNumbers::No;
 
+/// Draws (at most) `rows` `lines`, where the first line to display is
+/// `upper_mark`. This function will always try to display as much lines as
+/// possible within `rows`.
+///
+/// If the total number of lines is less than `rows`, they will all be
+/// displayed, regardless of `upper_mark` (which will be updated to reflect
+/// this).
+///
+/// It will no wrap long lines.
 pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     let mut stdout = io::stdout();
     let mut out = stdout.lock();
 
-    // Clear the screen and place cursor at the very top left
+    // Clear the screen and place cursor at the very top left.
     // FIXME(poliorcetics): handle result.
     let _ = write!(&mut out, "{}{}", Clear(ClearType::All), MoveTo(0, 0));
 
@@ -36,9 +46,9 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     let _ = stdout.flush();
 }
 
-/// Writes the given lines to the given `out`put.
+/// Writes the given `lines` to the given `out`put.
 ///
-/// - `rows` is the number of lines the `out`put can display at once.
+/// - `rows` is the maximum number of lines to display at once.
 /// - `upper_mark` is the index of the first line to display.
 ///
 /// Lines should be separated by `\n` and `\r\n`.
@@ -78,13 +88,12 @@ fn write_lines(
     match numbers {
         LineNumbers::No => {
             for line in lines {
-                // println!("\r{}\r", format_lines);
-                writeln!(out, "{}", line)?;
+                writeln!(out, "\r{}", line)?;
             }
         }
         LineNumbers::Yes => {
             let max_line_number = lower_mark + *upper_mark + 1;
-            // Compute the length as a string without allocating.
+            // Compute the length of a number as a string without allocating.
             let len_line_number = (max_line_number as f64).log10().floor() as usize + 1;
             debug_assert_eq!(max_line_number.to_string().len(), len_line_number);
 
