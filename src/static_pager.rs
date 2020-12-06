@@ -52,7 +52,7 @@ pub fn page_all(lines: &str) {
 
     // Draw at the very beginning
     // FIXME(poliorcetics): handle unused Result.
-    let _ = draw(lines.clone(), rows, &mut upper_mark);
+    let _ = draw(lines.into(), rows, &mut upper_mark);
 
     loop {
         if poll(std::time::Duration::from_millis(10)).unwrap() {
@@ -78,7 +78,7 @@ pub fn page_all(lines: &str) {
                 }) => {
                     upper_mark += 1;
                     // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(lines.clone(), rows, &mut upper_mark);
+                    let _ = draw(lines.into(), rows, &mut upper_mark);
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
@@ -89,13 +89,13 @@ pub fn page_all(lines: &str) {
                         upper_mark -= 1;
                     }
                     // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(lines.clone(), rows, &mut upper_mark);
+                    let _ = draw(lines.into(), rows, &mut upper_mark);
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
                     // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(lines.clone(), rows, &mut upper_mark);
+                    let _ = draw(lines.into(), rows, &mut upper_mark);
                 }
                 _ => {}
             }
