@@ -10,21 +10,21 @@ use std::sync::MutexGuard;
 
 const LINE_NUMBERS: bool = false;
 
-pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
+pub(crate) fn draw(lines: &str, rows: usize, upper_mark: &mut usize) {
     // Split the String on each \n
     let lines: Vec<&str> = lines.split_terminator('\n').collect();
     // Calculate the lower mark
     let mut lower_mark = *upper_mark + rows - 1;
 
-    // Do some necessory checking
-    // Lower mark should not be more than the lenght of lines vector
+    // Do some necessary checking
+    // Lower mark should not be more than the length of lines vector
     if lower_mark >= lines.len() {
         lower_mark = lines.len();
         // If the length of lines is less than the number of rows, set upper_mark = 0
         *upper_mark = if lines.len() < rows {
             0
         } else {
-            // Otherwise, set upper_mark to lenght of lines - rows
+            // Otherwise, set upper_mark to length of lines - rows
             lines.len() - rows
         };
     }
@@ -34,14 +34,8 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
     // Clear the screen and place cursor at the very top left
     print!("{}{}", Clear(ClearType::All), MoveTo(0, 0));
 
-    if !LINE_NUMBERS {
-        // Join the range with \n\r
-        let format_lines = range.join("\n\r");
-        // Write the text, make sure to \r before and after output for
-        // correct cursor placement before/after output
-        println!("\r{}\r", format_lines);
-    } else {
-        // Wrtee each line of the output to the String
+    if LINE_NUMBERS {
+        // Write each line of the output to the String
         let mut output = String::new();
         for (index, line) in range.iter().enumerate() {
             // Put the output to output variable
@@ -51,6 +45,12 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) {
         // Printing each line to terminal can be slow, so write the data to a variable and finally flush it
         print!("{}", output);
         let _ = std::io::stdout().flush();
+    } else {
+        // Join the range with \n\r
+        let format_lines = range.join("\n\r");
+        // Write the text, make sure to \r before and after output for
+        // correct cursor placement before/after output
+        println!("\r{}\r", format_lines);
     }
 
     // Display the prompt
