@@ -65,4 +65,5 @@ jobs:
           components: clippy
       - uses: actions-rs/cargo@v1
         with:
-          command: clippy --all-features
+          command: clippy
+          args: --all-features
