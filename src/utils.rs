@@ -100,7 +100,7 @@ fn write_lines(
             for (idx, line) in lines.enumerate() {
                 writeln!(
                     out,
-                    "{number: >len$}. {line}",
+                    "\r{number: >len$}. {line}",
                     number = *upper_mark + idx + 1,
                     len = len_line_number,
                     line = line
