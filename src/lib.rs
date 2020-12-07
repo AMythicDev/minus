@@ -41,7 +41,7 @@ mod static_pager;
 /// An atomically reference counted string of all output for the pager
 pub type Lines = Arc<Mutex<String>>;
 
-pub use error::{Error, Result};
+pub use error::{Error, Result, TermError};
 
 #[cfg(feature = "tokio_lib")]
 pub use rt_wrappers::tokio_updating;

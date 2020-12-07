@@ -1,6 +1,4 @@
 //! See [`Error`] and [`Result`].
-use crossterm;
-
 use std::fmt;
 use std::io;
 
@@ -42,6 +40,7 @@ impl fmt::Display for Error {
 /// You can get more informations about this error by calling
 /// [`source`](std::error::Error::source) on it.
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct TermError(
     // This member is private to avoid leaking the crossterm error type up the
     // dependency chain.
