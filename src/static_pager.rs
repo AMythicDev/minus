@@ -1,5 +1,6 @@
 //! Static information output, see [`page_all`].
 use crate::utils::draw;
+use crate::Result;
 
 use crossterm::{
     cursor::{Hide, Show},
@@ -18,22 +19,31 @@ use std::io::{stdout, Write};
 /// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
 /// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
 ///
+/// ## Errors
+///
+/// Several operations can fail when outputting information to a terminal, see
+/// the [`Result`](crate::Resut) type.
+///
 /// ## Example
 ///
 /// ```
-/// let mut output = String::new();
-/// for i in 1..=30 {
-///     let _ = writeln!(output, "{}", i);
+/// fn main() -> minus::Result {
+///     let mut output = string::new();
+///     for i in 1..=30 {
+///         let _ = writeln!(output, "{}", i);
+///     }
+///     minus::page_all(output)
 /// }
-/// minus::page_all(output);
 /// ```
-pub fn page_all(lines: &str) {
+pub fn page_all(lines: &str) -> Result {
     // Get terminal rows and convert it to usize
-    let (_, rows) = crossterm::terminal::size().unwrap();
+    let (_, rows) = crossterm::terminal::size()?;
     let mut rows = rows as usize;
 
     // If the number of lines in the output is less than the number of rows
     // then print it and quit
+    // FIXME(poliorcetics): use `draw` here for improved performance and avoid
+    // code duplication.
     {
         let range: Vec<&str> = lines.split_terminator('\n').collect();
         if rows > range.len() {
@@ -45,17 +55,15 @@ pub fn page_all(lines: &str) {
     }
 
     // Initialize the terminal
-    // FIXME(poliorcetics): handle unused Result.
-    let _ = execute!(stdout(), EnterAlternateScreen);
-    let _ = enable_raw_mode();
-    let _ = execute!(stdout(), Hide);
+    execute!(stdout(), EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    execute!(stdout(), Hide)?;
 
     // The upper mark of scrolling
     let mut upper_mark = 0;
 
     // Draw at the very beginning
-    // FIXME(poliorcetics): handle unused Result.
-    let _ = draw(lines.into(), rows, &mut upper_mark);
+    draw(lines, rows, &mut upper_mark)?;
 
     loop {
         if poll(std::time::Duration::from_millis(10)).unwrap() {
@@ -69,10 +77,10 @@ pub fn page_all(lines: &str) {
                     code: KeyCode::Char('c'),
                     modifiers: KeyModifiers::CONTROL,
                 }) => {
-                    let _ = execute!(stdout(), LeaveAlternateScreen);
-                    let _ = disable_raw_mode();
-                    let _ = execute!(stdout(), Show);
-                    std::process::exit(0);
+                    execute!(stdout(), LeaveAlternateScreen)?;
+                    disable_raw_mode()?;
+                    execute!(stdout(), Show)?;
+                    return Ok(());
                 }
                 // If Down arrow is pressed, add 1 to the marker and update the string
                 Event::Key(KeyEvent {
@@ -80,25 +88,20 @@ pub fn page_all(lines: &str) {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(lines.into(), rows, &mut upper_mark);
+                    draw(lines, rows, &mut upper_mark)?;
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
                 }) => {
-                    if upper_mark != 0 {
-                        upper_mark -= 1;
-                    }
-                    // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(lines.into(), rows, &mut upper_mark);
+                    upper_mark = upper_mark.saturating_sub(1);
+                    draw(lines, rows, &mut upper_mark)?;
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(lines.into(), rows, &mut upper_mark);
+                    draw(lines, rows, &mut upper_mark)?;
                 }
                 _ => {}
             }
