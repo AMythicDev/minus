@@ -15,6 +15,11 @@ pub enum Error {
     IoError(io::Error),
     /// An operation on the terminal failed, for example resizing it.
     TermError(TermError),
+    /// The task panicked or was cancelled.
+    ///
+    /// Gated on the `tokio_lib` feature.
+    #[cfg(feature = "tokio_lib")]
+    JoinError(tokio::task::JoinError),
 }
 
 impl std::error::Error for Error {
@@ -22,6 +27,8 @@ impl std::error::Error for Error {
         match self {
             Self::IoError(e) => Some(e),
             Self::TermError(e) => e.source(),
+            #[cfg(feature = "tokio_lib")]
+            Self::JoinError(e) => Some(e),
         }
     }
 }
@@ -31,6 +38,8 @@ impl fmt::Display for Error {
         match self {
             Self::IoError(e) => write!(fmt, "IO-error occurred: {}", e),
             Self::TermError(e) => write!(fmt, "Operation on terminal failed: {}", e),
+            #[cfg(feature = "tokio_lib")]
+            Self::JoinError(e) => write!(fmt, "Join error: {}", e),
         }
     }
 }
@@ -69,8 +78,10 @@ macro_rules! impl_from {
     };
 }
 
-impl_from!(io::Error, Error::IoError);
-impl_from!(TermError, Error::TermError);
+impl_from!(::std::io::Error, crate::Error::IoError);
+impl_from!(crate::TermError, crate::Error::TermError);
+#[cfg(feature = "tokio_lib")]
+impl_from!(::tokio::task::JoinError, crate::Error::JoinError);
 
 impl From<crossterm::ErrorKind> for crate::Error {
     fn from(e: crossterm::ErrorKind) -> Self {
