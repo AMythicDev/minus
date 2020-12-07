@@ -11,6 +11,7 @@ use std::time::Duration;
 
 fn init(mutex: &Lines) {
     // Initialize the terminal
+    // FIXME(poliorcetics): handle unused Result.
     let _ = execute!(stdout(), EnterAlternateScreen);
     let _ = enable_raw_mode();
     let _ = execute!(stdout(), Hide);
