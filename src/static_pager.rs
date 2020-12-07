@@ -22,17 +22,22 @@ use std::io::{stdout, Write};
 /// ## Errors
 ///
 /// Several operations can fail when outputting information to a terminal, see
-/// the [`Result`](crate::Resut) type.
+/// the [`Result`] type.
 ///
 /// ## Example
 ///
 /// ```
-/// fn main() -> minus::Result {
-///     let mut output = string::new();
+/// use std::fmt::Write;
+/// 
+/// fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
+///     let mut output = String::new();
+/// 
 ///     for i in 1..=30 {
-///         let _ = writeln!(output, "{}", i);
+///         writeln!(output, "{}", i)?;
 ///     }
-///     minus::page_all(output)
+/// 
+///     minus::page_all(&output)?;
+///     Ok(())
 /// }
 /// ```
 pub fn page_all(lines: &str) -> Result {
@@ -108,3 +113,5 @@ pub fn page_all(lines: &str) -> Result {
         }
     }
 }
+
+
