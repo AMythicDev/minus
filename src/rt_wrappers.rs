@@ -1,11 +1,13 @@
 use crate::utils::draw;
 use crate::Lines;
+
 use crossterm::{
     cursor::{Hide, Show},
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+
 use std::io::{prelude::*, stdout};
 use std::time::Duration;
 
@@ -93,21 +95,24 @@ fn init(mutex: &Lines) {
     }
 }
 
-/// Run the pager inside a [`tokio task`](tokio::task)
+/// Run the pager inside a [`tokio task`](tokio::task).
 ///
-/// This function is only available when `tokio_lib` feature is enabled
-/// It takes a [`Lines`] and updates the page with new information when Lines
-/// is updated
+/// This function is only available when `tokio_lib` feature is enabled.
+/// It takes a [`Lines`] and updates the page with new information when `Lines`
+/// is updated.
 ///
-/// This function switches to the [`Alternate Screen`] of the TTY and
-/// switches to [`raw mode`]
+/// This function switches to the [`Alternate Screen`] of the TTY and switches
+/// to [`raw mode`].
+///
 /// ## Example
+///
 /// ```
-/// use std::sync::{Arc, Mutex};
 /// use futures::join;
-/// use std::fmt::Write;
-/// use std::time::Duration;
 /// use tokio::time::sleep;
+///
+/// use std::fmt::Write;
+/// use std::sync::{Arc, Mutex};
+/// use std::time::Duration;
 ///
 /// #[tokio::main]
 /// async fn main() {
@@ -126,12 +131,13 @@ fn init(mutex: &Lines) {
 ///    join!(minus::tokio_updating(output.clone()), push_data);
 /// }
 /// ```
-/// **Please do note that you should never lock the output data, since this will cause
-/// the paging thread to be paused. Only borrow it when it is required and drop it
-/// if you have further asynchronous blocking code**
 ///
-/// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
-/// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
+/// **Please do note that you should never lock the output data, since this
+/// will cause the paging thread to be paused. Only borrow it when it is
+/// required and drop it if you have further asynchronous blocking code.**
+///
+/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
+/// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "tokio_lib")]
 pub async fn tokio_updating(mutex: Lines) {
     use tokio::task;
@@ -140,18 +146,21 @@ pub async fn tokio_updating(mutex: Lines) {
     });
 }
 
-/// Initialize a updating pager inside a [`async_std task`]
+/// Initialize a updating pager inside an [`async_std task`].
 ///
 /// This function is only available when `async_std_lib` feature is enabled
-/// It takes a [`Lines`] and updates the page with new information when Lines
-/// is updated
-/// This function switches to the [`Alternate Screen`] of the TTY and
-/// switches to [`raw mode`]
+/// It takes a [`Lines`] and updates the page with new information when `Lines`
+/// is updated.
+///
+/// This function switches to the [`Alternate Screen`] of the TTY and switches
+/// to [`raw mode`].
 ///
 /// ## Example
+///
 /// ```
-/// use std::sync::{Arc, Mutex};
 /// use futures::join;
+///
+/// use std::sync::{Arc, Mutex};
 /// use std::time::Duration;
 ///
 /// #[async_std::main]
@@ -170,14 +179,14 @@ pub async fn tokio_updating(mutex: Lines) {
 ///    join!(minus::async_std_updating(output.clone()), push_data);
 /// }
 /// ```
-/// **Please do note that you should never lock the output data, since this will cause
-/// the paging thread to be paused. Only borrow it when it is required and drop it
-/// if you have further asynchronous blocking code**
+///
+/// **Please do note that you should never lock the output data, since this
+/// will cause the paging thread to be paused. Only borrow it when it is
+/// required and drop it if you have further asynchronous blocking code.**
 ///
 /// [`async_std task`]: async_std::task
-/// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
-/// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
-/// [`Lines`]: Lines
+/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
+/// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "async_std_lib")]
 pub async fn async_std_updating(mutex: Lines) {
     use async_std::task;

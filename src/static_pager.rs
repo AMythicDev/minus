@@ -1,3 +1,4 @@
+//! Static information output, see [`page_all`].
 use crate::utils::draw;
 
 use crossterm::{
@@ -9,21 +10,22 @@ use crossterm::{
 
 use std::io::{stdout, Write};
 
-/// Outputs static information
+/// Outputs static information.
 ///
-///. Once called, string passed to this function can never be changed. If you
+/// Once called, the `&str` passed to this function can never be changed. If you
 /// want dynamic information, see [`async_std_updating`] and [`tokio_updating`].
 ///
 /// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
 /// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
 ///
 /// ## Example
+///
 /// ```
-///     let mut output = String::new();
-///     for i in 1..=30 {
-///         let _ = writeln!(output, "{}", i);
-///     }
-///     minus::page_all(output);
+/// let mut output = String::new();
+/// for i in 1..=30 {
+///     let _ = writeln!(output, "{}", i);
+/// }
+/// minus::page_all(output);
 /// ```
 pub fn page_all(lines: &str) {
     // Get terminal rows and convert it to usize
