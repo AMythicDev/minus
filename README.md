@@ -1,24 +1,39 @@
 # minus
-A fast, asynchronous terminal paging library for Rust. Minus provides a high level functions to easily write a pager for any terminal application
-Due to the asynchronous nature, data to the pager can be **updated**. It supports both tokio as well as async-std runtimes.
-Plus if you only to use minus for serving static output, you can simply opt out of
-these dynamic features
 
-Minus was started by me as my work on pijul. I had dissatisfaction with all existing options like *pager* and *moins*
+A fast, asynchronous terminal paging library for Rust. `minus` provides high
+level functionalities to easily write a pager for any terminal application. Due
+to the asynchronous nature of `minus`, the pager's data can be **updated**.
 
-* Pager:-
-    * Only provides functions to join the standard output of the current program to the standard input of external pager like `more` or `less`
-    * Due to this, for functioning in Windows, the external pagers need to be packaged along with the executable
+`minus` supports both [`tokio`] as well as [`async-std`] runtimes. What's more,
+if you only want to use `minus` for serving static output, you can simply opt
+out of these dynamic features, see the **Usage** section below.
 
-* Moins
-    * The output could only be defined once and for all. It is not asynchronous and does not support updating
+## Why this crate ?
+
+`minus` was started by me for my work on [`pijul`]. I was unsatisfied with the 
+existing options like `pager` and `moins`.
+
+* `pager`:
+    * Only provides functions to join the standard output of the current
+      program to the standard input of external pager like `more` or `less`.
+    * Due to this, to work within Windows, the external pagers need to be
+      packaged along with the executable.
+
+* `moins`:
+    * The output could only be defined once and for all. It is not asynchronous
+      and does not support updating.
+
+[`tokio`]: https://crates.io/crates/tokio
+[`async-std`]: https://crates.io/crates/async-std
 
 ## Usage
-* If you use `tokio` for your application, use the `tokio_lib` feature
-* If you use `async_std` for your application, use the `async_std_lib` feature
-* If you only want too show static information, use `static_output` feature
 
-In your `Cargo.toml` file
+* Using [`tokio`] for your application ? Use the `tokio_lib` feature.
+* Using [`async_std`] for your application ? Use the `async_std_lib` feature.
+* Using only static information ? Use the `static_output` feature.
+
+In your `Cargo.toml` file:
+
 ```toml
 [dependencies.minus]
 version = "^1.0" 
@@ -32,80 +47,106 @@ features = ["async_std_lib"]
 features = ["static_output"]
 ```
 
-## Example
-Using tokio
+## Examples
 
-``` rust
-use tokio::main;
-use futures::join;
-use std::sync::{Arc, Mutex};
+All examples are available in the `examples` directory and you can run them
+using `cargo`. Remember to set the correct feature for the targeted example
+(e.g.: `cargo run --example=dyn_tokio --features=tokio_lib`).
 
-#[main]
-async fn main() {
-    let output = Arc::new(Mutex::new(String::new()));
-    // Asynchronously push numbers to a string
-    let increment = async {
-        for i in 0..100 {
-            let guard = output.lock().unwrap();
-            // Always use writeln to add a \n after the line
-            let _ = writeln!(output, "{}", guard);
-            // Drop here explicitly, if you have further asynchronous blocking code
-            drop(guard);
-            // Some asynchronous blocking code
-            tokio::task::sleep(std::Duration::new(1,0)).await;
-        }
-    }
-    join!(minus::tokio_updating(output.clone()), increment);
-}
-```
-
-Using async_std
+Using [`tokio`]:
 
 ```rust
-use async_std::main;
 use futures::join;
+use tokio::time::sleep;
+
+use std::fmt::Write;
 use std::sync::{Arc, Mutex};
-use std::fmt::Write;
+use std::time::Duration;
 
-#[main]
-async fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = Arc::new(Mutex::new(String::new()));
-    // Asynchronously push numbers to a string
+
     let increment = async {
-        for i in 0..100 {
-            let guard = output.lock().unwrap();
-            // Always use writeln to add a \n after the line
-            let _ = writeln!(output, "{}", guard);
-            // Drop here explicitly, if you have further asynchronous blocking code
-            drop(guard);
-            // Some asynchronous blocking code
-            async_std::task::sleep(std::Duration::new(1,0)).await;
+        let mut counter: u8 = 0;
+        while counter <= 30 {
+            let mut output = output.lock().unwrap();
+            writeln!(output, "{}", counter.to_string())?;
+            counter += 1;
+            drop(output);
+            sleep(Duration::from_millis(100)).await;
         }
-    }
-    join!(minus::async_std_updating(output.clone()), increment);
+        Result::<_, std::fmt::Error>::Ok(())
+    };
+
+    let (res1, res2) = join!(minus::tokio_updating(output.clone()), increment);
+    res1?;
+    res2?;
+    Ok(())
 }
 ```
 
-Some static output
-``` rust
+Using [`async-std`]:
+
+```rust
+use async_std::task::sleep;
+use futures::join;
+
+use std::fmt::Write;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+#[async_std::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let output = Arc::new(Mutex::new(String::new()));
+
+    let increment = async {
+        let mut counter: u8 = 0;
+        while counter <= 30 {
+            let mut output = output.lock().unwrap();
+            writeln!(output, "{}", counter.to_string())?;
+            counter += 1;
+            drop(output);
+            sleep(Duration::from_millis(100)).await;
+        }
+        Result::<_, std::fmt::Error>::Ok(())
+    };
+
+    let (res1, res2) = join!(minus::async_std_updating(output.clone()), increment);
+    res1?;
+    res2?;
+    Ok(())
+}
+```
+
+Some static output:
+
+```rust
 use std::fmt::Write;
 
-fn main() {
+fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
     let mut output = String::new();
-    for i in 1..=100 {
-        let _ = writeln!(output, "{}", i);
+
+    for i in 1..=30 {
+        writeln!(output, "{}", i)?;
     }
-    minus::page_all(output);
+
+    minus::page_all(&output)?;
+    Ok(())
 }
 ```
 
-If there are more rows in the terminal than the number of lines in the given data. Minus will simply print the
-data and quit. This only works in static paging only
+If there are more rows in the terminal than the number of lines in the given
+data, `minus` will simply print the data and quit. This only works in static
+paging since asynchronous paging could still receive more data that makes it 
+pass the limit.
 
 ## Contributing
-Issues, pull requests are more than welcome
-Unless explicitly stated otherwise, all works to minus are dual licensed under the MIT and Apache License 2.0
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to minus
+Issues and pull requests are more than welcome. Unless explicitly stated
+otherwise, all works to `minus` are dual licensed under the MIT and Apache
+License 2.0.
 
-See the licenses in their respective files
+See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
+
+See the licenses in their respective files at the root of the project.
