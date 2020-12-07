@@ -12,23 +12,23 @@ pub type Result<T = (), E = Error> = std::result::Result<T, E>;
 #[derive(Debug)]
 pub enum Error {
     /// The error is an IO one, for example locking `stdout` failed.
-    IoError(io::Error),
+    Io(io::Error),
     /// An operation on the terminal failed, for example resizing it.
-    TermError(TermError),
+    Term(TermError),
     /// The task panicked or was cancelled.
     ///
     /// Gated on the `tokio_lib` feature.
     #[cfg(feature = "tokio_lib")]
-    JoinError(tokio::task::JoinError),
+    Join(tokio::task::JoinError),
 }
 
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::IoError(e) => Some(e),
-            Self::TermError(e) => e.source(),
+            Self::Io(e) => Some(e),
+            Self::Term(e) => e.source(),
             #[cfg(feature = "tokio_lib")]
-            Self::JoinError(e) => Some(e),
+            Self::Join(e) => Some(e),
         }
     }
 }
@@ -36,10 +36,10 @@ impl std::error::Error for Error {
 impl fmt::Display for Error {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::IoError(e) => write!(fmt, "IO-error occurred: {}", e),
-            Self::TermError(e) => write!(fmt, "Operation on terminal failed: {}", e),
+            Self::Io(e) => write!(fmt, "IO-error occurred: {}", e),
+            Self::Term(e) => write!(fmt, "Operation on terminal failed: {}", e),
             #[cfg(feature = "tokio_lib")]
-            Self::JoinError(e) => write!(fmt, "Join error: {}", e),
+            Self::Join(e) => write!(fmt, "Join error: {}", e),
         }
     }
 }
@@ -78,13 +78,13 @@ macro_rules! impl_from {
     };
 }
 
-impl_from!(::std::io::Error, crate::Error::IoError);
-impl_from!(crate::TermError, crate::Error::TermError);
+impl_from!(::std::io::Error, crate::Error::Io);
+impl_from!(crate::TermError, crate::Error::Term);
 #[cfg(feature = "tokio_lib")]
-impl_from!(::tokio::task::JoinError, crate::Error::JoinError);
+impl_from!(::tokio::task::JoinError, crate::Error::Join);
 
 impl From<crossterm::ErrorKind> for crate::Error {
     fn from(e: crossterm::ErrorKind) -> Self {
-        Self::TermError(TermError(e))
+        Self::Term(TermError(e))
     }
 }
