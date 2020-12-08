@@ -19,7 +19,12 @@ use std::{
 /// this).
 ///
 /// It will no wrap long lines.
-pub(crate) fn draw(lines: &str, rows: usize, upper_mark: &mut usize, ln: LineNumbers) -> io::Result<()> {
+pub(crate) fn draw(
+    lines: &str,
+    rows: usize,
+    upper_mark: &mut usize,
+    ln: LineNumbers,
+) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
 
@@ -124,9 +129,13 @@ fn write_lines(
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum LineNumbers {
+    /// Enable line numbers permanenetly, cannot be turned off by user
     Enabled,
+    /// Line numbers should be turned on, although users can turn it off
     Yes,
+    /// Line numbers should be turned off, although users can turn it on
     No,
+    /// Disable line numbers permanenetly, cannot be turned on by user
     Disabled,
 }
 

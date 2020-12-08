@@ -21,7 +21,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Result::<_, std::fmt::Error>::Ok(())
     };
 
-    let (res1, res2) = join!(minus::async_std_updating(output.clone(), minus::LineNumbers::Enabled), increment);
+    let (res1, res2) = join!(
+        minus::async_std_updating(output.clone(), minus::LineNumbers::No),
+        increment
+    );
     res1?;
     res2?;
     Ok(())

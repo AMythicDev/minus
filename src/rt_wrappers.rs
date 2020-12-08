@@ -2,8 +2,8 @@
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
 use crate::utils::draw;
-use crate::{Lines, Result};
 use crate::LineNumbers;
+use crate::{Lines, Result};
 
 use crossterm::{
     cursor::{Hide, Show},
@@ -139,7 +139,9 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 ///         Result::<_, std::fmt::Error>::Ok(())
 ///     };
 ///
-///     let (res1, res2) = join!(minus::tokio_updating(output.clone()), increment);
+///     let (res1, res2) = join!(minus::tokio_updating(
+///                output.clone(),
+///                minus::LineNumbers::Yes), increment);
 ///     res1?;
 ///     res2?;
 ///     Ok(())
@@ -198,7 +200,9 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 ///         Result::<_, std::fmt::Error>::Ok(())
 ///     };
 ///
-///     let (res1, res2) = join!(minus::async_std_updating(output.clone()), increment);
+///     let (res1, res2) = join!(minus::tokio_updating(
+///                output.clone(),
+///                minus::LineNumbers::Yes), increment);
 ///     res1?;
 ///     res2?;
 ///     Ok(())

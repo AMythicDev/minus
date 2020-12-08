@@ -36,7 +36,7 @@ use std::io::{stdout, Write};
 ///         writeln!(output, "{}", i)?;
 ///     }
 ///
-///     minus::page_all(&output)?;
+///     minus::page_all(&output, minus::LineNumbers::Yes)?;
 ///     Ok(())
 /// }
 /// ```
