@@ -153,9 +153,9 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 /// [`Alternate Screen`]: crossterm::terminal#alternate-screen
 /// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(mutex: Lines) -> Result {
+pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
     use tokio::task;
-    task::spawn(async move { init(&mutex) }).await?
+    task::spawn(async move { init(&mutex, ln) }).await?
 }
 
 /// Initialize a updating pager inside an [`async_std task`].

@@ -40,7 +40,7 @@ use std::io::{stdout, Write};
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str) -> Result {
+pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
     // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size()?;
     let mut rows = rows as usize;
@@ -68,7 +68,7 @@ pub fn page_all(lines: &str) -> Result {
     let mut upper_mark = 0;
 
     // Draw at the very beginning
-    draw(lines, rows, &mut upper_mark)?;
+    draw(lines, rows, &mut upper_mark, ln)?;
 
     loop {
         if poll(std::time::Duration::from_millis(10)).unwrap() {
@@ -93,7 +93,7 @@ pub fn page_all(lines: &str) -> Result {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    draw(lines, rows, &mut upper_mark)?;
+                    draw(lines, rows, &mut upper_mark, ln)?;
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
@@ -101,12 +101,12 @@ pub fn page_all(lines: &str) -> Result {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark = upper_mark.saturating_sub(1);
-                    draw(lines, rows, &mut upper_mark)?;
+                    draw(lines, rows, &mut upper_mark, ln)?;
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    draw(lines, rows, &mut upper_mark)?;
+                    draw(lines, rows, &mut upper_mark, ln)?;
                 }
                 _ => {}
             }
