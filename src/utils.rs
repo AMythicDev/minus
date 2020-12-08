@@ -185,12 +185,12 @@ fn write_lines(
         .take(lower_mark - *upper_mark);
 
     match ln {
-        LineNumbers::No | LineNumbers::Disabled => {
+        LineNumbers::AlwaysOff | LineNumbers::Disabled => {
             for line in lines {
                 writeln!(out, "\r{}", line)?;
             }
         }
-        LineNumbers::Yes | LineNumbers::Enabled => {
+        LineNumbers::AlwaysOn | LineNumbers::Enabled => {
             let max_line_number = lower_mark + *upper_mark + 1;
             #[allow(
                 clippy::cast_possible_truncation,
@@ -223,28 +223,38 @@ fn write_lines(
     Ok(())
 }
 
+/// Enum indicating whether to display the line numbers or not.
+///
+/// Note that displaying line numbers may be less performant than not doing it.
+/// `minus` tries to do as quickly as possible but the numbers and padding
+/// still have to be computed.
+///
+/// This implements [`Not`](std::ops::Not) to allow turning on/off line numbers
+/// when they where not locked in by the binary displaying the text.
 #[derive(PartialEq, Copy, Clone)]
 pub enum LineNumbers {
-    /// Enable line numbers permanenetly, cannot be turned off by user
-    Enabled,
+    /// Enable line numbers permanently, cannot be turned off by user.
+    AlwaysOn,
     /// Line numbers should be turned on, although users can turn it off
-    Yes,
+    /// (i.e, set it to `Disabled`).
+    Enabled,
     /// Line numbers should be turned off, although users can turn it on
-    No,
-    /// Disable line numbers permanenetly, cannot be turned on by user
+    /// (i.e, set it to `Enabled`).
     Disabled,
+    /// Disable line numbers permanently, cannot be turned on by user.
+    AlwaysOff,
 }
 
 impl std::ops::Not for LineNumbers {
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        if self == LineNumbers::Yes {
-            LineNumbers::No
-        } else if self == LineNumbers::No {
-            LineNumbers::Yes
-        } else {
-            self
+        use LineNumbers::*;
+
+        match self {
+            Enabled => Disabled,
+            Disabled => Enabled,
+            ln => ln,
         }
     }
 }

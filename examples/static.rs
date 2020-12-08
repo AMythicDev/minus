@@ -7,6 +7,6 @@ fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
         writeln!(output, "{}", i)?;
     }
 
-    minus::page_all(&output, minus::LineNumbers::No)?;
+    minus::page_all(&output, minus::LineNumbers::Disabled)?;
     Ok(())
 }
