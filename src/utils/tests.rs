@@ -170,7 +170,7 @@ fn big_line_numbers_are_padded() {
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert_eq!(
-        "\r 96. L95\n\r 97. L96\n\r 98. L97\n\r 99. L98\n\r100. L99\n\r101. L100\n\r102. L101\n\r103. L102\n\r104. L103\n\r105. L104\n\r106. L105\n\r107. L106\n\r108. L107\n\r109. L108\n\r110. L109\n",
+        "\r 96. L95\n\r 97. L96\n\r 98. L97\n\r 99. L98\n\r100. L99\n\r101. L100\n\r102. L101\n\r103. L102\n\r104. L103\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(upper_mark, 95);

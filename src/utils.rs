@@ -70,7 +70,7 @@ fn write_lines(
 
     // This will either do '-1' or '-0' depending on the lines having a blank
     // line at the end or not.
-    let mut lower_mark = *upper_mark + rows  - lines.ends_with('\n') as usize;
+    let mut lower_mark = *upper_mark + rows - lines.ends_with('\n') as usize;
 
     // Do some necessary checking.
     // Lower mark should not be more than the length of lines vector.
@@ -86,7 +86,10 @@ fn write_lines(
     }
 
     // Get the range of lines between upper mark and lower mark.
-    let lines = lines.lines().skip(*upper_mark).take(lower_mark - *upper_mark);
+    let lines = lines
+        .lines()
+        .skip(*upper_mark)
+        .take(lower_mark - *upper_mark);
 
     match ln {
         LineNumbers::No | LineNumbers::Disabled => {
