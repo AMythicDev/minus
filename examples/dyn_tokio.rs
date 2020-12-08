@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let (res1, res2) = join!(
-        minus::async_std_updating(output.clone(), minus::LineNumbers::No),
+        minus::tokio_updating(output.clone(), minus::LineNumbers::No),
         increment
     );
     res1?;
