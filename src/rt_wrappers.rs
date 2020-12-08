@@ -26,9 +26,6 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
     let mut rows = rows as usize;
     // The upper mark of scrolling
     let mut upper_mark = 0;
-    // Copy of the last displayed string
-    // Only needed when there is less data then the number of rows
-    let mut last_copy = String::new();
 
     loop {
         // Lock the data and check errors
@@ -40,10 +37,8 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
         // If they are not equal, display the new data
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
-        if !string.eq(&last_copy) {
+        if string.lines().count() < rows {
             draw(&string, rows, &mut upper_mark, ln)?;
-            // Update the last copy, cloning here becaue string is inside MutexGuard
-            last_copy = string.to_string();
         }
         // Drop the string
         drop(string);
