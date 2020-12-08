@@ -23,6 +23,7 @@
 //!
 //! [`tokio`]: https://crates.io/crates/tokio
 //! [`async-std`]: https://crates.io/crates/async-std
+//! [`pijul`]: https://pijul.org/
 //!
 //! ## Features
 //!
