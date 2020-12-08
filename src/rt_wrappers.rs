@@ -92,7 +92,7 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 ///
 ///     let (res1, res2) = join!(minus::tokio_updating(
 ///                output.clone(),
-///                minus::LineNumbers::Yes), increment);
+///                minus::LineNumbers::Enabled), increment);
 ///     res1?;
 ///     res2?;
 ///     Ok(())
@@ -153,7 +153,7 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 ///
 ///     let (res1, res2) = join!(minus::tokio_updating(
 ///                output.clone(),
-///                minus::LineNumbers::Yes), increment);
+///                minus::LineNumbers::Enabled), increment);
 ///     res1?;
 ///     res2?;
 ///     Ok(())

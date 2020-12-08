@@ -80,7 +80,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Result::<_, std::fmt::Error>::Ok(())
     };
 
-    let (res1, res2) = join!(minus::tokio_updating(output.clone()), increment);
+    let (res1, res2) = join!(
+        minus::tokio_updating(output.clone(), minus::LineNumbers::Enabled),
+        increment
+    );
     res1?;
     res2?;
     Ok(())
@@ -113,7 +116,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Result::<_, std::fmt::Error>::Ok(())
     };
 
-    let (res1, res2) = join!(minus::async_std_updating(output.clone()), increment);
+    let (res1, res2) = join!(
+        minus::async_std_updating(output.clone(), minus::LineNumbers::Enabled),
+        increment
+    );
     res1?;
     res2?;
     Ok(())
@@ -132,7 +138,7 @@ fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
         writeln!(output, "{}", i)?;
     }
 
-    minus::page_all(&output)?;
+    minus::page_all(&output, minus::LineNumbers::Disabled)?;
     Ok(())
 }
 ```
