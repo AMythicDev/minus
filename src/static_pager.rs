@@ -1,5 +1,5 @@
 //! Static information output, see [`page_all`].
-use crate::utils::{draw, map_events};
+use crate::utils::{self, draw};
 use crate::Result;
 
 use crossterm::{
@@ -9,7 +9,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 
-use std::io::{stdout, Write};
+use std::io::{self, stdout, Write};
 
 /// Outputs static information.
 ///
@@ -46,16 +46,16 @@ pub fn page_all(lines: &str, mut ln: crate::LineNumbers) -> Result {
     let mut rows = rows as usize;
 
     // If the number of lines in the output is less than the number of rows
-    // then print it and quit
-    // FIXME(poliorcetics): use `draw` here for improved performance and avoid
-    // code duplication.
+    // then print it and exit the function.
     {
-        let range: Vec<&str> = lines.split_terminator('\n').collect();
-        if rows > range.len() {
-            for line in range {
-                println!("{}", line);
-            }
-            std::process::exit(0);
+        let line_count = lines.lines().count();
+        if rows > line_count {
+            let stdout = io::stdout();
+            let mut out = stdout.lock();
+            let mut upper_mark = 0;
+            utils::write_lines(&mut out, lines, rows, &mut upper_mark, ln)?;
+            out.flush()?;
+            return Ok(());
         }
     }
 

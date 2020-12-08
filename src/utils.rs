@@ -111,7 +111,7 @@ pub(crate) fn map_events(
 /// displayed, regardless of `upper_mark` (which will be updated to reflect
 /// this).
 ///
-/// It will no wrap long lines.
+/// It will not wrap long lines.
 pub(crate) fn draw(
     lines: &str,
     rows: usize,
@@ -124,7 +124,7 @@ pub(crate) fn draw(
     // Clear the screen and place cursor at the very top left.
     write!(&mut out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    write_lines(&mut out, &lines, rows, upper_mark, ln)?;
+    write_lines(&mut out, lines, rows, upper_mark, ln)?;
 
     // Display the prompt.
     #[allow(clippy::cast_possible_truncation)]
@@ -150,7 +150,7 @@ pub(crate) fn draw(
 /// Lines should be separated by `\n` and `\r\n`.
 ///
 /// No wrapping is done at all!
-fn write_lines(
+pub(crate) fn write_lines(
     out: &mut impl io::Write,
     lines: &str,
     rows: usize,
@@ -165,16 +165,12 @@ fn write_lines(
     // line at the end or not.
     let mut lower_mark = *upper_mark + rows - lines.ends_with('\n') as usize;
 
-    // Do some necessary checking.
-    // Lower mark should not be more than the length of lines vector.
     if lower_mark > line_count {
         lower_mark = line_count;
-        // If the length of lines is less than the number of rows, set upper_mark = 0
         *upper_mark = if line_count < rows {
             0
         } else {
-            // Otherwise, set upper_mark to length of lines - rows.
-            line_count - rows
+            line_count.saturating_sub(rows)
         };
     }
 
