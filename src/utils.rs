@@ -10,8 +10,6 @@ use std::{
     io::{self, Write as _},
 };
 
-const LINE_NUMBERS: LineNumbers = LineNumbers::No;
-
 /// Draws (at most) `rows` `lines`, where the first line to display is
 /// `upper_mark`. This function will always try to display as much lines as
 /// possible within `rows`.
@@ -21,14 +19,14 @@ const LINE_NUMBERS: LineNumbers = LineNumbers::No;
 /// this).
 ///
 /// It will no wrap long lines.
-pub(crate) fn draw(lines: &str, rows: usize, upper_mark: &mut usize) -> io::Result<()> {
+pub(crate) fn draw(lines: &str, rows: usize, upper_mark: &mut usize, ln: LineNumbers) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
 
     // Clear the screen and place cursor at the very top left.
     write!(&mut out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    write_lines(&mut out, &lines, rows, upper_mark, LINE_NUMBERS)?;
+    write_lines(&mut out, &lines, rows, upper_mark, ln)?;
 
     // Display the prompt.
     #[allow(clippy::cast_possible_truncation)]
@@ -59,7 +57,7 @@ fn write_lines(
     lines: &str,
     rows: usize,
     upper_mark: &mut usize,
-    numbers: LineNumbers,
+    ln: LineNumbers,
 ) -> io::Result<()> {
     // '.count()' will necessarily finish since iterating over the lines of a
     // String cannot yield an infinite iterator, at worst a very long one.
@@ -85,13 +83,13 @@ fn write_lines(
     // Get the range of lines between upper mark and lower mark.
     let lines = lines.lines().skip(*upper_mark).take(lower_mark);
 
-    match numbers {
-        LineNumbers::No => {
+    match ln {
+        LineNumbers::No | LineNumbers::Disabled => {
             for line in lines {
                 writeln!(out, "\r{}", line)?;
             }
         }
-        LineNumbers::Yes => {
+        LineNumbers::Yes | LineNumbers::Enabled => {
             let max_line_number = lower_mark + *upper_mark + 1;
             #[allow(
                 clippy::cast_possible_truncation,
@@ -124,11 +122,26 @@ fn write_lines(
     Ok(())
 }
 
-/// Simple `enum` used for clarity over `true`/`false`.
-#[derive(Copy, Clone)]
-enum LineNumbers {
+#[derive(PartialEq, Copy, Clone)]
+pub enum LineNumbers {
+    Enabled,
     Yes,
     No,
+    Disabled,
+}
+
+impl std::ops::Not for LineNumbers {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        if self == LineNumbers::Yes {
+            LineNumbers::No
+        } else if self == LineNumbers::No {
+            LineNumbers::Yes
+        } else {
+            self
+        }
+    }
 }
 
 #[cfg(test)]

@@ -3,6 +3,7 @@
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
 use crate::utils::draw;
 use crate::{Lines, Result};
+use crate::LineNumbers;
 
 use crossterm::{
     cursor::{Hide, Show},
@@ -14,7 +15,7 @@ use crossterm::{
 use std::io::{prelude::*, stdout};
 use std::time::Duration;
 
-fn init(mutex: &Lines) -> Result {
+fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
     // Initialize the terminal
     execute!(stdout(), EnterAlternateScreen)?;
     enable_raw_mode()?;
@@ -40,7 +41,7 @@ fn init(mutex: &Lines) -> Result {
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
         if !string.eq(&last_copy) {
-            draw(&string, rows, &mut upper_mark)?;
+            draw(&string, rows, &mut upper_mark, ln)?;
             // Update the last copy, cloning here becaue string is inside MutexGuard
             last_copy = string.to_string();
         }
@@ -70,7 +71,7 @@ fn init(mutex: &Lines) -> Result {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)?;
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
@@ -78,12 +79,19 @@ fn init(mutex: &Lines) -> Result {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark = upper_mark.saturating_sub(1);
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)?;
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)?;
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('l'),
+                    modifiers: KeyModifiers::CONTROL,
+                }) => {
+                    ln = !ln;
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
                 }
                 _ => {}
             }
@@ -205,7 +213,7 @@ pub async fn tokio_updating(mutex: Lines) -> Result {
 /// [`Alternate Screen`]: crossterm::terminal#alternate-screen
 /// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_updating(mutex: Lines) -> Result {
+pub async fn async_std_updating(mutex: Lines, ln: LineNumbers) -> Result {
     use async_std::task;
-    task::spawn(async move { init(&mutex) }).await
+    task::spawn(async move { init(&mutex, ln) }).await
 }

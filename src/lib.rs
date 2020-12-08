@@ -46,6 +46,8 @@ use std::sync::{Arc, Mutex};
 mod error;
 mod utils;
 
+pub use utils::LineNumbers;
+
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
 #[cfg(feature = "static_output")]
