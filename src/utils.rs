@@ -21,7 +21,7 @@ const LINE_NUMBERS: LineNumbers = LineNumbers::No;
 /// this).
 ///
 /// It will no wrap long lines.
-pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) -> io::Result<()> {
+pub(crate) fn draw(lines: &str, rows: usize, upper_mark: &mut usize) -> io::Result<()> {
     let stdout = io::stdout();
     let mut out = stdout.lock();
 
@@ -31,13 +31,17 @@ pub(crate) fn draw(lines: String, rows: usize, upper_mark: &mut usize) -> io::Re
     write_lines(&mut out, &lines, rows, upper_mark, LINE_NUMBERS)?;
 
     // Display the prompt.
-    write!(
-        &mut out,
-        "{}{}Press q or Ctrl+C to quit{}",
-        MoveTo(0, rows as u16),
-        Attribute::Reverse,
-        Attribute::Reset,
-    )?;
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        write!(
+            &mut out,
+            "{}{}Press q or Ctrl+C to quit{}",
+            // `rows` is originally a u16, we got it from crossterm::terminal::size.
+            MoveTo(0, rows as u16),
+            Attribute::Reverse,
+            Attribute::Reset,
+        )?;
+    }
 
     out.flush()
 }
@@ -89,18 +93,30 @@ fn write_lines(
         }
         LineNumbers::Yes => {
             let max_line_number = lower_mark + *upper_mark + 1;
-            // Compute the length of a number as a string without allocating.
-            let len_line_number = (max_line_number as f64).log10().floor() as usize + 1;
-            debug_assert_eq!(max_line_number.to_string().len(), len_line_number);
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                clippy::cast_precision_loss
+            )]
+            {
+                // Compute the length of a number as a string without allocating.
+                //
+                // While this may in theory lose data, it will only do so if
+                // `max_line_number` is bigger than 2^52, which will probably
+                // never happen. Let's worry about that only if someone reports
+                // a bug for it.
+                let len_line_number = (max_line_number as f64).log10().floor() as usize + 1;
+                debug_assert_eq!(max_line_number.to_string().len(), len_line_number);
 
-            for (idx, line) in lines.enumerate() {
-                writeln!(
-                    out,
-                    "\r{number: >len$}. {line}",
-                    number = *upper_mark + idx + 1,
-                    len = len_line_number,
-                    line = line
-                )?;
+                for (idx, line) in lines.enumerate() {
+                    writeln!(
+                        out,
+                        "\r{number: >len$}. {line}",
+                        number = *upper_mark + idx + 1,
+                        len = len_line_number,
+                        line = line
+                    )?;
+                }
             }
         }
     }
@@ -108,6 +124,8 @@ fn write_lines(
     Ok(())
 }
 
+/// Simple `enum` used for clarity over `true`/`false`.
+#[derive(Copy, Clone)]
 enum LineNumbers {
     Yes,
     No,

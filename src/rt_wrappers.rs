@@ -1,19 +1,24 @@
+//! Dynamic information within a pager window.
+//!
+//! See [`tokio_updating`] and [`async_std_updating`] for more information.
 use crate::utils::draw;
-use crate::Lines;
+use crate::{Lines, Result};
+
 use crossterm::{
     cursor::{Hide, Show},
     event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+
 use std::io::{prelude::*, stdout};
 use std::time::Duration;
 
-fn init(mutex: &Lines) {
+fn init(mutex: &Lines) -> Result {
     // Initialize the terminal
-    let _ = execute!(stdout(), EnterAlternateScreen);
-    let _ = enable_raw_mode();
-    let _ = execute!(stdout(), Hide);
+    execute!(stdout(), EnterAlternateScreen)?;
+    enable_raw_mode()?;
+    execute!(stdout(), Hide)?;
 
     // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size().unwrap();
@@ -35,10 +40,9 @@ fn init(mutex: &Lines) {
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
         if !string.eq(&last_copy) {
-            // FIXME(poliorcetics): handle unused Result.
-            let _ = draw(string.clone(), rows, &mut upper_mark.clone());
+            draw(&string, rows, &mut upper_mark)?;
             // Update the last copy, cloning here becaue string is inside MutexGuard
-            last_copy = string.clone();
+            last_copy = string.to_string();
         }
         // Drop the string
         drop(string);
@@ -55,9 +59,9 @@ fn init(mutex: &Lines) {
                     code: KeyCode::Char('c'),
                     modifiers: KeyModifiers::CONTROL,
                 }) => {
-                    let _ = execute!(stdout(), LeaveAlternateScreen);
-                    let _ = disable_raw_mode();
-                    let _ = execute!(stdout(), Show);
+                    execute!(stdout(), LeaveAlternateScreen)?;
+                    disable_raw_mode()?;
+                    execute!(stdout(), Show)?;
                     std::process::exit(0);
                 }
                 // If Down arrow is pressed, add 1 to the marker and update the string
@@ -66,25 +70,20 @@ fn init(mutex: &Lines) {
                     modifiers: KeyModifiers::NONE,
                 }) => {
                     upper_mark += 1;
-                    // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark);
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)?;
                 }
                 // If Up arrow is pressed, subtract 1 from the marker and update the string
                 Event::Key(KeyEvent {
                     code: KeyCode::Up,
                     modifiers: KeyModifiers::NONE,
                 }) => {
-                    if upper_mark != 0 {
-                        upper_mark -= 1;
-                    }
-                    // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark);
+                    upper_mark = upper_mark.saturating_sub(1);
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)?;
                 }
                 // When terminal is resized, update the rows and redraw
                 Event::Resize(_, height) => {
                     rows = height as usize;
-                    // FIXME(poliorcetics): handle unused Result.
-                    let _ = draw(mutex.lock().unwrap().clone(), rows, &mut upper_mark);
+                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark)?;
                 }
                 _ => {}
             }
@@ -92,96 +91,121 @@ fn init(mutex: &Lines) {
     }
 }
 
-/// Run the pager inside a [`tokio task`](tokio::task)
+/// Run the pager inside a [`tokio task`](tokio::task).
 ///
-/// This function is only available when `tokio_lib` feature is enabled
-/// It takes a [`Lines`] and updates the page with new information when Lines
-/// is updated
+/// This function is only available when `tokio_lib` feature is enabled.
+/// It takes a [`Lines`] and updates the page with new information when `Lines`
+/// is updated.
 ///
-/// This function switches to the [`Alternate Screen`] of the TTY and
-/// switches to [`raw mode`]
+/// This function switches to the [`Alternate Screen`] of the TTY and switches
+/// to [`raw mode`].
+///
+/// ## Errors
+///
+/// Several operations can fail when outputting information to a terminal, see
+/// the [`Result`] type.
+///
 /// ## Example
+///
 /// ```
-/// use std::sync::{Arc, Mutex};
 /// use futures::join;
-/// use std::fmt::Write;
-/// use std::time::Duration;
 /// use tokio::time::sleep;
 ///
+/// use std::fmt::Write;
+/// use std::sync::{Arc, Mutex};
+/// use std::time::Duration;
+///
 /// #[tokio::main]
-/// async fn main() {
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let output = Arc::new(Mutex::new(String::new()));
-///     let push_data = async {
-///         for i in 1..=100 {
-///             let mut guard = output.lock().unwrap();
-///             // Always use writeln to add a \n after the line
-///             writeln!(guard, "{}", i);
-///             // If you have further asynchronous blocking code, drop the borrow here
-///             drop(guard);
-///             // Some asynchronous blocking code
-///             sleep(Duration::new(1,0)).await;
+///
+///     let increment = async {
+///         let mut counter: u8 = 0;
+///         while counter <= 30 {
+///             let mut output = output.lock().unwrap();
+///             writeln!(output, "{}", counter.to_string())?;
+///             counter += 1;
+///             drop(output);
+///             sleep(Duration::from_millis(100)).await;
 ///         }
-///    };
-///    join!(minus::tokio_updating(output.clone()), push_data);
+///         Result::<_, std::fmt::Error>::Ok(())
+///     };
+///
+///     let (res1, res2) = join!(minus::tokio_updating(output.clone()), increment);
+///     res1?;
+///     res2?;
+///     Ok(())
 /// }
 /// ```
-/// **Please do note that you should never lock the output data, since this will cause
-/// the paging thread to be paused. Only borrow it when it is required and drop it
-/// if you have further asynchronous blocking code**
 ///
-/// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
-/// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
+/// **Please do note that you should never lock the output data, since this
+/// will cause the paging thread to be paused. Only borrow it when it is
+/// required and drop it if you have further asynchronous blocking code.**
+///
+/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
+/// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(mutex: Lines) {
+pub async fn tokio_updating(mutex: Lines) -> Result {
     use tokio::task;
-    task::spawn(async move {
-        init(&mutex);
-    });
+    task::spawn(async move { init(&mutex) }).await?
 }
 
-/// Initialize a updating pager inside a [`async_std task`]
+/// Initialize a updating pager inside an [`async_std task`].
 ///
 /// This function is only available when `async_std_lib` feature is enabled
-/// It takes a [`Lines`] and updates the page with new information when Lines
-/// is updated
-/// This function switches to the [`Alternate Screen`] of the TTY and
-/// switches to [`raw mode`]
+/// It takes a [`Lines`] and updates the page with new information when `Lines`
+/// is updated.
+///
+/// This function switches to the [`Alternate Screen`] of the TTY and switches
+/// to [`raw mode`].
+///
+/// ## Errors
+///
+/// Several operations can fail when outputting information to a terminal, see
+/// the [`Result`] type.
 ///
 /// ## Example
+///
 /// ```
-/// use std::sync::{Arc, Mutex};
+/// use async_std::task::sleep;
 /// use futures::join;
+///
+/// use std::fmt::Write;
+/// use std::sync::{Arc, Mutex};
 /// use std::time::Duration;
 ///
 /// #[async_std::main]
-/// async fn main() {
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let output = Arc::new(Mutex::new(String::new()));
-///     let push_data = async {
-///         for i in 1..=100 {
-///             let mut guard = output.lock().unwrap();
-///             guard.push_str(&i.to_string());
-///             // If you have further asynchronous blocking code, drop the borrow here
-///             drop(guard);
-///             // Some asynchronous blocking code
-///             async_std::task::sleep(Duration::new(1,0)).await;
+///
+///     let increment = async {
+///         let mut counter: u8 = 0;
+///         while counter <= 30 {
+///             let mut output = output.lock().unwrap();
+///             writeln!(output, "{}", counter.to_string())?;
+///             counter += 1;
+///             drop(output);
+///             sleep(Duration::from_millis(100)).await;
 ///         }
-///    };
-///    join!(minus::async_std_updating(output.clone()), push_data);
+///         Result::<_, std::fmt::Error>::Ok(())
+///     };
+///
+///     let (res1, res2) = join!(minus::async_std_updating(output.clone()), increment);
+///     res1?;
+///     res2?;
+///     Ok(())
 /// }
 /// ```
-/// **Please do note that you should never lock the output data, since this will cause
-/// the paging thread to be paused. Only borrow it when it is required and drop it
-/// if you have further asynchronous blocking code**
+///
+/// **Please do note that you should never lock the output data, since this
+/// will cause the paging thread to be paused. Only borrow it when it is
+/// required and drop it if you have further asynchronous blocking code.**
 ///
 /// [`async_std task`]: async_std::task
-/// [`Alternate Screen`]: ../crossterm/terminal/index.html#alternate-screen
-/// [`raw mode`]: ../crossterm/terminal/index.html#raw-mode
-/// [`Lines`]: Lines
+/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
+/// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_updating(mutex: Lines) {
+pub async fn async_std_updating(mutex: Lines) -> Result {
     use async_std::task;
-    task::spawn(async move {
-        init(&mutex);
-    })
-    .await;
+    task::spawn(async move { init(&mutex) }).await
 }
