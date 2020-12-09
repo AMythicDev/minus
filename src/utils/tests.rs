@@ -512,6 +512,7 @@ fn draw_help_message() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn input_handling() {
     let upper_mark = 12;
     let ln = LineNumbers::Enabled;
