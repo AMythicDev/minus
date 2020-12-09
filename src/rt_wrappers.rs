@@ -1,52 +1,48 @@
 //! Dynamic information within a pager window.
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
-use crate::utils::{draw, map_events};
-use crate::LineNumbers;
-use crate::{Lines, Result};
+use crate::{utils, LineNumbers, Lines, Result};
 
-use crossterm::{
-    cursor::Hide,
-    event::EnableMouseCapture,
-    execute,
-    terminal::{enable_raw_mode, EnterAlternateScreen},
-};
+use crossterm::{cursor, event, terminal};
 
-use std::io::{prelude::*, stdout};
-use std::time::Duration;
+use std::io::{self, Write as _};
 
 fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
-    // Initialize the terminal
-    execute!(stdout(), EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    execute!(stdout(), Hide)?;
-    execute!(stdout(), EnableMouseCapture)?;
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
 
-    // Get terminal rows and convert it to usize
-    let (_, rows) = crossterm::terminal::size().unwrap();
+    crossterm::execute!(out, terminal::EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+    crossterm::execute!(out, cursor::Hide)?;
+
+    let (_, rows) = terminal::size()?;
     let mut rows = rows as usize;
-    // The upper mark of scrolling
+
+    // The upper mark of scrolling.
     let mut upper_mark = 0;
     let mut last_printed = String::new();
 
     loop {
-        // Lock the data and check errors
-        let string = mutex.try_lock();
-        if string.is_err() {
-            continue;
+        if event::poll(std::time::Duration::from_millis(10))? {
+            use utils::InputEvent::*;
+
+            let input = utils::handle_input(event::read()?, upper_mark, ln, true);
+
+            match input {
+                None => continue,
+                Some(Exit) => {
+                    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
+                    terminal::disable_raw_mode()?;
+                    crossterm::execute!(out, cursor::Show)?;
+                    return Ok(());
+                }
+                Some(UpdateRows(r)) => rows = r,
+                Some(UpdateUpperMark(um)) => upper_mark = um,
+                Some(UpdateLineNumber(l)) => ln = l,
+            };
         }
-        // If no errors, compare it with the last displayed string
-        // If they are not equal, display the new data
-        let string = string.unwrap();
-        // Use .eq() here as == cannot compare MutexGuard with a normal string
-        if string.lines().count() < rows && !string.eq(&last_printed) {
-            draw(&string, rows, &mut upper_mark, ln)?;
-        }
-        // Keap a copy of the string for later uee and drop it
-        last_printed = string.to_string();
-        drop(string);
-        // Check for events asynchronously
-        map_events(&mut ln, &mut upper_mark, &mut rows, &last_printed)?;
+
+        utils::draw(&mut out, &mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
     }
 }
 
