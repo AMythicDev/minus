@@ -36,7 +36,7 @@ use std::io::{self, Write};
 /// fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
 ///     let mut output = String::new();
 ///
-///     for i in 1..=30 {
+///     for i in 0..=30 {
 ///         writeln!(output, "{}", i)?;
 ///     }
 ///
