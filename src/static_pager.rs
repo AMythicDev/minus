@@ -1,13 +1,7 @@
 //! Static information output, see [`page_all`].
-use crate::utils::{self, draw};
-use crate::Result;
+use crate::{utils, Result};
 
-use crossterm::{
-    cursor::{Hide, Show},
-    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::{cursor, event, terminal};
 
 use std::io::{self, stdout, Write};
 
@@ -40,19 +34,21 @@ use std::io::{self, stdout, Write};
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str, mut ln: crate::LineNumbers) -> Result {
-    // Get terminal rows and convert it to usize
-    let (_, rows) = crossterm::terminal::size()?;
+pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
+    let (_, rows) = terminal::size()?;
     let mut rows = rows as usize;
+
+    let stdout = io::stdout();
+    let mut out = stdout.lock();
+
+    // The upper mark of scrolling
+    let mut upper_mark = 0;
 
     // If the number of lines in the output is less than the number of rows
     // then print it and exit the function.
     {
         let line_count = lines.lines().count();
         if rows > line_count {
-            let stdout = io::stdout();
-            let mut out = stdout.lock();
-            let mut upper_mark = 0;
             utils::write_lines(&mut out, lines, rows, &mut upper_mark, ln)?;
             out.flush()?;
             return Ok(());
@@ -60,17 +56,29 @@ pub fn page_all(lines: &str, mut ln: crate::LineNumbers) -> Result {
     }
 
     // Initialize the terminal
-    execute!(stdout(), EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    execute!(stdout(), Hide)?;
-
-    // The upper mark of scrolling
-    let mut upper_mark = 0;
-
-    // Draw at the very beginning
-    draw(lines, rows, &mut upper_mark, ln)?;
+    crossterm::execute!(&mut out, terminal::EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+    crossterm::execute!(&mut out, cursor::Hide)?;
 
     loop {
-        map_events(&mut ln, &mut upper_mark, &mut rows, &lines)?;
+        if event::poll(std::time::Duration::from_millis(10))? {
+            use utils::InputEvent::*;
+
+            let input = utils::handle_input(event::read()?, upper_mark, ln, false);
+            match input {
+                None => continue,
+                Some(Exit) => {
+                    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
+                    terminal::disable_raw_mode()?;
+                    crossterm::execute!(out, cursor::Show)?;
+                    return Ok(());
+                }
+                Some(UpdateRows(r)) => rows = r,
+                Some(UpdateUpperMark(um)) => upper_mark = um,
+                Some(UpdateLineNumber(_)) => unreachable!("Cannot update the lines in static mode"),
+            };
+        }
+
+        utils::draw(&mut out, lines, rows, &mut upper_mark, ln)?;
     }
 }
