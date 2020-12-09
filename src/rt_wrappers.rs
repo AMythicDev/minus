@@ -7,6 +7,7 @@ use crate::{Lines, Result};
 
 use crossterm::{
     cursor::Hide,
+    event::EnableMouseCapture,
     execute,
     terminal::{enable_raw_mode, EnterAlternateScreen},
 };
@@ -19,6 +20,7 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
     execute!(stdout(), EnterAlternateScreen)?;
     enable_raw_mode()?;
     execute!(stdout(), Hide)?;
+    execute!(stdout(), EnableMouseCapture)?;
 
     // Get terminal rows and convert it to usize
     let (_, rows) = crossterm::terminal::size().unwrap();

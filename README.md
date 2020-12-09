@@ -141,6 +141,15 @@ data, `minus` will simply print the data and quit. This only works in static
 paging since asynchronous paging could still receive more data that makes it 
 pass the limit.
 
+## End user help
+Here is some help for the end user using an application that depends on minus
+
+* Press q or Ctrl+C to quit
+* Arrow up or arrow down scrolls through the output line by line
+* Scolling through mouse scrolls through the output by 5 lines
+* Page Up or Page Down scrolls through the output by entire page
+* Press Ctrl+L to toggle line numbers if a application has not forced it to be enabled/disabled
+
 ## Contributing
 
 Issues and pull requests are more than welcome. Unless explicitly stated

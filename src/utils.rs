@@ -2,7 +2,7 @@
 use crossterm::{
     cursor::MoveTo,
     cursor::Show,
-    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
     execute,
     style::Attribute,
     terminal::{disable_raw_mode, Clear, ClearType, LeaveAlternateScreen},
@@ -40,7 +40,10 @@ pub(crate) fn map_events(
                 execute!(stdout(), Show)?;
                 std::process::exit(0);
             }
-            // If Down arrow is pressed, add 1 to the marker and update the string
+            // Durng these events add a value to the upper_mark for moving down
+            // Arrow Down - 1
+            // Scrool Down - 5
+            // Page Down - Number of rows -1
             Event::Key(KeyEvent {
                 code: KeyCode::Down,
                 modifiers: KeyModifiers::NONE,
@@ -48,7 +51,21 @@ pub(crate) fn map_events(
                 *upper_mark += 1;
                 draw(text, *rows, &mut upper_mark, *ln)?;
             }
-            // If Up arrow is pressed, subtract 1 from the marker and update the string
+            Event::Key(KeyEvent {
+                code: KeyCode::PageDown,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                *upper_mark += *rows - 1;
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => {
+                *upper_mark += 5;
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            // Durng these events subtact a value to the upper_mark for moving up
+            // Arrow Down - 1
+            // Scrool Down - 5
+            // Page Down - Number of rows -1
             Event::Key(KeyEvent {
                 code: KeyCode::Up,
                 modifiers: KeyModifiers::NONE,
@@ -56,11 +73,23 @@ pub(crate) fn map_events(
                 *upper_mark = upper_mark.saturating_sub(1);
                 draw(text, *rows, &mut upper_mark, *ln)?;
             }
+            Event::Key(KeyEvent {
+                code: KeyCode::PageUp,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                *upper_mark = upper_mark.saturating_sub(*rows - 1);
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => {
+                *upper_mark = upper_mark.saturating_sub(5);
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
             // When terminal is resized, update the rows and redraw
             Event::Resize(_, height) => {
                 *rows = height as usize;
                 draw(text, *rows, &mut upper_mark, *ln)?;
             }
+            // Map Ctrl+L to enable line numbers
             Event::Key(KeyEvent {
                 code: KeyCode::Char('l'),
                 modifiers: KeyModifiers::CONTROL,
