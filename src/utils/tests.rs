@@ -558,6 +558,28 @@ fn input_handling() {
     }
 
     {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MIN)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::SHIFT,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
         let ev = Event::Resize(42, 35);
         assert_eq!(
             Some(InputEvent::UpdateRows(35)),
