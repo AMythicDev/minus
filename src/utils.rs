@@ -1,16 +1,95 @@
 //! Utilities that are used in both static and async display.
 use crossterm::{
-    cursor::MoveTo,
-    event::{Event, KeyCode, KeyEvent, KeyModifiers},
+    cursor::{self, MoveTo},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     style::Attribute,
-    terminal::{Clear, ClearType},
+    terminal::{self, Clear, ClearType},
 };
 
-use std::io;
+use std::io::{self, Write as _};
+
+/// Will try to cleanup the terminal and set it back to its orignal state,
+/// before the pager was setupped and called.
+///
+/// Use this function if you encounter problems with your application not
+/// correctly setting back the terminal on errors.
+pub fn cleanup(mut out: impl io::Write) -> crate::Result {
+    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
+    terminal::disable_raw_mode()?;
+    crossterm::execute!(out, cursor::Show)?;
+    Ok(())
+}
+
+/// Runs the pager for the given lines.
+///
+/// `get_lines` is a function that will extract the `&str` lines from the
+/// storage type L. `get_lines` is only called when drawing, at the end of the
+/// event loop. This means you can mutate the backing storage if it is an
+/// `Arc<Mutex<String>>` for example, because the lock is not held for the
+/// entire duration of the function, only for the drawing part.
+///
+/// See examples of usage in the `src/rt_wrappers.rs` and `src/static_pager.rs`
+/// files.
+pub(crate) fn alternate_screen_paging<L, F, S>(
+    mut ln: LineNumbers,
+    lines: &L,
+    get_lines: F,
+) -> crate::Result
+where
+    L: ?Sized,
+    S: std::ops::Deref,
+    S::Target: AsRef<str>,
+    F: Fn(&L) -> S,
+{
+    let stdout = io::stdout();
+
+    let (mut out, mut rows) = setup(&stdout)?;
+    // The upper mark of scrolling.
+    let mut upper_mark = 0;
+
+    loop {
+        if event::poll(std::time::Duration::from_millis(10))? {
+            use InputEvent::*;
+
+            let input = handle_input(event::read()?, upper_mark, ln);
+
+            match input {
+                None => continue,
+                Some(Exit) => return cleanup(out),
+                Some(UpdateRows(r)) => rows = r,
+                Some(UpdateUpperMark(um)) => upper_mark = um,
+                Some(UpdateLineNumber(l)) => ln = l,
+            };
+        }
+
+        draw(
+            &mut out,
+            get_lines(lines).as_ref(),
+            rows,
+            &mut upper_mark,
+            ln,
+        )?;
+    }
+}
+
+/// Setup the terminal and get the necessary informations.
+///
+/// This will lock `stdout` for the lifetime of the pager.
+fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
+    let mut out = stdout.lock();
+
+    crossterm::execute!(out, terminal::EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+    crossterm::execute!(out, cursor::Hide)?;
+
+    let (_, rows) = terminal::size()?;
+
+    Ok((out, rows as usize))
+}
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub(crate) enum InputEvent {
+enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.
     Exit,
     /// The terminal was resized. Contains the new number of rows.
@@ -27,7 +106,7 @@ pub(crate) enum InputEvent {
 /// - `upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
 /// - `ln` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
-pub(crate) fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
+fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
     match ev {
         Event::Key(KeyEvent {
             code: KeyCode::Down,
@@ -63,7 +142,7 @@ pub(crate) fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Opt
 /// this).
 ///
 /// It will not wrap long lines.
-pub(crate) fn draw(
+fn draw(
     out: &mut impl io::Write,
     lines: &str,
     rows: usize,
