@@ -1,50 +1,13 @@
 //! Dynamic information within a pager window.
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
-use crate::{utils, LineNumbers, Lines, Result};
+use crate::{utils, LineNumbers, Result};
 
-use crossterm::{cursor, event, terminal};
+use std::sync::{Arc, Mutex};
 
-use std::io::{self, Write as _};
-
-fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-
-    crossterm::execute!(out, terminal::EnterAlternateScreen)?;
-    terminal::enable_raw_mode()?;
-    crossterm::execute!(out, cursor::Hide)?;
-
-    let (_, rows) = terminal::size()?;
-    let mut rows = rows as usize;
-
-    // The upper mark of scrolling.
-    let mut upper_mark = 0;
-    let mut last_printed = String::new();
-
-    loop {
-        if event::poll(std::time::Duration::from_millis(10))? {
-            use utils::InputEvent::*;
-
-            let input = utils::handle_input(event::read()?, upper_mark, ln);
-
-            match input {
-                None => continue,
-                Some(Exit) => {
-                    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
-                    terminal::disable_raw_mode()?;
-                    crossterm::execute!(out, cursor::Show)?;
-                    return Ok(());
-                }
-                Some(UpdateRows(r)) => rows = r,
-                Some(UpdateUpperMark(um)) => upper_mark = um,
-                Some(UpdateLineNumber(l)) => ln = l,
-            };
-        }
-
-        utils::draw(&mut out, &mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
-    }
-}
+/// An atomically reference counted string of all output for the pager.
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub type Lines = Arc<Mutex<String>>;
 
 /// Run the pager inside a [`tokio task`](tokio::task).
 ///
@@ -104,7 +67,7 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
 pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
-    tokio::task::spawn(async move { init(&mutex, ln) }).await?
+    tokio::task::spawn(async move { run(&mutex, ln) }).await?
 }
 
 /// Run the pager inside an [`async_std task`](async_std::task).
@@ -165,5 +128,10 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "async_std_lib")]
 pub async fn async_std_updating(mutex: Lines, ln: LineNumbers) -> Result {
-    async_std::task::spawn(async move { init(&mutex, ln) }).await
+    async_std::task::spawn(async move { run(&mutex, ln) }).await
+}
+
+/// Private function that contains the implemenation for the async display.
+fn run(mutex: &Lines, ln: LineNumbers) -> Result {
+    utils::alternate_screen_paging(ln, &mutex, |m: &&Lines| m.lock().unwrap())
 }
