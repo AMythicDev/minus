@@ -465,3 +465,110 @@ fn draw_big_line_numbers_are_padded() {
     );
     assert_eq!(upper_mark, 95);
 }
+
+#[test]
+fn input_handling() {
+    let upper_mark = 12;
+    let ln = LineNumbers::Enabled;
+    let can_change_ln = true;
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark + 1)),
+            handle_input(ev, upper_mark, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark - 1)),
+            handle_input(ev, upper_mark, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            handle_input(ev, usize::MAX, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MIN)),
+            handle_input(ev, usize::MIN, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Resize(42, 35);
+        assert_eq!(
+            Some(InputEvent::UpdateRows(35)),
+            handle_input(ev, upper_mark, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('l'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        let cfg = cfg!(any(feature = "async_std_lib", feature = "tokio_lib"));
+        if cfg {
+            assert_eq!(
+                Some(InputEvent::UpdateLineNumber(!ln)),
+                handle_input(ev, upper_mark, ln, true)
+            );
+            assert_eq!(None, handle_input(ev, upper_mark, ln, false));
+        } else {
+            assert_eq!(None, handle_input(ev, upper_mark, ln, true));
+            assert_eq!(None, handle_input(ev, upper_mark, ln, false));
+        }
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('q'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::Exit),
+            handle_input(ev, upper_mark, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('c'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        assert_eq!(
+            Some(InputEvent::Exit),
+            handle_input(ev, upper_mark, ln, can_change_ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('a'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(None, handle_input(ev, upper_mark, ln, can_change_ln));
+    }
+}

@@ -13,7 +13,7 @@ use std::{
 };
 
 /// Events handled by the `minus` pager.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub(crate) enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.
     Exit,
