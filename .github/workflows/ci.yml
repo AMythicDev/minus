@@ -28,12 +28,10 @@ jobs:
     - name: Build crate
       run: cargo build --verbose
     # This step helps separate buildtime and runtime errors in tests.
-    # '--tests --lib' ensures the examples are not run since they each depend
-    # on a specific feature.
     - name: Build tests
-      run: cargo test --verbose --tests --lib --no-run
+      run: cargo test --verbose --all-features --no-run
     - name: Run Tests
-      run: cargo test --verbose --tests --lib
+      run: cargo test --verbose --all-features
 
   examples:
     name: examples
@@ -66,4 +64,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features
+          args: --all-features --tests --examples
