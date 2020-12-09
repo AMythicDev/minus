@@ -13,6 +13,10 @@ use std::io::{self, Write as _};
 ///
 /// Use this function if you encounter problems with your application not
 /// correctly setting back the terminal on errors.
+///
+/// ## Errors
+///
+/// Cleaning up the terminal can fail, see [`Result`](crate::Result).
 pub fn cleanup(mut out: impl io::Write) -> crate::Result {
     crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
     terminal::disable_raw_mode()?;
@@ -49,16 +53,14 @@ where
 
     loop {
         if event::poll(std::time::Duration::from_millis(10))? {
-            use InputEvent::*;
-
             let input = handle_input(event::read()?, upper_mark, ln);
 
             match input {
                 None => continue,
-                Some(Exit) => return cleanup(out),
-                Some(UpdateRows(r)) => rows = r,
-                Some(UpdateUpperMark(um)) => upper_mark = um,
-                Some(UpdateLineNumber(l)) => ln = l,
+                Some(InputEvent::Exit) => return cleanup(out),
+                Some(InputEvent::UpdateRows(r)) => rows = r,
+                Some(InputEvent::UpdateUpperMark(um)) => upper_mark = um,
+                Some(InputEvent::UpdateLineNumber(l)) => ln = l,
             };
         }
 
@@ -157,7 +159,7 @@ fn draw(
     {
         write!(
             out,
-            "{mv}{rev}Press q or Ctrl+C to quit{lines}{reset}",
+            "{mv}\r{rev}Press q or Ctrl+C to quit{lines}{reset}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
             mv = MoveTo(0, rows as u16),
             rev = Attribute::Reverse,
