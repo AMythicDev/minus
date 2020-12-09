@@ -1,12 +1,34 @@
 //! Utilities that are used in both static and async display.
 use crossterm::{
     cursor::{self, MoveTo},
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
     style::Attribute,
     terminal::{self, Clear, ClearType},
 };
 
 use std::io::{self, Write as _};
+
+// This function should be kept close to `cleanup` to help ensure both are
+// doing the opposite of the other.
+/// Setup the terminal and get the necessary informations.
+///
+/// This will lock `stdout` for the lifetime of the pager.
+///
+/// ## Errors
+///
+/// Setting up the terminal can fail, see [`Result`](crate::Result).
+fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
+    let mut out = stdout.lock();
+
+    crossterm::execute!(out, terminal::EnterAlternateScreen)?;
+    terminal::enable_raw_mode()?;
+    crossterm::execute!(out, cursor::Hide)?;
+    crossterm::execute!(out, event::EnableMouseCapture)?;
+
+    let (_, rows) = terminal::size()?;
+
+    Ok((out, rows as usize))
+}
 
 /// Will try to cleanup the terminal and set it back to its orignal state,
 /// before the pager was setupped and called.
@@ -18,9 +40,11 @@ use std::io::{self, Write as _};
 ///
 /// Cleaning up the terminal can fail, see [`Result`](crate::Result).
 pub fn cleanup(mut out: impl io::Write) -> crate::Result {
-    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
-    terminal::disable_raw_mode()?;
+    // Reverse order of setup.
+    crossterm::execute!(out, event::DisableMouseCapture)?;
     crossterm::execute!(out, cursor::Show)?;
+    terminal::disable_raw_mode()?;
+    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
     Ok(())
 }
 
@@ -34,6 +58,11 @@ pub fn cleanup(mut out: impl io::Write) -> crate::Result {
 ///
 /// See examples of usage in the `src/rt_wrappers.rs` and `src/static_pager.rs`
 /// files.
+///
+/// ## Errors
+///
+/// Setting/cleaning up the terminal can fail and IO to/from the terminal can
+/// fail.
 pub(crate) fn alternate_screen_paging<L, F, S>(
     mut ln: LineNumbers,
     lines: &L,
@@ -74,21 +103,6 @@ where
     }
 }
 
-/// Setup the terminal and get the necessary informations.
-///
-/// This will lock `stdout` for the lifetime of the pager.
-fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
-    let mut out = stdout.lock();
-
-    crossterm::execute!(out, terminal::EnterAlternateScreen)?;
-    terminal::enable_raw_mode()?;
-    crossterm::execute!(out, cursor::Hide)?;
-
-    let (_, rows) = terminal::size()?;
-
-    Ok((out, rows as usize))
-}
-
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq)]
 enum InputEvent {
@@ -111,19 +125,31 @@ enum InputEvent {
 ///   for [`LineNumbers`] for more information.
 fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
     match ev {
-        // Scroll down by one.
-        Event::Key(KeyEvent {
-            code: KeyCode::Down,
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
         // Scroll up by one.
         Event::Key(KeyEvent {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+        // Scroll down by one.
+        Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
+        // Mouse scroll up.
+        Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => {
+            Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5)))
+        }
+        // Mouse scroll down.
+        Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => {
+            Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5)))
+        }
         // Go to top.
         Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::NONE,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::PageUp,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(usize::MIN)),
         // Go to bottom.
@@ -137,6 +163,10 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
         })
         | Event::Key(KeyEvent {
             code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::NONE,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::PageDown,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
         // Resize event from the terminal.

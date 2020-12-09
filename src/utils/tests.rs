@@ -562,8 +562,35 @@ fn input_handling() {
     }
 
     {
+        let ev = Event::Mouse(MouseEvent::ScrollDown(0, 0, KeyModifiers::NONE));
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark + 5)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
+        let ev = Event::Mouse(MouseEvent::ScrollUp(0, 0, KeyModifiers::NONE));
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark - 5)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MIN)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::PageUp,
             modifiers: KeyModifiers::NONE,
         });
         assert_eq!(
@@ -598,6 +625,17 @@ fn input_handling() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('G'),
             modifiers: KeyModifiers::SHIFT,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::PageDown,
+            modifiers: KeyModifiers::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
