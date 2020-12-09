@@ -34,7 +34,7 @@ use std::io::{self, stdout, Write};
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
+pub fn page_all(lines: &str, mut ln: crate::LineNumbers) -> Result {
     let (_, rows) = terminal::size()?;
     let mut rows = rows as usize;
 
@@ -64,7 +64,7 @@ pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
         if event::poll(std::time::Duration::from_millis(10))? {
             use utils::InputEvent::*;
 
-            let input = utils::handle_input(event::read()?, upper_mark, ln, false);
+            let input = utils::handle_input(event::read()?, upper_mark, ln);
             match input {
                 None => continue,
                 Some(Exit) => {
@@ -75,7 +75,7 @@ pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
                 }
                 Some(UpdateRows(r)) => rows = r,
                 Some(UpdateUpperMark(um)) => upper_mark = um,
-                Some(UpdateLineNumber(_)) => unreachable!("Cannot update the lines in static mode"),
+                Some(UpdateLineNumber(l)) => ln = l,
             };
         }
 

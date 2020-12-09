@@ -26,7 +26,7 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
         if event::poll(std::time::Duration::from_millis(10))? {
             use utils::InputEvent::*;
 
-            let input = utils::handle_input(event::read()?, upper_mark, ln, true);
+            let input = utils::handle_input(event::read()?, upper_mark, ln);
 
             match input {
                 None => continue,

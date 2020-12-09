@@ -29,15 +29,9 @@ pub(crate) enum InputEvent {
 /// needed (`upper_mark`, `ln` or nothing).
 ///
 /// - `upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
-/// - `ln` will be inverted if `can_change_ln` is `true` and one of the
-///   `tokio_lib` and `async_std_lib` feature is active. See the `Not`
-///   implementation for [`LineNumbers`] for more information.
-pub(crate) fn handle_input(
-    ev: Event,
-    upper_mark: usize,
-    ln: LineNumbers,
-    can_change_ln: bool,
-) -> Option<InputEvent> {
+/// - `ln` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
+///   for [`LineNumbers`] for more information.
+pub(crate) fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
     match ev {
         Event::Key(KeyEvent {
             code: KeyCode::Down,
@@ -51,9 +45,7 @@ pub(crate) fn handle_input(
         Event::Key(KeyEvent {
             code: KeyCode::Char('l'),
             modifiers: KeyModifiers::CONTROL,
-        }) if can_change_ln & cfg!(any(feature = "async_std_lib", feature = "tokio_lib")) => {
-            Some(InputEvent::UpdateLineNumber(!ln))
-        }
+        }) => Some(InputEvent::UpdateLineNumber(!ln)),
         Event::Key(KeyEvent {
             code: KeyCode::Char('q'),
             modifiers: KeyModifiers::NONE,
@@ -203,7 +195,7 @@ impl std::ops::Not for LineNumbers {
     type Output = Self;
 
     fn not(self) -> Self::Output {
-        use LineNumbers::*;
+        use LineNumbers::{Disabled, Enabled};
 
         match self {
             Enabled => Disabled,
