@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let (res1, res2) = join!(
-        minus::tokio_updating(output.clone(), minus::LineNumbers::Enabled),
+        minus::tokio_updating(Arc::clone(&output), minus::LineNumbers::Enabled),
         increment
     );
     res1?;
@@ -117,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let (res1, res2) = join!(
-        minus::async_std_updating(output.clone(), minus::LineNumbers::Enabled),
+        minus::async_std_updating(Arc::clone(&output), minus::LineNumbers::Enabled),
         increment
     );
     res1?;
