@@ -243,6 +243,16 @@ fn line_numbers_not() {
 }
 
 #[test]
+fn line_numbers_invertible() {
+    use LineNumbers::*;
+
+    assert!(!AlwaysOn.is_invertible());
+    assert!(!AlwaysOff.is_invertible());
+    assert!(Enabled.is_invertible());
+    assert!(Disabled.is_invertible());
+}
+
+#[test]
 fn draw_short_no_line_numbers() {
     let lines = "A line\nAnother line";
 
@@ -464,6 +474,36 @@ fn draw_big_line_numbers_are_padded() {
         )
     );
     assert_eq!(upper_mark, 95);
+}
+
+#[test]
+fn draw_help_message() {
+    let lines = "A line\nAnother line";
+
+    let mut out = Vec::with_capacity(lines.len());
+    let mut upper_mark = 0;
+    let rows = 10;
+
+    draw(
+        &mut out,
+        lines,
+        rows,
+        &mut upper_mark,
+        LineNumbers::AlwaysOff,
+    )
+    .expect("Should have written");
+
+    let res = String::from_utf8(out).expect("Should have written valid UTF-8");
+    assert!(res.contains("Press q or Ctrl+C to quit"));
+    assert!(!res.contains(", Ctrl+L to display/hide line numbers"));
+
+    let mut out = Vec::with_capacity(lines.len());
+
+    assert!(draw(&mut out, lines, rows, &mut upper_mark, LineNumbers::Enabled,).is_ok());
+
+    let res = String::from_utf8(out).expect("Should have written valid UTF-8");
+    assert!(res.contains("Press q or Ctrl+C to quit"));
+    assert!(res.contains(", Ctrl+L to display/hide line numbers"));
 }
 
 #[test]

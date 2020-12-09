@@ -82,11 +82,17 @@ pub(crate) fn draw(
     {
         write!(
             out,
-            "{}{}Press q or Ctrl+C to quit{}",
+            "{mv}{rev}Press q or Ctrl+C to quit{lines}{reset}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
-            MoveTo(0, rows as u16),
-            Attribute::Reverse,
-            Attribute::Reset,
+            mv = MoveTo(0, rows as u16),
+            rev = Attribute::Reverse,
+            // Only display the help message when `Ctrl+L` will have an effect.
+            lines = if ln.is_invertible() {
+                ", Ctrl+L to display/hide line numbers"
+            } else {
+                ""
+            },
+            reset = Attribute::Reset,
         )?;
     }
 
@@ -189,6 +195,15 @@ pub enum LineNumbers {
     Disabled,
     /// Disable line numbers permanently, cannot be turned on by user.
     AlwaysOff,
+}
+
+impl LineNumbers {
+    /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
+    /// the documentation for the variants to know if they are invertible or
+    /// not.
+    fn is_invertible(self) -> bool {
+        matches!(self, Self::Enabled | Self::Disabled)
+    }
 }
 
 impl std::ops::Not for LineNumbers {
