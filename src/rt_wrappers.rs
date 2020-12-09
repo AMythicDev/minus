@@ -55,6 +55,9 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 /// This function switches to the [`Alternate Screen`] of the TTY and switches
 /// to [`raw mode`].
 ///
+/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
+/// [`raw mode`]: crossterm::terminal#raw-mode
+///
 /// ## Errors
 ///
 /// Several operations can fail when outputting information to a terminal, see
@@ -86,9 +89,10 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 ///         Result::<_, std::fmt::Error>::Ok(())
 ///     };
 ///
-///     let (res1, res2) = join!(minus::tokio_updating(
-///                output.clone(),
-///                minus::LineNumbers::Enabled), increment);
+///     let (res1, res2) = join!(
+///         minus::tokio_updating(Arc::clone(&output), minus::LineNumbers::Disabled),
+///         increment
+///     );
 ///     res1?;
 ///     res2?;
 ///     Ok(())
@@ -98,16 +102,12 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
 /// **Please do note that you should never lock the output data, since this
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
-///
-/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
-/// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "tokio_lib")]
 pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
-    use tokio::task;
-    task::spawn(async move { init(&mutex, ln) }).await?
+    tokio::task::spawn(async move { init(&mutex, ln) }).await?
 }
 
-/// Initialize a updating pager inside an [`async_std task`].
+/// Run the pager inside an [`async_std task`](async_std::task).
 ///
 /// This function is only available when `async_std_lib` feature is enabled
 /// It takes a [`Lines`] and updates the page with new information when `Lines`
@@ -115,6 +115,9 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 ///
 /// This function switches to the [`Alternate Screen`] of the TTY and switches
 /// to [`raw mode`].
+///
+/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
+/// [`raw mode`]: crossterm::terminal#raw-mode
 ///
 /// ## Errors
 ///
@@ -147,9 +150,10 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 ///         Result::<_, std::fmt::Error>::Ok(())
 ///     };
 ///
-///     let (res1, res2) = join!(minus::tokio_updating(
-///                output.clone(),
-///                minus::LineNumbers::Enabled), increment);
+///     let (res1, res2) = join!(
+///         minus::async_std_updating(Arc::clone(&output), minus::LineNumbers::Enabled),
+///         increment
+///     );
 ///     res1?;
 ///     res2?;
 ///     Ok(())
@@ -159,12 +163,7 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 /// **Please do note that you should never lock the output data, since this
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
-///
-/// [`async_std task`]: async_std::task
-/// [`Alternate Screen`]: crossterm::terminal#alternate-screen
-/// [`raw mode`]: crossterm::terminal#raw-mode
 #[cfg(feature = "async_std_lib")]
 pub async fn async_std_updating(mutex: Lines, ln: LineNumbers) -> Result {
-    use async_std::task;
-    task::spawn(async move { init(&mutex, ln) }).await
+    async_std::task::spawn(async move { init(&mutex, ln) }).await
 }

@@ -3,15 +3,25 @@ use crate::{utils, Result};
 
 use crossterm::{cursor, event, terminal};
 
-use std::io::{self, stdout, Write};
+use std::io::{self, Write};
 
 /// Outputs static information.
 ///
 /// Once called, the `&str` passed to this function can never be changed. If you
-/// want dynamic information, see [`async_std_updating`] and [`tokio_updating`].
+/// want dynamic information:
 ///
-/// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
-/// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
+#[cfg_attr(
+    feature = "async_std_lib",
+    doc = "- [`async_std_updating`](crate::async_std_updating)\n"
+)]
+#[cfg_attr(
+    feature = "tokio_lib",
+    doc = "- [`tokio_updating`](crate::tokio_updating)\n"
+)]
+#[cfg_attr(
+    not(any(feature = "async_std_lib", feature = "tokio_lib")),
+    doc = "- Asynchronous features are disabled, see [here](crate#features) for more information.\n"
+)]
 ///
 /// ## Errors
 ///
