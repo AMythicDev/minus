@@ -1,15 +1,14 @@
 //! Dynamic information within a pager window.
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
-use crate::utils::draw;
+use crate::utils::{draw, map_events};
 use crate::LineNumbers;
 use crate::{Lines, Result};
 
 use crossterm::{
-    cursor::{Hide, Show},
-    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
+    cursor::Hide,
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{enable_raw_mode, EnterAlternateScreen},
 };
 
 use std::io::{prelude::*, stdout};
@@ -40,57 +39,11 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
         if string.lines().count() < rows {
             draw(&string, rows, &mut upper_mark, ln)?;
         }
-        // Drop the string
+        // Keap a copy of the string for later uee and drop it
+        let str_copy = string.to_string();
         drop(string);
-
-        // Poll for keypresses
-        if poll(Duration::from_millis(10)).unwrap() {
-            match read().unwrap() {
-                // If q or Ctrl+C is pressed, reset all changes to the terminal and quit
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('q'),
-                    modifiers: KeyModifiers::NONE,
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::Char('c'),
-                    modifiers: KeyModifiers::CONTROL,
-                }) => {
-                    execute!(stdout(), LeaveAlternateScreen)?;
-                    disable_raw_mode()?;
-                    execute!(stdout(), Show)?;
-                    std::process::exit(0);
-                }
-                // If Down arrow is pressed, add 1 to the marker and update the string
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    upper_mark += 1;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
-                }
-                // If Up arrow is pressed, subtract 1 from the marker and update the string
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    upper_mark = upper_mark.saturating_sub(1);
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
-                }
-                // When terminal is resized, update the rows and redraw
-                Event::Resize(_, height) => {
-                    rows = height as usize;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('l'),
-                    modifiers: KeyModifiers::CONTROL,
-                }) => {
-                    ln = !ln;
-                    draw(&mutex.lock().unwrap(), rows, &mut upper_mark, ln)?;
-                }
-                _ => {}
-            }
-        }
+        // Check for events asynchronously
+        map_events(&mut ln, &mut upper_mark, &mut rows, &str_copy)?;
     }
 }
 

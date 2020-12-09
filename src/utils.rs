@@ -1,14 +1,78 @@
 //! See the [`draw`] function exposed by this module.
 use crossterm::{
     cursor::MoveTo,
+    cursor::Show,
+    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
+    execute,
     style::Attribute,
-    terminal::{Clear, ClearType},
+    terminal::{disable_raw_mode, Clear, ClearType, LeaveAlternateScreen},
 };
-
+use std::io::{prelude::*, stdout};
+use std::time::Duration;
 use std::{
     fmt::Write as _,
     io::{self, Write as _},
 };
+
+use crate::{Lines, Result};
+
+// Behaviours on different events such as key presses, resizing
+pub(crate) fn map_events(
+    ln: &mut LineNumbers,
+    mut upper_mark: &mut usize,
+    rows: &mut usize,
+    text: &str,
+) -> Result {
+    // Poll for keypresses
+    if poll(Duration::from_millis(10)).unwrap() {
+        match read().unwrap() {
+            // If q or Ctrl+C is pressed, reset all changes to the terminal and quit
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('q'),
+                modifiers: KeyModifiers::NONE,
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers: KeyModifiers::CONTROL,
+            }) => {
+                execute!(stdout(), LeaveAlternateScreen)?;
+                disable_raw_mode()?;
+                execute!(stdout(), Show)?;
+                std::process::exit(0);
+            }
+            // If Down arrow is pressed, add 1 to the marker and update the string
+            Event::Key(KeyEvent {
+                code: KeyCode::Down,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                *upper_mark += 1;
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            // If Up arrow is pressed, subtract 1 from the marker and update the string
+            Event::Key(KeyEvent {
+                code: KeyCode::Up,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                *upper_mark = upper_mark.saturating_sub(1);
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            // When terminal is resized, update the rows and redraw
+            Event::Resize(_, height) => {
+                *rows = height as usize;
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('l'),
+                modifiers: KeyModifiers::CONTROL,
+            }) => {
+                *ln = !*ln;
+                draw(text, *rows, &mut upper_mark, *ln)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
 
 /// Draws (at most) `rows` `lines`, where the first line to display is
 /// `upper_mark`. This function will always try to display as much lines as
