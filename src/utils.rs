@@ -1,9 +1,7 @@
 //! See the [`draw`] function exposed by this module.
 use crossterm::{
     cursor::MoveTo,
-    cursor::Show,
-    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
-    execute,
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     style::Attribute,
     terminal::{disable_raw_mode, Clear, ClearType, LeaveAlternateScreen},
 };
@@ -14,93 +12,58 @@ use std::{
     io::{self, Write as _},
 };
 
-use crate::{Lines, Result};
+/// Events handled by the `minus` pager.
+#[derive(Debug, Copy, Clone)]
+pub(crate) enum InputEvent {
+    /// `Ctrl+C` or `Q`, exits the application.
+    Exit,
+    /// The terminal was resized. Contains the new number of rows.
+    UpdateRows(usize),
+    /// `Up` or `Down` was pressed. Contains the new value for the upper mark.
+    UpdateUpperMark(usize),
+    /// `Ctrl+L`, inverts the line number display. Contains the new value.
+    UpdateLineNumber(LineNumbers),
+}
 
-// Behaviours on different events such as key presses, resizing
-pub(crate) fn map_events(
-    ln: &mut LineNumbers,
-    mut upper_mark: &mut usize,
-    rows: &mut usize,
-    text: &str,
-) -> Result {
-    // Poll for keypresses
-    if poll(Duration::from_millis(10)).unwrap() {
-        match read().unwrap() {
-            // If q or Ctrl+C is pressed, reset all changes to the terminal and quit
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('q'),
-                modifiers: KeyModifiers::NONE,
-            })
-            | Event::Key(KeyEvent {
-                code: KeyCode::Char('c'),
-                modifiers: KeyModifiers::CONTROL,
-            }) => {
-                execute!(stdout(), LeaveAlternateScreen)?;
-                disable_raw_mode()?;
-                execute!(stdout(), Show)?;
-                std::process::exit(0);
-            }
-            // Durng these events add a value to the upper_mark for moving down
-            // Arrow Down - 1
-            // Scrool Down - 5
-            // Page Down - Number of rows -1
-            Event::Key(KeyEvent {
-                code: KeyCode::Down,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                *upper_mark += 1;
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::PageDown,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                *upper_mark += *rows - 1;
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => {
-                *upper_mark += 5;
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            // Durng these events subtact a value to the upper_mark for moving up
-            // Arrow Down - 1
-            // Scrool Down - 5
-            // Page Down - Number of rows -1
-            Event::Key(KeyEvent {
-                code: KeyCode::Up,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                *upper_mark = upper_mark.saturating_sub(1);
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::PageUp,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                *upper_mark = upper_mark.saturating_sub(*rows - 1);
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => {
-                *upper_mark = upper_mark.saturating_sub(5);
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            // When terminal is resized, update the rows and redraw
-            Event::Resize(_, height) => {
-                *rows = height as usize;
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            // Map Ctrl+L to enable line numbers
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('l'),
-                modifiers: KeyModifiers::CONTROL,
-            }) => {
-                *ln = !*ln;
-                draw(text, *rows, &mut upper_mark, *ln)?;
-            }
-            _ => {}
+/// Returns the input corresponding to the given event, updating the data as
+/// needed (`upper_mark`, `ln` or nothing).
+///
+/// - `upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
+/// - `ln` will be inverted if `can_change_ln` is `true` and one of the
+///   `tokio_lib` and `async_std_lib` feature is active. See the `Not`
+///   implementation for [`LineNumbers`] for more information.
+pub(crate) fn handle_input(
+    ev: Event,
+    upper_mark: usize,
+    ln: LineNumbers,
+    can_change_ln: bool,
+) -> Option<InputEvent> {
+    match ev {
+        Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
+        Event::Key(KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+        Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('l'),
+            modifiers: KeyModifiers::CONTROL,
+        }) if can_change_ln & cfg!(any(feature = "async_std_lib", feature = "tokio_lib")) => {
+            Some(InputEvent::UpdateLineNumber(!ln))
         }
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('q'),
+            modifiers: KeyModifiers::NONE,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::Char('c'),
+            modifiers: KeyModifiers::CONTROL,
+        }) => Some(InputEvent::Exit),
+        _ => None,
     }
-    Ok(())
 }
 
 /// Draws (at most) `rows` `lines`, where the first line to display is
@@ -113,24 +76,20 @@ pub(crate) fn map_events(
 ///
 /// It will not wrap long lines.
 pub(crate) fn draw(
+    out: &mut impl io::Write,
     lines: &str,
     rows: usize,
     upper_mark: &mut usize,
     ln: LineNumbers,
 ) -> io::Result<()> {
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
+    write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    // Clear the screen and place cursor at the very top left.
-    write!(&mut out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
+    write_lines(out, lines, rows, upper_mark, ln)?;
 
-    write_lines(&mut out, lines, rows, upper_mark, ln)?;
-
-    // Display the prompt.
     #[allow(clippy::cast_possible_truncation)]
     {
         write!(
-            &mut out,
+            out,
             "{}{}Press q or Ctrl+C to quit{}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
             MoveTo(0, rows as u16),
@@ -174,7 +133,6 @@ pub(crate) fn write_lines(
         };
     }
 
-    // Get the range of lines between upper mark and lower mark.
     let lines = lines
         .lines()
         .skip(*upper_mark)
@@ -227,7 +185,7 @@ pub(crate) fn write_lines(
 ///
 /// This implements [`Not`](std::ops::Not) to allow turning on/off line numbers
 /// when they where not locked in by the binary displaying the text.
-#[derive(PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum LineNumbers {
     /// Enable line numbers permanently, cannot be turned off by user.
     AlwaysOn,
