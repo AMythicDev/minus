@@ -27,6 +27,7 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
     let mut rows = rows as usize;
     // The upper mark of scrolling
     let mut upper_mark = 0;
+    let mut last_printed = String::new();
 
     loop {
         // Lock the data and check errors
@@ -38,14 +39,14 @@ fn init(mutex: &Lines, mut ln: LineNumbers) -> Result {
         // If they are not equal, display the new data
         let string = string.unwrap();
         // Use .eq() here as == cannot compare MutexGuard with a normal string
-        if string.lines().count() < rows {
+        if string.lines().count() < rows && !string.eq(&last_printed) {
             draw(&string, rows, &mut upper_mark, ln)?;
         }
         // Keap a copy of the string for later uee and drop it
-        let str_copy = string.to_string();
+        last_printed = string.to_string();
         drop(string);
         // Check for events asynchronously
-        map_events(&mut ln, &mut upper_mark, &mut rows, &str_copy)?;
+        map_events(&mut ln, &mut upper_mark, &mut rows, &last_printed)?;
     }
 }
 
