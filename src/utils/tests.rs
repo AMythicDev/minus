@@ -1,3 +1,4 @@
+#![allow(clippy::shadow_unrelated)]
 use super::*;
 
 use std::fmt::Write;
@@ -236,6 +237,7 @@ fn big_line_numbers_are_padded() {
 
 #[test]
 fn line_numbers_not() {
+    #[allow(clippy::enum_glob_use)]
     use LineNumbers::*;
 
     assert_eq!(AlwaysOn, !AlwaysOn);
@@ -246,6 +248,7 @@ fn line_numbers_not() {
 
 #[test]
 fn line_numbers_invertible() {
+    #[allow(clippy::enum_glob_use)]
     use LineNumbers::*;
 
     assert!(!AlwaysOn.is_invertible());
@@ -496,7 +499,7 @@ fn draw_help_message() {
     .expect("Should have written");
 
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
-    assert!(res.contains("Press q or Ctrl+C to quit"));
+    assert!(res.contains("Press q or Ctrl+C to quit, g/G for top/bottom"));
     assert!(!res.contains(", Ctrl+L to display/hide line numbers"));
 
     let mut out = Vec::with_capacity(lines.len());
@@ -504,7 +507,7 @@ fn draw_help_message() {
     assert!(draw(&mut out, lines, rows, &mut upper_mark, LineNumbers::Enabled,).is_ok());
 
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
-    assert!(res.contains("Press q or Ctrl+C to quit"));
+    assert!(res.contains("Press q or Ctrl+C to quit, g/G for top/bottom"));
     assert!(res.contains(", Ctrl+L to display/hide line numbers"));
 }
 
@@ -571,6 +574,28 @@ fn input_handling() {
     {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::SHIFT,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            handle_input(ev, upper_mark, ln)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('G'),
             modifiers: KeyModifiers::SHIFT,
         });
         assert_eq!(

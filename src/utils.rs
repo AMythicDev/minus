@@ -97,6 +97,7 @@ enum InputEvent {
     /// The terminal was resized. Contains the new number of rows.
     UpdateRows(usize),
     /// `Up` or `Down` was pressed. Contains the new value for the upper mark.
+    /// Also sent by `g` or `G`, which behave like Vim: jump to top or bottom.
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
@@ -110,19 +111,42 @@ enum InputEvent {
 ///   for [`LineNumbers`] for more information.
 fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
     match ev {
+        // Scroll down by one.
         Event::Key(KeyEvent {
             code: KeyCode::Down,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
+        // Scroll up by one.
         Event::Key(KeyEvent {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+        // Go to top.
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::UpdateUpperMark(usize::MIN)),
+        // Go to bottom.
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::SHIFT,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::SHIFT,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
+        // Resize event from the terminal.
         Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
+        // Switch line display.
         Event::Key(KeyEvent {
             code: KeyCode::Char('l'),
             modifiers: KeyModifiers::CONTROL,
         }) => Some(InputEvent::UpdateLineNumber(!ln)),
+        // Quit.
         Event::Key(KeyEvent {
             code: KeyCode::Char('q'),
             modifiers: KeyModifiers::NONE,
@@ -159,7 +183,7 @@ fn draw(
     {
         write!(
             out,
-            "{mv}\r{rev}Press q or Ctrl+C to quit{lines}{reset}",
+            "{mv}\r{rev}Press q or Ctrl+C to quit, g/G for top/bottom{lines}{reset}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
             mv = MoveTo(0, rows as u16),
             rev = Attribute::Reverse,
