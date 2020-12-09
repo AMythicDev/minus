@@ -1,16 +1,12 @@
-//! See the [`draw`] function exposed by this module.
+//! Utilities that are used in both static and async display.
 use crossterm::{
     cursor::MoveTo,
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{Event, KeyCode, KeyEvent, KeyModifiers},
     style::Attribute,
-    terminal::{disable_raw_mode, Clear, ClearType, LeaveAlternateScreen},
+    terminal::{Clear, ClearType},
 };
-use std::io::{prelude::*, stdout};
-use std::time::Duration;
-use std::{
-    fmt::Write as _,
-    io::{self, Write as _},
-};
+
+use std::io;
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq)]

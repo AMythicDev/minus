@@ -1,5 +1,7 @@
 use super::*;
 
+use std::fmt::Write;
+
 #[test]
 fn short_no_line_numbers() {
     let lines = "A line\nAnother line";
