@@ -33,7 +33,7 @@ use std::io::{self, Write};
 /// ```
 /// use std::fmt::Write;
 ///
-/// fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let mut output = String::new();
 ///
 ///     for i in 0..=30 {
