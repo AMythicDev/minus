@@ -28,17 +28,17 @@ pub type Lines = Arc<Mutex<String>>;
 ///
 /// ## Example
 ///
-/// ```
+/// ```rust,no_run
 /// use futures::join;
 /// use tokio::time::sleep;
-/// 
+///
 /// use std::fmt::Write;
 /// use std::time::Duration;
-/// 
+///
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let output = minus::Lines::default();
-/// 
+///
 ///     let increment = async {
 ///         for i in 0..=30_i32 {
 ///             let mut output = output.lock().unwrap();
@@ -48,7 +48,7 @@ pub type Lines = Arc<Mutex<String>>;
 ///         }
 ///         Result::<_, std::fmt::Error>::Ok(())
 ///     };
-/// 
+///
 ///     let (res1, res2) = join!(
 ///         minus::tokio_updating(minus::Lines::clone(&output), minus::LineNumbers::Disabled),
 ///         increment
@@ -86,7 +86,7 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 ///
 /// ## Example
 ///
-/// ```
+/// ```rust,no_run
 /// use async_std::task::sleep;
 /// use futures::join;
 ///

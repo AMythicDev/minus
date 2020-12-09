@@ -30,7 +30,7 @@ use std::io::{self, Write};
 ///
 /// ## Example
 ///
-/// ```
+/// ```rust,no_run
 /// use std::fmt::Write;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
