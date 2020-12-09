@@ -229,7 +229,7 @@ fn big_line_numbers_are_padded() {
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert_eq!(
-        "\r 96. L95\n\r 97. L96\n\r 98. L97\n\r 99. L98\n\r100. L99\n\r101. L100\n\r102. L101\n\r103. L102\n\r104. L103\n",
+        "\r 96. L95\n\r 97. L96\n\r 98. L97\n\r 99. L98\n\r100. L99\n\r101. L100\n\r102. L101\n\r103. L102\n\r104. L103\n\r105. L104\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(upper_mark, 95);
@@ -320,7 +320,7 @@ fn draw_long_no_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\rA line\n\rAnother line\n\rThird line\n"));
+        .contains("\rA line\n\rAnother line\n"));
     assert_eq!(upper_mark, 0);
 
     // This ensures that asking for a position other than 0 works.
@@ -339,13 +339,13 @@ fn draw_long_no_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\rAnother line\n\rThird line\n\rFourth line\n"));
+        .contains("\rAnother line\n\rThird line\n"));
     assert_eq!(upper_mark, 1);
 
     // This test ensures that as much text as possible will be displayed, even
     // when less is asked for.
     let mut out = Vec::with_capacity(lines.len());
-    let mut upper_mark = 2;
+    let mut upper_mark = 3;
     let rows = 3;
 
     assert!(draw(
@@ -359,8 +359,8 @@ fn draw_long_no_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\rAnother line\n\rThird line\n\rFourth line\n"));
-    assert_eq!(upper_mark, 1);
+        .contains("\rThird line\n\rFourth line\n"));
+    assert_eq!(upper_mark, 2);
 }
 
 #[test]
@@ -412,7 +412,7 @@ fn draw_long_with_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r1. A line\n\r2. Another line\n\r3. Third line\n"));
+        .contains("\r1. A line\n\r2. Another line\n"));
     assert_eq!(upper_mark, 0);
 
     // This ensures that asking for a position other than 0 works.
@@ -431,21 +431,21 @@ fn draw_long_with_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r2. Another line\n\r3. Third line\n\r4. Fourth line\n"));
+        .contains("\r2. Another line\n\r3. Third line\n"));
     assert_eq!(upper_mark, 1);
 
     // This test ensures that as much text as possible will be displayed, even
     // when less is asked for.
     let mut out = Vec::with_capacity(lines.len());
-    let mut upper_mark = 2;
+    let mut upper_mark = 3;
     let rows = 3;
 
     assert!(draw(&mut out, lines, rows, &mut upper_mark, LineNumbers::Enabled).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r2. Another line\n\r3. Third line\n\r4. Fourth line\n"));
-    assert_eq!(upper_mark, 1);
+        .contains("\r3. Third line\n\r4. Fourth line\n"));
+    assert_eq!(upper_mark, 2);
 }
 
 #[test]

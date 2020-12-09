@@ -177,7 +177,8 @@ fn draw(
 ) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    write_lines(out, lines, rows, upper_mark, ln)?;
+    // There must be one free line for the help message at the bottom.
+    write_lines(out, lines, rows.saturating_sub(1), upper_mark, ln)?;
 
     #[allow(clippy::cast_possible_truncation)]
     {
@@ -219,12 +220,11 @@ pub(crate) fn write_lines(
     // String cannot yield an infinite iterator, at worst a very long one.
     let line_count = lines.lines().count();
 
-    // This will either do '-1' or '-0' depending on the lines having a blank
-    // line at the end or not.
-    let mut lower_mark = *upper_mark + rows - lines.ends_with('\n') as usize;
+    // This may be too high but the `Iterator::take` call below will limit this
+    // anyway while allowing us to display as much lines as possible.
+    let lower_mark = upper_mark.saturating_add(rows.min(line_count));
 
     if lower_mark > line_count {
-        lower_mark = line_count;
         *upper_mark = if line_count < rows {
             0
         } else {
@@ -232,19 +232,15 @@ pub(crate) fn write_lines(
         };
     }
 
-    let lines = lines
-        .lines()
-        .skip(*upper_mark)
-        .take(lower_mark - *upper_mark);
+    let displayed_lines = lines.lines().skip(*upper_mark).take(rows.min(line_count));
 
     match ln {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
-            for line in lines {
+            for line in displayed_lines {
                 writeln!(out, "\r{}", line)?;
             }
         }
         LineNumbers::AlwaysOn | LineNumbers::Enabled => {
-            let max_line_number = lower_mark + *upper_mark + 1;
             #[allow(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
@@ -254,13 +250,13 @@ pub(crate) fn write_lines(
                 // Compute the length of a number as a string without allocating.
                 //
                 // While this may in theory lose data, it will only do so if
-                // `max_line_number` is bigger than 2^52, which will probably
-                // never happen. Let's worry about that only if someone reports
-                // a bug for it.
-                let len_line_number = (max_line_number as f64).log10().floor() as usize + 1;
-                debug_assert_eq!(max_line_number.to_string().len(), len_line_number);
+                // `line_count` is bigger than 2^52, which will probably never
+                // happen. Let's worry about that only if someone reports a bug
+                // for it.
+                let len_line_number = (line_count as f64).log10().floor() as usize + 1;
+                debug_assert_eq!(line_count.to_string().len(), len_line_number);
 
-                for (idx, line) in lines.enumerate() {
+                for (idx, line) in displayed_lines.enumerate() {
                     writeln!(
                         out,
                         "\r{number: >len$}. {line}",
