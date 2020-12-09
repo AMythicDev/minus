@@ -1,7 +1,7 @@
 //! Static information output, see [`page_all`].
 use crate::{utils, Result};
 
-use crossterm::{cursor, event, terminal};
+use crossterm::terminal;
 
 use std::io::{self, Write};
 
@@ -44,51 +44,22 @@ use std::io::{self, Write};
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str, mut ln: crate::LineNumbers) -> Result {
-    let (_, rows) = terminal::size()?;
-    let mut rows = rows as usize;
-
-    let stdout = io::stdout();
-    let mut out = stdout.lock();
-
-    // The upper mark of scrolling
-    let mut upper_mark = 0;
-
+pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
     // If the number of lines in the output is less than the number of rows
     // then print it and exit the function.
     {
+        let (_, rows) = terminal::size()?;
+        let rows = rows as usize;
         let line_count = lines.lines().count();
+
         if rows > line_count {
-            utils::write_lines(&mut out, lines, rows, &mut upper_mark, ln)?;
+            let stdout = io::stdout();
+            let mut out = stdout.lock();
+            utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
             out.flush()?;
             return Ok(());
         }
     }
 
-    // Initialize the terminal
-    crossterm::execute!(&mut out, terminal::EnterAlternateScreen)?;
-    terminal::enable_raw_mode()?;
-    crossterm::execute!(&mut out, cursor::Hide)?;
-
-    loop {
-        if event::poll(std::time::Duration::from_millis(10))? {
-            use utils::InputEvent::*;
-
-            let input = utils::handle_input(event::read()?, upper_mark, ln);
-            match input {
-                None => continue,
-                Some(Exit) => {
-                    crossterm::execute!(out, terminal::LeaveAlternateScreen)?;
-                    terminal::disable_raw_mode()?;
-                    crossterm::execute!(out, cursor::Show)?;
-                    return Ok(());
-                }
-                Some(UpdateRows(r)) => rows = r,
-                Some(UpdateUpperMark(um)) => upper_mark = um,
-                Some(UpdateLineNumber(l)) => ln = l,
-            };
-        }
-
-        utils::draw(&mut out, lines, rows, &mut upper_mark, ln)?;
-    }
+    utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)
 }
