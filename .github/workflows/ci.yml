@@ -49,6 +49,8 @@ jobs:
       run: cargo check --example=dyn_async_std --features=async_std_lib
     - name: Static
       run: cargo check --example=static --features=static_output
+    - name: Static long
+      run: cargo check --example=static_long --features=static_output
 
   lint:
     name: lint
