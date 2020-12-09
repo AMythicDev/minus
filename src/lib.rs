@@ -73,9 +73,6 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use std::sync::{Arc, Mutex};
-
 mod error;
 mod utils;
 
@@ -84,18 +81,11 @@ mod rt_wrappers;
 #[cfg(feature = "static_output")]
 mod static_pager;
 
-/// An atomically reference counted string of all output for the pager.
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub type Lines = Arc<Mutex<String>>;
-
 pub use error::{Error, Result, TermError};
-pub use utils::LineNumbers;
+pub use utils::{cleanup, LineNumbers};
 
-#[cfg(feature = "tokio_lib")]
-pub use rt_wrappers::tokio_updating;
-
-#[cfg(feature = "async_std_lib")]
-pub use rt_wrappers::async_std_updating;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub use rt_wrappers::*;
 
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
