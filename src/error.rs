@@ -1,6 +1,5 @@
 //! See [`Error`] and [`Result`].
-use std::fmt;
-use std::io;
+use std::{fmt, io};
 
 /// Type alias for easier use of errors produced by [`minus`](crate).
 pub type Result<T = (), E = Error> = std::result::Result<T, E>;

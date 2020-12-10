@@ -1,23 +1,27 @@
 //! Static information output, see [`page_all`].
-use crate::utils::{draw, map_events};
-use crate::Result;
+use crate::{utils, Result};
 
-use crossterm::{
-    cursor::{Hide, Show},
-    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
-    execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-};
+use crossterm::terminal;
 
-use std::io::{stdout, Write};
+use std::io::{self, Write};
 
 /// Outputs static information.
 ///
 /// Once called, the `&str` passed to this function can never be changed. If you
-/// want dynamic information, see [`async_std_updating`] and [`tokio_updating`].
+/// want dynamic information:
 ///
-/// [`async_std_updating`]: crate::rt_wrappers::async_std_updating
-/// [`tokio_updating`]: crate::rt_wrappers::tokio_updating
+#[cfg_attr(
+    feature = "async_std_lib",
+    doc = "- [`async_std_updating`](crate::async_std_updating)\n"
+)]
+#[cfg_attr(
+    feature = "tokio_lib",
+    doc = "- [`tokio_updating`](crate::tokio_updating)\n"
+)]
+#[cfg_attr(
+    not(any(feature = "async_std_lib", feature = "tokio_lib")),
+    doc = "- Asynchronous features are disabled, see [here](crate#features) for more information.\n"
+)]
 ///
 /// ## Errors
 ///
@@ -26,51 +30,36 @@ use std::io::{stdout, Write};
 ///
 /// ## Example
 ///
-/// ```
+/// ```rust,no_run
 /// use std::fmt::Write;
 ///
-/// fn main() -> minus::Result<(), Box<dyn std::error::Error>> {
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     let mut output = String::new();
 ///
-///     for i in 1..=30 {
+///     for i in 0..=30 {
 ///         writeln!(output, "{}", i)?;
 ///     }
 ///
-///     minus::page_all(&output, minus::LineNumbers::Yes)?;
+///     minus::page_all(&output, minus::LineNumbers::Enabled)?;
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str, mut ln: crate::LineNumbers) -> Result {
-    // Get terminal rows and convert it to usize
-    let (_, rows) = crossterm::terminal::size()?;
-    let mut rows = rows as usize;
-
+pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
     // If the number of lines in the output is less than the number of rows
-    // then print it and quit
-    // FIXME(poliorcetics): use `draw` here for improved performance and avoid
-    // code duplication.
+    // then print it and exit the function.
     {
-        let range: Vec<&str> = lines.split_terminator('\n').collect();
-        if rows > range.len() {
-            for line in range {
-                println!("{}", line);
-            }
-            std::process::exit(0);
+        let (_, rows) = terminal::size()?;
+        let rows = rows as usize;
+        let line_count = lines.lines().count();
+
+        if rows > line_count {
+            let stdout = io::stdout();
+            let mut out = stdout.lock();
+            utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
+            out.flush()?;
+            return Ok(());
         }
     }
 
-    // Initialize the terminal
-    execute!(stdout(), EnterAlternateScreen)?;
-    enable_raw_mode()?;
-    execute!(stdout(), Hide)?;
-
-    // The upper mark of scrolling
-    let mut upper_mark = 0;
-
-    // Draw at the very beginning
-    draw(lines, rows, &mut upper_mark, ln)?;
-
-    loop {
-        map_events(&mut ln, &mut upper_mark, &mut rows, &lines)?;
-    }
+    utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)
 }

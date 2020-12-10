@@ -27,15 +27,3 @@ static_output = []
 futures = "^0.3.8"
 async-std = { version = "^1.7.0", features = ["attributes"] }
 tokio = { version = "^0.3.5", features = ["rt", "macros", "rt-multi-thread", "time"] }
-
-[[example]]
-name = "dyn_async_std"
-path = "examples/dyn_async_std.rs"
-
-[[example]]
-name = "dyn_tokio"
-path = "examples/dyn_tokio.rs"
-
-[[example]]
-name = "static"
-path = "examples/static.rs"
