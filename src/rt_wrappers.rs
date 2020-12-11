@@ -40,7 +40,7 @@ pub type Lines = Arc<Mutex<String>>;
 ///     let output = minus::Lines::default();
 ///
 ///     let increment = async {
-///         for i in 0..=30_i32 {
+///         for i in 0..=30_u32 {
 ///             let mut output = output.lock().unwrap();
 ///             writeln!(output, "{}", i)?;
 ///             drop(output);
@@ -98,7 +98,7 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 ///     let output = minus::Lines::default();
 ///
 ///     let increment = async {
-///         for i in 0..=30_i32 {
+///         for i in 0..=30_u32 {
 ///             let mut output = output.lock().unwrap();
 ///             writeln!(output, "{}", i)?;
 ///             drop(output);

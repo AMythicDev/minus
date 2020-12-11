@@ -9,7 +9,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = minus::Lines::default();
 
     let increment = async {
-        for i in 0..=30_i32 {
+        for i in 0..=30_u32 {
             let mut output = output.lock().unwrap();
             writeln!(output, "{}", i)?;
             drop(output);
