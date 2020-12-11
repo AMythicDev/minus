@@ -127,5 +127,5 @@ pub async fn async_std_updating(mutex: Lines, ln: LineNumbers) -> Result {
 
 /// Private function that contains the implemenation for the async display.
 fn run(mutex: &Lines, ln: LineNumbers) -> Result {
-    utils::alternate_screen_paging(ln, &mutex, |m: &&Lines| m.lock().unwrap())
+    utils::alternate_screen_paging(ln, &mutex, |m| m.lock().unwrap())
 }

@@ -79,8 +79,18 @@ where
     let (mut out, mut rows) = setup(&stdout)?;
     // The upper mark of scrolling.
     let mut upper_mark = 0;
+    let mut last_printed = String::new();
 
     loop {
+        let lock = get_lines(lines);
+        let string = lock.as_ref().to_string();
+        drop(lock);
+
+        if !string.eq(&last_printed) {
+            draw(&mut out, &string, rows, &mut upper_mark, ln)?;
+            last_printed = string.clone();
+        }
+
         if event::poll(std::time::Duration::from_millis(10))? {
             let input = handle_input(event::read()?, upper_mark, ln);
 
@@ -90,16 +100,9 @@ where
                 Some(InputEvent::UpdateRows(r)) => rows = r,
                 Some(InputEvent::UpdateUpperMark(um)) => upper_mark = um,
                 Some(InputEvent::UpdateLineNumber(l)) => ln = l,
-            };
+            }
+            draw(&mut out, &string, rows, &mut upper_mark, ln)?;
         }
-
-        draw(
-            &mut out,
-            get_lines(lines).as_ref(),
-            rows,
-            &mut upper_mark,
-            ln,
-        )?;
     }
 }
 
@@ -129,10 +132,18 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
         Event::Key(KeyEvent {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::Char('j'),
+            modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
         // Scroll down by one.
         Event::Key(KeyEvent {
             code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        })
+        | Event::Key(KeyEvent {
+            code: KeyCode::Char('k'),
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
         // Mouse scroll up.
