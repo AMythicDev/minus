@@ -2,14 +2,21 @@
 use std::{fmt, io};
 use thiserror::Error;
 
+/// Different error types that could be encountered in runtime
 #[derive(Debug, Error)]
 pub enum Error {
+    /// Input-output errors like locking the standard output
     #[error("There was an input-output error")]
     Io(io::Error),
+    /// Standard output is not a terminal
     #[error("The standard output is not a valid terminal")]
     InvalidTerm,
+    /// Operation on terminal failed
     #[error("Failure in terminal operation")]
     Term(TermError),
+    /// The tokio task has panicked or cancelled
+    ///
+    /// Gated on the `tokio_lib` feature
     #[cfg(feature = "tokio_lib")]
     #[error("The Tokio task had panicked or was cancelled")]
     Join(tokio::task::JoinError),

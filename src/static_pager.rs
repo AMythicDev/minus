@@ -2,6 +2,7 @@
 use crate::{utils, Result};
 
 use crossterm::terminal;
+use crossterm::tty::IsTty;
 
 use std::io::{self, Write};
 
@@ -45,21 +46,32 @@ use std::io::{self, Write};
 /// }
 /// ```
 pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
-    // If the number of lines in the output is less than the number of rows
+    let stdout = io::stdout();
+    let line_count = lines.lines().count();
+
+    // If stdout is not a tty, print all the output without paging
     // then print it and exit the function.
     {
-        let (_, rows) = terminal::size()?;
-        let rows = rows as usize;
-        let line_count = lines.lines().count();
-
-        if rows > line_count {
-            let stdout = io::stdout();
+        if !stdout.is_tty() {
             let mut out = stdout.lock();
-            utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
+            utils::write_lines(&mut out, lines, line_count, &mut 0, ln)?;
             out.flush()?;
             return Ok(());
         }
     }
 
-    utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)
+    {
+        let (_, rows) = terminal::size()?;
+        let rows = rows as usize;
+
+        // If the number of lines in the output is less than the number of rows
+        if rows > line_count {
+            let mut out = stdout.lock();
+            utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
+            out.flush()?;
+            return Ok(());
+        } else {
+            utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)
+        }
+    }
 }

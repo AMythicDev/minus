@@ -21,15 +21,24 @@ use std::io::{self, Write as _};
 fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
     let mut out = stdout.lock();
 
-    crossterm::execute!(out, terminal::EnterAlternateScreen)?;
-    terminal::enable_raw_mode()?;
-    crossterm::execute!(out, cursor::Hide)?;
-    crossterm::execute!(out, event::EnableMouseCapture)?;
+    // Check if the standard output is a TTY and not a file or somethng else but only in dynamic mode
+    #[cfg(any(feature = "tokio_lib", feature = "anync_std_lib"))]
+    {
+        use crossterm::tty::IsTty;
 
-    crossterm::execute!(out, terminal::EnterAlternateScreen).context("Failed to switch to alternate screen")?;
+        if !out.is_tty() {
+            Err(crate::Error::InvalidTerm)
+        } else {
+            Ok(())
+        }?;
+    }
+
+    crossterm::execute!(out, terminal::EnterAlternateScreen)
+        .context("Failed to switch to alternate screen")?;
     terminal::enable_raw_mode().context("Failed to enable raw mode")?;
     crossterm::execute!(out, cursor::Hide).context("Failed to hide the cursor")?;
-    crossterm::execute!(out, event::EnableMouseCapture).context("Failed to enable mouse capture")?;
+    crossterm::execute!(out, event::EnableMouseCapture)
+        .context("Failed to enable mouse capture")?;
 
     let (_, rows) = terminal::size().context("Couldn't determine the terminal size")?;
 
@@ -47,10 +56,12 @@ fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
 /// Cleaning up the terminal can fail, see [`Result`](crate::Result).
 pub fn cleanup(mut out: impl io::Write) -> crate::Result {
     // Reverse order of setup.
-    crossterm::execute!(out, event::DisableMouseCapture).context("Failed to disable mouse captureing terminal")?;
+    crossterm::execute!(out, event::DisableMouseCapture)
+        .context("Failed to disable mouse captureing terminal")?;
     crossterm::execute!(out, cursor::Show).context("Failed to show the cursor")?;
     terminal::disable_raw_mode().context("Failed to disable raw mode")?;
-    crossterm::execute!(out, terminal::LeaveAlternateScreen).context("Failed to switch back to main screen")?;
+    crossterm::execute!(out, terminal::LeaveAlternateScreen)
+        .context("Failed to switch back to main screen")?;
     Ok(())
 }
 
@@ -81,9 +92,8 @@ where
     F: Fn(&L) -> S,
 {
     let stdout = io::stdout();
-    let (mut out, mut rows) = setup(&stdout).with_context(|| {
-        format!("Failed to initialize the terminak")
-    })?;
+    let (mut out, mut rows) =
+        setup(&stdout).with_context(|| format!("Failed to initialize the terminak"))?;
     // The upper mark of scrolling.
     let mut upper_mark = 0;
     let mut last_printed = String::new();
@@ -94,7 +104,8 @@ where
         drop(lock);
 
         if !string.eq(&last_printed) {
-            draw(&mut out, &string, rows, &mut upper_mark, ln).context("Failed to draw the new data")?;
+            draw(&mut out, &string, rows, &mut upper_mark, ln)
+                .context("Failed to draw the new data")?;
             last_printed = string.clone();
         }
 
