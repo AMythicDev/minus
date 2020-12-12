@@ -146,11 +146,18 @@ pass the limit.
 ## End user help
 Here is some help for the end user using an application that depends on minus
 
-* Press q or Ctrl+C to quit
-* Arrow up or arrow down scrolls through the output line by line
-* Scolling through mouse scrolls through the output by 5 lines
-* Page Up or Page Down scrolls through the output by entire page
-* Press Ctrl+L to toggle line numbers if a application has not forced it to be enabled/disabled
+| Action            |   Description|
+| ----------        | -------------|
+| Ctrl+C/q          | Quit the pager|
+| Arrow Up/k        | Scroll up by one line|
+| Arrow Down/j      | Scroll down by one line|
+| Page Up           | Scroll up by entire page|
+| Page Down         | Scroll down by entire page|
+| g                 | Go to the very the top of the output|
+| G                 | Go to the very the bottom of the output|
+| Mouse scroll Up   | Scroll up by 5 lines
+| Mouse scroll Down | Scroll down by 5 lines
+| Ctrl+L            | Toggle line numbers if not forced enabled/disabled|
 
 ## Contributing
 
