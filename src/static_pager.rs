@@ -69,7 +69,7 @@ pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
             let mut out = stdout.lock();
             utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
             out.flush()?;
-            return Ok(());
+            Ok(())
         } else {
             utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)
         }

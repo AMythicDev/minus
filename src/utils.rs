@@ -26,7 +26,7 @@ fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
     {
         use crossterm::tty::IsTty;
 
-        if !out.is_tty() {
+        if out.is_tty() {
             Err(crate::Error::InvalidTerm)
         } else {
             Ok(())
@@ -93,7 +93,7 @@ where
 {
     let stdout = io::stdout();
     let (mut out, mut rows) =
-        setup(&stdout).with_context(|| format!("Failed to initialize the terminak"))?;
+        setup(&stdout).with_context(|| "Failed to initialize the terminal".to_string())?;
     // The upper mark of scrolling.
     let mut upper_mark = 0;
     let mut last_printed = String::new();
