@@ -17,6 +17,8 @@ all-features = true
 async-std = { version = "^1.7.0", optional = true, default-features = false }
 crossterm = "0.18.2"
 tokio = { version = "^0.3.5", optional = true }
+anyhow = "*"
+thiserror = "*"
 
 [features]
 async_std_lib = [ "async-std" ]

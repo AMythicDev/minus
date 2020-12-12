@@ -1,47 +1,22 @@
 //! See [`Error`] and [`Result`].
 use std::{fmt, io};
+use thiserror::Error;
 
-/// Type alias for easier use of errors produced by [`minus`](crate).
-pub type Result<T = (), E = Error> = std::result::Result<T, E>;
-
-/// Global error type for [`minus`](crate).
-///
-/// You can get more informations about this error by calling
-/// [`source`](std::error::Error::source) on it.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Error {
-    /// The error is an IO one, for example locking `stdout` failed.
+    #[error("There was an input-output error")]
     Io(io::Error),
-    /// An operation on the terminal failed, for example resizing it.
+    #[error("The standard output is not a valid terminal")]
+    InvalidTerm,
+    #[error("Failure in terminal operation")]
     Term(TermError),
-    /// The task panicked or was cancelled.
-    ///
-    /// Gated on the `tokio_lib` feature.
     #[cfg(feature = "tokio_lib")]
+    #[error("The Tokio task had panicked or was cancelled")]
     Join(tokio::task::JoinError),
 }
 
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Io(e) => Some(e),
-            Self::Term(e) => e.source(),
-            #[cfg(feature = "tokio_lib")]
-            Self::Join(e) => Some(e),
-        }
-    }
-}
-
-impl fmt::Display for Error {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Io(e) => write!(fmt, "IO-error occurred: {}", e),
-            Self::Term(e) => write!(fmt, "Operation on terminal failed: {}", e),
-            #[cfg(feature = "tokio_lib")]
-            Self::Join(e) => write!(fmt, "Join error: {}", e),
-        }
-    }
-}
+/// Type alias for easier use of errors produced by [`minus`](crate).
+pub type Result<T = (), E = anyhow::Error> = anyhow::Result<T, E>;
 
 /// An operation on the terminal failed, for example resizing it.
 ///
@@ -66,21 +41,6 @@ impl fmt::Display for TermError {
         write!(fmt, "{}", self.0)
     }
 }
-
-macro_rules! impl_from {
-    ($from:path, $to:expr) => {
-        impl From<$from> for crate::Error {
-            fn from(e: $from) -> Self {
-                $to(e)
-            }
-        }
-    };
-}
-
-impl_from!(::std::io::Error, crate::Error::Io);
-impl_from!(crate::TermError, crate::Error::Term);
-#[cfg(feature = "tokio_lib")]
-impl_from!(::tokio::task::JoinError, crate::Error::Join);
 
 impl From<crossterm::ErrorKind> for crate::Error {
     fn from(e: crossterm::ErrorKind) -> Self {
