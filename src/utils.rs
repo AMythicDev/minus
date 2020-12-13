@@ -1,4 +1,5 @@
 //! Utilities that are used in both static and async display.
+use crate::TermError;
 use crossterm::{
     cursor::{self, MoveTo},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
@@ -6,8 +7,30 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-use anyhow::Context;
 use std::io::{self, Write as _};
+
+/// Errors that can occur during setup
+#[derive(Debug, thiserror::Error)]
+pub enum SetupError {
+    #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+    #[error("The standard output is not a valid terminal")]
+    InvalidTerminal,
+
+    #[error("Failed to switch to alternate screen")]
+    AlternateScreen(TermError),
+
+    #[error("Failed to enable raw mode")]
+    RawMode(TermError),
+
+    #[error("Failed to hide the cursor")]
+    HideCursor(TermError),
+
+    #[error("Failed to enable mouse capture")]
+    EnableMouseCapture(TermError),
+
+    #[error("Couldn't determine the terminal size")]
+    TerminalSize(TermError),
+}
 
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
@@ -17,52 +40,87 @@ use std::io::{self, Write as _};
 ///
 /// ## Errors
 ///
-/// Setting up the terminal can fail, see [`Result`](crate::Result).
-fn setup(stdout: &io::Stdout) -> crate::Result<(io::StdoutLock<'_>, usize)> {
+/// Setting up the terminal can fail, see [`SetupError`](SetupError).
+fn setup(stdout: &io::Stdout) -> std::result::Result<(io::StdoutLock<'_>, usize), SetupError> {
     let mut out = stdout.lock();
 
-    // Check if the standard output is a TTY and not a file or somethng else but only in dynamic mode
-    #[cfg(any(feature = "tokio_lib", feature = "anync_std_lib"))]
+    // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
+    #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     {
         use crossterm::tty::IsTty;
 
         if out.is_tty() {
-            Err(crate::Error::InvalidTerm)
+            Err(SetupError::InvalidTerminal)
         } else {
             Ok(())
         }?;
     }
 
     crossterm::execute!(out, terminal::EnterAlternateScreen)
-        .context("Failed to switch to alternate screen")?;
-    terminal::enable_raw_mode().context("Failed to enable raw mode")?;
-    crossterm::execute!(out, cursor::Hide).context("Failed to hide the cursor")?;
+        .map_err(|e| SetupError::AlternateScreen(e.into()))?;
+    terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
+    crossterm::execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
     crossterm::execute!(out, event::EnableMouseCapture)
-        .context("Failed to enable mouse capture")?;
+        .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
 
-    let (_, rows) = terminal::size().context("Couldn't determine the terminal size")?;
+    let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
     Ok((out, rows as usize))
 }
 
-/// Will try to cleanup the terminal and set it back to its orignal state,
-/// before the pager was setupped and called.
+/// Errors that can occur during clean up
+#[derive(Debug, thiserror::Error)]
+pub enum CleanupError {
+    #[error("Failed to disable mouse capture")]
+    DisableMouseCapture(TermError),
+
+    #[error("Failed to show the cursor")]
+    ShowCursor(TermError),
+
+    #[error("Failed to disable raw mode")]
+    DisableRawMode(TermError),
+
+    #[error("Failed to switch back to main screen")]
+    LeaveAlternateScreen(TermError),
+}
+
+/// Will try to clean up the terminal and set it back to its original state,
+/// before the pager was setup and called.
 ///
 /// Use this function if you encounter problems with your application not
 /// correctly setting back the terminal on errors.
 ///
 /// ## Errors
 ///
-/// Cleaning up the terminal can fail, see [`Result`](crate::Result).
-pub fn cleanup(mut out: impl io::Write) -> crate::Result {
+/// Cleaning up the terminal can fail, see [`CleanupError`](CleanupError).
+pub fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
     // Reverse order of setup.
     crossterm::execute!(out, event::DisableMouseCapture)
-        .context("Failed to disable mouse captureing terminal")?;
-    crossterm::execute!(out, cursor::Show).context("Failed to show the cursor")?;
-    terminal::disable_raw_mode().context("Failed to disable raw mode")?;
+        .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
+    crossterm::execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
+    terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
     crossterm::execute!(out, terminal::LeaveAlternateScreen)
-        .context("Failed to switch back to main screen")?;
+        .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
     Ok(())
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AlternateScreenPagingError {
+    #[error("Failed to initialize the terminal")]
+    Setup(#[from] SetupError),
+
+    #[error("Failed to clean up the terminal")]
+    Cleanup(#[from] CleanupError),
+
+    #[error("Failed to draw the new data")]
+    Draw(#[from] std::io::Error),
+
+    #[error("Failed to handle terminal event")]
+    HandleEvent(TermError),
+
+    #[cfg(feature = "tokio_lib")]
+    #[error(transparent)]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 /// Runs the pager for the given lines.
@@ -84,7 +142,7 @@ pub(crate) fn alternate_screen_paging<L, F, S>(
     mut ln: LineNumbers,
     lines: &L,
     get_lines: F,
-) -> crate::Result
+) -> std::result::Result<(), AlternateScreenPagingError>
 where
     L: ?Sized,
     S: std::ops::Deref,
@@ -92,8 +150,7 @@ where
     F: Fn(&L) -> S,
 {
     let stdout = io::stdout();
-    let (mut out, mut rows) =
-        setup(&stdout).with_context(|| "Failed to initialize the terminal".to_string())?;
+    let (mut out, mut rows) = setup(&stdout)?;
     // The upper mark of scrolling.
     let mut upper_mark = 0;
     let mut last_printed = String::new();
@@ -104,17 +161,22 @@ where
         drop(lock);
 
         if !string.eq(&last_printed) {
-            draw(&mut out, &string, rows, &mut upper_mark, ln)
-                .context("Failed to draw the new data")?;
+            draw(&mut out, &string, rows, &mut upper_mark, ln)?;
             last_printed = string.clone();
         }
 
-        if event::poll(std::time::Duration::from_millis(10))? {
-            let input = handle_input(event::read()?, upper_mark, ln);
+        if event::poll(std::time::Duration::from_millis(10))
+            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
+        {
+            let input = handle_input(
+                event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
+                upper_mark,
+                ln,
+            );
 
             match input {
                 None => continue,
-                Some(InputEvent::Exit) => return cleanup(out),
+                Some(InputEvent::Exit) => return Ok(cleanup(out)?),
                 Some(InputEvent::UpdateRows(r)) => rows = r,
                 Some(InputEvent::UpdateUpperMark(um)) => upper_mark = um,
                 Some(InputEvent::UpdateLineNumber(l)) => ln = l,

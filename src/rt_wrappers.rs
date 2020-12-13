@@ -1,7 +1,9 @@
 //! Dynamic information within a pager window.
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
-use crate::{utils, LineNumbers, Result};
+use utils::AlternateScreenPagingError;
+
+use crate::{utils, LineNumbers};
 
 use std::sync::{Arc, Mutex};
 
@@ -63,7 +65,10 @@ pub type Lines = Arc<Mutex<String>>;
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
+pub async fn tokio_updating(
+    mutex: Lines,
+    ln: LineNumbers,
+) -> Result<(), AlternateScreenPagingError> {
     tokio::task::spawn(async move { run(&mutex, ln) }).await?
 }
 
@@ -121,11 +126,14 @@ pub async fn tokio_updating(mutex: Lines, ln: LineNumbers) -> Result {
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_updating(mutex: Lines, ln: LineNumbers) -> Result {
+pub async fn async_std_updating(
+    mutex: Lines,
+    ln: LineNumbers,
+) -> Result<(), AlternateScreenPagingError> {
     async_std::task::spawn(async move { run(&mutex, ln) }).await
 }
 
-/// Private function that contains the implemenation for the async display.
-fn run(mutex: &Lines, ln: LineNumbers) -> Result {
+/// Private function that contains the implementation for the async display.
+fn run(mutex: &Lines, ln: LineNumbers) -> Result<(), AlternateScreenPagingError> {
     utils::alternate_screen_paging(ln, &mutex, |m| m.lock().unwrap())
 }
