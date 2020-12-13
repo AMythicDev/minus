@@ -81,8 +81,8 @@ mod rt_wrappers;
 #[cfg(feature = "static_output")]
 mod static_pager;
 
-pub use error::{Error, Result, TermError};
-pub use utils::{cleanup, LineNumbers};
+pub use error::TermError;
+pub use utils::{cleanup, CleanupError, LineNumbers};
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;

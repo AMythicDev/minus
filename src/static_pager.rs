@@ -1,10 +1,23 @@
 //! Static information output, see [`page_all`].
-use crate::{utils, Result};
+use crate::utils;
 
 use crossterm::terminal;
 use crossterm::tty::IsTty;
+use utils::AlternateScreenPagingError;
 
 use std::io::{self, Write};
+
+#[derive(Debug, thiserror::Error)]
+pub enum PageAllError {
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+
+    #[error(transparent)]
+    Paging(#[from] AlternateScreenPagingError),
+
+    #[error("Failed to determine terminal size")]
+    TerminalSize(crossterm::ErrorKind),
+}
 
 /// Outputs static information.
 ///
@@ -45,7 +58,7 @@ use std::io::{self, Write};
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
+pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result<(), PageAllError> {
     let stdout = io::stdout();
     let line_count = lines.lines().count();
 
@@ -61,7 +74,7 @@ pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
     }
 
     {
-        let (_, rows) = terminal::size()?;
+        let (_, rows) = terminal::size().map_err(PageAllError::TerminalSize)?;
         let rows = rows as usize;
 
         // If the number of lines in the output is less than the number of rows
@@ -69,9 +82,10 @@ pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result {
             let mut out = stdout.lock();
             utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
             out.flush()?;
-            Ok(())
         } else {
-            utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)
+            utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)?;
         }
+
+        Ok(())
     }
 }
