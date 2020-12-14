@@ -20,7 +20,6 @@ tokio = { version = "^0.3.5", optional = true }
 thiserror = "1.0.22"
 
 [features]
-default = ["async_std_lib", "tokio_lib", "static_output" ]
 async_std_lib = [ "async-std" ]
 tokio_lib = [ "tokio" ]
 static_output = []

@@ -75,14 +75,56 @@
 
 mod error;
 mod utils;
+use std::sync::{Arc, Mutex};
+
+pub use error::TermError;
+pub use utils::{cleanup, LineNumbers};
+pub use error::*;
+
+pub(crate) type PagerMutex = Arc<Mutex<Pager>>;
+
+#[derive(Clone)]
+pub struct Pager {
+    pub lines: String,
+    pub line_numbers: LineNumbers,
+    upper_mark: usize
+}
+
+impl Pager {
+    #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+    #[must_use = "This function must be used in dynamic paging"]
+    pub fn new_dynamic(lines: String, ln: LineNumbers) -> PagerMutex {
+        Arc::new(Mutex::new(Pager {
+            lines,
+            line_numbers: ln,
+            upper_mark: 0
+        }))
+    }
+    #[cfg(feature = "static_output")]
+    #[must_use = "This function must be used in static paging"]
+    pub fn new_static(lines: String, ln: LineNumbers) -> Pager {
+        Pager {
+            lines,
+            line_numbers: ln,
+            upper_mark: 0
+        }
+    }
+    #[cfg(feature = "static_output")]
+    #[must_use = "This function must be used in static paging"]
+    pub fn default_static() -> Pager {
+        Pager::new_static(String::new(), LineNumbers::Disabled)
+    }
+    #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+    #[must_use = "This function must be used in dynamic paging"]
+    pub fn default_dynamic() -> PagerMutex {
+        Pager::new_dynamic(String::new(), LineNumbers::Disabled)
+    }
+}
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
 #[cfg(feature = "static_output")]
 mod static_pager;
-
-pub use error::TermError;
-pub use utils::{cleanup, CleanupError, LineNumbers};
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;

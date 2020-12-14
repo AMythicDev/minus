@@ -1,5 +1,4 @@
 //! Utilities that are used in both static and async display.
-use crate::TermError;
 use crossterm::{
     cursor::{self, MoveTo},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
@@ -7,30 +6,9 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
+use crate::error::*;
+
 use std::io::{self, Write as _};
-
-/// Errors that can occur during setup
-#[derive(Debug, thiserror::Error)]
-pub enum SetupError {
-    #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-    #[error("The standard output is not a valid terminal")]
-    InvalidTerminal,
-
-    #[error("Failed to switch to alternate screen")]
-    AlternateScreen(TermError),
-
-    #[error("Failed to enable raw mode")]
-    RawMode(TermError),
-
-    #[error("Failed to hide the cursor")]
-    HideCursor(TermError),
-
-    #[error("Failed to enable mouse capture")]
-    EnableMouseCapture(TermError),
-
-    #[error("Couldn't determine the terminal size")]
-    TerminalSize(TermError),
-}
 
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
@@ -50,9 +28,9 @@ fn setup(stdout: &io::Stdout) -> std::result::Result<(io::StdoutLock<'_>, usize)
         use crossterm::tty::IsTty;
 
         if out.is_tty() {
-            Err(SetupError::InvalidTerminal)
-        } else {
             Ok(())
+        } else {
+            Err(SetupError::InvalidTerminal)
         }?;
     }
 
@@ -66,22 +44,6 @@ fn setup(stdout: &io::Stdout) -> std::result::Result<(io::StdoutLock<'_>, usize)
     let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
     Ok((out, rows as usize))
-}
-
-/// Errors that can occur during clean up
-#[derive(Debug, thiserror::Error)]
-pub enum CleanupError {
-    #[error("Failed to disable mouse capture")]
-    DisableMouseCapture(TermError),
-
-    #[error("Failed to show the cursor")]
-    ShowCursor(TermError),
-
-    #[error("Failed to disable raw mode")]
-    DisableRawMode(TermError),
-
-    #[error("Failed to switch back to main screen")]
-    LeaveAlternateScreen(TermError),
 }
 
 /// Will try to clean up the terminal and set it back to its original state,
@@ -103,85 +65,117 @@ pub fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError>
         .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
     Ok(())
 }
+#[cfg(feature = "static_output")]
+pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScreenPagingError> {
+    // Setup terminal
+    let stdout = io::stdout();
+    let (mut out, mut rows) = setup(&stdout)?;
+    loop {
+        draw(
+            &mut out,
+            &mut pager,
+            rows,
+        )?;
 
-#[derive(Debug, thiserror::Error)]
-pub enum AlternateScreenPagingError {
-    #[error("Failed to initialize the terminal")]
-    Setup(#[from] SetupError),
-
-    #[error("Failed to clean up the terminal")]
-    Cleanup(#[from] CleanupError),
-
-    #[error("Failed to draw the new data")]
-    Draw(#[from] std::io::Error),
-
-    #[error("Failed to handle terminal event")]
-    HandleEvent(TermError),
-
-    #[cfg(feature = "tokio_lib")]
-    #[error(transparent)]
-    JoinError(#[from] tokio::task::JoinError),
+        // Check for events
+        if event::poll(std::time::Duration::from_millis(10))
+            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
+        {
+            // Get the events
+            let input = handle_input(
+                event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
+                pager.upper_mark,
+                pager.line_numbers,
+            );
+            // Update any data that may have changed
+            match input {
+                None => continue,
+                Some(InputEvent::Exit) => return Ok(cleanup(out)?),
+                Some(InputEvent::UpdateRows(r)) => rows = r,
+                Some(InputEvent::UpdateUpperMark(um)) => pager.upper_mark = um,
+                Some(InputEvent::UpdateLineNumber(l)) => {
+                    pager.line_numbers = l;
+                }
+            }
+            draw(
+                &mut out,
+                &mut pager,
+                rows,
+            )?;
+        }
+    }
 }
 
-/// Runs the pager for the given lines.
+/// Runs the pager in dynamic mode for the PagerMutex.
 ///
-/// `get_lines` is a function that will extract the `&str` lines from the
-/// storage type L. `get_lines` is only called when drawing, at the end of the
-/// event loop. This means you can mutate the backing storage if it is an
-/// `Arc<Mutex<String>>` for example, because the lock is not held for the
-/// entire duration of the function, only for the drawing part.
-///
-/// See examples of usage in the `src/rt_wrappers.rs` and `src/static_pager.rs`
-/// files.
+/// `get` is a function that will extract the Pager lock from the
+/// PageMutex. `get` is only called when drawing, Therefore, it can be mutated the entire time, except while drawing
 ///
 /// ## Errors
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
-pub(crate) fn alternate_screen_paging<L, F, S>(
-    mut ln: LineNumbers,
-    lines: &L,
-    get_lines: F,
+#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+pub(crate) fn dynamic_paging<P, F>(
+    p: &P,
+    get: F,
 ) -> std::result::Result<(), AlternateScreenPagingError>
 where
-    L: ?Sized,
-    S: std::ops::Deref,
-    S::Target: AsRef<str>,
-    F: Fn(&L) -> S,
+    F: Fn(&P) -> std::sync::MutexGuard<crate::Pager>
 {
+    // Setup terminal
     let stdout = io::stdout();
     let (mut out, mut rows) = setup(&stdout)?;
-    // The upper mark of scrolling.
-    let mut upper_mark = 0;
+    // Lat printed string
     let mut last_printed = String::new();
 
     loop {
-        let lock = get_lines(lines);
-        let string = lock.as_ref().to_string();
+        // Get the lock, clone it and immidiately drop the lock
+        let lock = get(&p);
+        let mut pager = lock.clone();
         drop(lock);
 
-        if !string.eq(&last_printed) {
-            draw(&mut out, &string, rows, &mut upper_mark, ln)?;
-            last_printed = string.clone();
+        // If the last displayed text is not same as the original text, then redraw original text
+        if pager.lines != last_printed {
+            draw(
+                &mut out,
+                &mut pager,
+                rows,
+            )?;
+            last_printed = pager.lines.clone();
         }
 
+        // Check for events
         if event::poll(std::time::Duration::from_millis(10))
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
         {
+            // Get the events
             let input = handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                upper_mark,
-                ln,
+                pager.upper_mark,
+                pager.line_numbers,
             );
-
+            // Lock the value again
+            let mut lock = get(&p);
+            // Update any data that may have changed
             match input {
                 None => continue,
                 Some(InputEvent::Exit) => return Ok(cleanup(out)?),
                 Some(InputEvent::UpdateRows(r)) => rows = r,
-                Some(InputEvent::UpdateUpperMark(um)) => upper_mark = um,
-                Some(InputEvent::UpdateLineNumber(l)) => ln = l,
+                Some(InputEvent::UpdateUpperMark(um)) => lock.upper_mark = um,
+                Some(InputEvent::UpdateLineNumber(l)) => {
+                    lock.line_numbers = l;
+                }
             }
-            draw(&mut out, &string, rows, &mut upper_mark, ln)?;
+            // Clone the value here to be used in draw
+            let mut pager = lock.clone();
+            draw(
+                &mut out,
+                &mut pager,
+                rows,
+            )?;
+            // Update the lock if pager has changed
+            *lock = pager;
         }
     }
 }
@@ -291,15 +285,13 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
 /// It will not wrap long lines.
 fn draw(
     out: &mut impl io::Write,
-    lines: &str,
+    mut pager: &mut crate::Pager,
     rows: usize,
-    upper_mark: &mut usize,
-    ln: LineNumbers,
 ) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
-    write_lines(out, lines, rows.saturating_sub(1), upper_mark, ln)?;
+    write_lines(out, &mut pager, rows.saturating_sub(1))?;
 
     #[allow(clippy::cast_possible_truncation)]
     {
@@ -310,7 +302,7 @@ fn draw(
             mv = MoveTo(0, rows as u16),
             rev = Attribute::Reverse,
             // Only display the help message when `Ctrl+L` will have an effect.
-            lines = if ln.is_invertible() {
+            lines = if pager.line_numbers.is_invertible() {
                 ", Ctrl+L to display/hide line numbers"
             } else {
                 ""
@@ -332,30 +324,28 @@ fn draw(
 /// No wrapping is done at all!
 pub(crate) fn write_lines(
     out: &mut impl io::Write,
-    lines: &str,
+    pager: &mut crate::Pager,
     rows: usize,
-    upper_mark: &mut usize,
-    ln: LineNumbers,
 ) -> io::Result<()> {
     // '.count()' will necessarily finish since iterating over the lines of a
     // String cannot yield an infinite iterator, at worst a very long one.
-    let line_count = lines.lines().count();
+    let line_count = pager.lines.lines().count();
 
     // This may be too high but the `Iterator::take` call below will limit this
     // anyway while allowing us to display as much lines as possible.
-    let lower_mark = upper_mark.saturating_add(rows.min(line_count));
+    let lower_mark = pager.upper_mark.saturating_add(rows.min(line_count));
 
     if lower_mark > line_count {
-        *upper_mark = if line_count < rows {
+        pager.upper_mark = if line_count < rows {
             0
         } else {
             line_count.saturating_sub(rows)
         };
     }
 
-    let displayed_lines = lines.lines().skip(*upper_mark).take(rows.min(line_count));
+    let displayed_lines = pager.lines.lines().skip(pager.upper_mark).take(rows.min(line_count));
 
-    match ln {
+    match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
             for line in displayed_lines {
                 writeln!(out, "\r{}", line)?;
@@ -381,7 +371,7 @@ pub(crate) fn write_lines(
                     writeln!(
                         out,
                         "\r{number: >len$}. {line}",
-                        number = *upper_mark + idx + 1,
+                        number = pager.upper_mark + idx + 1,
                         len = len_line_number,
                         line = line
                     )?;

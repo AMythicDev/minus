@@ -3,7 +3,7 @@ use crate::utils;
 
 use crossterm::terminal;
 use crossterm::tty::IsTty;
-use utils::AlternateScreenPagingError;
+use crate::error::AlternateScreenPagingError;
 
 use std::io::{self, Write};
 
@@ -58,16 +58,16 @@ pub enum PageAllError {
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result<(), PageAllError> {
+pub fn page_all(mut p: crate::Pager) -> Result<(), PageAllError> {
     let stdout = io::stdout();
-    let line_count = lines.lines().count();
+    let line_count = p.lines.lines().count();
 
     // If stdout is not a tty, print all the output without paging
     // then print it and exit the function.
     {
         if !stdout.is_tty() {
             let mut out = stdout.lock();
-            utils::write_lines(&mut out, lines, line_count, &mut 0, ln)?;
+            utils::write_lines(&mut out, &mut p, line_count)?;
             out.flush()?;
             return Ok(());
         }
@@ -80,10 +80,10 @@ pub fn page_all(lines: &str, ln: crate::LineNumbers) -> Result<(), PageAllError>
         // If the number of lines in the output is less than the number of rows
         if rows > line_count {
             let mut out = stdout.lock();
-            utils::write_lines(&mut out, lines, rows, &mut 0, ln)?;
+            utils::write_lines(&mut out, &mut p, line_count)?;
             out.flush()?;
         } else {
-            utils::alternate_screen_paging(ln, &lines, |l: &&str| *l)?;
+            utils::static_paging(p)?;
         }
 
         Ok(())
