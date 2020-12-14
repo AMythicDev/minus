@@ -82,6 +82,7 @@ pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScre
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 pager.upper_mark,
                 pager.line_numbers,
+                rows,
             );
             // Update any data that may have changed
             match input {
@@ -142,6 +143,7 @@ where
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 pager.upper_mark,
                 pager.line_numbers,
+                rows,
             );
             // Lock the value again
             let mut lock = get(&p);
@@ -184,7 +186,7 @@ enum InputEvent {
 /// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
 /// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
-fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
+fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> Option<InputEvent> {
     match ev {
         // Scroll up by one.
         Event::Key(KeyEvent {
@@ -195,6 +197,7 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
             code: KeyCode::Char('j'),
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+
         // Scroll down by one.
         Event::Key(KeyEvent {
             code: KeyCode::Down,
@@ -204,11 +207,11 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
             code: KeyCode::Char('k'),
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
-        // Mouse scroll up.
+
+        // Mouse scroll up/down
         Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => {
             Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5)))
         }
-        // Mouse scroll down.
         Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => {
             Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5)))
         }
@@ -216,11 +219,7 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
         Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
             modifiers: KeyModifiers::NONE,
-        })
-        | Event::Key(KeyEvent {
-            code: KeyCode::PageUp,
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(usize::MIN)),
+        }) => Some(InputEvent::UpdateUpperMark(0)),
         // Go to bottom.
         Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
@@ -233,14 +232,25 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
         | Event::Key(KeyEvent {
             code: KeyCode::Char('G'),
             modifiers: KeyModifiers::NONE,
-        })
-        | Event::Key(KeyEvent {
+        }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
+
+        // Page Up/Down
+        Event::Key(KeyEvent {
+            code: KeyCode::PageUp,
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::UpdateUpperMark(
+            upper_mark.saturating_sub(rows - 1),
+        )),
+        Event::Key(KeyEvent {
             code: KeyCode::PageDown,
             modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
+        }) => Some(InputEvent::UpdateUpperMark(
+            upper_mark.saturating_add(rows - 1),
+        )),
+
         // Resize event from the terminal.
         Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
-        // Switch line display.
+        // Switch line number display.
         Event::Key(KeyEvent {
             code: KeyCode::Char('l'),
             modifiers: KeyModifiers::CONTROL,
