@@ -38,7 +38,7 @@
 )]
 #![cfg_attr(
     not(feature = "async_std_lib"),
-    doc = " **Disabled**, you cannot use `minus` with [`async-std`]."
+    doc = " **Disabled**, you cannot use `minus` with [`async-std`] because of your current configuration."
 )]
 //! * `tokio_lib`:
 #![cfg_attr(
@@ -47,7 +47,7 @@
 )]
 #![cfg_attr(
     not(feature = "tokio_lib"),
-    doc = " **Disabled**, you cannot use `minus` with [`tokio`]."
+    doc = " **Disabled**, you cannot use `minus` with [`tokio`] because of your current configuration."
 )]
 //! * `static_output`:
 #![cfg_attr(
@@ -56,7 +56,7 @@
 )]
 #![cfg_attr(
     not(feature = "static_output"),
-    doc = " **Disabled**, you cannot use `minus` for static-only output."
+    doc = " **Disabled**, you cannot use `minus` for static-only output because of your current configuration."
 )]
 // When no feature is active this crate is unusable but contains lots of
 // unused imports and dead code. To avoid useless warnings about this they
@@ -77,43 +77,67 @@ mod error;
 mod utils;
 use std::sync::{Arc, Mutex};
 
-pub use error::TermError;
-pub use utils::{cleanup, LineNumbers};
 pub use error::*;
+pub use utils::LineNumbers;
 
-pub(crate) type PagerMutex = Arc<Mutex<Pager>>;
+/// An alias to `Arc<Mutex<Pager>>`. This allows all configuration to be updated while
+/// the pager is running. Use [`Pager::new_dynamic`] and [`Pager::default_dynamic`] for
+/// initializing it
+pub type PagerMutex = Arc<Mutex<Pager>>;
 
+/// / A struct containing basic configurations for the pager. This is used by
+/// all initializing functions
 #[derive(Clone)]
 pub struct Pager {
+    /// The output that is displayed
     pub lines: String,
+    /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
-    upper_mark: usize
+    /// The upper mark of scrolling. It is kept private so that end-applications cannot
+    /// manipulate this
+    upper_mark: usize,
 }
 
 impl Pager {
     #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
     #[must_use = "This function must be used in dynamic paging"]
+    /// Returns a new [`PagerMutex`] from the given text and line number configuration
+    ///
+    /// ## Example
+    /// Works with any async runtime
+    ///```
+    /// use minus::{Pager, LineNumbers};
+    ///
+    /// let pager = Pager::new_dynamc(String::new(), LineNumbers::Disabled);
+    ///```
     pub fn new_dynamic(lines: String, ln: LineNumbers) -> PagerMutex {
         Arc::new(Mutex::new(Pager {
             lines,
             line_numbers: ln,
-            upper_mark: 0
+            upper_mark: 0,
         }))
     }
     #[cfg(feature = "static_output")]
     #[must_use = "This function must be used in static paging"]
+    /// Returns a new [`Pager`] from the given text and line number configuration
     pub fn new_static(lines: String, ln: LineNumbers) -> Pager {
         Pager {
             lines,
             line_numbers: ln,
-            upper_mark: 0
+            upper_mark: 0,
         }
     }
     #[cfg(feature = "static_output")]
     #[must_use = "This function must be used in static paging"]
+    /// Returns a new [`Pager`] with the some defaults, like an empty string and line
+    /// numbers set to be disabled. For furthur customizations, use the
+    /// [`new_static`](Pager::new_static) function
     pub fn default_static() -> Pager {
         Pager::new_static(String::new(), LineNumbers::Disabled)
     }
+    /// Returns a new [`PagerMutex`] with the some defaults, like an empty string
+    /// and line numbers set to be disabled. For furthur customizations, use the
+    /// [`new_dynamic`](Pager::new_dynamic) function
     #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
     #[must_use = "This function must be used in dynamic paging"]
     pub fn default_dynamic() -> PagerMutex {

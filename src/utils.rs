@@ -55,7 +55,7 @@ fn setup(stdout: &io::Stdout) -> std::result::Result<(io::StdoutLock<'_>, usize)
 /// ## Errors
 ///
 /// Cleaning up the terminal can fail, see [`CleanupError`](CleanupError).
-pub fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
+fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
     // Reverse order of setup.
     crossterm::execute!(out, event::DisableMouseCapture)
         .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
@@ -71,11 +71,7 @@ pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScre
     let stdout = io::stdout();
     let (mut out, mut rows) = setup(&stdout)?;
     loop {
-        draw(
-            &mut out,
-            &mut pager,
-            rows,
-        )?;
+        draw(&mut out, &mut pager, rows)?;
 
         // Check for events
         if event::poll(std::time::Duration::from_millis(10))
@@ -97,11 +93,7 @@ pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScre
                     pager.line_numbers = l;
                 }
             }
-            draw(
-                &mut out,
-                &mut pager,
-                rows,
-            )?;
+            draw(&mut out, &mut pager, rows)?;
         }
     }
 }
@@ -121,7 +113,7 @@ pub(crate) fn dynamic_paging<P, F>(
     get: F,
 ) -> std::result::Result<(), AlternateScreenPagingError>
 where
-    F: Fn(&P) -> std::sync::MutexGuard<crate::Pager>
+    F: Fn(&P) -> std::sync::MutexGuard<crate::Pager>,
 {
     // Setup terminal
     let stdout = io::stdout();
@@ -137,11 +129,7 @@ where
 
         // If the last displayed text is not same as the original text, then redraw original text
         if pager.lines != last_printed {
-            draw(
-                &mut out,
-                &mut pager,
-                rows,
-            )?;
+            draw(&mut out, &mut pager, rows)?;
             last_printed = pager.lines.clone();
         }
 
@@ -169,11 +157,7 @@ where
             }
             // Clone the value here to be used in draw
             let mut pager = lock.clone();
-            draw(
-                &mut out,
-                &mut pager,
-                rows,
-            )?;
+            draw(&mut out, &mut pager, rows)?;
             // Update the lock if pager has changed
             *lock = pager;
         }
@@ -195,10 +179,10 @@ enum InputEvent {
 }
 
 /// Returns the input corresponding to the given event, updating the data as
-/// needed (`upper_mark`, `ln` or nothing).
+/// needed (`pager.upper_mark`, `pager.line_numbers` or nothing).
 ///
-/// - `upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
-/// - `ln` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
+/// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
+/// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
 fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEvent> {
     match ev {
@@ -275,19 +259,15 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers) -> Option<InputEv
 }
 
 /// Draws (at most) `rows` `lines`, where the first line to display is
-/// `upper_mark`. This function will always try to display as much lines as
+/// `pager.upper_mark`. This function will always try to display as much lines as
 /// possible within `rows`.
 ///
 /// If the total number of lines is less than `rows`, they will all be
-/// displayed, regardless of `upper_mark` (which will be updated to reflect
+/// displayed, regardless of `pager.upper_mark` (which will be updated to reflect
 /// this).
 ///
 /// It will not wrap long lines.
-fn draw(
-    out: &mut impl io::Write,
-    mut pager: &mut crate::Pager,
-    rows: usize,
-) -> io::Result<()> {
+fn draw(out: &mut impl io::Write, mut pager: &mut crate::Pager, rows: usize) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
@@ -317,7 +297,7 @@ fn draw(
 /// Writes the given `lines` to the given `out`put.
 ///
 /// - `rows` is the maximum number of lines to display at once.
-/// - `upper_mark` is the index of the first line to display.
+/// - `pager.upper_mark` is the index of the first line to display.
 ///
 /// Lines should be separated by `\n` and `\r\n`.
 ///
@@ -343,7 +323,11 @@ pub(crate) fn write_lines(
         };
     }
 
-    let displayed_lines = pager.lines.lines().skip(pager.upper_mark).take(rows.min(line_count));
+    let displayed_lines = pager
+        .lines
+        .lines()
+        .skip(pager.upper_mark)
+        .take(rows.min(line_count));
 
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {

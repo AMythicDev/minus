@@ -1,10 +1,10 @@
 //! Static information output, see [`page_all`].
 use crate::utils;
 
+use crate::error::AlternateScreenPagingError;
+use crate::Pager;
 use crossterm::terminal;
 use crossterm::tty::IsTty;
-use crate::error::AlternateScreenPagingError;
-
 use std::io::{self, Write};
 
 #[derive(Debug, thiserror::Error)]
@@ -21,7 +21,7 @@ pub enum PageAllError {
 
 /// Outputs static information.
 ///
-/// Once called, the `&str` passed to this function can never be changed. If you
+/// Once called, the `Pager` passed to this function can never be changed. If you
 /// want dynamic information:
 ///
 #[cfg_attr(
@@ -48,17 +48,17 @@ pub enum PageAllError {
 /// use std::fmt::Write;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mut output = String::new();
+///     let mut output = minus::Pager::default_static();
 ///
 ///     for i in 0..=30 {
-///         writeln!(output, "{}", i)?;
+///         writeln!(output.lines, "{}", i)?;
 ///     }
 ///
-///     minus::page_all(&output, minus::LineNumbers::Enabled)?;
+///     minus::page_all(output)?;
 ///     Ok(())
 /// }
 /// ```
-pub fn page_all(mut p: crate::Pager) -> Result<(), PageAllError> {
+pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
     let stdout = io::stdout();
     let line_count = p.lines.lines().count();
 

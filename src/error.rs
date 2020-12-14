@@ -50,6 +50,7 @@ pub enum CleanupError {
     LeaveAlternateScreen(TermError),
 }
 
+/// Errors that can happen while running
 #[derive(Debug, thiserror::Error)]
 pub enum AlternateScreenPagingError {
     #[error("Failed to initialize the terminal")]
