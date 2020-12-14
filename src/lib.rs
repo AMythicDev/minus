@@ -108,7 +108,7 @@ impl Pager {
     ///```
     /// use minus::{Pager, LineNumbers};
     ///
-    /// let pager = Pager::new_dynamc(String::new(), LineNumbers::Disabled);
+    /// let pager = Pager::new_dynamic(String::new(), LineNumbers::Disabled);
     ///```
     pub fn new_dynamic(lines: String, ln: LineNumbers) -> PagerMutex {
         Arc::new(Mutex::new(Pager {
