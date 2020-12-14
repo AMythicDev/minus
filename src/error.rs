@@ -13,6 +13,7 @@ pub struct TermError(
 
 /// Errors that can occur during setup
 #[derive(Debug, thiserror::Error)]
+#[allow(clippy::module_name_repetitions)]
 pub enum SetupError {
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     #[error("The standard output is not a valid terminal")]
@@ -36,6 +37,7 @@ pub enum SetupError {
 
 /// Errors that can occur during clean up
 #[derive(Debug, thiserror::Error)]
+#[allow(clippy::module_name_repetitions)]
 pub enum CleanupError {
     #[error("Failed to disable mouse capture")]
     DisableMouseCapture(TermError),
@@ -52,6 +54,7 @@ pub enum CleanupError {
 
 /// Errors that can happen while running
 #[derive(Debug, thiserror::Error)]
+#[allow(clippy::module_name_repetitions)]
 pub enum AlternateScreenPagingError {
     #[error("Failed to initialize the terminal")]
     Setup(#[from] SetupError),

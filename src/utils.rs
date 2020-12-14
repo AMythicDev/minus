@@ -6,7 +6,7 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-use crate::error::*;
+use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
 
 use std::io::{self, Write as _};
 
@@ -99,10 +99,10 @@ pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScre
     }
 }
 
-/// Runs the pager in dynamic mode for the PagerMutex.
+/// Runs the pager in dynamic mode for the `PagerMutex`.
 ///
 /// `get` is a function that will extract the Pager lock from the
-/// PageMutex. `get` is only called when drawing, Therefore, it can be mutated the entire time, except while drawing
+/// `PageMutex`. `get` is only called when drawing, Therefore, it can be mutated the entire time, except while drawing
 ///
 /// ## Errors
 ///
