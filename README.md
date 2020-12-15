@@ -65,24 +65,30 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = minus::Lines::default();
+    // Initialize a default dynamic configuration
+    let pager = minus::Pager::default_dynamic();
 
+    // Asynchronously push numbers to the output
     let increment = async {
         for i in 0..=30_u32 {
-            let mut output = output.lock().unwrap();
-            writeln!(output, "{}", i)?;
-            drop(output);
+            let mut guard = pager.lock().unwrap();
+            writeln!(guard.lines, "{}", i)?;
+            drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
+        // Return an Ok result
         Result::<_, std::fmt::Error>::Ok(())
     };
 
+    // Join the futures
     let (res1, res2) = join!(
-        minus::tokio_updating(minus::Lines::clone(&output), minus::LineNumbers::Enabled),
+        minus::tokio_updating(pager.clone()),
         increment
     );
+    // Check for errors
     res1?;
     res2?;
+    // Return Ok result
     Ok(())
 }
 ```
@@ -98,25 +104,28 @@ use std::time::Duration;
 
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = minus::Lines::default();
+    // Initialize a default dynamic configuration
+    let pager = minus::Pager::default_dynamic();
 
+    // Asynchronously push numbers to the output
     let increment = async {
-        let mut counter: u8 = 0;
         for i in 0..=30_u32 {
-            let mut output = output.lock().unwrap();
-            writeln!(output, "{}", i)?;
-            drop(output);
+            let mut guard = output.lock().unwrap();
+            writeln!(guard.lines, "{}", i)?;
+            drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
+        // Return an Ok result
         Result::<_, std::fmt::Error>::Ok(())
     };
-
+    // Join the futures
     let (res1, res2) = join!(
-        minus::async_std_updating(minus::Lines::clone(&output), minus::LineNumbers::Enabled),
-        increment
-    );
+        minus::async_std_updating(guard.clone()), increment);
+
+    // Check for errors
     res1?;
     res2?;
+    // Return Ok result
     Ok(())
 }
 ```
@@ -127,13 +136,15 @@ Some static output:
 use std::fmt::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut output = String::new();
-
+    // Initialize a default static configuration
+    let mut output = Pager::default_static();
+    // Push numbers blockingly
     for i in 0..=30 {
-        writeln!(output, "{}", i)?;
+        writeln!(output.lines, "{}", i)?;
     }
-
-    minus::page_all(&output, minus::LineNumbers::Disabled)?;
+    // Run the pager
+    minus::page_all(output)?;
+    // Return Ok result
     Ok(())
 }
 ```
