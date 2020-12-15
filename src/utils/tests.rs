@@ -7,7 +7,7 @@ use std::fmt::Write;
 #[test]
 fn short_no_line_numbers() {
     let lines = "A line\nAnother line";
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::Disabled);
+    let mut pager = Pager::new().set_text(lines);
 
     let mut out = Vec::with_capacity(lines.len());
     let rows = 10;
@@ -37,11 +37,11 @@ fn short_no_line_numbers() {
 
 #[test]
 fn long_no_line_numbers() {
-    let lines = "A line\nAnother line\nThird line\nFourth line".to_string();
+    let lines = "A line\nAnother line\nThird line\nFourth line";
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.clone(), LineNumbers::Disabled);
+    let mut pager = Pager::new().set_text(lines);
     let rows = 3;
 
     assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
@@ -86,7 +86,9 @@ fn short_with_line_numbers() {
     let lines = "A line\nAnother line";
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::Enabled);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::Enabled);
     let rows = 10;
 
     assert!(write_lines(&mut out, &mut pager, rows).is_ok());
@@ -119,7 +121,9 @@ fn long_with_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::Enabled);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::Enabled);
     let rows = 3;
 
     assert!(write_lines(&mut out, &mut pager, rows).is_ok());
@@ -169,7 +173,9 @@ fn big_line_numbers_are_padded() {
     };
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines, LineNumbers::AlwaysOn);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::AlwaysOn);
     pager.upper_mark = 95;
     let rows = 10;
 
@@ -210,7 +216,9 @@ fn draw_short_no_line_numbers() {
     let lines = "A line\nAnother line";
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::AlwaysOff);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::AlwaysOff);
     let rows = 10;
 
     assert!(draw(&mut out, &mut pager, rows).is_ok());
@@ -240,7 +248,7 @@ fn draw_long_no_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::Disabled);
+    let mut pager = Pager::new().set_text(lines);
     let rows = 3;
 
     assert!(draw(&mut out, &mut pager, rows).is_ok());
@@ -280,7 +288,9 @@ fn draw_long_no_line_numbers() {
 fn draw_short_with_line_numbers() {
     let lines = "A line\nAnother line";
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::Enabled);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::Enabled);
     let rows = 10;
 
     assert!(draw(&mut out, &mut pager, rows).is_ok());
@@ -309,7 +319,9 @@ fn draw_long_with_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::Enabled);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::Enabled);
     let rows = 3;
 
     assert!(draw(&mut out, &mut pager, rows).is_ok());
@@ -356,7 +368,9 @@ fn draw_big_line_numbers_are_padded() {
     };
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines, LineNumbers::Enabled);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::Enabled);
     pager.upper_mark = 95;
     let rows = 10;
 
@@ -377,22 +391,15 @@ fn draw_help_message() {
     let lines = "A line\nAnother line";
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new_static(lines.to_string(), LineNumbers::AlwaysOff);
+    let mut pager = Pager::new()
+        .set_text(lines)
+        .set_line_numbers(LineNumbers::AlwaysOff);
     let rows = 10;
 
     draw(&mut out, &mut pager, rows).expect("Should have written");
 
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
-    assert!(res.contains("Press q or Ctrl+C to quit, g/G for top/bottom"));
-    assert!(!res.contains(", Ctrl+L to display/hide line numbers"));
-
-    let mut out = Vec::with_capacity(lines.len());
-    pager.line_numbers = LineNumbers::Enabled;
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
-
-    let res = String::from_utf8(out).expect("Should have written valid UTF-8");
-    assert!(res.contains("Press q or Ctrl+C to quit, g/G for top/bottom"));
-    assert!(res.contains(", Ctrl+L to display/hide line numbers"));
+    assert!(res.contains("minus"));
 }
 
 #[test]

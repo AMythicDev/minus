@@ -113,6 +113,7 @@ pub struct Pager {
 
 impl Pager {
     /// Initialize a new pager configuration
+    #[must_use]
     pub fn new() -> Pager {
         Pager {
             lines: String::new(),
@@ -127,6 +128,7 @@ impl Pager {
         self
     }
     /// Set line number to this setting
+    #[must_use]
     pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
         self.line_numbers = l;
         self
@@ -136,11 +138,18 @@ impl Pager {
         self.prompt = t.into();
         self
     }
-    /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or 
+    /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
+    #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     pub fn finish(self) -> PagerMutex {
         Arc::new(Mutex::new(self))
+    }
+}
+
+impl std::default::Default for Pager {
+    fn default() -> Self {
+        Pager::new()
     }
 }
 

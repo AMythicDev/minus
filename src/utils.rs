@@ -394,6 +394,16 @@ pub enum LineNumbers {
     AlwaysOff,
 }
 
+impl LineNumbers {
+    /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
+    /// the documentation for the variants to know if they are invertible or
+    /// not.
+    #[allow(dead_code)]
+    fn is_invertible(self) -> bool {
+        matches!(self, Self::Enabled | Self::Disabled)
+    }
+}
+
 impl std::ops::Not for LineNumbers {
     type Output = Self;
 
