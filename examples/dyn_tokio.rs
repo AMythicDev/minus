@@ -6,7 +6,7 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = minus::Pager::default_dynamic();
+    let output = minus::Pager::new().finish();
 
     let increment = async {
         for i in 0..=30_u32 {

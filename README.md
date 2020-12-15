@@ -66,7 +66,7 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default dynamic configuration
-    let pager = minus::Pager::default_dynamic();
+    let pager = minus::Pager::new().finish();
 
     // Asynchronously push numbers to the output
     let increment = async {
@@ -105,7 +105,7 @@ use std::time::Duration;
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default dynamic configuration
-    let pager = minus::Pager::default_dynamic();
+    let pager = minus::Pager::new().finish();
 
     // Asynchronously push numbers to the output
     let increment = async {
@@ -137,7 +137,7 @@ use std::fmt::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default static configuration
-    let mut output = Pager::default_static();
+    let mut output = Pager::new();
     // Push numbers blockingly
     for i in 0..=30 {
         writeln!(output.lines, "{}", i)?;

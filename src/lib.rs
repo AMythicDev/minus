@@ -87,6 +87,18 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 
 /// / A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
+///
+/// ## Example
+/// With any async runtime
+///```
+/// let pager = minus::Pager::new().set_text("Hello").set_prompt("Example").finish();
+///```
+///
+/// For static output
+///```
+/// let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
+///```
+///
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
@@ -100,68 +112,35 @@ pub struct Pager {
 }
 
 impl Pager {
-    #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-    #[must_use = "This function must be used in dynamic paging"]
-    /// Returns a new [`PagerMutex`] from the given text and line number configuration
-    pub fn new_dynamic<P>(lines: String, ln: LineNumbers, prompt: P) -> PagerMutex
-    where
-        P: Into<String>,
-    {
-        let prompt: String = prompt.into();
-        Arc::new(Mutex::new(Pager {
-            lines,
-            line_numbers: ln,
-            upper_mark: 0,
-            prompt,
-        }))
-    }
-    #[cfg(feature = "static_output")]
-    #[must_use = "This function must be used in static paging"]
-    /// Returns a new [`Pager`] from the given text and line number configuration
-    pub fn new_static<P>(lines: String, ln: LineNumbers, prompt: P) -> Pager
-    where
-        P: Into<String>,
-    {
-        let prompt: String = prompt.into();
+    /// Initialize a new pager configuration
+    pub fn new() -> Pager {
         Pager {
-            lines,
-            line_numbers: ln,
+            lines: String::new(),
+            line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
-            prompt,
+            prompt: "minus".to_string(),
         }
     }
-
-    #[cfg(feature = "static_output")]
-    #[must_use = "This function must be used in static paging"]
-    /// Returns a new [`Pager`] with some defaults, like an empty string and line
-    /// numbers set to be disabled. For furthur customizations, use the
-    /// [`new_static`](Pager::new_static) function
-    pub fn default_static() -> Pager {
-        Pager::default_static_with_prompt("minus")
+    /// Set the output text to this `t`
+    pub fn set_text(mut self, t: impl Into<String>) -> Self {
+        self.lines = t.into();
+        self
     }
-    /// Returns a new [`PagerMutex`] with some defaults, like an empty string
-    /// and line numbers set to be disabled. For furthur customizations, use the
-    /// [`new_dynamic`](Pager::new_dynamic) function
-    #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-    #[must_use = "This function must be used in dynamic paging"]
-    pub fn default_dynamic() -> PagerMutex {
-        Pager::default_dynamic_with_prompt("minus")
+    /// Set line number to this setting
+    pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
+        self.line_numbers = l;
+        self
     }
-
-    /// Returns a new [`PagerMutex`] with the given prompt but some defaults, like an
-    /// empty string and line numbers set to be disabled. For furthur customizations,
-    /// use the [`new_dynamic`](Pager::new_dynamic) function
-    #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-    pub fn default_dynamic_with_prompt(prompt: impl Into<String>) -> PagerMutex {
-        Pager::new_dynamic(String::new(), LineNumbers::Disabled, prompt)
+    /// Set the prompt to `t`
+    pub fn set_prompt(mut self, t: impl Into<String>) -> Self {
+        self.prompt = t.into();
+        self
     }
-
-    /// Returns a new [`Pager`] with the given prompt but some defaults, like an
-    /// empty string and line numbers set to be disabled. For furthur customizations,
-    /// use the [`new_static`](Pager::new_static) function
-    #[cfg(feature = "static_output")]
-    pub fn default_static_with_prompt(prompt: impl Into<String>) -> Pager {
-        Pager::new_static(String::new(), LineNumbers::Disabled, prompt)
+    /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or 
+    /// `async_std_lib` feature
+    #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+    pub fn finish(self) -> PagerMutex {
+        Arc::new(Mutex::new(self))
     }
 }
 
