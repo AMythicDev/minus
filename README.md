@@ -30,7 +30,7 @@ existing options like `pager` and `moins`.
 ## Usage
 
 * Using [`tokio`] for your application ? Use the `tokio_lib` feature.
-* Using [`async_std`] for your application ? Use the `async_std_lib` feature.
+* Using [`async-std`] for your application ? Use the `async_std_lib` feature.
 * Using only static information ? Use the `static_output` feature.
 
 In your `Cargo.toml` file:
