@@ -93,6 +93,7 @@ pub struct Pager {
     pub lines: String,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
+    pub prompt: String,
     /// The upper mark of scrolling. It is kept private so that end-applications cannot
     /// manipulate this
     upper_mark: usize,
@@ -102,46 +103,65 @@ impl Pager {
     #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
     #[must_use = "This function must be used in dynamic paging"]
     /// Returns a new [`PagerMutex`] from the given text and line number configuration
-    ///
-    /// ## Example
-    /// Works with any async runtime
-    ///```
-    /// use minus::{Pager, LineNumbers};
-    ///
-    /// let pager = Pager::new_dynamic(String::new(), LineNumbers::Disabled);
-    ///```
-    pub fn new_dynamic(lines: String, ln: LineNumbers) -> PagerMutex {
+    pub fn new_dynamic<P>(lines: String, ln: LineNumbers, prompt: P) -> PagerMutex
+    where
+        P: Into<String>,
+    {
+        let prompt: String = prompt.into();
         Arc::new(Mutex::new(Pager {
             lines,
             line_numbers: ln,
             upper_mark: 0,
+            prompt,
         }))
     }
     #[cfg(feature = "static_output")]
     #[must_use = "This function must be used in static paging"]
     /// Returns a new [`Pager`] from the given text and line number configuration
-    pub fn new_static(lines: String, ln: LineNumbers) -> Pager {
+    pub fn new_static<P>(lines: String, ln: LineNumbers, prompt: P) -> Pager
+    where
+        P: Into<String>,
+    {
+        let prompt: String = prompt.into();
         Pager {
             lines,
             line_numbers: ln,
             upper_mark: 0,
+            prompt,
         }
     }
+
     #[cfg(feature = "static_output")]
     #[must_use = "This function must be used in static paging"]
-    /// Returns a new [`Pager`] with the some defaults, like an empty string and line
+    /// Returns a new [`Pager`] with some defaults, like an empty string and line
     /// numbers set to be disabled. For furthur customizations, use the
     /// [`new_static`](Pager::new_static) function
     pub fn default_static() -> Pager {
-        Pager::new_static(String::new(), LineNumbers::Disabled)
+        Pager::default_static_with_prompt("minus")
     }
-    /// Returns a new [`PagerMutex`] with the some defaults, like an empty string
+    /// Returns a new [`PagerMutex`] with some defaults, like an empty string
     /// and line numbers set to be disabled. For furthur customizations, use the
     /// [`new_dynamic`](Pager::new_dynamic) function
     #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
     #[must_use = "This function must be used in dynamic paging"]
     pub fn default_dynamic() -> PagerMutex {
-        Pager::new_dynamic(String::new(), LineNumbers::Disabled)
+        Pager::default_dynamic_with_prompt("minus")
+    }
+
+    /// Returns a new [`PagerMutex`] with the given prompt but some defaults, like an
+    /// empty string and line numbers set to be disabled. For furthur customizations,
+    /// use the [`new_dynamic`](Pager::new_dynamic) function
+    #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+    pub fn default_dynamic_with_prompt(prompt: impl Into<String>) -> PagerMutex {
+        Pager::new_dynamic(String::new(), LineNumbers::Disabled, prompt)
+    }
+
+    /// Returns a new [`Pager`] with the given prompt but some defaults, like an
+    /// empty string and line numbers set to be disabled. For furthur customizations,
+    /// use the [`new_static`](Pager::new_static) function
+    #[cfg(feature = "static_output")]
+    pub fn default_static_with_prompt(prompt: impl Into<String>) -> Pager {
+        Pager::new_static(String::new(), LineNumbers::Disabled, prompt)
     }
 }
 

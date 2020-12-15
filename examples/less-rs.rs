@@ -47,6 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the filename
     let filename = arguments[1].clone();
     // Initialize the configuration
-    let pager = minus::Pager::default_dynamic();
+    let pager = minus::Pager::default_dynamic_with_prompt(&filename);
     read_file(filename, pager).await
 }

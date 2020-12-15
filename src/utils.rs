@@ -287,16 +287,11 @@ fn draw(out: &mut impl io::Write, mut pager: &mut crate::Pager, rows: usize) -> 
     {
         write!(
             out,
-            "{mv}\r{rev}Press q or Ctrl+C to quit, g/G for top/bottom{lines}{reset}",
+            "{mv}\r{rev}{prompt}{reset}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
             mv = MoveTo(0, rows as u16),
             rev = Attribute::Reverse,
-            // Only display the help message when `Ctrl+L` will have an effect.
-            lines = if pager.line_numbers.is_invertible() {
-                ", Ctrl+L to display/hide line numbers"
-            } else {
-                ""
-            },
+            prompt = pager.prompt,
             reset = Attribute::Reset,
         )?;
     }
@@ -397,15 +392,6 @@ pub enum LineNumbers {
     Disabled,
     /// Disable line numbers permanently, cannot be turned on by user.
     AlwaysOff,
-}
-
-impl LineNumbers {
-    /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
-    /// the documentation for the variants to know if they are invertible or
-    /// not.
-    fn is_invertible(self) -> bool {
-        matches!(self, Self::Enabled | Self::Disabled)
-    }
 }
 
 impl std::ops::Not for LineNumbers {
