@@ -23,6 +23,16 @@
 //!     * The output could only be defined once and for all. It is not asynchronous
 //!       and does not support updating.
 //!
+//! The main goals of `minus` are to be very compact and as configurable as possible.
+//! * `minus` provides a lot of configurablity to the end-application and this
+//! configuration can be defined not just in compile-time but also in **runtime.** Your
+//! entire configuration like the output displayed, prompt and line numbers are inside
+//! a `Arc<Mutex>`, which means at any time you can lock the configuration, change
+//! something, and voila minus will automatically update the screen
+//!
+//! * When using `minus`, you select what features you need and **nothing else**. See
+//! [Features](crate#features) below
+//!
 //! [`tokio`]: https://crates.io/crates/tokio
 //! [`async-std`]: https://crates.io/crates/async-std
 //! [`pager`]: https://crates.io/crates/pager
@@ -105,8 +115,8 @@ pub struct Pager {
     /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
     pub prompt: String,
-    /// The upper mark of scrolling. It is kept private so that end-applications cannot
-    /// manipulate this
+    /// The upper mark of scrolling. It is kept private to prevent end-applications
+    /// cannot manipulate this
     upper_mark: usize,
 }
 
