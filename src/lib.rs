@@ -81,8 +81,7 @@ pub use error::*;
 pub use utils::LineNumbers;
 
 /// An alias to `Arc<Mutex<Pager>>`. This allows all configuration to be updated while
-/// the pager is running. Use [`Pager::new_dynamic`] and [`Pager::default_dynamic`] for
-/// initializing it
+/// the pager is running. Use [`Pager.finish`] for initializing it
 pub type PagerMutex = Arc<Mutex<Pager>>;
 
 /// / A struct containing basic configurations for the pager. This is used by
