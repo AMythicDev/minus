@@ -37,7 +37,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "^1.0" 
+version = "^2.0" 
 # For tokio
 features = ["tokio_lib"]
 
