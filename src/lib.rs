@@ -41,33 +41,12 @@
 //!
 //! ## Features
 //!
-//! * `async_std_lib`:
-#![cfg_attr(
-    feature = "async_std_lib",
-    doc = " **Enabled**, you can use `minus` with [`async-std`]. See [`async_std_updating`] for an example."
-)]
-#![cfg_attr(
-    not(feature = "async_std_lib"),
-    doc = " **Disabled**, you cannot use `minus` with [`async-std`] because of your current configuration."
-)]
-//! * `tokio_lib`:
-#![cfg_attr(
-    feature = "tokio_lib",
-    doc = " **Enabled**, you can use `minus` with [`tokio`]. See [`tokio_updating`] for an example."
-)]
-#![cfg_attr(
-    not(feature = "tokio_lib"),
-    doc = " **Disabled**, you cannot use `minus` with [`tokio`] because of your current configuration."
-)]
-//! * `static_output`:
-#![cfg_attr(
-    feature = "static_output",
-    doc = " **Enabled**, you can use `minus` for static-only output. See [`page_all`] for an example."
-)]
-#![cfg_attr(
-    not(feature = "static_output"),
-    doc = " **Disabled**, you cannot use `minus` for static-only output because of your current configuration."
-)]
+//! * `async_std_lib`: Use this if you use [`async_std`] runtime in your
+//! application
+//! * `tokio_lib`:Use this if you are using [`tokio`] runtime for your application
+//! * `static_output`: Use this if you only want to use `minus` for displaying static
+//! output
+
 // When no feature is active this crate is unusable but contains lots of
 // unused imports and dead code. To avoid useless warnings about this they
 // are allowed when no feature is active.

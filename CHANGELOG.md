@@ -1,6 +1,11 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v2.0.2 [2020-12-16]
+### Documentation Fixes
+* Fix docs where features are shown to enabled even when they are disabled
+by default
+
 ## v2.0.1 [2020-12-16]
 ### Documentation Fixes
 * Change version in README
