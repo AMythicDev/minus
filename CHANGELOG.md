@@ -3,7 +3,7 @@ This file documents all noteable changes made to this project
 
 ## v2.0.1 [2020-12-16]
 ### Documentation Fixes
-* Change verson in README
+* Change version in README
 
 ## v2.0.0 [2020-12-16]
 ### Added
