@@ -9,6 +9,8 @@ A fast, asynchronous terminal paging library for Rust. `minus` provides high
 level functionalities to easily write a pager for any terminal application. Due
 to the asynchronous nature of `minus`, the pager's data can be **updated**.
 
+![Demo.png](demo.png)
+
 `minus` supports both [`tokio`] as well as [`async-std`] runtimes. What's more,
 if you only want to use `minus` for serving static output, you can simply opt
 out of these dynamic features, see the **Usage** section below.
