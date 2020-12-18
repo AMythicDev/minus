@@ -7,7 +7,7 @@ use crossterm::{
 };
 
 use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
-
+use crate::{Pager, PagerMutex};
 use std::io::{self, Write as _};
 
 // This function should be kept close to `cleanup` to help ensure both are
@@ -16,15 +16,21 @@ use std::io::{self, Write as _};
 ///
 /// This will lock `stdout` for the lifetime of the pager.
 ///
+/// `dynamic` tells whether `minus` will do a dynamic paging or static paging.
+/// When `dynamic` is set to true, `minus` wll exit with an error if the stdout is nt
+/// a TTY.
+///
 /// ## Errors
 ///
 /// Setting up the terminal can fail, see [`SetupError`](SetupError).
-fn setup(stdout: &io::Stdout) -> std::result::Result<(io::StdoutLock<'_>, usize), SetupError> {
+fn setup(
+    stdout: &io::Stdout,
+    dynamic: bool,
+) -> std::result::Result<(io::StdoutLock<'_>, usize), SetupError> {
     let mut out = stdout.lock();
 
     // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
-    #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-    {
+    if dynamic {
         use crossterm::tty::IsTty;
 
         if out.is_tty() {
@@ -66,10 +72,10 @@ fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
     Ok(())
 }
 #[cfg(feature = "static_output")]
-pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScreenPagingError> {
+pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let stdout = io::stdout();
-    let (mut out, mut rows) = setup(&stdout)?;
+    let (mut out, mut rows) = setup(&stdout, false)?;
     loop {
         draw(&mut out, &mut pager, rows)?;
 
@@ -108,25 +114,19 @@ pub(crate) fn static_paging(mut pager: crate::Pager) -> Result<(), AlternateScre
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
-#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-pub(crate) fn dynamic_paging<P, F>(
-    p: &P,
-    get: F,
-) -> std::result::Result<(), AlternateScreenPagingError>
-where
-    F: Fn(&P) -> std::sync::MutexGuard<crate::Pager>,
-{
+// #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+pub(crate) fn dynamic_paging(p: PagerMutex) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let stdout = io::stdout();
-    let (mut out, mut rows) = setup(&stdout)?;
+    let (mut out, mut rows) = setup(&stdout, true)?;
     // Lat printed string
     let mut last_printed = String::new();
 
     loop {
         // Get the lock, clone it and immidiately drop the lock
-        let lock = get(&p);
-        let mut pager = lock.clone();
-        drop(lock);
+        let guard = p.lock().unwrap();
+        let mut pager = guard.clone();
+        drop(guard);
 
         // If the last displayed text is not same as the original text, then redraw original text
         if pager.lines != last_printed {
@@ -146,11 +146,18 @@ where
                 rows,
             );
             // Lock the value again
-            let mut lock = get(&p);
+            let mut lock = p.lock().unwrap();
             // Update any data that may have changed
             match input {
                 None => continue,
-                Some(InputEvent::Exit) => return Ok(cleanup(out)?),
+                Some(InputEvent::Exit) => {
+                    cleanup(out)?;
+                    if lock.exit_strategy == crate::ExitStrategy::ProcessQuit {
+                        std::process::exit(0);
+                    } else {
+                        return Ok(());
+                    }
+                }
                 Some(InputEvent::UpdateRows(r)) => rows = r,
                 Some(InputEvent::UpdateUpperMark(um)) => lock.upper_mark = um,
                 Some(InputEvent::UpdateLineNumber(l)) => {
@@ -277,7 +284,7 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> O
 /// this).
 ///
 /// It will not wrap long lines.
-fn draw(out: &mut impl io::Write, mut pager: &mut crate::Pager, rows: usize) -> io::Result<()> {
+fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
@@ -309,7 +316,7 @@ fn draw(out: &mut impl io::Write, mut pager: &mut crate::Pager, rows: usize) -> 
 /// No wrapping is done at all!
 pub(crate) fn write_lines(
     out: &mut impl io::Write,
-    pager: &mut crate::Pager,
+    pager: &mut Pager,
     rows: usize,
 ) -> io::Result<()> {
     // '.count()' will necessarily finish since iterating over the lines of a

@@ -70,21 +70,29 @@ pub use error::*;
 pub use utils::LineNumbers;
 
 /// An alias to `Arc<Mutex<Pager>>`. This allows all configuration to be updated while
-/// the pager is running. Use [`Pager.finish`] for initializing it
+/// the pager is running. Use [`Pager::finish`] for initializing it
 pub type PagerMutex = Arc<Mutex<Pager>>;
 
 /// / A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
 ///
 /// ## Example
-/// With any async runtime
+/// You can use any async runtime, but we are taking the example of [`tokio`]
 ///```
-/// let pager = minus::Pager::new().set_text("Hello").set_prompt("Example").finish();
+/// use minus::{Pager, LineNumbers, tokio_updating};
+/// let pager = Pagre::new().set_line_numbers(LineNumbers::AlwaysOn)
+///                         .set_prompt("A complex configuration")
+///                         .finish();
+///
+/// // Normally, you would use `futures::join` to join the pager and the text
+/// // updating function. We are doing this here to make the example simple
+/// tokio_updating(pager).await?;
 ///```
 ///
 /// For static output
 ///```
 /// let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
+/// minus::page_all(pager)?;
 ///```
 ///
 #[derive(Clone)]
@@ -92,46 +100,90 @@ pub struct Pager {
     /// The output that is displayed
     pub lines: String,
     /// Configuration for line numbers. See [`LineNumbers`]
-    pub line_numbers: LineNumbers,
+    line_numbers: LineNumbers,
+    /// The prompt displayed at the bottom
     pub prompt: String,
+    /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
+    /// See [`ExitStrategy`] for available options
+    exit_strategy: ExitStrategy,
     /// The upper mark of scrolling. It is kept private to prevent end-applications
-    /// cannot manipulate this
+    /// from mutating this
     upper_mark: usize,
 }
 
 impl Pager {
     /// Initialize a new pager configuration
+    ///
+    /// Example
+    /// ```
+    /// let pager = minus::Pager::new();
+    /// ```
     #[must_use]
-    pub fn new() -> Pager {
+    pub fn new() -> Self {
         Pager {
             lines: String::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
+            exit_strategy: ExitStrategy::ProcessQuit,
         }
     }
+
     /// Set the output text to this `t`
+    /// Example
+    /// ```
+    /// let pager = minus::Pager::new().set_text("This is a line");
+    /// ```
     pub fn set_text(mut self, t: impl Into<String>) -> Self {
         self.lines = t.into();
         self
     }
     /// Set line number to this setting
+    ///
+    /// Example
+    /// ```
+    /// use minus::{Pager, LineNumbers};
+    ///
+    /// let pager = Pager::new().set_line_numbers(LineNumbers::Enabled);
+    /// ```
     #[must_use]
     pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
         self.line_numbers = l;
         self
     }
-    /// Set the prompt to `t`
+    /// Set the prompt displayed at the prompt to `t`
+    ///
+    /// Example
+    /// ```
+    /// use minus::{Pager, LineNumbers};
+    ///
+    /// let pager = Pager::new().set_prompt("my awesome program");
+    /// ```
     pub fn set_prompt(mut self, t: impl Into<String>) -> Self {
         self.prompt = t.into();
         self
     }
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
+    ///
+    /// Example
+    /// ```
+    /// use minus::{Pager, LineNumbers};
+    ///
+    /// let pager = Pager::new().set_text("This output is paged").finish();
+    /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     pub fn finish(self) -> PagerMutex {
         Arc::new(Mutex::new(self))
+    }
+    /// Set the default exit strategy.
+    ///
+    /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
+    /// See [`ExitStrategy`] for available options
+    pub fn set_exit_strategy(mut self, strategy: ExitStrategy) -> Self {
+        self.exit_strategy = strategy;
+        self
     }
 }
 
@@ -139,6 +191,25 @@ impl std::default::Default for Pager {
     fn default() -> Self {
         Pager::new()
     }
+}
+
+/// Behaviour that happens when the pager is exitted
+#[derive(PartialEq, Clone)]
+pub enum ExitStrategy {
+    /// Kill the entire application immediately.
+    ///
+    /// This is the prefered option if paging is the last thing you do. For example,
+    /// the last thing you do in your program is reading from a file or a database and
+    /// paging it concurrently
+    ///
+    /// **This is the default strategy.**
+    ProcessQuit,
+    /// Kill the pager only.
+    ///
+    /// This is the prefered option if you want to do more stuff after exiting the pager. For example,
+    /// if you've file system locks or you want to close database connectiions after
+    /// the pager has done i's job, you probably want to go for this option
+    PagerQuit,
 }
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]

@@ -15,7 +15,6 @@ pub struct TermError(
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum SetupError {
-    #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     #[error("The standard output is not a valid terminal")]
     InvalidTerminal,
 

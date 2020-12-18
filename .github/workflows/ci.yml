@@ -26,12 +26,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     - name: Build crate
-      run: cargo build --verbose
+      run: cargo build --verbose --all-features
     # This step helps separate buildtime and runtime errors in tests.
+    # Do not build or run doc tests
     - name: Build tests
-      run: cargo test --verbose --all-features --no-run
+      run: cargo test --verbose --all-features --no-run --lib
     - name: Run Tests
-      run: cargo test --verbose --all-features
+      run: cargo test --verbose --all-features --lib
 
   examples:
     name: examples
