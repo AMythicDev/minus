@@ -171,8 +171,8 @@ Here is some help for the end user using an application that depends on minus
 | Arrow Down/j      | Scroll down by one line|
 | Page Up           | Scroll up by entire page|
 | Page Down         | Scroll down by entire page|
-| g                 | Go to the very the top of the output|
-| G                 | Go to the very the bottom of the output|
+| g                 | Go to the very top of the output|
+| G                 | Go to the very bottom of the output|
 | Mouse scroll Up   | Scroll up by 5 lines
 | Mouse scroll Down | Scroll down by 5 lines
 | Ctrl+L            | Toggle line numbers if not forced enabled/disabled|
