@@ -30,9 +30,9 @@ jobs:
     # This step helps separate buildtime and runtime errors in tests.
     # Do not build or run doc tests
     - name: Build tests
-      run: cargo test --verbose --all-features --no-run --lib
+      run: cargo test --verbose --all-features --no-run
     - name: Run Tests
-      run: cargo test --verbose --all-features --lib
+      run: cargo test --verbose --all-features
 
   examples:
     name: examples

@@ -78,21 +78,29 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 ///
 /// ## Example
 /// You can use any async runtime, but we are taking the example of [`tokio`]
-///```
-/// use minus::{Pager, LineNumbers, tokio_updating};
-/// let pager = Pagre::new().set_line_numbers(LineNumbers::AlwaysOn)
-///                         .set_prompt("A complex configuration")
-///                         .finish();
+///```rust,no_run
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     use minus::{Pager, LineNumbers, tokio_updating};
+///     let pager = Pager::new()
+///                        .set_line_numbers(LineNumbers::AlwaysOn)
+///                        .set_prompt("A complex configuration")
+///                        .finish();
 ///
-/// // Normally, you would use `futures::join` to join the pager and the text
-/// // updating function. We are doing this here to make the example simple
-/// tokio_updating(pager).await?;
+///     // Normally, you would use `futures::join` to join the pager and the text
+///     // updating function. We are doing this here to make the example simple
+///     tokio_updating(pager).await?;
+///     Ok(())
+/// }
 ///```
 ///
 /// For static output
-///```
-/// let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
-/// minus::page_all(pager)?;
+///```rust,no_run
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///      let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
+///      minus::page_all(pager)?;
+///     Ok(())
+/// }
 ///```
 ///
 #[derive(Clone)]
