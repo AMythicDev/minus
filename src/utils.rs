@@ -8,7 +8,10 @@ use crossterm::{
 
 use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
 use crate::{Pager, PagerMutex};
-use std::{io::{self, Write as _}, time::Duration};
+use std::{
+    io::{self, Write as _},
+    time::Duration,
+};
 
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
@@ -99,6 +102,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 Some(InputEvent::UpdateLineNumber(l)) => {
                     pager.line_numbers = l;
                 }
+                Some(InputEvent::Search) => {
+                    fetch_input(&mut out, rows)?;
+                }
             }
             draw(&mut out, &mut pager, rows)?;
         }
@@ -115,7 +121,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 // #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-pub(crate) fn dynamic_paging(p: PagerMutex) -> std::result::Result<(), AlternateScreenPagingError> {
+pub(crate) fn dynamic_paging(p: &PagerMutex) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let stdout = io::stdout();
     let (mut out, mut rows) = setup(&stdout, true)?;
@@ -164,10 +170,10 @@ pub(crate) fn dynamic_paging(p: PagerMutex) -> std::result::Result<(), Alternate
                     lock.line_numbers = l;
                 }
                 Some(InputEvent::Search) => {
-                    fetch_input(&mut out, &rows);
+                    let _string = fetch_input(&mut out, rows)?;
                 }
             }
-            // Clone the value here to be used in draw
+
             let mut pager = lock.clone();
             draw(&mut out, &mut pager, rows)?;
             // Update the lock if pager has changed
@@ -279,44 +285,61 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> O
         Event::Key(KeyEvent {
             code: KeyCode::Char('/'),
             modifiers: KeyModifiers::NONE,
-        }) => {
-            Some(InputEvent::Search)
-        }
+        }) => Some(InputEvent::Search),
         _ => None,
     }
 }
 
-fn fetch_input(out: &mut impl std::io::Write, rows: &usize ) -> Result<String, std::io::Error> {
-    write!(out, "{}{}/", Clear(ClearType::CurrentLine), MoveTo(0, *rows as u16))?;
+fn fetch_input(
+    out: &mut impl std::io::Write,
+    rows: usize,
+) -> Result<String, AlternateScreenPagingError> {
+    #[allow(clippy::cast_possible_truncation)]
+    write!(
+        out,
+        "{}{}/{}",
+        Clear(ClearType::CurrentLine),
+        MoveTo(0, rows as u16),
+        cursor::Show
+    )?;
     out.flush()?;
     let mut string = String::new();
     loop {
-        if event::poll(Duration::from_millis(10)).unwrap() {
-            match event::read().unwrap() {
+        if event::poll(Duration::from_millis(10))
+            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
+        {
+            match event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))? {
                 Event::Key(KeyEvent {
                     code: KeyCode::Esc,
-                    modifiers: KeyModifiers::NONE
-                }) => break,
+                    modifiers: KeyModifiers::NONE,
+                }) => {
+                    return Ok(String::new());
+                }
                 Event::Key(KeyEvent {
                     code: KeyCode::Backspace,
-                    modifiers: KeyModifiers::NONE
+                    modifiers: KeyModifiers::NONE,
                 }) => {
                     string.pop();
-                    write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string);
-                    out.flush();
-                },
+                    write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
+                    out.flush()?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Enter,
+                    modifiers: KeyModifiers::NONE,
+                }) => {
+                    return Ok(string);
+                }
                 Event::Key(event) => {
                     if let KeyCode::Char(c) = event.code {
                         string.push(c);
-                        write!(out, "\r/{}", string);
-                        out.flush();
+                        write!(out, "\r/{}", string)?;
+                        out.flush()?;
                     }
                 }
                 _ => continue,
             }
         }
     }
-    Ok(string)
 }
 
 /// Draws (at most) `rows` `lines`, where the first line to display is
