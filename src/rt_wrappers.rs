@@ -4,6 +4,7 @@
 use crate::error::AlternateScreenPagingError;
 use crate::utils;
 use crate::PagerMutex;
+use std::sync::Arc;
 
 /// Run the pager inside a [`tokio task`](tokio::task).
 ///
@@ -37,7 +38,7 @@ use crate::PagerMutex;
 ///
 ///    let increment = async {
 ///         for i in 0..=30_u32 {
-///             let mut output = output.lock().unwrap();
+///             let mut output = output.lock().await;
 ///             writeln!(output.lines, "{}", i)?;
 ///             drop(output);
 ///             sleep(Duration::from_millis(100)).await;
@@ -56,7 +57,7 @@ use crate::PagerMutex;
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
+pub async fn tokio_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
     tokio::task::spawn(run(pager)).await?
 }
 
@@ -92,7 +93,7 @@ pub async fn tokio_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagi
 ///
 ///    let increment = async {
 ///        for i in 0..=30_u32 {
-///            let mut output = output.lock().unwrap();
+///            let mut output = output.lock().await;
 ///            writeln!(output.lines, "{}", i)?;
 ///            drop(output);
 ///            sleep(Duration::from_millis(100)).await;
@@ -111,11 +112,11 @@ pub async fn tokio_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagi
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
+pub async fn async_std_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
     async_std::task::spawn(run(pager)).await
 }
 
 /// Private function that contains the implemenation for the async display.
-async fn run(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
-    utils::dynamic_paging(&pager)
+async fn run(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
+    utils::dynamic_paging(&pager).await
 }

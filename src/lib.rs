@@ -64,14 +64,71 @@
 
 mod error;
 mod utils;
-use std::sync::{Arc, Mutex};
+use std::cell::UnsafeCell;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{
+        atomic::{spin_loop_hint, AtomicBool, Ordering},
+        Arc,
+    },
+};
 
 pub use error::*;
 pub use utils::LineNumbers;
 
-/// An alias to `Arc<Mutex<Pager>>`. This allows all configuration to be updated while
-/// the pager is running. Use [`Pager::finish`] for initializing it
-pub type PagerMutex = Arc<Mutex<Pager>>;
+/// A sort of a lock that holds the pager
+pub struct PagerMutex {
+    pager: UnsafeCell<Pager>,
+    is_locked: AtomicBool,
+}
+
+impl<'a> PagerMutex {
+    pub async fn lock(&'a self) -> PagerGuard<'a> {
+        loop {
+            if self.is_locked.swap(true, Ordering::AcqRel) {
+                self.is_locked.store(true, Ordering::Relaxed);
+                return PagerGuard(self);
+            } else {
+                spin_loop_hint();
+            }
+        }
+    }
+    #[must_use]
+    pub fn new(p: Pager) -> PagerMutex {
+        PagerMutex {
+            pager: UnsafeCell::new(p),
+            is_locked: AtomicBool::new(false),
+        }
+    }
+}
+
+pub struct PagerGuard<'a>(&'a PagerMutex);
+
+impl<'a> DerefMut for PagerGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.0.pager.get() }
+    }
+}
+
+impl<'a> Deref for PagerGuard<'a> {
+    type Target = Pager;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &*self.0.pager.get() }
+    }
+}
+
+impl<'a> Drop for PagerGuard<'a> {
+    fn drop(&mut self) {
+        self.0.is_locked.store(false, Ordering::Relaxed);
+    }
+}
+
+unsafe impl<'a> Send for PagerGuard<'a> {}
+unsafe impl<'a> Sync for PagerGuard<'a> {}
+
+unsafe impl<'a> Send for PagerMutex {}
+unsafe impl<'a> Sync for PagerMutex {}
 
 /// / A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
@@ -182,8 +239,9 @@ impl Pager {
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-    pub fn finish(self) -> PagerMutex {
-        Arc::new(Mutex::new(self))
+    pub fn finish(self) -> Arc<PagerMutex> {
+        #[cfg(feature = "async_std_lib")]
+        Arc::new(PagerMutex::new(self))
     }
     /// Set the default exit strategy.
     ///

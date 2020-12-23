@@ -5,6 +5,7 @@ use crossterm::{
     style::Attribute,
     terminal::{self, Clear, ClearType},
 };
+use std::sync::Arc;
 
 use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
 use crate::{Pager, PagerMutex};
@@ -26,10 +27,7 @@ use std::{
 /// ## Errors
 ///
 /// Setting up the terminal can fail, see [`SetupError`](SetupError).
-fn setup(
-    stdout: &io::Stdout,
-    dynamic: bool,
-) -> std::result::Result<(io::StdoutLock<'_>, usize), SetupError> {
+fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<usize, SetupError> {
     let mut out = stdout.lock();
 
     // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
@@ -52,7 +50,7 @@ fn setup(
 
     let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
-    Ok((out, rows as usize))
+    Ok(rows as usize)
 }
 
 /// Will try to clean up the terminal and set it back to its original state,
@@ -77,8 +75,8 @@ fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
 #[cfg(feature = "static_output")]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     // Setup terminal
-    let stdout = io::stdout();
-    let (mut out, mut rows) = setup(&stdout, false)?;
+    let mut out = io::stdout();
+    let mut rows = setup(&out, false)?;
     loop {
         draw(&mut out, &mut pager, rows)?;
 
@@ -121,16 +119,18 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 // #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-pub(crate) fn dynamic_paging(p: &PagerMutex) -> std::result::Result<(), AlternateScreenPagingError> {
+pub(crate) async fn dynamic_paging(
+    p: &Arc<PagerMutex>,
+) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal
-    let stdout = io::stdout();
-    let (mut out, mut rows) = setup(&stdout, true)?;
+    let mut out = io::stdout();
+    let mut rows = setup(&out, true)?;
     // Lat printed string
     let mut last_printed = String::new();
 
     loop {
         // Get the lock, clone it and immidiately drop the lock
-        let guard = p.lock().unwrap();
+        let guard = p.lock().await;
         let mut pager = guard.clone();
         drop(guard);
 
@@ -152,7 +152,7 @@ pub(crate) fn dynamic_paging(p: &PagerMutex) -> std::result::Result<(), Alternat
                 rows,
             );
             // Lock the value again
-            let mut lock = p.lock().unwrap();
+            let mut lock = p.lock().await;
             // Update any data that may have changed
             match input {
                 None => continue,

@@ -11,16 +11,17 @@
 use async_std::io::prelude::*;
 use futures::future::join;
 use std::env::args;
+use std::sync::Arc;
 
 // async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {
 async fn read_file(
     name: String,
-    pager: minus::PagerMutex,
+    pager: Arc<minus::PagerMutex>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let file = async_std::fs::File::open(name).await?;
     let changes = async {
         let mut buf_reader = async_std::io::BufReader::new(file);
-        let mut guard = pager.lock().unwrap();
+        let mut guard = pager.lock().await;
         buf_reader.read_to_string(&mut guard.lines).await?;
         std::io::Result::<_>::Ok(())
     };
