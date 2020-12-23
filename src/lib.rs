@@ -240,7 +240,6 @@ impl Pager {
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     pub fn finish(self) -> Arc<PagerMutex> {
-        #[cfg(feature = "async_std_lib")]
         Arc::new(PagerMutex::new(self))
     }
     /// Set the default exit strategy.
