@@ -117,5 +117,5 @@ pub async fn async_std_updating(pager: PagerMutex) -> Result<(), AlternateScreen
 
 /// Private function that contains the implemenation for the async display.
 async fn run(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
-    utils::dynamic_paging(pager)
+    utils::dynamic_paging(&pager)
 }

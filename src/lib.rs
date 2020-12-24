@@ -189,6 +189,7 @@ impl Pager {
     ///
     /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
+    #[must_use]
     pub fn set_exit_strategy(mut self, strategy: ExitStrategy) -> Self {
         self.exit_strategy = strategy;
         self
