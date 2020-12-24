@@ -64,6 +64,18 @@
 
 mod error;
 mod utils;
+mod search;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+mod rt_wrappers;
+#[cfg(feature = "static_output")]
+mod static_pager;
+
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub use rt_wrappers::*;
+
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
+
 use std::cell::UnsafeCell;
 use std::{
     ops::{Deref, DerefMut},
@@ -72,7 +84,6 @@ use std::{
         Arc,
     },
 };
-
 pub use error::*;
 pub use utils::LineNumbers;
 
@@ -277,14 +288,3 @@ pub enum ExitStrategy {
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
 }
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-mod rt_wrappers;
-#[cfg(feature = "static_output")]
-mod static_pager;
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub use rt_wrappers::*;
-
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;

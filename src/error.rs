@@ -11,6 +11,15 @@ pub struct TermError(
     #[from] crossterm::ErrorKind,
 );
 
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+#[allow(clippy::module_name_repetitions)]
+pub struct RegexError(
+    // This member is private to avoid leaking the regex error type up the
+    // dependency chain.
+    #[from] regex::Error,
+);
+
 /// Errors that can occur during setup
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
@@ -66,6 +75,9 @@ pub enum AlternateScreenPagingError {
 
     #[error("Failed to handle terminal event")]
     HandleEvent(TermError),
+
+    #[error(transparent)]
+    SearchExpError(#[from] RegexError),
 
     #[cfg(feature = "tokio_lib")]
     #[error(transparent)]

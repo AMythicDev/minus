@@ -11,8 +11,9 @@ use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
 use crate::{Pager, PagerMutex};
 use std::{
     io::{self, Write as _},
-    time::Duration,
 };
+
+use crate::search;
 
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
@@ -127,6 +128,7 @@ pub(crate) async fn dynamic_paging(
     let mut rows = setup(&out, true)?;
     // Lat printed string
     let mut last_printed = String::new();
+    let mut search_term = String::new();
 
     loop {
         // Get the lock, clone it and immidiately drop the lock
@@ -135,6 +137,7 @@ pub(crate) async fn dynamic_paging(
         drop(guard);
 
         // If the last displayed text is not same as the original text, then redraw original text
+        // TODO: IMPROVE THIS SECTION
         if pager.lines != last_printed {
             draw(&mut out, &mut pager, rows)?;
             last_printed = pager.lines.clone();
@@ -170,10 +173,22 @@ pub(crate) async fn dynamic_paging(
                     lock.line_numbers = l;
                 }
                 Some(InputEvent::Search) => {
-                    let _string = fetch_input(&mut out, rows)?;
+                    let string = search::fetch_input(&mut out, rows).await?;
+                    if !string.is_empty() {
+                        search::highlight_search(&mut lock, &string).map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                        search_term = string;
+                        search::locate_match(&mut lock, &search_term, false);
+                    }
                 }
+                Some(InputEvent::NextMatch) if !search_term.is_empty() => {
+                    search::locate_match(&mut lock, &search_term, false);
+                }
+                Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
+                    search::locate_match(&mut lock, &search_term, true)
+                }
+                _ => {continue;}
             }
-
+            
             let mut pager = lock.clone();
             draw(&mut out, &mut pager, rows)?;
             // Update the lock if pager has changed
@@ -184,7 +199,7 @@ pub(crate) async fn dynamic_paging(
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq)]
-enum InputEvent {
+pub enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.
     Exit,
     /// The terminal was resized. Contains the new number of rows.
@@ -196,6 +211,10 @@ enum InputEvent {
     UpdateLineNumber(LineNumbers),
     /// `/`, Searching for certain pattern of text
     Search,
+    /// Get to the next match
+    NextMatch,
+    /// Get to the previous match
+    PrevMatch
 }
 
 /// Returns the input corresponding to the given event, updating the data as
@@ -204,7 +223,7 @@ enum InputEvent {
 /// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
 /// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
-fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> Option<InputEvent> {
+pub(crate) fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> Option<InputEvent> {
     match ev {
         // Scroll up by one.
         Event::Key(KeyEvent {
@@ -286,59 +305,15 @@ fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> O
             code: KeyCode::Char('/'),
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::Search),
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('n'),
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::NextMatch),
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('p'),
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::PrevMatch),
         _ => None,
-    }
-}
-
-fn fetch_input(
-    out: &mut impl std::io::Write,
-    rows: usize,
-) -> Result<String, AlternateScreenPagingError> {
-    #[allow(clippy::cast_possible_truncation)]
-    write!(
-        out,
-        "{}{}/{}",
-        Clear(ClearType::CurrentLine),
-        MoveTo(0, rows as u16),
-        cursor::Show
-    )?;
-    out.flush()?;
-    let mut string = String::new();
-    loop {
-        if event::poll(Duration::from_millis(10))
-            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
-        {
-            match event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))? {
-                Event::Key(KeyEvent {
-                    code: KeyCode::Esc,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    return Ok(String::new());
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Backspace,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    string.pop();
-                    write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
-                    out.flush()?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Enter,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    return Ok(string);
-                }
-                Event::Key(event) => {
-                    if let KeyCode::Char(c) = event.code {
-                        string.push(c);
-                        write!(out, "\r/{}", string)?;
-                        out.flush()?;
-                    }
-                }
-                _ => continue,
-            }
-        }
     }
 }
 
@@ -351,7 +326,7 @@ fn fetch_input(
 /// this).
 ///
 /// It will not wrap long lines.
-fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize) -> io::Result<()> {
+pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
