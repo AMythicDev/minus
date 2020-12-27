@@ -63,12 +63,12 @@
 #![warn(clippy::pedantic)]
 
 mod error;
-mod utils;
-mod search;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
+mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
+mod utils;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;
@@ -76,6 +76,7 @@ pub use rt_wrappers::*;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
+pub use error::*;
 use std::cell::UnsafeCell;
 use std::{
     ops::{Deref, DerefMut},
@@ -84,7 +85,6 @@ use std::{
         Arc,
     },
 };
-pub use error::*;
 pub use utils::LineNumbers;
 
 /// A sort of a lock that holds the pager

@@ -2,6 +2,7 @@
 use crossterm::{
     cursor::{self, MoveTo},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
+    execute,
     style::Attribute,
     terminal::{self, Clear, ClearType},
 };
@@ -9,9 +10,7 @@ use std::sync::Arc;
 
 use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
 use crate::{Pager, PagerMutex};
-use std::{
-    io::{self, Write as _},
-};
+use std::io::{self, Write as _};
 
 use crate::search;
 
@@ -42,11 +41,11 @@ fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<usize, Setup
         }?;
     }
 
-    crossterm::execute!(out, terminal::EnterAlternateScreen)
+    execute!(out, terminal::EnterAlternateScreen)
         .map_err(|e| SetupError::AlternateScreen(e.into()))?;
     terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
-    crossterm::execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
-    crossterm::execute!(out, event::EnableMouseCapture)
+    execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
+    execute!(out, event::EnableMouseCapture)
         .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
 
     let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
@@ -65,11 +64,11 @@ fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<usize, Setup
 /// Cleaning up the terminal can fail, see [`CleanupError`](CleanupError).
 fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
     // Reverse order of setup.
-    crossterm::execute!(out, event::DisableMouseCapture)
+    execute!(out, event::DisableMouseCapture)
         .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
-    crossterm::execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
+    execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
     terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
-    crossterm::execute!(out, terminal::LeaveAlternateScreen)
+    execute!(out, terminal::LeaveAlternateScreen)
         .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
     Ok(())
 }
@@ -78,6 +77,11 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     // Setup terminal
     let mut out = io::stdout();
     let mut rows = setup(&out, false)?;
+    let mut search_term = String::new();
+    let mut s_co: Vec<(u16, u16)> = Vec::new();
+    let mut s_mark = -1;
+    let mut redraw = true;
+
     loop {
         draw(&mut out, &mut pager, rows)?;
 
@@ -102,10 +106,50 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     pager.line_numbers = l;
                 }
                 Some(InputEvent::Search) => {
-                    fetch_input(&mut out, rows)?;
+                    let string = search::fetch_input_blocking(&mut out, rows)?;
+                    if !string.is_empty() {
+                        s_co = search::highlight_search(&mut pager, &string)
+                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                        search_term = string;
+                    }
+                }
+                Some(InputEvent::NextMatch) if !search_term.is_empty() => {
+                    s_mark += 1;
+                    #[allow(clippy::cast_possible_wrap)]
+                    if s_co.len() as isize > s_mark {
+                        #[allow(clippy::cast_sign_loss)]
+                        let (x, mut y) = s_co[s_mark as usize];
+                        if y != 0 {
+                            y += 1;
+                        }
+                        write!(out, "{}", MoveTo(x, y))?;
+                        out.flush()?;
+                        redraw = false;
+                    }
+                }
+                Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
+                    #[allow(clippy::cast_possible_wrap)]
+                    if s_co.len() as isize > s_mark {
+                        #[allow(clippy::cast_sign_loss)]
+                        let u_s_mark = s_mark as usize;
+                        s_mark = u_s_mark.saturating_sub(1) as isize;
+                        #[allow(clippy::cast_sign_loss)]
+                        let (x, mut y) = s_co[s_mark as usize];
+                        if y != 0 {
+                            y += 1;
+                        }
+                        write!(out, "{}", MoveTo(x, y))?;
+                        out.flush()?;
+                        redraw = false;
+                    }
+                }
+                Some(_) => {
+                    continue;
                 }
             }
-            draw(&mut out, &mut pager, rows)?;
+            if redraw {
+                draw(&mut out, &mut pager, rows)?;
+            }
         }
     }
 }
@@ -129,6 +173,9 @@ pub(crate) async fn dynamic_paging(
     // Lat printed string
     let mut last_printed = String::new();
     let mut search_term = String::new();
+    let mut s_co: Vec<(u16, u16)> = Vec::new();
+    let mut s_mark = -1;
+    let mut redraw = true;
 
     loop {
         // Get the lock, clone it and immidiately drop the lock
@@ -175,24 +222,52 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::Search) => {
                     let string = search::fetch_input(&mut out, rows).await?;
                     if !string.is_empty() {
-                        search::highlight_search(&mut lock, &string).map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                        s_co = search::highlight_search(&mut lock, &string)
+                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                         search_term = string;
-                        search::locate_match(&mut lock, &search_term, false);
                     }
                 }
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
-                    search::locate_match(&mut lock, &search_term, false);
+                    s_mark += 1;
+                    #[allow(clippy::cast_possible_wrap)]
+                    if s_co.len() as isize > s_mark {
+                        #[allow(clippy::clippy::cast_sign_loss)]
+                        let (x, mut y) = s_co[s_mark as usize];
+                        if y != 0 {
+                            y += 1;
+                        }
+                        write!(out, "{}", MoveTo(x, y))?;
+                        out.flush()?;
+                        redraw = false;
+                    }
                 }
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
-                    search::locate_match(&mut lock, &search_term, true)
+                    #[allow(clippy::clippy::cast_possible_wrap)]
+                    if s_co.len() as isize > s_mark {
+                        #[allow(clippy::cast_sign_loss)]
+                        let u_s_mark = s_mark as usize;
+                        s_mark = u_s_mark.saturating_sub(1) as isize;
+                        #[allow(clippy::clippy::cast_sign_loss)]
+                        let (x, mut y) = s_co[s_mark as usize];
+                        if y != 0 {
+                            y += 1;
+                        }
+                        write!(out, "{}", MoveTo(x, y))?;
+                        out.flush()?;
+                        redraw = false;
+                    }
                 }
-                _ => {continue;}
+                Some(_) => {
+                    continue;
+                }
             }
-            
-            let mut pager = lock.clone();
-            draw(&mut out, &mut pager, rows)?;
-            // Update the lock if pager has changed
-            *lock = pager;
+
+            if redraw {
+                let mut pager = lock.clone();
+                draw(&mut out, &mut pager, rows)?;
+                // Update the lock if pager has changed
+                *lock = pager;
+            }
         }
     }
 }
@@ -214,7 +289,7 @@ pub enum InputEvent {
     /// Get to the next match
     NextMatch,
     /// Get to the previous match
-    PrevMatch
+    PrevMatch,
 }
 
 /// Returns the input corresponding to the given event, updating the data as
@@ -223,7 +298,12 @@ pub enum InputEvent {
 /// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
 /// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
-pub(crate) fn handle_input(ev: Event, upper_mark: usize, ln: LineNumbers, rows: usize) -> Option<InputEvent> {
+pub(crate) fn handle_input(
+    ev: Event,
+    upper_mark: usize,
+    ln: LineNumbers,
+    rows: usize,
+) -> Option<InputEvent> {
     match ev {
         // Scroll up by one.
         Event::Key(KeyEvent {
