@@ -163,7 +163,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
-// #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
 pub(crate) async fn dynamic_paging(
     p: &Arc<PagerMutex>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
@@ -220,10 +220,14 @@ pub(crate) async fn dynamic_paging(
                     lock.line_numbers = l;
                 }
                 Some(InputEvent::Search) => {
+                    // Fetch the search query asynchronously
                     let string = search::fetch_input(&mut out, rows).await?;
                     if !string.is_empty() {
+                        // If the string is not empty, highlight all instances of the
+                        // match and return a vector of match coordinates
                         s_co = search::highlight_search(&mut lock, &string)
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                        // Update the search term
                         search_term = string;
                     }
                 }
@@ -244,9 +248,12 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
                     #[allow(clippy::clippy::cast_possible_wrap)]
                     if s_co.len() as isize > s_mark {
-                        #[allow(clippy::cast_sign_loss)]
-                        let u_s_mark = s_mark as usize;
-                        s_mark = u_s_mark.saturating_sub(1) as isize;
+                        // #[allow(clippy::cast_sign_loss)]
+                        s_mark = if s_mark == -1 {
+                            0
+                        } else {
+                            s_mark.saturating_sub(1)
+                        };
                         #[allow(clippy::clippy::cast_sign_loss)]
                         let (x, mut y) = s_co[s_mark as usize];
                         if y != 0 {

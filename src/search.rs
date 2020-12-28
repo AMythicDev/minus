@@ -8,6 +8,7 @@ use crossterm::{
 };
 use std::time::Duration;
 
+#[cfg(feature = "static_output")]
 pub(crate) fn fetch_input_blocking(
     out: &mut impl std::io::Write,
     rows: usize,
@@ -60,6 +61,7 @@ pub(crate) fn fetch_input_blocking(
     }
 }
 
+#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
 pub(crate) async fn fetch_input(
     out: &mut impl std::io::Write,
     rows: usize,
