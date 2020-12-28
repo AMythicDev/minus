@@ -87,7 +87,18 @@ use std::{
 };
 pub use utils::LineNumbers;
 
-/// A sort of a lock that holds the pager
+/// A sort of a mutex that holds the pager
+///
+/// It is similar to a [`std::sync::Mutex`], except that it is very simple and
+// more tailored for `minus`
+/// It only implements two methods that are: `.lock()` and `new()`. Although the
+/// `.lock()` is an async function and needs to be `.await`ed
+/// # Example
+/// ```
+/// let p = minus::Pager::new().finish();
+/// // Although this will return a Arc that encapsulates the PagerMutex
+/// let guard = p.lock().await;
+/// ```
 pub struct PagerMutex {
     pager: UnsafeCell<Pager>,
     is_locked: AtomicBool,
@@ -113,6 +124,21 @@ impl<'a> PagerMutex {
     }
 }
 
+/// A sort of a MutexGuard similar to [`std::sync::MutexGuard`].
+///
+/// But again, similar to
+/// to [`PagerMutex`], this is very simple and does not even have any implementation
+/// method
+/// Although it does implement [`Deref`] and [`DerefMut`], so you could do something
+/// like this
+/// ```rust,no_run
+/// let p = minus::Pager::new().finish();
+/// let guard = p.lock().await;
+/// println!("{}", guard.lines);
+/// guard.prompt = "Hello".to_string();
+/// ```
+/// There is one difference to between this and the mutex in the standard library, this
+/// implements [`Send`], so it can be shared between async functions
 pub struct PagerGuard<'a>(&'a PagerMutex);
 
 impl<'a> DerefMut for PagerGuard<'a> {
@@ -141,7 +167,7 @@ unsafe impl<'a> Sync for PagerGuard<'a> {}
 unsafe impl<'a> Send for PagerMutex {}
 unsafe impl<'a> Sync for PagerMutex {}
 
-/// / A struct containing basic configurations for the pager. This is used by
+/// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
 ///
 /// ## Example
@@ -167,7 +193,7 @@ unsafe impl<'a> Sync for PagerMutex {}
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///      let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
 ///      minus::page_all(pager)?;
-///     Ok(())
+///      Ok(())
 /// }
 ///```
 ///

@@ -13,6 +13,10 @@ use futures::future::join;
 use std::env::args;
 use std::sync::Arc;
 
+use tracing::{subscriber, Level};
+use tracing_appender::{non_blocking, rolling::never};
+use tracing_subscriber::fmt;
+
 // async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {
 async fn read_file(
     name: String,

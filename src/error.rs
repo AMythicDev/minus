@@ -11,6 +11,7 @@ pub struct TermError(
     #[from] crossterm::ErrorKind,
 );
 
+/// There was an error while compiling the regex
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 #[allow(clippy::module_name_repetitions)]

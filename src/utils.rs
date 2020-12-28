@@ -113,15 +113,14 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         search_term = string;
                     }
                 }
+                // These are same as their dynamic counterparts, except for the fact
+                // that they use a blocking fetch_input function
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
                     s_mark += 1;
                     #[allow(clippy::cast_possible_wrap)]
                     if s_co.len() as isize > s_mark {
                         #[allow(clippy::cast_sign_loss)]
                         let (x, mut y) = s_co[s_mark as usize];
-                        if y != 0 {
-                            y += 1;
-                        }
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
@@ -130,14 +129,13 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
                     #[allow(clippy::cast_possible_wrap)]
                     if s_co.len() as isize > s_mark {
-                        #[allow(clippy::cast_sign_loss)]
-                        let u_s_mark = s_mark as usize;
-                        s_mark = u_s_mark.saturating_sub(1) as isize;
+                        s_mark = if s_mark <= 0 {
+                            0
+                        } else {
+                            s_mark.saturating_sub(1)
+                        };
                         #[allow(clippy::cast_sign_loss)]
                         let (x, mut y) = s_co[s_mark as usize];
-                        if y != 0 {
-                            y += 1;
-                        }
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
@@ -173,8 +171,15 @@ pub(crate) async fn dynamic_paging(
     // Lat printed string
     let mut last_printed = String::new();
     let mut search_term = String::new();
+    // Search related variables
+    // Vector of match coordinates
+    // Earch element is a (x,y) pair, where the cursor will be placed
     let mut s_co: Vec<(u16, u16)> = Vec::new();
+    // A marker of which element of s_co we are currently at
+    // -1 means we have just highlighted all the matches but the cursor has not been
+    // placed in any one of them
     let mut s_mark = -1;
+    // Whether to redraw the console
     let mut redraw = true;
 
     loop {
@@ -214,10 +219,17 @@ pub(crate) async fn dynamic_paging(
                         return Ok(());
                     }
                 }
-                Some(InputEvent::UpdateRows(r)) => rows = r,
-                Some(InputEvent::UpdateUpperMark(um)) => lock.upper_mark = um,
+                Some(InputEvent::UpdateRows(r)) => {
+                    rows = r;
+                    redraw = true;
+                }
+                Some(InputEvent::UpdateUpperMark(um)) => {
+                    lock.upper_mark = um;
+                    redraw = true;
+                }
                 Some(InputEvent::UpdateLineNumber(l)) => {
                     lock.line_numbers = l;
+                    redraw = true;
                 }
                 Some(InputEvent::Search) => {
                     // Fetch the search query asynchronously
@@ -229,36 +241,36 @@ pub(crate) async fn dynamic_paging(
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                         // Update the search term
                         search_term = string;
+                        tracing::info!("{:?}", s_co);
                     }
                 }
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
+                    // Increment the search mark
                     s_mark += 1;
                     #[allow(clippy::cast_possible_wrap)]
+                    // Make sure s_mark is not greater than s_co's lenght
                     if s_co.len() as isize > s_mark {
                         #[allow(clippy::clippy::cast_sign_loss)]
+                        // Get the next coordinates
                         let (x, mut y) = s_co[s_mark as usize];
-                        if y != 0 {
-                            y += 1;
-                        }
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
+                        // Do not redraw the console
                         redraw = false;
                     }
                 }
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
                     #[allow(clippy::clippy::cast_possible_wrap)]
                     if s_co.len() as isize > s_mark {
-                        // #[allow(clippy::cast_sign_loss)]
-                        s_mark = if s_mark == -1 {
+                        // If s_mark is less than 0, make it 0, else subtract 1 from it
+                        s_mark = if s_mark <= 0 {
                             0
                         } else {
                             s_mark.saturating_sub(1)
                         };
                         #[allow(clippy::clippy::cast_sign_loss)]
+                        // Do the same steps that we have did in NextMatch block
                         let (x, mut y) = s_co[s_mark as usize];
-                        if y != 0 {
-                            y += 1;
-                        }
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
