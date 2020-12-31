@@ -142,14 +142,29 @@ pub(crate) fn highlight_search(
             let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
             let text = text.as_str();
             let replace = pattern.replace_all(line, text).to_string();
-            *line = replace;
+            find(line.clone(), &cap[0]).iter().for_each(|x| {
+                #[allow(clippy::cast_possible_truncation)]
+                coordinates.push((*x as u16, i as u16));
+            });
 
-            let x = line.find(text).unwrap();
-            #[allow(clippy::cast_possible_truncation)]
-            coordinates.push((x as u16, i as u16));
+            *line = replace;
         }
     }
     pager.lines = lines.join("\n");
     pager.lines.push('\n');
     Ok(coordinates)
+}
+
+pub(crate) fn find(mut text: String, query: &str) -> Vec<usize> {
+    let mut points: Vec<usize> = Vec::new();
+    let mut searched = 0;
+    text = text.replace("\t", "      ");
+    while let Some(x) = text.find(query) {
+        #[allow(clippy::cast_sign_loss)]
+        points.push(searched as usize + x);
+        #[allow(clippy::cast_possible_wrap)]
+        let x = x + query.char_indices().count();
+        searched += x;
+    }
+    points
 }

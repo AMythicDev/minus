@@ -124,7 +124,7 @@ impl<'a> PagerMutex {
     }
 }
 
-/// A sort of a MutexGuard similar to [`std::sync::MutexGuard`].
+/// A sort of a `MutexGuard` similar to [`std::sync::MutexGuard`].
 ///
 /// But again, similar to
 /// to [`PagerMutex`], this is very simple and does not even have any implementation

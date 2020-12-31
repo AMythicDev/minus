@@ -120,7 +120,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     #[allow(clippy::cast_possible_wrap)]
                     if s_co.len() as isize > s_mark {
                         #[allow(clippy::cast_sign_loss)]
-                        let (x, mut y) = s_co[s_mark as usize];
+                        let (x, y) = s_co[s_mark as usize];
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
@@ -135,7 +135,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                             s_mark.saturating_sub(1)
                         };
                         #[allow(clippy::cast_sign_loss)]
-                        let (x, mut y) = s_co[s_mark as usize];
+                        let (x, y) = s_co[s_mark as usize];
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
@@ -252,7 +252,7 @@ pub(crate) async fn dynamic_paging(
                     if s_co.len() as isize > s_mark {
                         #[allow(clippy::clippy::cast_sign_loss)]
                         // Get the next coordinates
-                        let (x, mut y) = s_co[s_mark as usize];
+                        let (x, y) = s_co[s_mark as usize];
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         // Do not redraw the console
@@ -270,7 +270,7 @@ pub(crate) async fn dynamic_paging(
                         };
                         #[allow(clippy::clippy::cast_sign_loss)]
                         // Do the same steps that we have did in NextMatch block
-                        let (x, mut y) = s_co[s_mark as usize];
+                        let (x, y) = s_co[s_mark as usize];
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
