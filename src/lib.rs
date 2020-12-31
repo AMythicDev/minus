@@ -94,7 +94,7 @@ pub use utils::LineNumbers;
 /// It only implements two methods that are: `.lock()` and `new()`. Although the
 /// `.lock()` is an async function and needs to be `.await`ed
 /// # Example
-/// ```
+/// ```ignore
 /// let p = minus::Pager::new().finish();
 /// // Although this will return a Arc that encapsulates the PagerMutex
 /// let guard = p.lock().await;
@@ -131,7 +131,7 @@ impl<'a> PagerMutex {
 /// method
 /// Although it does implement [`Deref`] and [`DerefMut`], so you could do something
 /// like this
-/// ```rust,no_run
+/// ```ignore
 /// let p = minus::Pager::new().finish();
 /// let guard = p.lock().await;
 /// println!("{}", guard.lines);
