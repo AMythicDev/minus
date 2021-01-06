@@ -142,6 +142,7 @@ pub(crate) fn highlight_search(
             let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
             let text = text.as_str();
             let replace = pattern.replace_all(line, text).to_string();
+
             find(line.clone(), &cap[0]).iter().for_each(|x| {
                 #[allow(clippy::cast_possible_truncation)]
                 coordinates.push((*x as u16, i as u16));
@@ -156,15 +157,22 @@ pub(crate) fn highlight_search(
 }
 
 pub(crate) fn find(mut text: String, query: &str) -> Vec<usize> {
+    // Initialize a vector of points
     let mut points: Vec<usize> = Vec::new();
+    // Mark of searching in the line. This tells upto what poistion the search is done
     let mut searched = 0;
+    // Replace all tabs with 6 spaces. There is a probably better way to do this
     text = text.replace("\t", "      ");
-    while let Some(x) = text.find(query) {
-        #[allow(clippy::cast_sign_loss)]
-        points.push(searched as usize + x);
-        #[allow(clippy::cast_possible_wrap)]
-        let x = x + query.char_indices().count();
-        searched += x;
+
+    while let Some(x) = text.find(&query) {
+        // Push the point of the first character of the term
+        points.push(searched + x);
+        // Calculate the length of the text including the entire query
+        let truncate = x + query.char_indices().count();
+        // Drain everything upto the point
+        text.drain(..truncate);
+        // Update the searched
+        searched += truncate;
     }
     points
 }

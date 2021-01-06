@@ -6,6 +6,7 @@ use crossterm::{
     style::Attribute,
     terminal::{self, Clear, ClearType},
 };
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
 use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
@@ -161,7 +162,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
-#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+// #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
 pub(crate) async fn dynamic_paging(
     p: &Arc<PagerMutex>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
@@ -241,36 +242,47 @@ pub(crate) async fn dynamic_paging(
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                         // Update the search term
                         search_term = string;
-                        tracing::info!("{:?}", s_co);
                     }
                 }
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
-                    #[allow(clippy::cast_possible_wrap)]
+                    // These unwrap operations should be safe, error handling for these
+                    // could be added later on
                     // Make sure s_mark is not greater than s_co's lenght
-                    if s_co.len() as isize > s_mark {
-                        #[allow(clippy::clippy::cast_sign_loss)]
+                    if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // Get the next coordinates
-                        let (x, y) = s_co[s_mark as usize];
-                        write!(out, "{}", MoveTo(x, y))?;
-                        out.flush()?;
-                        // Do not redraw the console
-                        redraw = false;
+                        let (x, y) = s_co[usize::try_from(s_mark).unwrap()];
+
+                        if usize::from(y) >= rows + lock.upper_mark {
+                            lock.upper_mark = y.into();
+                            draw(&mut out, &mut lock, rows)?;
+                            write!(
+                                out,
+                                "{}",
+                                MoveTo(
+                                    x,
+                                    y.saturating_sub((lock.upper_mark + rows).try_into().unwrap())
+                                )
+                            )?;
+                        } else {
+                            write!(out, "{}", MoveTo(x, y))?;
+                            out.flush()?;
+                            // Do not redraw the console
+                            redraw = false;
+                        }
                     }
                 }
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
-                    #[allow(clippy::clippy::cast_possible_wrap)]
-                    if s_co.len() as isize > s_mark {
+                    if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // If s_mark is less than 0, make it 0, else subtract 1 from it
                         s_mark = if s_mark <= 0 {
                             0
                         } else {
                             s_mark.saturating_sub(1)
                         };
-                        #[allow(clippy::clippy::cast_sign_loss)]
                         // Do the same steps that we have did in NextMatch block
-                        let (x, y) = s_co[s_mark as usize];
+                        let (x, y) = s_co[usize::try_from(s_mark).unwrap()];
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
@@ -280,12 +292,9 @@ pub(crate) async fn dynamic_paging(
                     continue;
                 }
             }
-
+            // If redraw is true, then redraw the screen
             if redraw {
-                let mut pager = lock.clone();
                 draw(&mut out, &mut pager, rows)?;
-                // Update the lock if pager has changed
-                *lock = pager;
             }
         }
     }
