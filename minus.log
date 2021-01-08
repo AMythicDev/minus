@@ -1,0 +1,139 @@
+[2mJan 08 15:05:31.401[0m [32m INFO[0m minus::utils:true
+[2mJan 08 15:05:31.839[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 0
+[2mJan 08 15:05:31.839[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:32.951[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 08 15:05:32.951[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:33.399[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 0
+[2mJan 08 15:05:33.399[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:52.708[0m [32m INFO[0m minus::utils:true
+[2mJan 08 15:05:53.121[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 0
+[2mJan 08 15:05:53.122[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:53.553[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 08 15:05:53.558[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:53.985[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 0
+[2mJan 08 15:05:53.985[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:54.617[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 30
+[2mJan 08 15:05:54.617[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:56.225[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 30
+[2mJan 08 15:05:56.225[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:56.808[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 30
+[2mJan 08 15:05:56.809[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:57.544[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 60
+[2mJan 08 15:05:57.545[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:58.744[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 60
+[2mJan 08 15:05:58.749[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:59.264[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 60
+[2mJan 08 15:05:59.264[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:05:59.952[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 80
+[2mJan 08 15:05:59.954[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:03.207[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 08 15:06:03.207[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:04.702[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 08 15:06:04.703[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:05.566[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:06.829[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:09.213[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:10.181[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:10.844[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:11.364[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:11.884[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:12.268[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:12.916[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:13.396[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:14.395[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:14.603[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:14.811[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:15.019[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:29.034[0m [32m INFO[0m minus::utils:true
+[2mJan 08 15:06:29.312[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 0
+[2mJan 08 15:06:29.312[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:29.767[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 08 15:06:29.768[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:30.143[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 0
+[2mJan 08 15:06:30.144[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:31.647[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:32.207[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:32.783[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 08 15:06:32.785[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:33.151[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 0
+[2mJan 08 15:06:33.151[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:33.806[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 30
+[2mJan 08 15:06:33.809[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:35.382[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:39.317[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:40.541[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 10
+[2mJan 08 15:06:40.541[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:45.923[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:47.435[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 10
+[2mJan 08 15:06:47.435[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:48.347[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 10
+[2mJan 08 15:06:48.356[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:49.178[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 40
+[2mJan 08 15:06:49.178[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:50.498[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 40
+[2mJan 08 15:06:50.505[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:50.970[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 40
+[2mJan 08 15:06:50.970[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:51.858[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 70
+[2mJan 08 15:06:51.859[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:52.682[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 70
+[2mJan 08 15:06:52.682[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:53.497[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 70
+[2mJan 08 15:06:53.497[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:06:56.249[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 08 15:06:56.249[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:01.679[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 08 15:07:01.679[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:03.143[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:04.094[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:04.702[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:05.974[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:08.365[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:09.085[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:09.261[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:09.421[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:09.581[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:09.749[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:10.077[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:10.260[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:10.444[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:15.805[0m [32m INFO[0m minus::utils:true
+[2mJan 08 15:07:16.739[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 0
+[2mJan 08 15:07:16.739[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:16.907[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 08 15:07:16.907[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:17.099[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 0
+[2mJan 08 15:07:17.099[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:17.315[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 30
+[2mJan 08 15:07:17.315[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:17.499[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 30
+[2mJan 08 15:07:17.499[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:17.682[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 30
+[2mJan 08 15:07:17.683[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:17.866[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 60
+[2mJan 08 15:07:17.867[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:18.042[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 60
+[2mJan 08 15:07:18.043[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:18.219[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 60
+[2mJan 08 15:07:18.223[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:18.402[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 80
+[2mJan 08 15:07:18.402[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:19.026[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 08 15:07:19.027[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:19.426[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 08 15:07:19.426[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:20.882[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:21.458[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:22.937[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:23.353[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:23.737[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:24.241[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:24.905[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:25.328[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:25.512[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:25.696[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:26.024[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:26.684[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:28.448[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 08 15:07:28.448[0m [32m INFO[0m minus::utils:false
+[2mJan 08 15:07:29.015[0m [32m INFO[0m minus::utils:false

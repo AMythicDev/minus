@@ -83,9 +83,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     let mut s_mark = -1;
     let mut redraw = true;
 
-    loop {
-        draw(&mut out, &mut pager, rows)?;
+    draw(&mut out, &mut pager, rows)?;
 
+    loop {
         // Check for events
         if event::poll(std::time::Duration::from_millis(10))
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
@@ -101,10 +101,17 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             match input {
                 None => continue,
                 Some(InputEvent::Exit) => return Ok(cleanup(out)?),
-                Some(InputEvent::UpdateRows(r)) => rows = r,
-                Some(InputEvent::UpdateUpperMark(um)) => pager.upper_mark = um,
+                Some(InputEvent::UpdateRows(r)) => {
+                    rows = r;
+                    redraw = true;
+                }
+                Some(InputEvent::UpdateUpperMark(um)) => {
+                    pager.upper_mark = um;
+                    redraw = true;
+                }
                 Some(InputEvent::UpdateLineNumber(l)) => {
                     pager.line_numbers = l;
+                    redraw = true;
                 }
                 Some(InputEvent::Search) => {
                     let string = search::fetch_input_blocking(&mut out, rows)?;
@@ -117,26 +124,43 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 // These are same as their dynamic counterparts, except for the fact
                 // that they use a blocking fetch_input function
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
+                    // Increment the search mark
                     s_mark += 1;
-                    #[allow(clippy::cast_possible_wrap)]
-                    if s_co.len() as isize > s_mark {
-                        #[allow(clippy::cast_sign_loss)]
-                        let (x, y) = s_co[s_mark as usize];
+                    // These unwrap operations should be safe, error handling for these
+                    // could be added later on
+                    // Make sure s_mark is not greater than s_co's lenght
+                    if isize::try_from(s_co.len()).unwrap() > s_mark {
+                        // Get the next coordinates
+                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
+                        if usize::from(y) >= pager.upper_mark + rows {
+                            pager.upper_mark = y.into();
+                        }
+                        draw(&mut out, &mut pager, rows)?;
+                        y = y.saturating_sub(pager.upper_mark.try_into().unwrap());
+                        tracing::info!(" y: {} upper_mark: {}", y, pager.upper_mark);
+
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
+                        // Do not redraw the console
                         redraw = false;
                     }
                 }
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
-                    #[allow(clippy::cast_possible_wrap)]
-                    if s_co.len() as isize > s_mark {
+                    if isize::try_from(s_co.len()).unwrap() > s_mark {
+                        // If s_mark is less than 0, make it 0, else subtract 1 from it
                         s_mark = if s_mark <= 0 {
                             0
                         } else {
                             s_mark.saturating_sub(1)
                         };
-                        #[allow(clippy::cast_sign_loss)]
-                        let (x, y) = s_co[s_mark as usize];
+                        // Do the same steps that we have did in NextMatch block
+                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
+                        if usize::from(y) <= pager.upper_mark {
+                            pager.upper_mark = y.into();
+                        }
+                        draw(&mut out, &mut pager, rows)?;
+                        y = y.saturating_sub(pager.upper_mark.try_into().unwrap());
+
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
@@ -146,6 +170,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     continue;
                 }
             }
+            tracing::info!("{}", redraw);
             if redraw {
                 draw(&mut out, &mut pager, rows)?;
             }
@@ -252,25 +277,17 @@ pub(crate) async fn dynamic_paging(
                     // Make sure s_mark is not greater than s_co's lenght
                     if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // Get the next coordinates
-                        let (x, y) = s_co[usize::try_from(s_mark).unwrap()];
-
-                        if usize::from(y) >= rows + lock.upper_mark {
+                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
+                        if usize::from(y) >= lock.upper_mark + rows {
                             lock.upper_mark = y.into();
-                            draw(&mut out, &mut lock, rows)?;
-                            write!(
-                                out,
-                                "{}",
-                                MoveTo(
-                                    x,
-                                    y.saturating_sub((lock.upper_mark + rows).try_into().unwrap())
-                                )
-                            )?;
-                        } else {
-                            write!(out, "{}", MoveTo(x, y))?;
-                            out.flush()?;
-                            // Do not redraw the console
-                            redraw = false;
                         }
+                        draw(&mut out, &mut lock, rows)?;
+                        y = y.saturating_sub(lock.upper_mark.try_into().unwrap());
+
+                        write!(out, "{}", MoveTo(x, y))?;
+                        out.flush()?;
+                        // Do not redraw the console
+                        redraw = false;
                     }
                 }
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
@@ -282,7 +299,13 @@ pub(crate) async fn dynamic_paging(
                             s_mark.saturating_sub(1)
                         };
                         // Do the same steps that we have did in NextMatch block
-                        let (x, y) = s_co[usize::try_from(s_mark).unwrap()];
+                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
+                        if usize::from(y) <= lock.upper_mark {
+                            lock.upper_mark = y.into();
+                        }
+                        draw(&mut out, &mut lock, rows)?;
+                        y = y.saturating_sub(lock.upper_mark.try_into().unwrap());
+
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         redraw = false;
