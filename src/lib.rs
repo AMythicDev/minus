@@ -211,6 +211,8 @@ pub struct Pager {
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     upper_mark: usize,
+    /// Tells whether the searching is possible inside the pager
+    searchable: bool,
 }
 
 impl Pager {
@@ -228,6 +230,7 @@ impl Pager {
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
+            searchable: true,
         }
     }
 
@@ -257,7 +260,7 @@ impl Pager {
     ///
     /// Example
     /// ```
-    /// use minus::{Pager, LineNumbers};
+    /// use minus::Pager;
     ///
     /// let pager = Pager::new().set_prompt("my awesome program");
     /// ```
@@ -265,12 +268,24 @@ impl Pager {
         self.prompt = t.into();
         self
     }
+    /// Sets whether searching is possible inside the pager. Default s set to true
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new().set_searchable(false);
+    /// ```
+    pub fn set_searchable(mut self, t: bool) -> Self {
+        self.search = false;
+        self
+    }
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
     ///
     /// Example
     /// ```
-    /// use minus::{Pager, LineNumbers};
+    /// use minus::Pager;
     ///
     /// let pager = Pager::new().set_text("This output is paged").finish();
     /// ```
