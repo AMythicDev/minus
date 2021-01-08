@@ -276,8 +276,8 @@ impl Pager {
     ///
     /// let pager = Pager::new().set_searchable(false);
     /// ```
-    pub fn set_searchable(mut self, t: bool) -> Self {
-        self.search = false;
+    pub fn set_searchable(mut self, s: bool) -> Self {
+        self.searchable = s;
         self
     }
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
