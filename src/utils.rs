@@ -162,7 +162,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
-// #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
 pub(crate) async fn dynamic_paging(
     p: &Arc<PagerMutex>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
