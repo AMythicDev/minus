@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Asynchronously push numbers to the output
     let increment = async {
         for i in 0..=30_u32 {
-            let mut guard = pager.lock().unwrap();
+            let mut guard = pager.lock().await;
             writeln!(guard.lines, "{}", i)?;
             drop(guard);
             sleep(Duration::from_millis(100)).await;
@@ -117,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Asynchronously push numbers to the output
     let increment = async {
         for i in 0..=30_u32 {
-            let mut guard = output.lock().unwrap();
+            let mut guard = output.lock().await;
             writeln!(guard.lines, "{}", i)?;
             drop(guard);
             sleep(Duration::from_millis(100)).await;

@@ -1,6 +1,10 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.0.1 [2021-1-10]
+### Documentation Fixes
+* Fix README examples
+
 ## v3.0.0 [2021-1-10]
 ### Added
 * A special mutex for the Pager that is runtime-agnostic and implements `Send` +
