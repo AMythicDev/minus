@@ -7,11 +7,17 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 use std::convert::{TryFrom, TryInto};
-use std::sync::Arc;
 
-use crate::error::{AlternateScreenPagingError, CleanupError, SetupError};
-use crate::{Pager, PagerMutex};
+use crate::{
+    error::{AlternateScreenPagingError, CleanupError, SetupError},
+    Pager,
+};
+
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use crate::PagerMutex;
 use std::io::{self, Write as _};
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use std::sync::Arc;
 
 use crate::search;
 

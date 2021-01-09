@@ -78,12 +78,11 @@ pub use static_pager::page_all;
 
 pub use error::*;
 use std::cell::UnsafeCell;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use std::sync::Arc;
 use std::{
     ops::{Deref, DerefMut},
-    sync::{
-        atomic::{spin_loop_hint, AtomicBool, Ordering},
-        Arc,
-    },
+    sync::atomic::{spin_loop_hint, AtomicBool, Ordering},
 };
 pub use utils::LineNumbers;
 
@@ -276,6 +275,7 @@ impl Pager {
     ///
     /// let pager = Pager::new().set_searchable(false);
     /// ```
+    #[must_use]
     pub fn set_searchable(mut self, s: bool) -> Self {
         self.searchable = s;
         self
