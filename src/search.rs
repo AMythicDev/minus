@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use crate::error::AlternateScreenPagingError;
 use crate::Pager;
 use crossterm::{
@@ -9,7 +10,7 @@ use crossterm::{
 use std::time::Duration;
 
 /// Fetch the search query asynchronously
-#[cfg(feature = "static_output")]
+#[cfg(all(feature = "static_output", feature = "search"))]
 pub(crate) fn fetch_input_blocking(
     out: &mut impl std::io::Write,
     rows: usize,
@@ -71,7 +72,10 @@ pub(crate) fn fetch_input_blocking(
 }
 /// Fetch input anychronously
 // This is similar to fetch_input_blocking except that it is async
-#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+#[cfg(all(
+    any(feature = "async_std_lib", feature = "tokio_lib"),
+    feature = "search"
+))]
 pub(crate) async fn fetch_input(
     out: &mut impl std::io::Write,
     rows: usize,
@@ -125,6 +129,7 @@ pub(crate) async fn fetch_input(
 }
 
 /// Highlight all matches of the given query and return the coordinate of each match
+#[cfg(feature = "search")]
 pub(crate) fn highlight_search(
     pager: &mut Pager,
     query: &str,
@@ -156,6 +161,7 @@ pub(crate) fn highlight_search(
     Ok(coordinates)
 }
 
+#[cfg(feature = "search")]
 pub(crate) fn find(mut text: String, query: &str) -> Vec<usize> {
     // Initialize a vector of points
     let mut points: Vec<usize> = Vec::new();

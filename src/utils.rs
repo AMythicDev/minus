@@ -6,6 +6,7 @@ use crossterm::{
     style::Attribute,
     terminal::{self, Clear, ClearType},
 };
+#[cfg(feature = "search")]
 use std::convert::{TryFrom, TryInto};
 
 use crate::{
@@ -13,13 +14,13 @@ use crate::{
     Pager,
 };
 
+#[cfg(feature = "search")]
+use crate::search;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use crate::PagerMutex;
 use std::io::{self, Write as _};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-
-use crate::search;
 
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
@@ -84,10 +85,15 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     // Setup terminal
     let mut out = io::stdout();
     let mut rows = setup(&out, false)?;
-    let mut search_term = String::new();
-    let mut s_co: Vec<(u16, u16)> = Vec::new();
-    let mut s_mark = -1;
+    #[allow(unused_assignments)]
     let mut redraw = true;
+
+    #[cfg(feature = "search")]
+    let mut search_term = String::new();
+    #[cfg(feature = "search")]
+    let mut s_co: Vec<(u16, u16)> = Vec::new();
+    #[cfg(feature = "search")]
+    let mut s_mark = -1;
 
     draw(&mut out, &mut pager, rows)?;
 
@@ -119,6 +125,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     pager.line_numbers = l;
                     redraw = true;
                 }
+                #[cfg(feature = "search")]
                 Some(InputEvent::Search) => {
                     let string = search::fetch_input_blocking(&mut out, rows)?;
                     if !string.is_empty() {
@@ -129,6 +136,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 }
                 // These are same as their dynamic counterparts, except for the fact
                 // that they use a blocking fetch_input function
+                #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
@@ -143,14 +151,13 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         }
                         draw(&mut out, &mut pager, rows)?;
                         y = y.saturating_sub(pager.upper_mark.try_into().unwrap());
-                        tracing::info!(" y: {} upper_mark: {}", y, pager.upper_mark);
-
                         write!(out, "{}", MoveTo(x, y))?;
                         out.flush()?;
                         // Do not redraw the console
                         redraw = false;
                     }
                 }
+                #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
                     if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // If s_mark is less than 0, make it 0, else subtract 1 from it
@@ -172,11 +179,11 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         redraw = false;
                     }
                 }
+                #[cfg(feature = "search")]
                 Some(_) => {
                     continue;
                 }
             }
-            tracing::info!("{}", redraw);
             if redraw {
                 draw(&mut out, &mut pager, rows)?;
             }
@@ -194,52 +201,62 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn dynamic_paging(
     p: &Arc<PagerMutex>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let mut out = io::stdout();
     let mut rows = setup(&out, true)?;
-    // Lat printed string
-    let mut last_printed = String::new();
-    let mut search_term = String::new();
     // Search related variables
+    // Search term, if searching is called
+    #[cfg(feature = "search")]
+    let mut search_term = String::new();
     // Vector of match coordinates
     // Earch element is a (x,y) pair, where the cursor will be placed
+    #[cfg(feature = "search")]
     let mut s_co: Vec<(u16, u16)> = Vec::new();
     // A marker of which element of s_co we are currently at
     // -1 means we have just highlighted all the matches but the cursor has not been
     // placed in any one of them
+    #[cfg(feature = "search")]
     let mut s_mark = -1;
     // Whether to redraw the console
+    #[allow(unused_assignments)]
     let mut redraw = true;
+    let mut last_line_count = 0;
 
     loop {
         // Get the lock, clone it and immidiately drop the lock
-        let guard = p.lock().await;
-        let mut pager = guard.clone();
-        drop(guard);
+        let mut guard = p.lock().await;
 
         // If the last displayed text is not same as the original text, then redraw original text
-        // TODO: IMPROVE THIS SECTION
-        if pager.lines != last_printed {
-            draw(&mut out, &mut pager, rows)?;
-            last_printed = pager.lines.clone();
+        // We need to keep track of the last count size, since this loop can run any
+        // number of times before the next ammendment to the text. This could cause
+        // multiple drawings of the same text if the entire terminal is not filled
+        // along with some weird behaviours
+        let line_count = guard.lines.lines().count();
+        if last_line_count != line_count && line_count < rows {
+            draw(&mut out, &mut guard, rows)?;
+            last_line_count = line_count;
         }
+
+        drop(guard);
 
         // Check for events
         if event::poll(std::time::Duration::from_millis(10))
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
         {
+            // Lock the value again
+            let mut lock = p.lock().await;
+
             // Get the events
             let input = handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                pager.upper_mark,
-                pager.line_numbers,
+                lock.upper_mark,
+                lock.line_numbers,
                 rows,
             );
-            // Lock the value again
-            let mut lock = p.lock().await;
             // Update any data that may have changed
             match input {
                 None => continue,
@@ -263,7 +280,8 @@ pub(crate) async fn dynamic_paging(
                     lock.line_numbers = l;
                     redraw = true;
                 }
-                Some(InputEvent::Search) => {
+                #[cfg(feature = "search")]
+                Some(InputEvent::Search) if lock.searchable => {
                     // Fetch the search query asynchronously
                     let string = search::fetch_input(&mut out, rows).await?;
                     if !string.is_empty() {
@@ -274,7 +292,9 @@ pub(crate) async fn dynamic_paging(
                         // Update the search term
                         search_term = string;
                     }
+                    redraw = true;
                 }
+                #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if !search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
@@ -296,6 +316,7 @@ pub(crate) async fn dynamic_paging(
                         redraw = false;
                     }
                 }
+                #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
                     if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // If s_mark is less than 0, make it 0, else subtract 1 from it
@@ -323,7 +344,7 @@ pub(crate) async fn dynamic_paging(
             }
             // If redraw is true, then redraw the screen
             if redraw {
-                draw(&mut out, &mut pager, rows)?;
+                draw(&mut out, &mut lock, rows)?;
             }
         }
     }
@@ -342,10 +363,13 @@ pub enum InputEvent {
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
     /// `/`, Searching for certain pattern of text
+    #[cfg(feature = "search")]
     Search,
     /// Get to the next match
+    #[cfg(feature = "search")]
     NextMatch,
     /// Get to the previous match
+    #[cfg(feature = "search")]
     PrevMatch,
 }
 
@@ -438,14 +462,17 @@ pub(crate) fn handle_input(
             code: KeyCode::Char('c'),
             modifiers: KeyModifiers::CONTROL,
         }) => Some(InputEvent::Exit),
+        #[cfg(feature = "search")]
         Event::Key(KeyEvent {
             code: KeyCode::Char('/'),
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::Search),
+        #[cfg(feature = "search")]
         Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::NextMatch),
+        #[cfg(feature = "search")]
         Event::Key(KeyEvent {
             code: KeyCode::Char('p'),
             modifiers: KeyModifiers::NONE,

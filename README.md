@@ -44,7 +44,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "^2.0" 
+version = "^3.0"
 # For tokio
 features = ["tokio_lib"]
 
@@ -173,9 +173,12 @@ Here is some help for the end user using an application that depends on minus
 | Page Down         | Scroll down by entire page|
 | g                 | Go to the very top of the output|
 | G                 | Go to the very bottom of the output|
-| Mouse scroll Up   | Scroll up by 5 lines
-| Mouse scroll Down | Scroll down by 5 lines
+| Mouse scroll Up   | Scroll up by 5 lines|
+| Mouse scroll Down | Scroll down by 5 lines|
 | Ctrl+L            | Toggle line numbers if not forced enabled/disabled|
+| /					| Enable forward search|
+| n					| Go to the next search match|
+| p					| Go to the next previous match|
 
 ## Contributing
 

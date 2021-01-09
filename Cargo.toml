@@ -1,6 +1,6 @@
 [package]
 name = "minus"
-version = "2.0.2"
+version = "3.0.0"
 authors = ["Arijit Dey <arijid79@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -18,21 +18,21 @@ async-std = { version = "^1.7.0", optional = true, default-features = false }
 crossterm = "0.18.2"
 tokio = { version = "^1.0", optional = true, features = ["rt"] }
 thiserror = "1.0.22"
-regex = { version = "^1.4" }
-tracing = "^0.1.22"
+regex = { version = "^1.4", optional = true }
 
 [features]
 async_std_lib = [ "async-std" ]
 tokio_lib = [ "tokio" ]
-# search = [ "regex" ]
+search = [ "regex" ]
 static_output = []
 
 [dev-dependencies]
 futures = "^0.3.8"
 async-std = { version = "^1.7.0", features = ["attributes"] }
 tokio = { version = "^1.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
-tracing-subscriber = "*"
-tracing-appender = "*"
+tracing-subscriber = "^0.2.15"
+tracing-appender = "^0.1.2"
+tracing = "0.1.22"
 
 [[example]]
 name = "dyn_async_std"

@@ -15,6 +15,7 @@ pub struct TermError(
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 #[allow(clippy::module_name_repetitions)]
+#[cfg(feature = "search")]
 pub struct RegexError(
     // This member is private to avoid leaking the regex error type up the
     // dependency chain.
@@ -78,6 +79,7 @@ pub enum AlternateScreenPagingError {
     HandleEvent(TermError),
 
     #[error(transparent)]
+    #[cfg(feature = "search")]
     SearchExpError(#[from] RegexError),
 
     #[cfg(feature = "tokio_lib")]

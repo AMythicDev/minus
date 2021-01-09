@@ -1,3 +1,7 @@
+// This is the example used when debugging minus. It will crate a file called minus.log
+// Tracing if used as the logger
+// Dependencies are pulled of tracing, tracing-appender and tracing-subscriber
+
 use async_std::task::sleep;
 use futures::join;
 

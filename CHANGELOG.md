@@ -1,6 +1,23 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.0.0 [2021-1-10]
+### Added
+* A special mutex for the Pager that is runtime-agnostic and implements `Send` +
+`Sync`
+* Search using the `/` key
+	* `n` and `p` to go to the next/previous match respectively
+
+### Changed
+* Simplification how text is output to the screen when the terminal is not filled
+
+## v2.1.0 [2020-12-24]
+### Added
+* Ability to control the exit strategy
+
+### Changed
+* Minimum requirement for tokio is tokio 1.0
+
 ## v2.0.2 [2020-12-16]
 ### Documentation Fixes
 * Fix docs where features are shown to enabled even when they are disabled
