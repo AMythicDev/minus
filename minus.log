@@ -1,0 +1,38 @@
+[2mJan 09 22:26:05.791[0m [32m INFO[0m minus::utils:true
+[2mJan 09 22:26:07.181[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 0
+[2mJan 09 22:26:07.196[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:07.612[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 0
+[2mJan 09 22:26:07.612[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:08.268[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 0
+[2mJan 09 22:26:08.269[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:08.692[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 30
+[2mJan 09 22:26:08.693[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:09.205[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 30
+[2mJan 09 22:26:09.205[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:09.637[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 30
+[2mJan 09 22:26:09.637[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:10.013[0m [32m INFO[0m minus::utils: y: 0 upper_mark: 60
+[2mJan 09 22:26:10.013[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:10.509[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 60
+[2mJan 09 22:26:10.509[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:10.932[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 60
+[2mJan 09 22:26:10.935[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:11.317[0m [32m INFO[0m minus::utils: y: 10 upper_mark: 80
+[2mJan 09 22:26:11.317[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:11.653[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 09 22:26:11.653[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:12.061[0m [32m INFO[0m minus::utils: y: 20 upper_mark: 80
+[2mJan 09 22:26:12.061[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:13.837[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:14.261[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:14.893[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:15.357[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:15.693[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:15.893[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:16.101[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:16.413[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:16.621[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:16.804[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:16.972[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:17.357[0m [32m INFO[0m minus::utils:false
+[2mJan 09 22:26:17.604[0m [32m INFO[0m minus::utils:false

@@ -162,7 +162,7 @@ pub(crate) fn find(mut text: String, query: &str) -> Vec<usize> {
     // Mark of searching in the line. This tells upto what poistion the search is done
     let mut searched = 0;
     // Replace all tabs with 6 spaces. There is a probably better way to do this
-    text = text.replace("\t", "      ");
+    text = text.replace('\t', "      ");
 
     while let Some(x) = text.find(&query) {
         // Push the point of the first character of the term
