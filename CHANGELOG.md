@@ -1,6 +1,16 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.0.2 [2021-1-12]
+### Bug Fixes
+* If two consecutive searches are done in a single session, the previous search
+highlghts are not removed
+* If the same search query is called twice, the matches are repeated
+
+### Documentation Fixes
+* Add info about `search` feature
+* Add info about `searchable` field and `set_searchable` soft-deprecation
+
 ## v3.0.1 [2021-1-10]
 ### Documentation Fixes
 * Fix README examples

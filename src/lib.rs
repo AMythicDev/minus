@@ -46,7 +46,7 @@
 //! * `tokio_lib`:Use this if you are using [`tokio`] runtime for your application
 //! * `static_output`: Use this if you only want to use `minus` for displaying static
 //! output
-/// * `search`: If you want searching capablities inside the feature
+//! * `search`: If you want searching capablities inside the feature
 
 // When no feature is active this crate is unusable but contains lots of
 // unused imports and dead code. To avoid useless warnings about this they
@@ -328,11 +328,14 @@ impl Pager {
     /// Nrmally it will return `self.lines`
     /// In case a search, `self.search_lines` is returned
     pub(crate) fn get_lines(&self) -> String {
+        #[cfg(feature = "search")]
         if self.search_term.is_empty() {
             self.lines.clone()
         } else {
             self.search_lines.clone()
         }
+        #[cfg(not(feature = "search"))]
+        self.lines.clone()
     }
 }
 
