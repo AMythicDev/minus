@@ -211,7 +211,17 @@ pub struct Pager {
     /// from mutating this
     upper_mark: usize,
     /// Tells whether the searching is possible inside the pager
+    ///
+    /// This is a candidate for deprecation. If you want to enable search, enable the
+    /// `search` feature. This is because this dosen't really give any major benifits
+    /// since `regex` and all related functions are already compiled
     searchable: bool,
+    /// Stores the most recent search term
+    #[cfg(feature = "search")]
+    search_term: String,
+    /// A temporary space to store modifications to the lines string
+    #[cfg(feature = "search")]
+    search_lines: String,
 }
 
 impl Pager {
@@ -230,6 +240,10 @@ impl Pager {
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
             searchable: true,
+            #[cfg(feature = "search")]
+            search_term: String::new(),
+            #[cfg(feature = "search")]
+            search_lines: String::new(),
         }
     }
 
@@ -275,6 +289,10 @@ impl Pager {
     ///
     /// let pager = Pager::new().set_searchable(false);
     /// ```
+    ///
+    /// This is a candidate for deprecation. If you want to enable search, enable the
+    /// `search` feature. This is because this dosen't really give any major benifits
+    /// since `regex` and all related functions are already compiled
     #[must_use]
     pub fn set_searchable(mut self, s: bool) -> Self {
         self.searchable = s;
@@ -302,6 +320,18 @@ impl Pager {
     pub fn set_exit_strategy(mut self, strategy: ExitStrategy) -> Self {
         self.exit_strategy = strategy;
         self
+    }
+
+    /// Returns the appropriate text for displaying.
+    ///
+    /// Nrmally it will return `self.lines`
+    /// In case a search, `self.search_lines` is returned
+    pub(crate) fn get_lines(&self) -> String {
+        if self.search_term.is_empty() {
+            self.lines.clone()
+        } else {
+            self.search_lines.clone()
+        }
     }
 }
 

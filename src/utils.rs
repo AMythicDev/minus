@@ -89,8 +89,6 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     let mut redraw = true;
 
     #[cfg(feature = "search")]
-    let mut search_term = String::new();
-    #[cfg(feature = "search")]
     let mut s_co: Vec<(u16, u16)> = Vec::new();
     #[cfg(feature = "search")]
     let mut s_mark = -1;
@@ -131,13 +129,14 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     if !string.is_empty() {
                         s_co = search::highlight_search(&mut pager, &string)
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
-                        search_term = string;
+                        pager.search_term = string;
                     }
+                    redraw = true;
                 }
                 // These are same as their dynamic counterparts, except for the fact
                 // that they use a blocking fetch_input function
                 #[cfg(feature = "search")]
-                Some(InputEvent::NextMatch) if !search_term.is_empty() => {
+                Some(InputEvent::NextMatch) if !pager.search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
                     // These unwrap operations should be safe, error handling for these
@@ -158,7 +157,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     }
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
+                Some(InputEvent::PrevMatch) if !pager.search_term.is_empty() => {
                     if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // If s_mark is less than 0, make it 0, else subtract 1 from it
                         s_mark = if s_mark <= 0 {
@@ -209,9 +208,6 @@ pub(crate) async fn dynamic_paging(
     let mut out = io::stdout();
     let mut rows = setup(&out, true)?;
     // Search related variables
-    // Search term, if searching is called
-    #[cfg(feature = "search")]
-    let mut search_term = String::new();
     // Vector of match coordinates
     // Earch element is a (x,y) pair, where the cursor will be placed
     #[cfg(feature = "search")]
@@ -290,12 +286,12 @@ pub(crate) async fn dynamic_paging(
                         s_co = search::highlight_search(&mut lock, &string)
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                         // Update the search term
-                        search_term = string;
+                        lock.search_term = string;
                     }
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::NextMatch) if !search_term.is_empty() => {
+                Some(InputEvent::NextMatch) if !lock.search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
                     // These unwrap operations should be safe, error handling for these
@@ -317,7 +313,7 @@ pub(crate) async fn dynamic_paging(
                     }
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::PrevMatch) if !search_term.is_empty() => {
+                Some(InputEvent::PrevMatch) if !lock.search_term.is_empty() => {
                     if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // If s_mark is less than 0, make it 0, else subtract 1 from it
                         s_mark = if s_mark <= 0 {
@@ -525,9 +521,12 @@ pub(crate) fn write_lines(
     pager: &mut Pager,
     rows: usize,
 ) -> io::Result<()> {
+    // Get the line
+    let lines = pager.get_lines();
+    let lines = lines.lines();
     // '.count()' will necessarily finish since iterating over the lines of a
     // String cannot yield an infinite iterator, at worst a very long one.
-    let line_count = pager.lines.lines().count();
+    let line_count = lines.clone().count();
 
     // This may be too high but the `Iterator::take` call below will limit this
     // anyway while allowing us to display as much lines as possible.
@@ -541,11 +540,7 @@ pub(crate) fn write_lines(
         };
     }
 
-    let displayed_lines = pager
-        .lines
-        .lines()
-        .skip(pager.upper_mark)
-        .take(rows.min(line_count));
+    let displayed_lines = lines.skip(pager.upper_mark).take(rows.min(line_count));
 
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {

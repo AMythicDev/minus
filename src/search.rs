@@ -21,8 +21,8 @@ pub(crate) fn fetch_input_blocking(
     write!(
         out,
         "{}{}/{}",
-        Clear(ClearType::CurrentLine),
         MoveTo(0, rows as u16),
+        Clear(ClearType::CurrentLine),
         cursor::Show
     )?;
     out.flush()?;
@@ -84,8 +84,8 @@ pub(crate) async fn fetch_input(
     write!(
         out,
         "{}{}/{}",
-        Clear(ClearType::CurrentLine),
         MoveTo(0, rows as u16),
+        Clear(ClearType::CurrentLine),
         cursor::Show
     )?;
     out.flush()?;
@@ -136,8 +136,9 @@ pub(crate) fn highlight_search(
 ) -> Result<Vec<(u16, u16)>, regex::Error> {
     let pattern = regex::Regex::new(query)?;
     let mut coordinates: Vec<(u16, u16)> = Vec::new();
+    pager.search_lines = pager.lines.clone();
     let mut lines: Vec<String> = pager
-        .lines
+        .search_lines
         .lines()
         .map(std::string::ToString::to_string)
         .collect();
@@ -156,8 +157,8 @@ pub(crate) fn highlight_search(
             *line = replace;
         }
     }
-    pager.lines = lines.join("\n");
-    pager.lines.push('\n');
+    pager.search_lines = lines.join("\n");
+    pager.search_lines.push('\n');
     Ok(coordinates)
 }
 
