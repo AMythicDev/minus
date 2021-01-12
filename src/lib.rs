@@ -46,6 +46,7 @@
 //! * `tokio_lib`:Use this if you are using [`tokio`] runtime for your application
 //! * `static_output`: Use this if you only want to use `minus` for displaying static
 //! output
+/// * `search`: If you want searching capablities inside the feature
 
 // When no feature is active this crate is unusable but contains lots of
 // unused imports and dead code. To avoid useless warnings about this they

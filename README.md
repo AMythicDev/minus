@@ -53,6 +53,9 @@ features = ["async_std_lib"]
 
 # For static output
 features = ["static_output"]
+
+# If you want search capablities
+features = ["search"]
 ```
 
 ## Examples
