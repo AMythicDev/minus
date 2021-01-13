@@ -8,11 +8,14 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 use std::time::Duration;
+#[cfg(feature = "search")]
+use crate::utils::SearchMode;
 
 /// Fetch the search query asynchronously
 #[cfg(all(feature = "static_output", feature = "search"))]
 pub(crate) fn fetch_input_blocking(
     out: &mut impl std::io::Write,
+    search_mode: crate::utils::SearchMode,
     rows: usize,
 ) -> Result<String, AlternateScreenPagingError> {
     // Place the cursor at the beginning of very last line of the terminal and clear
@@ -20,9 +23,14 @@ pub(crate) fn fetch_input_blocking(
     #[allow(clippy::cast_possible_truncation)]
     write!(
         out,
-        "{}{}/{}",
+        "{}{}{}{}",
         MoveTo(0, rows as u16),
         Clear(ClearType::CurrentLine),
+        if search_mode == SearchMode::Forward {
+            "/"
+        } else {
+            "?"
+        },
         cursor::Show
     )?;
     out.flush()?;
@@ -78,14 +86,20 @@ pub(crate) fn fetch_input_blocking(
 ))]
 pub(crate) async fn fetch_input(
     out: &mut impl std::io::Write,
+    search_mode: crate::utils::SearchMode,
     rows: usize,
 ) -> Result<String, AlternateScreenPagingError> {
     #[allow(clippy::cast_possible_truncation)]
     write!(
         out,
-        "{}{}/{}",
+        "{}{}{}{}",
         MoveTo(0, rows as u16),
         Clear(ClearType::CurrentLine),
+        if search_mode == SearchMode::Forward {
+            "/"
+        } else {
+            "?"
+        },
         cursor::Show
     )?;
     out.flush()?;

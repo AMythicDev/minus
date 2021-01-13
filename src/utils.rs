@@ -70,7 +70,7 @@ fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<usize, Setup
 /// ## Errors
 ///
 /// Cleaning up the terminal can fail, see [`CleanupError`](CleanupError).
-fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
+fn cleanup(mut out: impl io::Write, es: &crate::ExitStrategy) -> std::result::Result<(), CleanupError> {
     // Reverse order of setup.
     execute!(out, event::DisableMouseCapture)
         .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
@@ -78,7 +78,11 @@ fn cleanup(mut out: impl io::Write) -> std::result::Result<(), CleanupError> {
     terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
     execute!(out, terminal::LeaveAlternateScreen)
         .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
-    Ok(())
+    if *es == crate::ExitStrategy::ProcessQuit {
+        std::process::exit(0);
+    } else {
+        Ok(())
+    }
 }
 #[cfg(feature = "static_output")]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
@@ -92,6 +96,8 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     let mut s_co: Vec<(u16, u16)> = Vec::new();
     #[cfg(feature = "search")]
     let mut s_mark = -1;
+    #[cfg(feature = "search")]
+    let mut search_mode = SearchMode::Unknown;
 
     draw(&mut out, &mut pager, rows)?;
 
@@ -104,13 +110,13 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             let input = handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 pager.upper_mark,
+                search_mode,
                 pager.line_numbers,
                 rows,
             );
             // Update any data that may have changed
             match input {
-                None => continue,
-                Some(InputEvent::Exit) => return Ok(cleanup(out)?),
+                Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy)?),
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
                     redraw = true;
@@ -124,8 +130,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::Search) => {
-                    let string = search::fetch_input_blocking(&mut out, rows)?;
+                Some(InputEvent::Search(m)) => {
+                    search_mode = m;
+                    let string = search::fetch_input_blocking(&mut out, search_mode, rows)?;
                     if !string.is_empty() {
                         s_co = search::highlight_search(&mut pager, &string)
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
@@ -179,9 +186,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     }
                 }
                 #[cfg(feature = "search")]
-                Some(_) => {
-                    continue;
-                }
+                None | Some(_) =>continue,
             }
             if redraw {
                 draw(&mut out, &mut pager, rows)?;
@@ -200,7 +205,6 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-#[allow(clippy::too_many_lines)]
 pub(crate) async fn dynamic_paging(
     p: &Arc<PagerMutex>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
@@ -217,6 +221,9 @@ pub(crate) async fn dynamic_paging(
     // placed in any one of them
     #[cfg(feature = "search")]
     let mut s_mark = -1;
+    // Search Mode
+    #[cfg(feature = "search")]
+    let mut search_mode = SearchMode::Unknown;
     // Whether to redraw the console
     #[allow(unused_assignments)]
     let mut redraw = true;
@@ -226,11 +233,8 @@ pub(crate) async fn dynamic_paging(
         // Get the lock, clone it and immidiately drop the lock
         let mut guard = p.lock().await;
 
-        // If the last displayed text is not same as the original text, then redraw original text
-        // We need to keep track of the last count size, since this loop can run any
-        // number of times before the next ammendment to the text. This could cause
-        // multiple drawings of the same text if the entire terminal is not filled
-        // along with some weird behaviours
+        // Display the text continously if last displayed line count is not same and
+        // all rows are not filled
         let line_count = guard.lines.lines().count();
         if last_line_count != line_count && line_count < rows {
             draw(&mut out, &mut guard, rows)?;
@@ -250,20 +254,13 @@ pub(crate) async fn dynamic_paging(
             let input = handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 lock.upper_mark,
+                search_mode,
                 lock.line_numbers,
                 rows,
             );
             // Update any data that may have changed
             match input {
-                None => continue,
-                Some(InputEvent::Exit) => {
-                    cleanup(out)?;
-                    if lock.exit_strategy == crate::ExitStrategy::ProcessQuit {
-                        std::process::exit(0);
-                    } else {
-                        return Ok(());
-                    }
-                }
+                Some(InputEvent::Exit) => return Ok(cleanup(out, &lock.exit_strategy)?),
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
                     redraw = true;
@@ -277,9 +274,10 @@ pub(crate) async fn dynamic_paging(
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::Search) if lock.searchable => {
+                Some(InputEvent::Search(m)) if lock.searchable => {
+                    search_mode = m;
                     // Fetch the search query asynchronously
-                    let string = search::fetch_input(&mut out, rows).await?;
+                    let string = search::fetch_input(&mut out, search_mode, rows).await?;
                     if !string.is_empty() {
                         // If the string is not empty, highlight all instances of the
                         // match and return a vector of match coordinates
@@ -294,8 +292,7 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::NextMatch) if !lock.search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
-                    // These unwrap operations should be safe, error handling for these
-                    // could be added later on
+                    // These unwrap operations should be safe
                     // Make sure s_mark is not greater than s_co's lenght
                     if isize::try_from(s_co.len()).unwrap() > s_mark {
                         // Get the next coordinates
@@ -334,9 +331,7 @@ pub(crate) async fn dynamic_paging(
                         redraw = false;
                     }
                 }
-                Some(_) => {
-                    continue;
-                }
+                None | Some(_) => continue,
             }
             // If redraw is true, then redraw the screen
             if redraw {
@@ -360,13 +355,25 @@ pub enum InputEvent {
     UpdateLineNumber(LineNumbers),
     /// `/`, Searching for certain pattern of text
     #[cfg(feature = "search")]
-    Search,
-    /// Get to the next match
+    Search(SearchMode),
+    /// Get to the next match in forward mode
     #[cfg(feature = "search")]
     NextMatch,
-    /// Get to the previous match
+    /// Get to the previous match in forward mode
     #[cfg(feature = "search")]
     PrevMatch,
+}
+
+#[derive(PartialEq, Clone, Copy, Debug)]
+#[cfg(feature = "search")]
+/// Defines modes in which the search can run
+pub enum SearchMode {
+    /// Find matches from or after the current page
+    Forward,
+    /// Find matches before the current page
+    Reverse,
+    /// Don;t know the current search mode
+    Unknown
 }
 
 /// Returns the input corresponding to the given event, updating the data as
@@ -378,6 +385,8 @@ pub enum InputEvent {
 pub(crate) fn handle_input(
     ev: Event,
     upper_mark: usize,
+    #[cfg(feature = "search")]
+    search_mode: SearchMode,
     ln: LineNumbers,
     rows: usize,
 ) -> Option<InputEvent> {
@@ -462,17 +471,34 @@ pub(crate) fn handle_input(
         Event::Key(KeyEvent {
             code: KeyCode::Char('/'),
             modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::Search),
+        }) => Some(InputEvent::Search(SearchMode::Forward)),
+        #[cfg(feature = "search")]
+        Event::Key(KeyEvent {
+            code: KeyCode::Char('?'),
+            modifiers: KeyModifiers::NONE,
+        }) => Some(InputEvent::Search(SearchMode::Reverse)),
         #[cfg(feature = "search")]
         Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
             modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::NextMatch),
+        }) => {
+            if search_mode == SearchMode::Reverse {
+                Some(InputEvent::PrevMatch)
+            } else {
+                Some(InputEvent::NextMatch)
+            }
+        }
         #[cfg(feature = "search")]
         Event::Key(KeyEvent {
             code: KeyCode::Char('p'),
             modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::PrevMatch),
+        }) => {
+            if search_mode == SearchMode::Reverse {
+                Some(InputEvent::NextMatch)
+            } else {
+                Some(InputEvent::PrevMatch)
+            }
+        }
         _ => None,
     }
 }
