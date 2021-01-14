@@ -86,6 +86,7 @@ use std::{
     sync::atomic::{spin_loop_hint, AtomicBool, Ordering},
 };
 pub use utils::LineNumbers;
+mod init;
 
 /// A sort of a mutex that holds the pager
 ///

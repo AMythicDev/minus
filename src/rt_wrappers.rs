@@ -2,7 +2,7 @@
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
 use crate::error::AlternateScreenPagingError;
-use crate::utils;
+use crate::init;
 use crate::PagerMutex;
 use std::sync::Arc;
 
@@ -118,5 +118,5 @@ pub async fn async_std_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateS
 
 /// Private function that contains the implemenation for the async display.
 async fn run(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
-    utils::dynamic_paging(&pager).await
+    init::dynamic_paging(&pager).await
 }

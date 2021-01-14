@@ -1,5 +1,5 @@
 //! Static information output, see [`page_all`].
-use crate::utils;
+use crate::{init, utils};
 
 use crate::error::AlternateScreenPagingError;
 use crate::Pager;
@@ -83,7 +83,7 @@ pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
             utils::write_lines(&mut out, &mut p, line_count)?;
             out.flush()?;
         } else {
-            utils::static_paging(p)?;
+            init::static_paging(p)?;
         }
 
         Ok(())

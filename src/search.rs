@@ -1,5 +1,7 @@
 #![allow(unused_imports)]
 use crate::error::AlternateScreenPagingError;
+#[cfg(feature = "search")]
+use crate::utils::SearchMode;
 use crate::Pager;
 use crossterm::{
     cursor::{self, MoveTo},
@@ -8,8 +10,6 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 use std::time::Duration;
-#[cfg(feature = "search")]
-use crate::utils::SearchMode;
 
 /// Fetch the search query asynchronously
 #[cfg(all(feature = "static_output", feature = "search"))]

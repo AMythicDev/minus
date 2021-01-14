@@ -438,7 +438,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, usize::MAX, SearchMode::Unknown, ln, rows),
         );
     }
 
@@ -449,7 +449,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MIN)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, usize::MIN, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -583,6 +583,9 @@ fn input_handling() {
             code: KeyCode::Char('a'),
             modifiers: KeyModifiers::NONE,
         });
-        assert_eq!(None, handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows));
+        assert_eq!(
+            None,
+            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+        );
     }
 }
