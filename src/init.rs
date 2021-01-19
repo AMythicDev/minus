@@ -50,6 +50,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 rows,
             );
             // Update any data that may have changed
+            #[allow(clippy::clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy)?),
                 Some(InputEvent::UpdateRows(r)) => {
@@ -98,7 +99,10 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                             pager.upper_mark = y.unwrap().into();
                         }
                         draw(&mut out, &mut pager, rows)?;
-                        y = Some(y.unwrap().saturating_sub(pager.upper_mark.try_into().unwrap()));
+                        y = Some(
+                            y.unwrap()
+                                .saturating_sub(pager.upper_mark.try_into().unwrap()),
+                        );
 
                         write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
                         out.flush()?;
@@ -261,7 +265,10 @@ pub(crate) async fn dynamic_paging(
                             lock.upper_mark = y.unwrap().into();
                         }
                         draw(&mut out, &mut lock, rows)?;
-                        y = Some(y.unwrap().saturating_sub(lock.upper_mark.try_into().unwrap()));
+                        y = Some(
+                            y.unwrap()
+                                .saturating_sub(lock.upper_mark.try_into().unwrap()),
+                        );
 
                         write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
                         out.flush()?;

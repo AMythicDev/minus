@@ -83,7 +83,7 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 use std::{
     ops::{Deref, DerefMut},
-    sync::atomic::{spin_loop_hint, AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, Ordering},
 };
 pub use utils::LineNumbers;
 mod init;
@@ -111,9 +111,8 @@ impl<'a> PagerMutex {
             if self.is_locked.swap(true, Ordering::AcqRel) {
                 self.is_locked.store(true, Ordering::Relaxed);
                 return PagerGuard(self);
-            } else {
-                spin_loop_hint();
             }
+            std::hint::spin_loop()
         }
     }
     #[must_use]

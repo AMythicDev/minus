@@ -1,6 +1,13 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.1.0 [2021-1-14]
+### Added
+* Backward searching
+
+### Bug fixes
+* Fix bug where cursor is placed in wrong position if upper\_mark is not 1
+
 ## v3.0.2 [2021-1-12]
 ### Bug Fixes
 * If two consecutive searches are done in a single session, the previous search
