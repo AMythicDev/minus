@@ -179,9 +179,11 @@ Here is some help for the end user using an application that depends on minus
 | Mouse scroll Up   | Scroll up by 5 lines|
 | Mouse scroll Down | Scroll down by 5 lines|
 | Ctrl+L            | Toggle line numbers if not forced enabled/disabled|
-| /					| Enable forward search|
-| n					| Go to the next search match|
-| p					| Go to the next previous match|
+| /		    | Start forward search|
+| ?                 | Start backward search|
+| Esc               | Cancel search input|
+| n		    | Go to the next search match|
+| p		    | Go to the next previous match|
 
 ## Contributing
 
