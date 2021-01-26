@@ -112,7 +112,7 @@ impl<'a> PagerMutex {
                 self.is_locked.store(true, Ordering::Relaxed);
                 return PagerGuard(self);
             }
-            std::hint::spin_loop()
+            std::sync::atomic::spin_loop_hint();
         }
     }
     #[must_use]
