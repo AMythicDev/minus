@@ -1,6 +1,13 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.1.1 [2021-2-5]
+### Documentation Fixes
+* Added information about the backward search feature in README
+
+### Bug fixes
+* Removed the unstable `spin\_loop` function
+
 ## v3.1.0 [2021-1-14]
 ### Added
 * Backward searching
