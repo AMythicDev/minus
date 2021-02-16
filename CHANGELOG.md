@@ -1,6 +1,11 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.1.2 [2021-2-16]
+### Bug fixes
+* Fixed bug where text with large amount of lines where not displayed
+* Fixed bug last line of text was not displayed when the string is pushed with multiple lines
+
 ## v3.1.1 [2021-2-5]
 ### Documentation Fixes
 * Added information about the backward search feature in README
