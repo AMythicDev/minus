@@ -185,7 +185,9 @@ pub(crate) async fn dynamic_paging(
         // Display the text continously if last displayed line count is not same and
         // all rows are not filled
         let line_count = guard.lines.lines().count();
-        if last_line_count != line_count && line_count < rows {
+        let have_just_overflowed = (last_line_count < rows) && (line_count >= rows);
+
+        if last_line_count != line_count && ((line_count < rows) || have_just_overflowed) {
             draw(&mut out, &mut guard, rows)?;
             last_line_count = line_count;
         }
