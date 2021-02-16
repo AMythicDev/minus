@@ -11,7 +11,7 @@ use crate::utils::{cleanup, draw, handle_input, setup, InputEvent};
 use crate::PagerMutex;
 use crate::{error::AlternateScreenPagingError, Pager};
 use crossterm::{cursor::MoveTo, event};
-#[cfg(feature = "search")]
+#[cfg(any(feature = "search", feature = "tokio_lib", feature = "async_std_lib"))]
 use std::convert::{TryFrom, TryInto};
 use std::io::{self, Write as _};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
@@ -176,7 +176,7 @@ pub(crate) async fn dynamic_paging(
     // Whether to redraw the console
     #[allow(unused_assignments)]
     let mut redraw = true;
-    let mut last_line_count = 0;
+    let mut last_line_count = -1;
 
     loop {
         // Get the lock, clone it and immidiately drop the lock
@@ -185,9 +185,11 @@ pub(crate) async fn dynamic_paging(
         // Display the text continously if last displayed line count is not same and
         // all rows are not filled
         let line_count = guard.lines.lines().count();
-        if last_line_count != line_count && line_count < rows {
+        if last_line_count != line_count.try_into().unwrap()
+            && (last_line_count <= 0 || line_count < rows)
+        {
             draw(&mut out, &mut guard, rows)?;
-            last_line_count = line_count;
+            last_line_count = line_count.try_into().unwrap();
         }
 
         drop(guard);
