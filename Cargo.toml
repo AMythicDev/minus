@@ -57,3 +57,7 @@ required-features = ["static_output"]
 [[example]]
 name = "static_long"
 required-features = ["static_output"]
+
+[[example]]
+name = "large_lines"
+required-features = ["static_output"]
