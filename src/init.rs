@@ -95,9 +95,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         if x.is_none() || y.is_none() {
                             continue;
                         }
-                        if usize::from(y.unwrap()) >= pager.upper_mark + rows {
-                            pager.upper_mark = y.unwrap().into();
-                        }
+                        
                         draw(&mut out, &mut pager, rows)?;
                         y = Some(
                             y.unwrap()

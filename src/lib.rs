@@ -78,9 +78,9 @@ pub use rt_wrappers::*;
 pub use static_pager::page_all;
 
 pub use error::*;
-use std::cell::UnsafeCell;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
+use std::{cell::UnsafeCell};
 use std::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
@@ -200,7 +200,7 @@ unsafe impl<'a> Sync for PagerMutex {}
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
-    pub lines: String,
+    lines: String,
     /// Configuration for line numbers. See [`LineNumbers`]
     line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
@@ -336,6 +336,37 @@ impl Pager {
         }
         #[cfg(not(feature = "search"))]
         self.lines.clone()
+    }
+    pub fn lines(&self) -> String {
+        self.lines.clone()
+    }
+    pub(crate) fn split_at_width(&mut self) {
+        let cols = crossterm::terminal::size().unwrap();
+        let mut lines = String::with_capacity(self.lines.len());
+
+        for mut line in self.lines.lines() {
+            let tab_replaced = line.replace('\t', "      ");
+            line = &tab_replaced;
+            let line_break = line.len() / usize::from(cols.0);
+            let mut new_line = String::new();
+            for _ in 1..=line_break {
+                let (done, left) = line.split_at(usize::from(cols.0));
+                new_line.push_str(done);
+                new_line.push('\n');
+                line = left;
+            }
+            lines.push_str(&new_line);
+            if !line.is_empty() {
+                lines.push_str(&format!("{}", line));
+            }
+        }
+        if lines != self.lines() {
+            self.lines = lines;
+        }
+    }
+    pub fn push_str(&mut self, s: impl ToString) {
+        self.lines.push_str(&s.to_string());
+        self.split_at_width();
     }
 }
 
