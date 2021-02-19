@@ -205,12 +205,16 @@ pub struct Pager {
     line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
     pub prompt: String,
+    // has all the data been sent to the pager
+    pub data_finished: bool,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     upper_mark: usize,
+    /// Do we want to actually page if we dont have more than a screen of output
+    page_if_havent_overflowed: bool,
     /// Tells whether the searching is possible inside the pager
     ///
     /// This is a candidate for deprecation. If you want to enable search, enable the
@@ -240,6 +244,8 @@ impl Pager {
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
+            data_finished: false,
+            page_if_havent_overflowed: true,
             searchable: true,
             #[cfg(feature = "search")]
             search_term: String::new(),
@@ -299,6 +305,19 @@ impl Pager {
         self.searchable = s;
         self
     }
+    /// Sets whether the pager actually blocks UI if our data is finished, and we havent overflowed the page
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new().set_page_if_havent_overflowed(false);
+    /// ```
+    #[must_use]
+    pub fn set_page_if_havent_overflowed(mut self, p: bool) -> Self {
+        self.page_if_havent_overflowed = p;
+        self
+    }
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
     ///
@@ -336,6 +355,14 @@ impl Pager {
         }
         #[cfg(not(feature = "search"))]
         self.lines.clone()
+    }
+
+    // pub fn append_lines(&mut self, lines: impl Into<String>) {
+    //     self.lines.push_str(lines.into().as_str())
+    // }
+
+    pub fn data_finished(&mut self) {
+        self.data_finished = true;
     }
 }
 
