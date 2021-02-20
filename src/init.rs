@@ -22,7 +22,7 @@ use std::sync::Arc;
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let mut out = io::stdout();
-    let mut rows = setup(&out, false)?;
+    let mut rows = setup(&out, false, true)?;
     #[allow(unused_assignments)]
     let mut redraw = true;
 
@@ -52,7 +52,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy, &pager)?),
+                Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy, true)?),
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
                     redraw = true;
@@ -159,7 +159,9 @@ pub(crate) async fn dynamic_paging(
 ) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let mut out = io::stdout();
-    let mut rows = setup(&out, true)?;
+    let page_if_havent_overflowed = { p.lock().await.page_if_havent_overflowed };
+    let mut rows = setup(&out, true, page_if_havent_overflowed)?;
+
     // Search related variables
     // Vector of match coordinates
     // Earch element is a (x,y) pair, where the cursor will be placed
@@ -188,6 +190,9 @@ pub(crate) async fn dynamic_paging(
         let have_overflowed = line_count > rows;
         let have_just_overflowed = (last_line_count <= rows) && have_overflowed;
 
+        if have_just_overflowed && !page_if_havent_overflowed {
+            setup(&out, true, true)?;
+        }
         if last_line_count != line_count && ((line_count < rows) || have_just_overflowed) {
             draw(&mut out, &mut guard, rows)?;
             last_line_count = line_count;
@@ -195,8 +200,8 @@ pub(crate) async fn dynamic_paging(
 
         let data_is_finished = guard.data_finished;
 
-        if data_is_finished && !guard.page_if_havent_overflowed && !have_overflowed {
-            return Ok(cleanup(out, &guard.exit_strategy, &guard)?);
+        if data_is_finished && !page_if_havent_overflowed && !have_overflowed {
+            return Ok(cleanup(out, &guard.exit_strategy, false)?);
         }
 
         drop(guard);
@@ -219,7 +224,7 @@ pub(crate) async fn dynamic_paging(
             );
             // Update any data that may have changed
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &lock.exit_strategy, &lock)?),
+                Some(InputEvent::Exit) => return Ok(cleanup(out, &lock.exit_strategy, true)?),
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
                     redraw = true;
