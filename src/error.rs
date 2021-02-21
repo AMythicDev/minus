@@ -61,8 +61,6 @@ pub enum CleanupError {
     #[error("Failed to switch back to main screen")]
     LeaveAlternateScreen(TermError),
 
-    #[error("Couldn't determine the terminal size")]
-    TerminalSize(TermError),
 }
 
 /// Errors that can happen while running
