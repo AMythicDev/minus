@@ -454,7 +454,12 @@ fn input_handling() {
     }
 
     {
-        let ev = Event::Mouse(MouseEvent::ScrollDown(0, 0, KeyModifiers::NONE));
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark + 5)),
             handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
@@ -462,7 +467,12 @@ fn input_handling() {
     }
 
     {
-        let ev = Event::Mouse(MouseEvent::ScrollUp(0, 0, KeyModifiers::NONE));
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark - 5)),
             handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
