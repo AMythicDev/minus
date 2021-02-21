@@ -60,6 +60,7 @@ pub enum CleanupError {
 
     #[error("Failed to switch back to main screen")]
     LeaveAlternateScreen(TermError),
+
 }
 
 /// Errors that can happen while running

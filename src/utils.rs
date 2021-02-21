@@ -27,9 +27,12 @@ use crate::{
 /// ## Errors
 ///
 /// Setting up the terminal can fail, see [`SetupError`](SetupError).
-pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<usize, SetupError> {
+pub(crate) fn setup(
+    stdout: &io::Stdout,
+    dynamic: bool,
+    setup_screen: bool,
+) -> std::result::Result<usize, SetupError> {
     let mut out = stdout.lock();
-
     // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
     if dynamic {
         use crossterm::tty::IsTty;
@@ -40,16 +43,16 @@ pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<u
             Err(SetupError::InvalidTerminal)
         }?;
     }
-
-    execute!(out, terminal::EnterAlternateScreen)
-        .map_err(|e| SetupError::AlternateScreen(e.into()))?;
-    terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
-    execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
-    execute!(out, event::EnableMouseCapture)
-        .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
-
     let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
+    if setup_screen {
+        execute!(out, terminal::EnterAlternateScreen)
+            .map_err(|e| SetupError::AlternateScreen(e.into()))?;
+        terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
+        execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
+        execute!(out, event::EnableMouseCapture)
+            .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
+    }
     Ok(rows as usize)
 }
 
@@ -65,14 +68,17 @@ pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<u
 pub(crate) fn cleanup(
     mut out: impl io::Write,
     es: &crate::ExitStrategy,
+    cleanup_screen: bool,
 ) -> std::result::Result<(), CleanupError> {
-    // Reverse order of setup.
-    execute!(out, event::DisableMouseCapture)
-        .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
-    execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
-    terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
-    execute!(out, terminal::LeaveAlternateScreen)
-        .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
+    if cleanup_screen {
+        // Reverse order of setup.
+        execute!(out, event::DisableMouseCapture)
+            .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
+        execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
+        terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
+        execute!(out, terminal::LeaveAlternateScreen)
+            .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
+    }
     if *es == crate::ExitStrategy::ProcessQuit {
         std::process::exit(0);
     } else {
@@ -251,6 +257,9 @@ pub(crate) fn handle_input(
 ///
 /// It will not wrap long lines.
 pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize) -> io::Result<()> {
+    if !pager.page_if_havent_overflowed && pager.get_lines().lines().count() <= rows {
+        return draw_without_paging(out, pager, rows);
+    }
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
@@ -270,6 +279,15 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize)
     }
 
     out.flush()
+}
+
+fn draw_without_paging(
+    out: &mut impl io::Write,
+    mut pager: &mut Pager,
+    rows: usize,
+) -> io::Result<()> {
+    // write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
+    write_lines(out, &mut pager, rows)
 }
 
 /// Writes the given `lines` to the given `out`put.
