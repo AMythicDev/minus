@@ -1,6 +1,13 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.2.0 [2021-2-22]
+### Added
+* A new function to signal the end of data to the pager
+
+### Changed
+* Page cleanup when the pager needs to quit
+
 ## v3.1.2 [2021-2-16]
 ### Bug fixes
 * Fixed bug where text with large amount of lines where not displayed
