@@ -93,9 +93,11 @@ mod init;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub type PagerMutex = Mutex<Pager>;
 
+pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
+
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
     pub lines: String,
@@ -105,6 +107,8 @@ pub struct Pager {
     pub prompt: String,
     // has all the data been sent to the pager
     pub data_finished: bool,
+    // callbacks which will be called when we finish
+    on_exit_callbacks: ExitCallbacks,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
@@ -143,6 +147,7 @@ impl Pager {
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
             data_finished: false,
+            on_exit_callbacks: Vec::new(),
             page_if_havent_overflowed: true,
             searchable: true,
             #[cfg(feature = "search")]
@@ -259,6 +264,26 @@ impl Pager {
     /// This is currently only used by the async runtimes.
     pub fn data_finished(&mut self) {
         self.data_finished = true;
+    }
+
+    /// Indicate to the pager that we want to exit
+    pub fn exit(&mut self) {
+        self.run_exit_callbacks();
+    }
+
+    /// Add a callback to be run when the pager has finished
+    pub fn add_exit_callback<F>(&mut self, callback: F)
+    where
+        F: FnMut() + Send + Sync + 'static,
+    {
+        self.on_exit_callbacks.push(Box::new(callback));
+    }
+
+    /// Run callbacks that want to be run on exit
+    pub fn run_exit_callbacks(&mut self) {
+        for exit_callback in &mut self.on_exit_callbacks {
+            exit_callback();
+        }
     }
 }
 

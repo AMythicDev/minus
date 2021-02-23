@@ -52,7 +52,10 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy, true)?),
+                Some(InputEvent::Exit) => {
+                    pager.exit();
+                    return Ok(cleanup(out, &pager.exit_strategy, true)?);
+                }
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
                     redraw = true;
@@ -201,6 +204,7 @@ pub(crate) async fn dynamic_paging(
         let data_is_finished = guard.data_finished;
 
         if data_is_finished && !page_if_havent_overflowed && !have_overflowed {
+            guard.exit();
             return Ok(cleanup(out, &guard.exit_strategy, false)?);
         }
 
@@ -224,7 +228,10 @@ pub(crate) async fn dynamic_paging(
             );
             // Update any data that may have changed
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &lock.exit_strategy, true)?),
+                Some(InputEvent::Exit) => {
+                    lock.exit();
+                    return Ok(cleanup(out, &lock.exit_strategy, true)?);
+                }
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
                     redraw = true;
