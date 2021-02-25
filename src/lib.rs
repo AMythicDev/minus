@@ -77,95 +77,26 @@ pub use rt_wrappers::*;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
+#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
+use async_std::sync::Mutex as AsyncStdMutex;
+#[cfg(all(feature = "async_std_lib", not(feature = "tokio_lib")))]
+use async_std::sync::Mutex as AsyncStdMutex;
 pub use error::*;
-use std::cell::UnsafeCell;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
-};
+#[cfg(all(feature = "tokio_lib", not(feature = "async_std_lib")))]
+use tokio::sync::Mutex as TokioMutex;
 pub use utils::LineNumbers;
 mod init;
 
-/// A sort of a mutex that holds the pager
-///
-/// It is similar to a [`std::sync::Mutex`], except that it is very simple and
-// more tailored for `minus`
-/// It only implements two methods that are: `.lock()` and `new()`. Although the
-/// `.lock()` is an async function and needs to be `.await`ed
-/// # Example
-/// ```ignore
-/// let p = minus::Pager::new().finish();
-/// // Although this will return a Arc that encapsulates the PagerMutex
-/// let guard = p.lock().await;
-/// ```
-pub struct PagerMutex {
-    pager: UnsafeCell<Pager>,
-    is_locked: AtomicBool,
-}
+#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
+pub type PagerMutex = AsyncStdMutex<Pager>;
 
-impl<'a> PagerMutex {
-    pub async fn lock(&'a self) -> PagerGuard<'a> {
-        loop {
-            if self.is_locked.swap(true, Ordering::AcqRel) {
-                self.is_locked.store(true, Ordering::Relaxed);
-                return PagerGuard(self);
-            }
-            std::sync::atomic::spin_loop_hint();
-        }
-    }
-    #[must_use]
-    pub fn new(p: Pager) -> PagerMutex {
-        PagerMutex {
-            pager: UnsafeCell::new(p),
-            is_locked: AtomicBool::new(false),
-        }
-    }
-}
+#[cfg(all(feature = "async_std_lib", not(feature = "tokio_lib")))]
+pub type PagerMutex = AsyncStdMutex<Pager>;
 
-/// A sort of a `MutexGuard` similar to [`std::sync::MutexGuard`].
-///
-/// But again, similar to
-/// to [`PagerMutex`], this is very simple and does not even have any implementation
-/// method
-/// Although it does implement [`Deref`] and [`DerefMut`], so you could do something
-/// like this
-/// ```ignore
-/// let p = minus::Pager::new().finish();
-/// let guard = p.lock().await;
-/// println!("{}", guard.lines);
-/// guard.prompt = "Hello".to_string();
-/// ```
-/// There is one difference to between this and the mutex in the standard library, this
-/// implements [`Send`], so it can be shared between async functions
-pub struct PagerGuard<'a>(&'a PagerMutex);
-
-impl<'a> DerefMut for PagerGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.pager.get() }
-    }
-}
-
-impl<'a> Deref for PagerGuard<'a> {
-    type Target = Pager;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.pager.get() }
-    }
-}
-
-impl<'a> Drop for PagerGuard<'a> {
-    fn drop(&mut self) {
-        self.0.is_locked.store(false, Ordering::Relaxed);
-    }
-}
-
-unsafe impl<'a> Send for PagerGuard<'a> {}
-unsafe impl<'a> Sync for PagerGuard<'a> {}
-
-unsafe impl<'a> Send for PagerMutex {}
-unsafe impl<'a> Sync for PagerMutex {}
+#[cfg(all(feature = "tokio_lib", not(feature = "async_std_lib")))]
+pub type PagerMutex = TokioMutex<Pager>;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
