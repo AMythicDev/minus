@@ -357,10 +357,8 @@ impl Pager {
         self.lines.clone()
     }
 
-    // pub fn append_lines(&mut self, lines: impl Into<String>) {
-    //     self.lines.push_str(lines.into().as_str())
-    // }
-
+    /// Indicate to the pager that the data has finished.
+    /// This is currently only used by the async runtimes.
     pub fn data_finished(&mut self) {
         self.data_finished = true;
     }
