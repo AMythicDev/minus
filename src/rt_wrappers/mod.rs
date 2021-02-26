@@ -1,3 +1,7 @@
+//! Dynamic information within a pager window.
+//!
+//! See [`tokio_updating`] and [`async_std_updating`] for more information.
+
 use crate::error::AlternateScreenPagingError;
 use crate::init;
 use crate::PagerMutex;

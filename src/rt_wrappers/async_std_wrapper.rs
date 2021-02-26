@@ -1,7 +1,4 @@
-//! Dynamic information within a pager window.
-//!
-//! See [`tokio_updating`] and [`async_std_updating`] for more information.
-use super::*;
+use super::{run, AlternateScreenPagingError, Arc, PagerMutex};
 
 /// Run the pager inside an [`async_std task`](async_std::task).
 ///

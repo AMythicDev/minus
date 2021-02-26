@@ -71,4 +71,9 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --all-features --tests --examples
+          args: --features=async_std_lib,search --tests --examples
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features=tokio_lib,search --tests --examples

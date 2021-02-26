@@ -1,4 +1,4 @@
-use super::*;
+use super::{run, AlternateScreenPagingError, Arc, PagerMutex};
 
 /// Run the pager inside a [`tokio task`](tokio::task).
 ///
