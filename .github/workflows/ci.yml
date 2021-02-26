@@ -25,8 +25,10 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-    - name: Build crate
-      run: cargo build --verbose --all-features
+    - name: Build crate (Tokio)
+      run: cargo build --verbose --features=tokio_lib,search
+    - name: Build crate (Async-std)
+      run: cargo build --verbose --features=async_std_lib,search
     # This step helps separate buildtime and runtime errors in tests.
     # Do not build or run doc tests
     - name: Build tests (Tokio)

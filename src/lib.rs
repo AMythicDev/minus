@@ -74,9 +74,6 @@ mod search;
 mod static_pager;
 mod utils;
 
-// #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-// pub use rt_wrappers::*;
-
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
