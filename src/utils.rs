@@ -33,19 +33,20 @@ pub(crate) fn setup(
     setup_screen: bool,
 ) -> std::result::Result<usize, SetupError> {
     let mut out = stdout.lock();
-    // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
-    if dynamic {
-        use crossterm::tty::IsTty;
-
-        if out.is_tty() {
-            Ok(())
-        } else {
-            Err(SetupError::InvalidTerminal)
-        }?;
-    }
     let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
     if setup_screen {
+        // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
+        if dynamic {
+            use crossterm::tty::IsTty;
+
+            if out.is_tty() {
+                Ok(())
+            } else {
+                Err(SetupError::InvalidTerminal)
+            }?;
+        }
+
         execute!(out, terminal::EnterAlternateScreen)
             .map_err(|e| SetupError::AlternateScreen(e.into()))?;
         terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
