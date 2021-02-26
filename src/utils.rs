@@ -1,7 +1,7 @@
 //! Utilities that are used in both static and async display.
 use crossterm::{
     cursor::{self, MoveTo},
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
+    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind},
     execute,
     style::Attribute,
     terminal::{self, Clear, ClearType},
@@ -156,12 +156,14 @@ pub(crate) fn handle_input(
         }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
 
         // Mouse scroll up/down
-        Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => {
-            Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5)))
-        }
-        Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => {
-            Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5)))
-        }
+        Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            ..
+        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5))),
+        Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            ..
+        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5))),
         // Go to top.
         Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
