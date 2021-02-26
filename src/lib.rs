@@ -63,6 +63,9 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
+#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
+compile_error!("Only tokio, or async_std_lib can be enabled at a time");
+
 mod error;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
@@ -71,63 +74,36 @@ mod search;
 mod static_pager;
 mod utils;
 
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub use rt_wrappers::*;
+// #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+// pub use rt_wrappers::*;
 
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
-#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
-use async_std::sync::Mutex as AsyncStdMutex;
-#[cfg(all(feature = "async_std_lib", not(feature = "tokio_lib")))]
-use async_std::sync::Mutex as AsyncStdMutex;
-pub use error::*;
+#[cfg(feature = "async_std_lib")]
+pub use {
+    async_std::sync::Mutex,
+    rt_wrappers::async_std_wrapper::async_std_updating,
+};
+#[cfg(feature = "tokio_lib")]
+pub use {
+    tokio::sync::Mutex,
+    rt_wrappers::tokio_wrapper::tokio_updating,
+};
+
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-#[cfg(all(feature = "tokio_lib", not(feature = "async_std_lib")))]
-use tokio::sync::Mutex as TokioMutex;
+
+pub use error::*;
+
 pub use utils::LineNumbers;
 mod init;
 
-#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
-pub type PagerMutex = AsyncStdMutex<Pager>;
-
-#[cfg(all(feature = "async_std_lib", not(feature = "tokio_lib")))]
-pub type PagerMutex = AsyncStdMutex<Pager>;
-
-#[cfg(all(feature = "tokio_lib", not(feature = "async_std_lib")))]
-pub type PagerMutex = TokioMutex<Pager>;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub type PagerMutex = Mutex<Pager>;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
-///
-/// ## Example
-/// You can use any async runtime, but we are taking the example of [`tokio`]
-///```rust,no_run
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     use minus::{Pager, LineNumbers, tokio_updating};
-///     let pager = Pager::new()
-///                        .set_line_numbers(LineNumbers::AlwaysOn)
-///                        .set_prompt("A complex configuration")
-///                        .finish();
-///
-///     // Normally, you would use `futures::join` to join the pager and the text
-///     // updating function. We are doing this here to make the example simple
-///     tokio_updating(pager).await?;
-///     Ok(())
-/// }
-///```
-///
-/// For static output
-///```rust,no_run
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///      let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
-///      minus::page_all(pager)?;
-///      Ok(())
-/// }
-///```
-///
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
