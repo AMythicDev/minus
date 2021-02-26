@@ -25,12 +25,18 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
+    - name: Build crate (Static Output)
+      run: cargo build --verbose --features=static_output,search
     - name: Build crate (Tokio)
       run: cargo build --verbose --features=tokio_lib,search
     - name: Build crate (Async-std)
       run: cargo build --verbose --features=async_std_lib,search
     # This step helps separate buildtime and runtime errors in tests.
     # Do not build or run doc tests
+    - name: Build tests (Static Output)
+      run: cargo test --verbose --features=static_output,search --no-run
+    - name: Run Tests (Static Output)
+      run: cargo test --verbose --features=static_output,search
     - name: Build tests (Tokio)
       run: cargo test --verbose --features=tokio_lib,search --no-run
     - name: Run Tests (Tokio)
@@ -74,8 +80,11 @@ jobs:
         with:
           command: clippy
           args: --features=async_std_lib,search --tests --examples
-
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --features=tokio_lib,search --tests --examples
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --features=static_output,search --tests --examples
