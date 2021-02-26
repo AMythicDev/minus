@@ -63,6 +63,9 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
+#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
+compile_error!("Only tokio, or async_std_lib can be enabled at a time");
+
 mod error;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
@@ -71,132 +74,27 @@ mod search;
 mod static_pager;
 mod utils;
 
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub use rt_wrappers::*;
-
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
-pub use error::*;
-use std::cell::UnsafeCell;
+#[cfg(feature = "async_std_lib")]
+pub use {async_std::sync::Mutex, rt_wrappers::async_std_wrapper::async_std_updating};
+#[cfg(feature = "tokio_lib")]
+pub use {rt_wrappers::tokio_wrapper::tokio_updating, tokio::sync::Mutex};
+
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
-};
+
+pub use error::*;
+
 pub use utils::LineNumbers;
 mod init;
 
-/// A sort of a mutex that holds the pager
-///
-/// It is similar to a [`std::sync::Mutex`], except that it is very simple and
-// more tailored for `minus`
-/// It only implements two methods that are: `.lock()` and `new()`. Although the
-/// `.lock()` is an async function and needs to be `.await`ed
-/// # Example
-/// ```ignore
-/// let p = minus::Pager::new().finish();
-/// // Although this will return a Arc that encapsulates the PagerMutex
-/// let guard = p.lock().await;
-/// ```
-pub struct PagerMutex {
-    pager: UnsafeCell<Pager>,
-    is_locked: AtomicBool,
-}
-
-impl<'a> PagerMutex {
-    pub async fn lock(&'a self) -> PagerGuard<'a> {
-        loop {
-            if self.is_locked.swap(true, Ordering::AcqRel) {
-                self.is_locked.store(true, Ordering::Relaxed);
-                return PagerGuard(self);
-            }
-            std::sync::atomic::spin_loop_hint();
-        }
-    }
-    #[must_use]
-    pub fn new(p: Pager) -> PagerMutex {
-        PagerMutex {
-            pager: UnsafeCell::new(p),
-            is_locked: AtomicBool::new(false),
-        }
-    }
-}
-
-/// A sort of a `MutexGuard` similar to [`std::sync::MutexGuard`].
-///
-/// But again, similar to
-/// to [`PagerMutex`], this is very simple and does not even have any implementation
-/// method
-/// Although it does implement [`Deref`] and [`DerefMut`], so you could do something
-/// like this
-/// ```ignore
-/// let p = minus::Pager::new().finish();
-/// let guard = p.lock().await;
-/// println!("{}", guard.lines);
-/// guard.prompt = "Hello".to_string();
-/// ```
-/// There is one difference to between this and the mutex in the standard library, this
-/// implements [`Send`], so it can be shared between async functions
-pub struct PagerGuard<'a>(&'a PagerMutex);
-
-impl<'a> DerefMut for PagerGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.pager.get() }
-    }
-}
-
-impl<'a> Deref for PagerGuard<'a> {
-    type Target = Pager;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.pager.get() }
-    }
-}
-
-impl<'a> Drop for PagerGuard<'a> {
-    fn drop(&mut self) {
-        self.0.is_locked.store(false, Ordering::Relaxed);
-    }
-}
-
-unsafe impl<'a> Send for PagerGuard<'a> {}
-unsafe impl<'a> Sync for PagerGuard<'a> {}
-
-unsafe impl<'a> Send for PagerMutex {}
-unsafe impl<'a> Sync for PagerMutex {}
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub type PagerMutex = Mutex<Pager>;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
-///
-/// ## Example
-/// You can use any async runtime, but we are taking the example of [`tokio`]
-///```rust,no_run
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     use minus::{Pager, LineNumbers, tokio_updating};
-///     let pager = Pager::new()
-///                        .set_line_numbers(LineNumbers::AlwaysOn)
-///                        .set_prompt("A complex configuration")
-///                        .finish();
-///
-///     // Normally, you would use `futures::join` to join the pager and the text
-///     // updating function. We are doing this here to make the example simple
-///     tokio_updating(pager).await?;
-///     Ok(())
-/// }
-///```
-///
-/// For static output
-///```rust,no_run
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///      let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
-///      minus::page_all(pager)?;
-///      Ok(())
-/// }
-///```
-///
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
