@@ -57,4 +57,3 @@ use super::*;
 pub async fn async_std_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
     async_std::task::spawn(run(pager)).await
 }
-

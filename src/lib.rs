@@ -81,15 +81,9 @@ mod utils;
 pub use static_pager::page_all;
 
 #[cfg(feature = "async_std_lib")]
-pub use {
-    async_std::sync::Mutex,
-    rt_wrappers::async_std_wrapper::async_std_updating,
-};
+pub use {async_std::sync::Mutex, rt_wrappers::async_std_wrapper::async_std_updating};
 #[cfg(feature = "tokio_lib")]
-pub use {
-    tokio::sync::Mutex,
-    rt_wrappers::tokio_wrapper::tokio_updating,
-};
+pub use {rt_wrappers::tokio_wrapper::tokio_updating, tokio::sync::Mutex};
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
