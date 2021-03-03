@@ -171,7 +171,7 @@ pub(crate) async fn dynamic_paging(
     // -1 means we have just highlighted all the matches but the cursor has not been
     // placed in any one of them
     #[cfg(feature = "search")]
-    let mut s_mark = -1;
+    let mut s_mark: isize = -1;
     // Search Mode
     #[cfg(feature = "search")]
     let mut search_mode = SearchMode::Unknown;
@@ -256,61 +256,57 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::NextMatch) if !lock.search_term.is_empty() => {
                     // Increment the search mark
                     s_mark += 1;
-                    // These unwrap operations should be safe
                     // Make sure s_mark is not greater than s_co's lenght
-                    if isize::try_from(s_co.len()).unwrap() > s_mark {
-                        // Get the next coordinates
-                        // Make sure that the next match taken to is after the
-                        // current upper_mark
-                        let (mut x, mut y) = (None, None);
-                        while let Some(co) = s_co.get(usize::try_from(s_mark).unwrap()) {
-                            if usize::from(co.1) < lock.upper_mark {
-                                s_mark += 1;
-                            } else {
-                                x = Some(co.0);
-                                y = Some(co.1);
-                                break;
-                            }
-                        }
-                        if x.is_none() || y.is_none() {
-                            continue;
-                        }
-                        if usize::from(y.unwrap()) >= lock.upper_mark + rows {
-                            lock.upper_mark = y.unwrap().into();
-                        }
-                        draw(&mut out, &mut lock, rows)?;
-                        y = Some(
-                            y.unwrap()
-                                .saturating_sub(lock.upper_mark.try_into().unwrap()),
-                        );
+                    s_mark = s_mark.clamp(0, s_co.len() as isize - 1);
 
-                        write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
-                        out.flush()?;
-                        // Do not redraw the console
-                        redraw = false;
+                    // Get the next coordinates
+                    // Make sure that the next match taken to is after the
+                    // current upper_mark
+                    let (mut x, mut y) = (None, None);
+                    while let Some(co) = s_co.get(usize::try_from(s_mark).unwrap()) {
+                        if usize::from(co.1) < lock.upper_mark {
+                            s_mark += 1;
+                        } else {
+                            x = Some(co.0);
+                            y = Some(co.1);
+                            break;
+                        }
                     }
+                    if x.is_none() || y.is_none() {
+                        continue;
+                    }
+                    if usize::from(y.unwrap()) >= lock.upper_mark + rows {
+                        lock.upper_mark = y.unwrap().into();
+                    }
+                    draw(&mut out, &mut lock, rows)?;
+                    y = Some(
+                        y.unwrap()
+                            .saturating_sub(lock.upper_mark.try_into().unwrap()),
+                    );
+
+                    write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
+                    out.flush()?;
+                    // Do not redraw the console
+                    redraw = false;
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !lock.search_term.is_empty() => {
-                    if isize::try_from(s_co.len()).unwrap() > s_mark {
-                        // If s_mark is less than 0, make it 0, else subtract 1 from it
-                        s_mark = if s_mark <= 0 {
-                            0
-                        } else {
-                            s_mark.saturating_sub(1)
-                        };
-                        // Do the same steps that we have did in NextMatch block
-                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
-                        if usize::from(y) <= lock.upper_mark {
-                            lock.upper_mark = y.into();
-                        }
-                        draw(&mut out, &mut lock, rows)?;
-                        y = y.saturating_sub(lock.upper_mark.try_into().unwrap());
+                    // Decrement the search mark
+                    s_mark -= 1;
+                    // Make sure s_mark is not greater than s_co's lenght
+                    s_mark = s_mark.clamp(0, s_co.len() as isize - 1);
 
-                        write!(out, "{}", MoveTo(x, y))?;
-                        out.flush()?;
-                        redraw = false;
+                    // Do the same steps that we have did in NextMatch block
+                    let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
+                    if usize::from(y) <= lock.upper_mark {
+                        lock.upper_mark = y.into();
                     }
+                    draw(&mut out, &mut lock, rows)?;
+                    y = y.saturating_sub(lock.upper_mark.try_into().unwrap());
+
+                    write!(out, "{}", MoveTo(x, y))?;
+                    out.flush()?;
+                    redraw = false;
                 }
                 #[cfg(feature = "search")]
                 Some(_) => continue,
