@@ -423,7 +423,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark + 1)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -434,7 +441,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark - 1)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -445,7 +459,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            input_handler.handle_input(ev, usize::MAX, SearchMode::Unknown, ln, rows),
+            input_handler.handle_input(
+                ev,
+                usize::MAX,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -456,7 +477,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MIN)),
-            input_handler.handle_input(ev, usize::MIN, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                usize::MIN,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -469,7 +497,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark + 5)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -482,7 +517,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark - 5)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -493,7 +535,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(0)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -505,7 +554,14 @@ fn input_handling() {
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
             Some(InputEvent::UpdateUpperMark(8)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -516,7 +572,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -527,7 +590,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -538,7 +608,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -550,7 +627,14 @@ fn input_handling() {
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
             Some(InputEvent::UpdateUpperMark(16)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -558,7 +642,14 @@ fn input_handling() {
         let ev = Event::Resize(42, 35);
         assert_eq!(
             Some(InputEvent::UpdateRows(35)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -569,7 +660,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateLineNumber(!ln)),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -580,7 +678,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::Exit),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -591,7 +696,14 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::Exit),
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 
@@ -602,7 +714,14 @@ fn input_handling() {
         });
         assert_eq!(
             None,
-            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
         );
     }
 }
