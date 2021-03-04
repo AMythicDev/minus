@@ -6,7 +6,7 @@
 use crate::search;
 #[cfg(feature = "search")]
 use crate::utils::SearchMode;
-use crate::utils::{cleanup, draw, handle_input, setup, InputEvent};
+use crate::utils::{cleanup, draw, setup, InputEvent};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use crate::PagerMutex;
 use crate::{error::AlternateScreenPagingError, Pager};
@@ -41,7 +41,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
         {
             // Get the events
-            let input = handle_input(
+            let input = pager.input_handler.handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 pager.upper_mark,
                 #[cfg(feature = "search")]
@@ -218,7 +218,7 @@ pub(crate) async fn dynamic_paging(
             let mut lock = p.lock().await;
 
             // Get the events
-            let input = handle_input(
+            let input = lock.input_handler.handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 lock.upper_mark,
                 #[cfg(feature = "search")]

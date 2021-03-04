@@ -67,13 +67,21 @@
 compile_error!("Only tokio, or async_std_lib can be enabled at a time");
 
 mod error;
+mod input;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
+// #[cfg(feature = "search")]
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
 mod utils;
 
+#[cfg(feature = "search")]
+pub use utils::SearchMode;
+
+pub use utils::InputEvent;
+
+pub use input::{DefaultInputHandler, InputHandler};
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
@@ -107,6 +115,8 @@ pub struct Pager {
     pub prompt: String,
     // has all the data been sent to the pager
     pub data_finished: bool,
+    // trait which will handle mapping crossterm input, into minus events
+    pub input_handler: Box<dyn InputHandler + Send + Sync>,
     // callbacks which will be called when we finish
     on_exit_callbacks: ExitCallbacks,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
@@ -140,6 +150,7 @@ impl Pager {
     /// ```
     #[must_use]
     pub fn new() -> Self {
+        let input_handler = Box::new(DefaultInputHandler {});
         Pager {
             lines: String::new(),
             line_numbers: LineNumbers::Disabled,
@@ -149,6 +160,7 @@ impl Pager {
             data_finished: false,
             on_exit_callbacks: Vec::new(),
             page_if_havent_overflowed: true,
+            input_handler,
             searchable: true,
             #[cfg(feature = "search")]
             search_term: String::new(),
@@ -242,6 +254,15 @@ impl Pager {
     #[must_use]
     pub fn set_exit_strategy(mut self, strategy: ExitStrategy) -> Self {
         self.exit_strategy = strategy;
+        self
+    }
+
+    /// Set the [`InputHandler`] that maps from crossterm input events
+    /// to minuses internal events, this allows custom keybindings
+    ///
+    #[must_use]
+    pub fn set_input_handler(mut self, input_handler: Box<dyn InputHandler + Send + Sync>) -> Self {
+        self.input_handler = input_handler;
         self
     }
 
