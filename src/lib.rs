@@ -76,7 +76,12 @@ mod search;
 mod static_pager;
 mod utils;
 
-use input::{DefaultInputHandler, InputHandler};
+#[cfg(feature = "search")]
+pub use utils::SearchMode;
+
+pub use utils::InputEvent;
+
+pub use input::{DefaultInputHandler, InputHandler};
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
