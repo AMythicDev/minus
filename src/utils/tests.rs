@@ -1,7 +1,12 @@
 #![allow(clippy::shadow_unrelated)]
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+
 use super::*;
 
-use crate::{LineNumbers, Pager};
+use crate::{
+    input::{DefaultInputHandler, InputHandler},
+    LineNumbers, Pager,
+};
 use std::fmt::Write;
 
 #[test]
@@ -409,6 +414,8 @@ fn input_handling() {
     let ln = LineNumbers::Enabled;
     let rows = 5;
 
+    let input_handler: Box<dyn InputHandler> = Box::new(DefaultInputHandler {});
+
     {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Down,
@@ -416,7 +423,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark + 1)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -427,7 +434,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark - 1)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -438,7 +445,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, usize::MAX, SearchMode::Unknown, ln, rows),
+            input_handler.handle_input(ev, usize::MAX, SearchMode::Unknown, ln, rows),
         );
     }
 
@@ -449,7 +456,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MIN)),
-            handle_input(ev, usize::MIN, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, usize::MIN, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -462,7 +469,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark + 5)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -475,7 +482,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(upper_mark - 5)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -486,7 +493,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(0)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -498,7 +505,7 @@ fn input_handling() {
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
             Some(InputEvent::UpdateUpperMark(8)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -509,7 +516,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -520,7 +527,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -531,7 +538,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -543,7 +550,7 @@ fn input_handling() {
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
             Some(InputEvent::UpdateUpperMark(16)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -551,7 +558,7 @@ fn input_handling() {
         let ev = Event::Resize(42, 35);
         assert_eq!(
             Some(InputEvent::UpdateRows(35)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -562,7 +569,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateLineNumber(!ln)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -573,7 +580,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::Exit),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -584,7 +591,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::Exit),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 
@@ -595,7 +602,7 @@ fn input_handling() {
         });
         assert_eq!(
             None,
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            input_handler.handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
         );
     }
 }
