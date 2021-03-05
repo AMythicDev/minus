@@ -1,6 +1,13 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.3.0 [2021-3-5]
+### Added
+* A trait to coustomize the default keybindings
+
+### Fixed
+* Fixed bug where cursor movement stops at last search instance
+
 ## v3.2.0 [2021-2-22]
 ### Added
 * A new function to signal the end of data to the pager
