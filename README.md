@@ -199,7 +199,3 @@ See the licenses in their respective files at the root of the project.
 If you want to discuss something with me regarding minus, the best place is at Matrix
 
 @arijit079:matrix.org
-
-**Sorry I don't get time to currently manage this as I am currently busy working
-on a side project. Although I look here almost daily. I am ready to fix any issues 
-or PRs. I will probably be back to it in a two to three months**
