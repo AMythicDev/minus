@@ -1,6 +1,13 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.3.2 [2021-4-28]
+* Add docs for InputHandler and DefaultInputHandler
+
+## v3.3.1 [2021-3-13]
+### Fixed
+* Documentation build failure
+
 ## v3.3.0 [2021-3-5]
 ### Added
 * A trait to coustomize the default keybindings

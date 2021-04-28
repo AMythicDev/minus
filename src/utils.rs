@@ -6,7 +6,7 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-use std::io::{self, Write as _};
+use std::io;
 
 use crate::{
     error::{CleanupError, SetupError},

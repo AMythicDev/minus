@@ -17,7 +17,7 @@ use crate::LineNumbers;
 ///
 /// # Example
 /// ```
-/// use minus::{InputEvent, InputHandler, LineNumbers, Pager};
+/// use minus::{InputEvent, InputHandler, LineNumbers, Pager, SearchMode};
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
 /// struct CustomInputHandler;
@@ -26,7 +26,8 @@ use crate::LineNumbers;
 ///         &self,
 ///         ev: Event,
 ///         upper_mark: usize,
-///         // A search parameter is available, if `search` feature is enabled
+///         // A `search_mode` parameter is available, if `search` feature is enabled
+#[cfg_attr(feature = "search", doc = "        search_mode: SearchMode,")]
 ///         ln: LineNumbers,
 ///         rows: usize
 ///     ) -> Option<InputEvent> {
@@ -45,12 +46,11 @@ use crate::LineNumbers;
 ///     }
 /// }
 ///
-/// fn main() {
-///     let pager = Pager::new().set_input_handler(
-///                     Box::new(CustomInputHandler)
-///                 );
-/// }
+/// let pager = Pager::new().set_input_handler(
+///                 Box::new(CustomInputHandler)
+///             );
 /// ```
+#[allow(clippy::module_name_repetitions)]
 pub trait InputHandler {
     fn handle_input(
         &self,
