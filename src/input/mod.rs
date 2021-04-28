@@ -17,8 +17,7 @@ use crate::LineNumbers;
 ///
 /// # Example
 /// ```
-/// use minus::InputHandler;
-/// use minus::{LineNumbers, InputEvent};
+/// use minus::{InputEvent, InputHandler, LineNumbers, Pager};
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
 /// struct CustomInputHandler;
@@ -45,6 +44,10 @@ use crate::LineNumbers;
 ///         }
 ///     }
 /// }
+///
+/// fn main() {
+///     let pager = Pager::new().set_input_handler(CustomInputHandler).
+/// }
 /// ```
 pub trait InputHandler {
     fn handle_input(
@@ -57,6 +60,8 @@ pub trait InputHandler {
     ) -> Option<InputEvent>;
 }
 
+/// The default keybindings in `minus`. These can be overriden by
+/// making a custom input handler struct and implementing the [`InputHandler`] trait
 pub struct DefaultInputHandler;
 
 impl InputHandler for DefaultInputHandler {
