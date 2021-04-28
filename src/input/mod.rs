@@ -5,6 +5,47 @@ use super::utils::InputEvent;
 use super::utils::SearchMode;
 use crate::LineNumbers;
 
+/// Define custom keybindings
+///
+/// This trait can help define custom keybindings in case
+/// the downsteam applications aren't satisfied with the
+/// defaults
+///
+/// **Please do note that, in order to match the keybindings,
+/// you need to directly work with the underlying [`crossterm`]
+/// crate**
+///
+/// # Example
+/// ```
+/// use minus::InputHandler;
+/// use minus::{LineNumbers, InputEvent};
+/// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
+///
+/// struct CustomInputHandler;
+/// impl InputHandler for CustomInputHandler {
+///     fn handle_input(
+///         &self,
+///         ev: Event,
+///         upper_mark: usize,
+///         // A search parameter is available, if `search` feature is enabled
+///         ln: LineNumbers,
+///         rows: usize
+///     ) -> Option<InputEvent> {
+///             match ev {
+///                 Event::Key(KeyEvent {
+///                     code: KeyCode::Up,
+///                     modifiers: KeyModifiers::NONE,
+///                 })
+///                 | Event::Key(KeyEvent {
+///                     code: KeyCode::Char('j'),
+///                     modifiers: KeyModifiers::NONE,
+///                 }) => Some(InputEvent::UpdateUpperMark
+///                       (upper_mark.saturating_sub(1))),
+///                 _ => None
+///         }
+///     }
+/// }
+/// ```
 pub trait InputHandler {
     fn handle_input(
         &self,
