@@ -46,7 +46,9 @@ use crate::LineNumbers;
 /// }
 ///
 /// fn main() {
-///     let pager = Pager::new().set_input_handler(CustomInputHandler).
+///     let pager = Pager::new().set_input_handler(
+///                     Box::new(CustomInputHandler)
+///                 );
 /// }
 /// ```
 pub trait InputHandler {
