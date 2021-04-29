@@ -50,7 +50,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 rows,
             );
             // Update any data that may have changed
-            #[allow(clippy::clippy::match_same_arms)]
+            #[allow(clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => {
                     pager.exit();
@@ -227,6 +227,7 @@ pub(crate) async fn dynamic_paging(
                 rows,
             );
             // Update any data that may have changed
+            #[allow(clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => {
                     lock.exit();
@@ -264,7 +265,8 @@ pub(crate) async fn dynamic_paging(
                     // Increment the search mark
                     s_mark += 1;
                     // Make sure s_mark is not greater than s_co's lenght
-                    s_mark = s_mark.clamp(0, s_co.len() as isize - 1);
+                    s_mark =
+                        s_mark.clamp(0, isize::try_from(s_co.len()).unwrap().saturating_sub(1));
 
                     // Get the next coordinates
                     // Make sure that the next match taken to is after the
@@ -301,7 +303,8 @@ pub(crate) async fn dynamic_paging(
                     // Decrement the search mark
                     s_mark -= 1;
                     // Make sure s_mark is not greater than s_co's lenght
-                    s_mark = s_mark.clamp(0, s_co.len() as isize - 1);
+                    s_mark =
+                        s_mark.clamp(0, isize::try_from(s_co.len()).unwrap().saturating_sub(1));
 
                     // Do the same steps that we have did in NextMatch block
                     let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
