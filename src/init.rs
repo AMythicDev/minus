@@ -18,7 +18,7 @@ use std::io::{self, Write as _};
 use std::sync::Arc;
 
 #[cfg(feature = "static_output")]
-#[allow(clippy::clippy::too_many_lines)]
+#[allow(clippy::too_many_lines)]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let mut out = io::stdout();
@@ -156,7 +156,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-#[allow(clippy::clippy::too_many_lines)]
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn dynamic_paging(
     p: &Arc<PagerMutex>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {

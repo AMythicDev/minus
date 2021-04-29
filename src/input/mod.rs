@@ -17,7 +17,8 @@ use crate::LineNumbers;
 ///
 /// # Example
 /// ```
-/// use minus::{InputEvent, InputHandler, LineNumbers, Pager, SearchMode};
+/// use minus::{InputEvent, InputHandler, LineNumbers, Pager};
+#[cfg_attr(feature = "search", doc = "use minus::SearchMode;")]
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
 /// struct CustomInputHandler;
