@@ -83,7 +83,7 @@ impl InputHandler for DefaultInputHandler {
                 modifiers: KeyModifiers::NONE,
             })
             | Event::Key(KeyEvent {
-                code: KeyCode::Char('j'),
+                code: KeyCode::Char('k'),
                 modifiers: KeyModifiers::NONE,
             }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
 
@@ -93,7 +93,7 @@ impl InputHandler for DefaultInputHandler {
                 modifiers: KeyModifiers::NONE,
             })
             | Event::Key(KeyEvent {
-                code: KeyCode::Char('k'),
+                code: KeyCode::Char('j'),
                 modifiers: KeyModifiers::NONE,
             }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
 
