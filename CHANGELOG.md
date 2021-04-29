@@ -1,7 +1,12 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.3.2 [2021-4-29]
+### Fixed
+* Fixed warnings issued by clippy
+
 ## v3.3.2 [2021-4-28]
+### Added
 * Add docs for InputHandler and DefaultInputHandler
 
 ## v3.3.1 [2021-3-13]
