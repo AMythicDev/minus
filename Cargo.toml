@@ -19,10 +19,11 @@ crossterm = "0.18.2"
 tokio = { version = "^1.0", optional = true, features = ["rt"] }
 thiserror = "1.0.22"
 regex = { version = "^1.4", optional = true }
+async-mutex = { version="^1.4.0", optional = true }
 
 [features]
-async_std_lib = [ "async-std" ]
-tokio_lib = [ "tokio" ]
+async_std_lib = [ "async-std", "async-mutex" ]
+tokio_lib = [ "tokio", "async-mutex" ]
 search = [ "regex" ]
 static_output = []
 

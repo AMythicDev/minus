@@ -65,107 +65,28 @@
 
 mod error;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-mod rt_wrappers;
+// mod rt_wrappers;
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
-mod utils;
-
+// mod utils;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub use rt_wrappers::*;
-
+// pub use rt_wrappers::*;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use async_mutex::Mutex;
 pub use error::*;
+use std::cell::UnsafeCell;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-use std::{cell::UnsafeCell};
 use std::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
 };
-pub use utils::LineNumbers;
-mod init;
-
-/// A sort of a mutex that holds the pager
-///
-/// It is similar to a [`std::sync::Mutex`], except that it is very simple and
-// more tailored for `minus`
-/// It only implements two methods that are: `.lock()` and `new()`. Although the
-/// `.lock()` is an async function and needs to be `.await`ed
-/// # Example
-/// ```ignore
-/// let p = minus::Pager::new().finish();
-/// // Although this will return a Arc that encapsulates the PagerMutex
-/// let guard = p.lock().await;
-/// ```
-pub struct PagerMutex {
-    pager: UnsafeCell<Pager>,
-    is_locked: AtomicBool,
-}
-
-impl<'a> PagerMutex {
-    pub async fn lock(&'a self) -> PagerGuard<'a> {
-        loop {
-            if self.is_locked.swap(true, Ordering::AcqRel) {
-                self.is_locked.store(true, Ordering::Relaxed);
-                return PagerGuard(self);
-            }
-            std::sync::atomic::spin_loop_hint();
-        }
-    }
-    #[must_use]
-    pub fn new(p: Pager) -> PagerMutex {
-        PagerMutex {
-            pager: UnsafeCell::new(p),
-            is_locked: AtomicBool::new(false),
-        }
-    }
-}
-
-/// A sort of a `MutexGuard` similar to [`std::sync::MutexGuard`].
-///
-/// But again, similar to
-/// to [`PagerMutex`], this is very simple and does not even have any implementation
-/// method
-/// Although it does implement [`Deref`] and [`DerefMut`], so you could do something
-/// like this
-/// ```ignore
-/// let p = minus::Pager::new().finish();
-/// let guard = p.lock().await;
-/// println!("{}", guard.lines);
-/// guard.prompt = "Hello".to_string();
-/// ```
-/// There is one difference to between this and the mutex in the standard library, this
-/// implements [`Send`], so it can be shared between async functions
-pub struct PagerGuard<'a>(&'a PagerMutex);
-
-impl<'a> DerefMut for PagerGuard<'a> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut *self.0.pager.get() }
-    }
-}
-
-impl<'a> Deref for PagerGuard<'a> {
-    type Target = Pager;
-
-    fn deref(&self) -> &Self::Target {
-        unsafe { &*self.0.pager.get() }
-    }
-}
-
-impl<'a> Drop for PagerGuard<'a> {
-    fn drop(&mut self) {
-        self.0.is_locked.store(false, Ordering::Relaxed);
-    }
-}
-
-unsafe impl<'a> Send for PagerGuard<'a> {}
-unsafe impl<'a> Sync for PagerGuard<'a> {}
-
-unsafe impl<'a> Send for PagerMutex {}
-unsafe impl<'a> Sync for PagerMutex {}
+// pub use utils::LineNumbers;
+// mod init;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
@@ -200,9 +121,9 @@ unsafe impl<'a> Sync for PagerMutex {}
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
-    lines: String,
+    lines: Vec<String>,
     /// Configuration for line numbers. See [`LineNumbers`]
-    line_numbers: LineNumbers,
+    // line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
     pub prompt: String,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
@@ -222,7 +143,9 @@ pub struct Pager {
     search_term: String,
     /// A temporary space to store modifications to the lines string
     #[cfg(feature = "search")]
-    search_lines: String,
+    search_lines: Vec<String>,
+    rows: usize,
+    cols: usize,
 }
 
 impl Pager {
@@ -235,8 +158,8 @@ impl Pager {
     #[must_use]
     pub fn new() -> Self {
         Pager {
-            lines: String::new(),
-            line_numbers: LineNumbers::Disabled,
+            lines: Vec::new(),
+            // line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
@@ -245,17 +168,22 @@ impl Pager {
             search_term: String::new(),
             #[cfg(feature = "search")]
             search_lines: String::new(),
+            cols: 0,
+            rows: 0,
         }
     }
 
     /// Set the output text to this `t`
+    ///
+    /// Note that unlike [`push_str`], this replaces the original text.
+    /// If you want to append text, use the [`push_str`] function
+    ///
     /// Example
     /// ```
     /// let pager = minus::Pager::new().set_text("This is a line");
     /// ```
-    pub fn set_text(mut self, t: impl Into<String>) -> Self {
-        self.lines = t.into();
-        self
+    pub fn set_text(&mut self, t: impl Into<String>) {
+        self.lines = split_at_width(t.into(), self.cols);
     }
     /// Set line number to this setting
     ///
@@ -265,11 +193,11 @@ impl Pager {
     ///
     /// let pager = Pager::new().set_line_numbers(LineNumbers::Enabled);
     /// ```
-    #[must_use]
-    pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
-        self.line_numbers = l;
-        self
-    }
+    // #[must_use]
+    // pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
+    //     self.line_numbers = l;
+    //     self
+    // }
     /// Set the prompt displayed at the prompt to `t`
     ///
     /// Example
@@ -278,9 +206,8 @@ impl Pager {
     ///
     /// let pager = Pager::new().set_prompt("my awesome program");
     /// ```
-    pub fn set_prompt(mut self, t: impl Into<String>) -> Self {
+    pub fn set_prompt(&mut self, t: impl Into<String>) {
         self.prompt = t.into();
-        self
     }
     /// Sets whether searching is possible inside the pager. Default s set to true
     ///
@@ -295,9 +222,8 @@ impl Pager {
     /// `search` feature. This is because this dosen't really give any major benifits
     /// since `regex` and all related functions are already compiled
     #[must_use]
-    pub fn set_searchable(mut self, s: bool) -> Self {
+    pub fn set_searchable(&mut self, s: bool) {
         self.searchable = s;
-        self
     }
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
@@ -310,17 +236,16 @@ impl Pager {
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-    pub fn finish(self) -> Arc<PagerMutex> {
-        Arc::new(PagerMutex::new(self))
+    pub fn finish(self) -> Arc<Mutex<Pager>> {
+        Arc::new(Mutex::new(self))
     }
     /// Set the default exit strategy.
     ///
     /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     #[must_use]
-    pub fn set_exit_strategy(mut self, strategy: ExitStrategy) -> Self {
+    pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
         self.exit_strategy = strategy;
-        self
     }
 
     /// Returns the appropriate text for displaying.
@@ -330,43 +255,15 @@ impl Pager {
     pub(crate) fn get_lines(&self) -> String {
         #[cfg(feature = "search")]
         if self.search_term.is_empty() {
-            self.lines.clone()
+            self.lines.join("\n")
         } else {
-            self.search_lines.clone()
+            self.search_lines.join("\n")
         }
         #[cfg(not(feature = "search"))]
-        self.lines.clone()
+        self.lines.join("\n")
     }
-    pub fn lines(&self) -> String {
-        self.lines.clone()
-    }
-    pub(crate) fn split_at_width(&mut self) {
-        let cols = crossterm::terminal::size().unwrap();
-        let mut lines = String::with_capacity(self.lines.len());
-
-        for mut line in self.lines.lines() {
-            let tab_replaced = line.replace('\t', "      ");
-            line = &tab_replaced;
-            let line_break = line.len() / usize::from(cols.0);
-            let mut new_line = String::new();
-            for _ in 1..=line_break {
-                let (done, left) = line.split_at(usize::from(cols.0));
-                new_line.push_str(done);
-                new_line.push('\n');
-                line = left;
-            }
-            lines.push_str(&new_line);
-            if !line.is_empty() {
-                lines.push_str(&format!("{}", line));
-            }
-        }
-        if lines != self.lines() {
-            self.lines = lines;
-        }
-    }
-    pub fn push_str(&mut self, s: impl ToString) {
-        self.lines.push_str(&s.to_string());
-        self.split_at_width();
+    pub fn push_str(&mut self, s: impl Into<String>) {
+        self.lines.append(&mut split_at_width(s.into(), self.cols));
     }
 }
 
@@ -393,4 +290,98 @@ pub enum ExitStrategy {
     /// if you've file system locks or you want to close database connectiions after
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
+}
+
+pub(crate) fn split_at_width(text: impl ToString, cols: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+
+    for l in text.to_string().lines() {
+        lines.append(&mut split_line_at_width(l.to_string(), cols));
+    }
+    lines
+}
+
+fn split_line_at_width(mut line: String, cols: usize) -> Vec<String> {
+    // Calculate on how many lines, the line needds to be broken
+    let breaks = line.len() / cols;
+    let mut lines = Vec::with_capacity(breaks.saturating_add(1));
+    for _ in 1..breaks {
+        let (line1, line2) = line.split_at(cols);
+        lines.push(line1.to_owned());
+        line = line2.to_string();
+    }
+    lines.push(line);
+
+    lines
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{split_line_at_width, Pager};
+    const COLS: usize = 80;
+
+    #[test]
+    fn test_split_line_at_width_long() {
+        let mut test_str = String::new();
+
+        for _ in 0..=200 {
+            test_str.push('#')
+        }
+        let (line1, line2) = test_str.split_at(COLS);
+        let expected = vec![line1.to_string(), line2.to_string()];
+
+        assert_eq!(expected, split_line_at_width(test_str, COLS));
+    }
+
+    #[test]
+    fn test_split_line_at_width_short() {
+        let mut test_str = String::new();
+
+        for _ in 0..=50 {
+            test_str.push('#')
+        }
+
+        assert_eq!(vec![test_str.clone()], split_line_at_width(test_str, COLS));
+    }
+
+    #[test]
+    fn test_set_text() {
+        let mut test_str = String::new();
+        for _ in 0..=200 {
+            test_str.push('#')
+        }
+        let (line1, line2) = test_str.split_at(COLS);
+        let expected = vec![line1.to_string(), line2.to_string()];
+
+        let mut pager = Pager::new();
+        pager.cols = COLS;
+        pager.set_text(test_str);
+        assert_eq!(expected, pager.lines);
+    }
+
+    #[test]
+    fn test_push_str() {
+        let mut initial_str = String::new();
+        for _ in 0..=50 {
+            initial_str.push('#');
+        }
+        initial_str.push('\n');
+
+        let mut test_str = String::new();
+        for _ in 0..=200 {
+            test_str.push('#')
+        }
+
+        let mut pager = Pager::new();
+        pager.cols = COLS;
+        pager.set_text(&initial_str);
+        pager.push_str(&test_str);
+
+        let (line1, line2) = test_str.split_at(COLS);
+        // Remove the last \n
+        initial_str.pop();
+        let expected = vec![initial_str, line1.to_string(), line2.to_string()];
+
+        assert_eq!(expected, pager.lines);
+    }
 }
