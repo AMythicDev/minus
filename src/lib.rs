@@ -69,7 +69,7 @@ mod error;
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
-// mod utils;
+mod utils;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 // pub use rt_wrappers::*;
 #[cfg(feature = "static_output")]
@@ -85,7 +85,7 @@ use std::{
     ops::{Deref, DerefMut},
     sync::atomic::{AtomicBool, Ordering},
 };
-// pub use utils::LineNumbers;
+pub use utils::LineNumbers;
 // mod init;
 
 /// A struct containing basic configurations for the pager. This is used by
@@ -112,7 +112,9 @@ use std::{
 /// For static output
 ///```rust,no_run
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///      let pager = minus::Pager::new().set_text("Hello").set_prompt("Example");
+///      let mut pager = minus::Pager::new();
+///      pager.set_text("Hello");
+///      pager.set_prompt("Example");
 ///      minus::page_all(pager)?;
 ///      Ok(())
 /// }
@@ -123,7 +125,7 @@ pub struct Pager {
     /// The output that is displayed
     lines: Vec<String>,
     /// Configuration for line numbers. See [`LineNumbers`]
-    // line_numbers: LineNumbers,
+    line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
     pub prompt: String,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
@@ -132,12 +134,6 @@ pub struct Pager {
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     upper_mark: usize,
-    /// Tells whether the searching is possible inside the pager
-    ///
-    /// This is a candidate for deprecation. If you want to enable search, enable the
-    /// `search` feature. This is because this dosen't really give any major benifits
-    /// since `regex` and all related functions are already compiled
-    searchable: bool,
     /// Stores the most recent search term
     #[cfg(feature = "search")]
     search_term: String,
@@ -159,17 +155,17 @@ impl Pager {
     pub fn new() -> Self {
         Pager {
             lines: Vec::new(),
-            // line_numbers: LineNumbers::Disabled,
+            line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
-            searchable: true,
             #[cfg(feature = "search")]
             search_term: String::new(),
             #[cfg(feature = "search")]
             search_lines: String::new(),
-            cols: 0,
-            rows: 0,
+            // Just to be safe in tests, keep at 1x1 size
+            cols: 1,
+            rows: 1,
         }
     }
 
@@ -194,11 +190,9 @@ impl Pager {
     ///
     /// let pager = Pager::new().set_line_numbers(LineNumbers::Enabled);
     /// ```
-    // #[must_use]
-    // pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
-    //     self.line_numbers = l;
-    //     self
-    // }
+    pub fn set_line_numbers(&mut self, l: LineNumbers) {
+        self.line_numbers = l;
+    }
     /// Set the prompt displayed at the prompt to `t`
     ///
     /// Example
@@ -210,22 +204,6 @@ impl Pager {
     /// ```
     pub fn set_prompt(&mut self, t: impl Into<String>) {
         self.prompt = t.into();
-    }
-    /// Sets whether searching is possible inside the pager. Default s set to true
-    ///
-    /// Example
-    /// ```
-    /// use minus::Pager;
-    ///
-    /// let mut pager = Pager::new();
-    /// pager.set_searchable(false);
-    /// ```
-    ///
-    /// This is a candidate for deprecation. If you want to enable search, enable the
-    /// `search` feature. This is because this dosen't really give any major benifits
-    /// since `regex` and all related functions are already compiled
-    pub fn set_searchable(&mut self, s: bool) {
-        self.searchable = s;
     }
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
