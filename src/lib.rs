@@ -180,10 +180,11 @@ impl Pager {
     ///
     /// Example
     /// ```
-    /// let pager = minus::Pager::new().set_text("This is a line");
+    /// let mut pager = minus::Pager::new();
+    /// pager.set_text("This is a line");
     /// ```
-    pub fn set_text(&mut self, t: impl Into<String>) {
-        self.lines = split_at_width(t.into(), self.cols);
+    pub fn set_text(&mut self, text: impl Into<String>) {
+        self.lines = split_at_width(&text.into(), self.cols);
     }
     /// Set line number to this setting
     ///
@@ -204,7 +205,8 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let pager = Pager::new().set_prompt("my awesome program");
+    /// let mut pager = Pager::new();
+    /// pager.set_prompt("my awesome program");
     /// ```
     pub fn set_prompt(&mut self, t: impl Into<String>) {
         self.prompt = t.into();
@@ -215,13 +217,13 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let pager = Pager::new().set_searchable(false);
+    /// let mut pager = Pager::new();
+    /// pager.set_searchable(false);
     /// ```
     ///
     /// This is a candidate for deprecation. If you want to enable search, enable the
     /// `search` feature. This is because this dosen't really give any major benifits
     /// since `regex` and all related functions are already compiled
-    #[must_use]
     pub fn set_searchable(&mut self, s: bool) {
         self.searchable = s;
     }
@@ -232,7 +234,8 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let pager = Pager::new().set_text("This output is paged").finish();
+    /// let pager = Pager::new()
+    /// pager.set_text("This output is paged").finish();
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
@@ -243,7 +246,6 @@ impl Pager {
     ///
     /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
-    #[must_use]
     pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
         self.exit_strategy = strategy;
     }
@@ -251,7 +253,7 @@ impl Pager {
     /// Returns the appropriate text for displaying.
     ///
     /// Nrmally it will return `self.lines`
-    /// In case a search, `self.search_lines` is returned
+    /// In case of a search, `self.search_lines` is returned
     pub(crate) fn get_lines(&self) -> String {
         #[cfg(feature = "search")]
         if self.search_term.is_empty() {
@@ -262,8 +264,9 @@ impl Pager {
         #[cfg(not(feature = "search"))]
         self.lines.join("\n")
     }
-    pub fn push_str(&mut self, s: impl Into<String>) {
-        self.lines.append(&mut split_at_width(s.into(), self.cols));
+    pub fn push_str(&mut self, text: impl Into<String>) {
+        self.lines
+            .append(&mut split_at_width(&text.into(), self.cols));
     }
 }
 
@@ -292,7 +295,7 @@ pub enum ExitStrategy {
     PagerQuit,
 }
 
-pub(crate) fn split_at_width(text: impl ToString, cols: usize) -> Vec<String> {
+pub(crate) fn split_at_width(text: &impl ToString, cols: usize) -> Vec<String> {
     let mut lines = Vec::new();
 
     for l in text.to_string().lines() {
@@ -306,9 +309,9 @@ fn split_line_at_width(mut line: String, cols: usize) -> Vec<String> {
     let breaks = line.len() / cols;
     let mut lines = Vec::with_capacity(breaks.saturating_add(1));
     for _ in 1..breaks {
-        let (line1, line2) = line.split_at(cols);
-        lines.push(line1.to_owned());
-        line = line2.to_string();
+        let (line_1, line_2) = line.split_at(cols);
+        lines.push(line_1.to_owned());
+        line = line_2.to_string();
     }
     lines.push(line);
 
@@ -327,8 +330,8 @@ mod tests {
         for _ in 0..=200 {
             test_str.push('#')
         }
-        let (line1, line2) = test_str.split_at(COLS);
-        let expected = vec![line1.to_string(), line2.to_string()];
+        let (line_1, line_2) = test_str.split_at(COLS);
+        let expected = vec![line_1.to_string(), line_2.to_string()];
 
         assert_eq!(expected, split_line_at_width(test_str, COLS));
     }
@@ -350,8 +353,8 @@ mod tests {
         for _ in 0..=200 {
             test_str.push('#')
         }
-        let (line1, line2) = test_str.split_at(COLS);
-        let expected = vec![line1.to_string(), line2.to_string()];
+        let (line_1, line_2) = test_str.split_at(COLS);
+        let expected = vec![line_1.to_string(), line_2.to_string()];
 
         let mut pager = Pager::new();
         pager.cols = COLS;
@@ -377,10 +380,10 @@ mod tests {
         pager.set_text(&initial_str);
         pager.push_str(&test_str);
 
-        let (line1, line2) = test_str.split_at(COLS);
+        let (line_1, line_2) = test_str.split_at(COLS);
         // Remove the last \n
         initial_str.pop();
-        let expected = vec![initial_str, line1.to_string(), line2.to_string()];
+        let expected = vec![initial_str, line_1.to_string(), line_2.to_string()];
 
         assert_eq!(expected, pager.lines);
     }
