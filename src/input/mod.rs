@@ -1,4 +1,7 @@
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::{
+    event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind},
+    terminal,
+};
 
 use super::utils::InputEvent;
 #[cfg(feature = "search")]
@@ -79,23 +82,40 @@ impl InputHandler for DefaultInputHandler {
         match ev {
             // Scroll up by one.
             Event::Key(KeyEvent {
-                code: KeyCode::Up,
+                code,
                 modifiers: KeyModifiers::NONE,
-            })
-            | Event::Key(KeyEvent {
-                code: KeyCode::Char('j'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+            }) if code == KeyCode::Up || code == KeyCode::Char('k') => {
+                Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1)))
+            }
 
             // Scroll down by one.
             Event::Key(KeyEvent {
-                code: KeyCode::Down,
+                code,
                 modifiers: KeyModifiers::NONE,
-            })
-            | Event::Key(KeyEvent {
-                code: KeyCode::Char('k'),
-                modifiers: KeyModifiers::NONE,
-            }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
+            }) if code == KeyCode::Down || code == KeyCode::Char('j') => {
+                Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1)))
+            }
+
+            // Scroll up by half screen height.
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('u'),
+                modifiers,
+            }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
+                let half_screen = (terminal::size().ok()?.1 / 2) as usize;
+                Some(InputEvent::UpdateUpperMark(
+                    upper_mark.saturating_sub(half_screen),
+                ))
+            }
+            // Scroll down by half screen height.
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('d'),
+                modifiers,
+            }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
+                let half_screen = (terminal::size().ok()?.1 / 2) as usize;
+                Some(InputEvent::UpdateUpperMark(
+                    upper_mark.saturating_add(half_screen),
+                ))
+            }
 
             // Mouse scroll up/down
             Event::Mouse(MouseEvent {
