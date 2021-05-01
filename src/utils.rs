@@ -7,7 +7,10 @@ use crossterm::{
     terminal::{self, Clear, ClearType},
 };
 
-use std::io::{self, Write as _};
+use std::{
+    convert::{TryFrom, TryInto},
+    io::{self, Write as _},
+};
 
 use crate::{
     error::{CleanupError, SetupError},
@@ -123,10 +126,8 @@ pub enum SearchMode {
 ///   for [`LineNumbers`] for more information.
 pub(crate) fn handle_input(
     ev: Event,
-    upper_mark: usize,
+    pager: &Pager,
     #[cfg(feature = "search")] search_mode: SearchMode,
-    ln: LineNumbers,
-    rows: usize,
 ) -> Option<InputEvent> {
     match ev {
         // Scroll up by one.
@@ -137,7 +138,9 @@ pub(crate) fn handle_input(
         | Event::Key(KeyEvent {
             code: KeyCode::Char('j'),
             modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1))),
+        }) => Some(InputEvent::UpdateUpperMark(
+            pager.upper_mark.saturating_sub(1),
+        )),
 
         // Scroll down by one.
         Event::Key(KeyEvent {
@@ -147,15 +150,17 @@ pub(crate) fn handle_input(
         | Event::Key(KeyEvent {
             code: KeyCode::Char('k'),
             modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1))),
+        }) => Some(InputEvent::UpdateUpperMark(
+            pager.upper_mark.saturating_add(1),
+        )),
 
         // Mouse scroll up/down
-        Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => {
-            Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5)))
-        }
-        Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => {
-            Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5)))
-        }
+        Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => Some(InputEvent::UpdateUpperMark(
+            pager.upper_mark.saturating_sub(5),
+        )),
+        Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => Some(InputEvent::UpdateUpperMark(
+            pager.upper_mark.saturating_add(5),
+        )),
         // Go to top.
         Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
@@ -180,13 +185,13 @@ pub(crate) fn handle_input(
             code: KeyCode::PageUp,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(
-            upper_mark.saturating_sub(rows - 1),
+            pager.upper_mark.saturating_sub(pager.rows - 1),
         )),
         Event::Key(KeyEvent {
             code: KeyCode::PageDown,
             modifiers: KeyModifiers::NONE,
         }) => Some(InputEvent::UpdateUpperMark(
-            upper_mark.saturating_add(rows - 1),
+            pager.upper_mark.saturating_add(pager.rows - 1),
         )),
 
         // Resize event from the terminal.
@@ -195,7 +200,7 @@ pub(crate) fn handle_input(
         Event::Key(KeyEvent {
             code: KeyCode::Char('l'),
             modifiers: KeyModifiers::CONTROL,
-        }) => Some(InputEvent::UpdateLineNumber(!ln)),
+        }) => Some(InputEvent::UpdateLineNumber(!pager.line_numbers)),
         // Quit.
         Event::Key(KeyEvent {
             code: KeyCode::Char('q'),
@@ -250,19 +255,19 @@ pub(crate) fn handle_input(
 /// this).
 ///
 /// It will not wrap long lines.
-pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize) -> io::Result<()> {
+pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
-    write_lines(out, &mut pager, rows.saturating_sub(1))?;
+    write_lines(out, &mut pager)?;
 
-    #[allow(clippy::cast_possible_truncation)]
+    // #[allow(clippy::cast_possible_truncation)]
     {
         write!(
             out,
             "{mv}\r{rev}{prompt}{reset}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
-            mv = MoveTo(0, rows as u16),
+            mv = MoveTo(0, pager.rows as u16),
             rev = Attribute::Reverse,
             prompt = pager.prompt,
             reset = Attribute::Reset,
@@ -280,31 +285,26 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager, rows: usize)
 /// Lines should be separated by `\n` and `\r\n`.
 ///
 /// No wrapping is done at all!
-pub(crate) fn write_lines(
-    out: &mut impl io::Write,
-    pager: &mut Pager,
-    rows: usize,
-) -> io::Result<()> {
-    // Get the line
-    let lines = pager.get_lines();
-    let lines = lines.lines();
-    // '.count()' will necessarily finish since iterating over the lines of a
-    // String cannot yield an infinite iterator, at worst a very long one.
-    let line_count = lines.clone().count();
-
+pub(crate) fn write_lines(out: &mut impl io::Write, pager: &mut Pager) -> io::Result<()> {
+    let line_count = pager.lines.len();
+    let rows = pager.rows.saturating_sub(1);
     // This may be too high but the `Iterator::take` call below will limit this
     // anyway while allowing us to display as much lines as possible.
     let lower_mark = pager.upper_mark.saturating_add(rows.min(line_count));
 
     if lower_mark > line_count {
-        pager.upper_mark = if line_count < rows {
+        pager.upper_mark = if line_count < pager.rows {
             0
         } else {
             line_count.saturating_sub(rows)
         };
     }
 
-    let displayed_lines = lines.skip(pager.upper_mark).take(rows.min(line_count));
+    let displayed_lines = pager
+        .lines
+        .iter()
+        .skip(pager.upper_mark)
+        .take(rows.min(line_count));
 
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {

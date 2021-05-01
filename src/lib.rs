@@ -125,23 +125,23 @@ pub struct Pager {
     /// The output that is displayed
     lines: Vec<String>,
     /// Configuration for line numbers. See [`LineNumbers`]
-    line_numbers: LineNumbers,
+    pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
-    pub prompt: String,
+    prompt: String,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
-    upper_mark: usize,
+    pub(crate) upper_mark: usize,
     /// Stores the most recent search term
     #[cfg(feature = "search")]
     search_term: String,
     /// A temporary space to store modifications to the lines string
     #[cfg(feature = "search")]
     search_lines: Vec<String>,
-    rows: usize,
-    cols: usize,
+    pub(crate) rows: usize,
+    pub(crate) cols: usize,
 }
 
 impl Pager {
