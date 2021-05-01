@@ -14,7 +14,6 @@ workflow:
       when: always
     - when: never
 
-
 stages:
   - rustfmt
   - build
@@ -53,7 +52,7 @@ lint-stable:
     - cargo clippy --all-features --tests --examples
 
 lint-nightly:
-  image: "rust:nightly"
+  image: "rustlang/rust:nightly"
   stage: lint
   allow_failure: true
   script:

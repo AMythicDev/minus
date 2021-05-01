@@ -287,6 +287,7 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Resul
 /// No wrapping is done at all!
 pub(crate) fn write_lines(out: &mut impl io::Write, pager: &mut Pager) -> io::Result<()> {
     let line_count = pager.lines.len();
+    // Reduce one row for prompt
     let rows = pager.rows.saturating_sub(1);
     // This may be too high but the `Iterator::take` call below will limit this
     // anyway while allowing us to display as much lines as possible.
@@ -391,5 +392,5 @@ impl std::ops::Not for LineNumbers {
 }
 
 // Uncomment these once utils::tests are ready for the new API
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;

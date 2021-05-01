@@ -4,15 +4,27 @@ use super::*;
 use crate::{LineNumbers, Pager};
 use std::fmt::Write;
 
+// Available columns in terminal during these tests
+const COLS: usize = 80;
+
+// * In some places, where test lines are close to the row, 1 should be added
+// to the rows because `write_lines` does care about the prompt
+// * `.set_text` should always be called after setting of rows and solumns
+// because it is used for handling line wraps and by default it is initialized
+// as 1 row and 1 column
+
 #[test]
 fn short_no_line_numbers() {
     let lines = "A line\nAnother line";
-    let mut pager = Pager::new().set_text(lines);
+    let mut pager = Pager::new();
+    pager.rows = 10;
+    pager.cols = COLS;
+
+    pager.set_text(lines);
 
     let mut out = Vec::with_capacity(lines.len());
-    let rows = 10;
 
-    assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rA line\n\rAnother line\n",
@@ -22,9 +34,9 @@ fn short_no_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark += 1;
-    let rows = 10;
+    pager.rows = 10;
 
-    assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -41,10 +53,13 @@ fn long_no_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new().set_text(lines);
-    let rows = 3;
+    let mut pager = Pager::new();
+    // One extra line for prompt
+    pager.rows = 4;
+    pager.cols = COLS;
+    pager.set_text(lines);
 
-    assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rA line\n\rAnother line\n\rThird line\n",
@@ -54,11 +69,10 @@ fn long_no_line_numbers() {
 
     // This ensures that asking for a position other than 0 works.
     let mut out = Vec::with_capacity(lines.len());
-    pager.lines = "Another line\nThird line\nFourth line\nFifth line".to_string();
+    pager.set_text("Another line\nThird line\nFourth line\nFifth line");
     pager.upper_mark = 1;
-    let rows = 3;
 
-    assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rThird line\n\rFourth line\n\rFifth line\n",
@@ -69,10 +83,9 @@ fn long_no_line_numbers() {
     // This test ensures that as much text as possible will be displayed, even
     // when less is asked for.
     let mut out = Vec::with_capacity(lines.len());
-    let rows = 3;
     pager.upper_mark = 2;
 
-    assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rThird line\n\rFourth line\n\rFifth line\n",
@@ -86,12 +99,13 @@ fn short_with_line_numbers() {
     let lines = "A line\nAnother line";
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::Enabled);
-    let rows = 10;
+    let mut pager = Pager::new();
+    pager.rows = 10;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(write_lines(&mut out, &mut pager, rows).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r1. A line\n\r2. Another line\n",
@@ -102,9 +116,8 @@ fn short_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
     pager.line_numbers = LineNumbers::AlwaysOn;
-    let rows = 10;
 
-    assert!(write_lines(&mut out, &mut pager, rows,).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -121,12 +134,13 @@ fn long_with_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::Enabled);
-    let rows = 3;
+    let mut pager = Pager::new();
+    pager.rows = 4;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(write_lines(&mut out, &mut pager, rows).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r1. A line\n\r2. Another line\n\r3. Third line\n",
@@ -137,9 +151,8 @@ fn long_with_line_numbers() {
     // This ensures that asking for a position other than 0 works.
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
-    let rows = 3;
 
-    assert!(write_lines(&mut out, &mut pager, rows).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r2. Another line\n\r3. Third line\n\r4. Fourth line\n",
@@ -151,9 +164,8 @@ fn long_with_line_numbers() {
     // when less is asked for.
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 2;
-    let rows = 3;
 
-    assert!(write_lines(&mut out, &mut pager, rows).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r2. Another line\n\r3. Third line\n\r4. Fourth line\n",
@@ -173,13 +185,14 @@ fn big_line_numbers_are_padded() {
     };
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::AlwaysOn);
+    let mut pager = Pager::new();
     pager.upper_mark = 95;
-    let rows = 10;
+    pager.rows = 11;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::AlwaysOn);
 
-    assert!(write_lines(&mut out, &mut pager, rows).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert_eq!(
@@ -216,12 +229,13 @@ fn draw_short_no_line_numbers() {
     let lines = "A line\nAnother line";
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::AlwaysOff);
-    let rows = 10;
+    let mut pager = Pager::new();
+    pager.rows = 10;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::AlwaysOff);
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -230,9 +244,8 @@ fn draw_short_no_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
-    let rows = 10;
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -248,10 +261,12 @@ fn draw_long_no_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new().set_text(lines);
-    let rows = 3;
+    let mut pager = Pager::new();
+    pager.rows = 3;
+    pager.cols = COLS;
+    pager.set_text(lines);
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -261,9 +276,8 @@ fn draw_long_no_line_numbers() {
     // This ensures that asking for a position other than 0 works.
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
-    let rows = 3;
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -274,9 +288,8 @@ fn draw_long_no_line_numbers() {
     // when less is asked for.
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 3;
-    let rows = 3;
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -288,12 +301,13 @@ fn draw_long_no_line_numbers() {
 fn draw_short_with_line_numbers() {
     let lines = "A line\nAnother line";
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::Enabled);
-    let rows = 10;
+    let mut pager = Pager::new();
+    pager.rows = 10;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
         .contains("\r1. A line\n\r2. Another line\n"));
@@ -301,9 +315,8 @@ fn draw_short_with_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
-    let rows = 10;
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -319,12 +332,13 @@ fn draw_long_with_line_numbers() {
 
     // Displaying as much of the lines as possible from the start.
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::Enabled);
-    let rows = 3;
+    let mut pager = Pager::new();
+    pager.rows = 3;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -334,9 +348,8 @@ fn draw_long_with_line_numbers() {
     // This ensures that asking for a position other than 0 works.
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
-    let rows = 3;
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -347,9 +360,8 @@ fn draw_long_with_line_numbers() {
     // when less is asked for.
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 3;
-    let rows = 3;
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -368,13 +380,14 @@ fn draw_big_line_numbers_are_padded() {
     };
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::Enabled);
+    let mut pager = Pager::new();
     pager.upper_mark = 95;
-    let rows = 10;
+    pager.rows = 10;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(draw(&mut out, &mut pager, rows).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert!(String::from_utf8(out)
@@ -391,12 +404,13 @@ fn draw_help_message() {
     let lines = "A line\nAnother line";
 
     let mut out = Vec::with_capacity(lines.len());
-    let mut pager = Pager::new()
-        .set_text(lines)
-        .set_line_numbers(LineNumbers::AlwaysOff);
-    let rows = 10;
+    let mut pager = Pager::new();
+    pager.rows = 10;
+    pager.cols = COLS;
+    pager.set_text(lines);
+    pager.set_line_numbers(LineNumbers::AlwaysOff);
 
-    draw(&mut out, &mut pager, rows).expect("Should have written");
+    draw(&mut out, &mut pager).expect("Should have written");
 
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
     assert!(res.contains("minus"));
@@ -405,9 +419,10 @@ fn draw_help_message() {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn input_handling() {
-    let upper_mark = 12;
-    let ln = LineNumbers::Enabled;
-    let rows = 5;
+    let mut pager = Pager::new();
+    pager.upper_mark = 12;
+    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.rows = 5;
 
     {
         let ev = Event::Key(KeyEvent {
@@ -415,8 +430,8 @@ fn input_handling() {
             modifiers: KeyModifiers::NONE,
         });
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(upper_mark + 1)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            Some(InputEvent::UpdateUpperMark(pager.upper_mark + 1)),
+            handle_input(ev, &pager)
         );
     }
 
@@ -426,8 +441,8 @@ fn input_handling() {
             modifiers: KeyModifiers::NONE,
         });
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(upper_mark - 1)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            Some(InputEvent::UpdateUpperMark(pager.upper_mark - 1)),
+            handle_input(ev, &pager)
         );
     }
 
@@ -436,9 +451,11 @@ fn input_handling() {
             code: KeyCode::Down,
             modifiers: KeyModifiers::NONE,
         });
+        let mut pager = pager.clone();
+        pager.upper_mark = usize::MAX;
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, usize::MAX, SearchMode::Unknown, ln, rows),
+            handle_input(ev, &pager)
         );
     }
 
@@ -447,25 +464,27 @@ fn input_handling() {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
         });
+        let mut pager = pager.clone();
+        pager.upper_mark = usize::MIN;
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MIN)),
-            handle_input(ev, usize::MIN, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
     {
         let ev = Event::Mouse(MouseEvent::ScrollDown(0, 0, KeyModifiers::NONE));
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(upper_mark + 5)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            Some(InputEvent::UpdateUpperMark(pager.upper_mark + 5)),
+            handle_input(ev, &pager)
         );
     }
 
     {
         let ev = Event::Mouse(MouseEvent::ScrollUp(0, 0, KeyModifiers::NONE));
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(upper_mark - 5)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            Some(InputEvent::UpdateUpperMark(pager.upper_mark - 5)),
+            handle_input(ev, &pager)
         );
     }
 
@@ -476,7 +495,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(0)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
@@ -488,7 +507,7 @@ fn input_handling() {
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
             Some(InputEvent::UpdateUpperMark(8)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
@@ -499,7 +518,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
@@ -510,7 +529,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
@@ -521,7 +540,7 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
@@ -533,16 +552,13 @@ fn input_handling() {
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
             Some(InputEvent::UpdateUpperMark(16)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            handle_input(ev, &pager)
         );
     }
 
     {
         let ev = Event::Resize(42, 35);
-        assert_eq!(
-            Some(InputEvent::UpdateRows(35)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
-        );
+        assert_eq!(Some(InputEvent::UpdateRows(35)), handle_input(ev, &pager));
     }
 
     {
@@ -551,8 +567,8 @@ fn input_handling() {
             modifiers: KeyModifiers::CONTROL,
         });
         assert_eq!(
-            Some(InputEvent::UpdateLineNumber(!ln)),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
+            Some(InputEvent::UpdateLineNumber(!pager.line_numbers)),
+            handle_input(ev, &pager)
         );
     }
 
@@ -561,10 +577,7 @@ fn input_handling() {
             code: KeyCode::Char('q'),
             modifiers: KeyModifiers::NONE,
         });
-        assert_eq!(
-            Some(InputEvent::Exit),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
-        );
+        assert_eq!(Some(InputEvent::Exit), handle_input(ev, &pager));
     }
 
     {
@@ -572,10 +585,7 @@ fn input_handling() {
             code: KeyCode::Char('c'),
             modifiers: KeyModifiers::CONTROL,
         });
-        assert_eq!(
-            Some(InputEvent::Exit),
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
-        );
+        assert_eq!(Some(InputEvent::Exit), handle_input(ev, &pager));
     }
 
     {
@@ -583,9 +593,6 @@ fn input_handling() {
             code: KeyCode::Char('a'),
             modifiers: KeyModifiers::NONE,
         });
-        assert_eq!(
-            None,
-            handle_input(ev, upper_mark, SearchMode::Unknown, ln, rows)
-        );
+        assert_eq!(None, handle_input(ev, &pager));
     }
 }
