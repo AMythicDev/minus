@@ -1,0 +1,54 @@
+image: "rust:latest"
+
+default:
+  before_script:
+    - rustc --version
+
+workflow:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "4.0"'
+    when: always
+    - whe: never
+
+
+stages:
+  - rustfmt
+  - build
+  - test
+  - lint
+
+check-code-fmt:
+  stage: rustfmt
+  script:
+    - cargo fmt --all -- --check
+
+build-code:
+  stage: build
+  script:
+    - cargo build --verbose --all-features
+  
+tests:
+  stage: test
+  script:
+    - cargo test --verbose --all-features --no-run
+    - cargo test --verbose
+    --all-features
+
+examples:
+  stage: test
+  script:
+    - cargo check --example=dyn_tokio --features=tokio_lib
+    - cargo check --example=dyn_async_std --features=async_std_lib
+    - cargo check --example=static --features=static_output
+    - cargo check --example=static_long --features=static_output
+
+lint-stable:
+  stage: lint
+  script:
+    - cargo clippy --all-features --tests --examples
+
+lint-nightly:
+  image: "rust:nightly"
+  stage: lint
+  script:
+    - cargo clippy --all-features --tests --examples
