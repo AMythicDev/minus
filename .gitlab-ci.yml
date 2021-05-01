@@ -7,8 +7,8 @@ default:
 workflow:
   rules:
     - if: '$CI_COMMIT_REF_NAME == "4.0"'
-    when: always
-    - whe: never
+      when: always
+    - when: never
 
 
 stages:
@@ -31,8 +31,7 @@ tests:
   stage: test
   script:
     - cargo test --verbose --all-features --no-run
-    - cargo test --verbose
-    --all-features
+    - cargo test --verbose --all-features
 
 examples:
   stage: test
