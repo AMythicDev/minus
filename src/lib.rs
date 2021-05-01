@@ -78,6 +78,7 @@ pub use static_pager::page_all;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
 pub use error::*;
+
 use std::cell::UnsafeCell;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
@@ -86,6 +87,8 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 pub use utils::LineNumbers;
+#[cfg(feature = "search")]
+use utils::SearchMode;
 // mod init;
 
 /// A struct containing basic configurations for the pager. This is used by
@@ -140,6 +143,9 @@ pub struct Pager {
     /// A temporary space to store modifications to the lines string
     #[cfg(feature = "search")]
     search_lines: Vec<String>,
+    // Direction of search
+    #[cfg(feature = "search")]
+    search_mode: SearchMode,
     pub(crate) rows: usize,
     pub(crate) cols: usize,
 }
@@ -162,7 +168,9 @@ impl Pager {
             #[cfg(feature = "search")]
             search_term: String::new(),
             #[cfg(feature = "search")]
-            search_lines: String::new(),
+            search_lines: Vec::new(),
+            #[cfg(feature = "search")]
+            search_mode: SearchMode::Unknown,
             // Just to be safe in tests, keep at 1x1 size
             cols: 1,
             rows: 1,

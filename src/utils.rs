@@ -124,11 +124,8 @@ pub enum SearchMode {
 /// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
 /// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
-pub(crate) fn handle_input(
-    ev: Event,
-    pager: &Pager,
-    #[cfg(feature = "search")] search_mode: SearchMode,
-) -> Option<InputEvent> {
+#[allow(clippy::too_many_lines)]
+pub(crate) fn handle_input(ev: Event, pager: &Pager) -> Option<InputEvent> {
     match ev {
         // Scroll up by one.
         Event::Key(KeyEvent {
@@ -225,7 +222,7 @@ pub(crate) fn handle_input(
             code: KeyCode::Char('n'),
             modifiers: KeyModifiers::NONE,
         }) => {
-            if search_mode == SearchMode::Reverse {
+            if pager.search_mode == SearchMode::Reverse {
                 Some(InputEvent::PrevMatch)
             } else {
                 Some(InputEvent::NextMatch)
@@ -236,7 +233,7 @@ pub(crate) fn handle_input(
             code: KeyCode::Char('p'),
             modifiers: KeyModifiers::NONE,
         }) => {
-            if search_mode == SearchMode::Reverse {
+            if pager.search_mode == SearchMode::Reverse {
                 Some(InputEvent::NextMatch)
             } else {
                 Some(InputEvent::PrevMatch)
@@ -267,7 +264,7 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Resul
             out,
             "{mv}\r{rev}{prompt}{reset}",
             // `rows` is originally a u16, we got it from crossterm::terminal::size.
-            mv = MoveTo(0, pager.rows as u16),
+            mv = MoveTo(0, u16::try_from(pager.rows).unwrap()),
             rev = Attribute::Reverse,
             prompt = pager.prompt,
             reset = Attribute::Reset,

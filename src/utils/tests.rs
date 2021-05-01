@@ -595,4 +595,26 @@ fn input_handling() {
         });
         assert_eq!(None, handle_input(ev, &pager));
     }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('/'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::Search(SearchMode::Forward)),
+            handle_input(ev, &pager)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('?'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::Search(SearchMode::Reverse)),
+            handle_input(ev, &pager)
+        );
+    }
 }
