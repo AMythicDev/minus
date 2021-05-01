@@ -1,5 +1,9 @@
 image: "rust:latest"
 
+variables:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+
 default:
   before_script:
     - rustc --version
@@ -20,6 +24,7 @@ stages:
 check-code-fmt:
   stage: rustfmt
   script:
+    - rustup component add rustfmt
     - cargo fmt --all -- --check
 
 build-code:
@@ -44,10 +49,13 @@ examples:
 lint-stable:
   stage: lint
   script:
+    - rustup component add clippy
     - cargo clippy --all-features --tests --examples
 
 lint-nightly:
   image: "rust:nightly"
   stage: lint
+  allow_failure: true
   script:
+    - rustup component add clippy
     - cargo clippy --all-features --tests --examples
