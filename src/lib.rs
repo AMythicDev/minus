@@ -65,13 +65,15 @@
 
 mod error;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-// mod rt_wrappers;
+mod rt_wrappers;
+#[cfg(feature = "search")]
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
 mod utils;
+
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-// pub use rt_wrappers::*;
+pub use rt_wrappers::*;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
@@ -79,17 +81,12 @@ pub use static_pager::page_all;
 use async_mutex::Mutex;
 pub use error::*;
 
-use std::cell::UnsafeCell;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
-};
 pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
-// mod init;
+mod init;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
@@ -253,6 +250,16 @@ impl Pager {
     pub fn push_str(&mut self, text: impl Into<String>) {
         self.lines
             .append(&mut split_at_width(&text.into(), self.cols));
+    }
+
+    pub fn readjust_term_area(&mut self) -> Result<(), error::AlternateScreenPagingError> {
+        let (cols, rows) = crossterm::terminal::size().map_err(|e| {
+            error::AlternateScreenPagingError::HandleEvent(error::TermError::from(e))
+        })?;
+        self.cols = cols.into();
+        self.rows = rows.into();
+        self.lines = split_at_width(&self.get_lines(), self.cols);
+        Ok(())
     }
 }
 

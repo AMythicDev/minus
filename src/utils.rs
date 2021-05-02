@@ -8,7 +8,7 @@ use crossterm::{
 };
 
 use std::{
-    convert::{TryFrom, TryInto},
+    convert::TryFrom,
     io::{self, Write as _},
 };
 
@@ -30,7 +30,7 @@ use crate::{
 /// ## Errors
 ///
 /// Setting up the terminal can fail, see [`SetupError`](SetupError).
-pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<usize, SetupError> {
+pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
 
     // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
@@ -50,10 +50,7 @@ pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<u
     execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
     execute!(out, event::EnableMouseCapture)
         .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
-
-    let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
-
-    Ok(rows as usize)
+    Ok(())
 }
 
 /// Will try to clean up the terminal and set it back to its original state,
@@ -298,9 +295,9 @@ pub(crate) fn write_lines(out: &mut impl io::Write, pager: &mut Pager) -> io::Re
         };
     }
 
-    let displayed_lines = pager
-        .lines
-        .iter()
+    let lines = pager.get_lines();
+    let displayed_lines = lines
+        .lines()
         .skip(pager.upper_mark)
         .take(rows.min(line_count));
 

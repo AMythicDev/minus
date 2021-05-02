@@ -7,12 +7,12 @@ use crate::search;
 #[cfg(feature = "search")]
 use crate::utils::SearchMode;
 use crate::utils::{cleanup, draw, handle_input, setup, InputEvent};
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use crate::PagerMutex;
 use crate::{error::AlternateScreenPagingError, Pager};
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use async_mutex::Mutex;
 use crossterm::{cursor::MoveTo, event};
 #[cfg(feature = "search")]
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::io::{self, Write as _};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
@@ -22,7 +22,7 @@ use std::sync::Arc;
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     // Setup terminal
     let mut out = io::stdout();
-    let mut rows = setup(&out, false)?;
+    setup(&out, false)?;
     #[allow(unused_assignments)]
     let mut redraw = true;
 
@@ -33,7 +33,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     #[cfg(feature = "search")]
     let mut search_mode = SearchMode::Unknown;
 
-    draw(&mut out, &mut pager, rows)?;
+    draw(&mut out, &mut pager)?;
 
     loop {
         // Check for events
@@ -95,7 +95,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         if x.is_none() || y.is_none() {
                             continue;
                         }
-                        
+
                         draw(&mut out, &mut pager, rows)?;
                         y = Some(
                             y.unwrap()
@@ -153,11 +153,15 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
 #[allow(clippy::clippy::too_many_lines)]
 pub(crate) async fn dynamic_paging(
-    p: &Arc<PagerMutex>,
+    p: &Arc<Mutex<Pager>>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
-    // Setup terminal
+    // Setup terminal, adjust line wraps and get rows
     let mut out = io::stdout();
-    let mut rows = setup(&out, true)?;
+    setup(&mut out, true)?;
+    let mut guard = p.lock().await;
+    guard.readjust_term_area()?;
+    let mut rows = guard.rows;
+    drop(guard);
     // Search related variables
     // Vector of match coordinates
     // Earch element is a (x,y) pair, where the cursor will be placed
@@ -168,9 +172,6 @@ pub(crate) async fn dynamic_paging(
     // placed in any one of them
     #[cfg(feature = "search")]
     let mut s_mark = -1;
-    // Search Mode
-    #[cfg(feature = "search")]
-    let mut search_mode = SearchMode::Unknown;
     // Whether to redraw the console
     #[allow(unused_assignments)]
     let mut redraw = true;
@@ -182,16 +183,14 @@ pub(crate) async fn dynamic_paging(
 
         // Display the text continously if last displayed line count is not same and
         // all rows are not filled
-        let line_count = guard.lines.lines().count();
+        let line_count = guard.lines.len();
         let have_just_overflowed = (last_line_count < rows) && (line_count >= rows);
-
-        if last_line_count != line_count && ((line_count < rows) || have_just_overflowed) {
-            draw(&mut out, &mut guard, rows)?;
+        if last_line_count != line_count && (line_count < rows || have_just_overflowed) {
+            draw(&mut out, &mut guard)?;
             last_line_count = line_count;
         }
 
         drop(guard);
-
         // Check for events
         if event::poll(std::time::Duration::from_millis(10))
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
@@ -202,17 +201,15 @@ pub(crate) async fn dynamic_paging(
             // Get the events
             let input = handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                lock.upper_mark,
-                #[cfg(feature = "search")]
-                search_mode,
-                lock.line_numbers,
-                rows,
+                &lock,
             );
             // Update any data that may have changed
+            // cleanup(out, &lock.exit_strategy)?
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &lock.exit_strategy)?),
+                Some(InputEvent::Exit) => return Ok(cleanup(&mut out, &lock.exit_strategy)?),
                 Some(InputEvent::UpdateRows(r)) => {
                     rows = r;
+                    lock.rows = r;
                     redraw = true;
                 }
                 Some(InputEvent::UpdateUpperMark(um)) => {
@@ -304,7 +301,7 @@ pub(crate) async fn dynamic_paging(
             }
             // If redraw is true, then redraw the screen
             if redraw {
-                draw(&mut out, &mut lock, rows)?;
+                draw(&mut out, &mut lock)?;
             }
         }
     }

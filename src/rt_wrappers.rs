@@ -2,8 +2,8 @@
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
 use crate::error::AlternateScreenPagingError;
-use crate::init;
-use crate::PagerMutex;
+use crate::{init, Pager};
+use async_mutex::Mutex;
 use std::sync::Arc;
 
 /// Run the pager inside a [`tokio task`](tokio::task).
@@ -57,7 +57,7 @@ use std::sync::Arc;
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
+pub async fn tokio_updating(pager: Arc<Mutex<Pager>>) -> Result<(), AlternateScreenPagingError> {
     tokio::task::spawn(run(pager)).await?
 }
 
@@ -112,11 +112,13 @@ pub async fn tokio_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScree
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
+pub async fn async_std_updating(
+    pager: Arc<Mutex<Pager>>,
+) -> Result<(), AlternateScreenPagingError> {
     async_std::task::spawn(run(pager)).await
 }
 
 /// Private function that contains the implemenation for the async display.
-async fn run(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
+async fn run(pager: Arc<Mutex<Pager>>) -> Result<(), AlternateScreenPagingError> {
     init::dynamic_paging(&pager).await
 }
