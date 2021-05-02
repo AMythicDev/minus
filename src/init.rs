@@ -20,7 +20,6 @@ use std::sync::Arc;
 #[cfg(feature = "static_output")]
 #[allow(clippy::clippy::too_many_lines)]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
-    // Setup terminal
     let mut out = io::stdout();
     setup(&out, false)?;
     #[allow(unused_assignments)]
@@ -30,8 +29,6 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     let mut s_co: Vec<(u16, u16)> = Vec::new();
     #[cfg(feature = "search")]
     let mut s_mark = -1;
-    #[cfg(feature = "search")]
-    let mut search_mode = SearchMode::Unknown;
 
     draw(&mut out, &mut pager)?;
 
@@ -43,18 +40,14 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // Get the events
             let input = handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                pager.upper_mark,
-                #[cfg(feature = "search")]
-                search_mode,
-                pager.line_numbers,
-                rows,
+                &pager,
             );
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy)?),
                 Some(InputEvent::UpdateRows(r)) => {
-                    rows = r;
+                    pager.rows = r;
                     redraw = true;
                 }
                 Some(InputEvent::UpdateUpperMark(um)) => {
@@ -135,7 +128,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 None => continue,
             }
             if redraw {
-                draw(&mut out, &mut pager, rows)?;
+                draw(&mut out, &mut pager)?;
             }
         }
     }
@@ -159,7 +152,7 @@ pub(crate) async fn dynamic_paging(
     let mut out = io::stdout();
     setup(&mut out, true)?;
     let mut guard = p.lock().await;
-    guard.readjust_term_area()?;
+    guard.prepare()?;
     let mut rows = guard.rows;
     drop(guard);
     // Search related variables

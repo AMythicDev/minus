@@ -128,6 +128,10 @@ pub struct Pager {
     pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
     prompt: String,
+    /// Is the pager running
+    running: bool,
+    // Text which may have come that may be unwraped
+    unwraped_text: String,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
@@ -143,6 +147,7 @@ pub struct Pager {
     // Direction of search
     #[cfg(feature = "search")]
     search_mode: SearchMode,
+    // Rows and columns of the terminal
     pub(crate) rows: usize,
     pub(crate) cols: usize,
 }
@@ -162,6 +167,8 @@ impl Pager {
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
+            running: false,
+            unwraped_text: String::new(),
             #[cfg(feature = "search")]
             search_term: String::new(),
             #[cfg(feature = "search")]
@@ -185,8 +192,13 @@ impl Pager {
     /// pager.set_text("This is a line");
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
-        self.lines = split_at_width(&text.into(), self.cols);
+        if !self.running {
+            self.unwraped_text = text.into();
+        } else {
+            self.lines = split_at_width(&text.into(), self.cols);
+        }
     }
+
     /// Set line number to this setting
     ///
     /// Example
@@ -198,6 +210,7 @@ impl Pager {
     pub fn set_line_numbers(&mut self, l: LineNumbers) {
         self.line_numbers = l;
     }
+
     /// Set the prompt displayed at the prompt to `t`
     ///
     /// Example
@@ -210,6 +223,7 @@ impl Pager {
     pub fn set_prompt(&mut self, t: impl Into<String>) {
         self.prompt = t.into();
     }
+
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
     ///
@@ -225,6 +239,7 @@ impl Pager {
     pub fn finish(self) -> Arc<Mutex<Pager>> {
         Arc::new(Mutex::new(self))
     }
+
     /// Set the default exit strategy.
     ///
     /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
@@ -247,19 +262,43 @@ impl Pager {
         #[cfg(not(feature = "search"))]
         self.lines.join("\n")
     }
-    pub fn push_str(&mut self, text: impl Into<String>) {
-        self.lines
-            .append(&mut split_at_width(&text.into(), self.cols));
-    }
 
-    pub fn readjust_term_area(&mut self) -> Result<(), error::AlternateScreenPagingError> {
+    /// Appends text to the pager output
+    ///
+    /// This function will automatically split the lines, if they overflow
+    /// the number of terminal columns
+    pub fn push_str(&mut self, text: impl Into<String>) {
+        if !self.running {
+            self.unwraped_text.push_str(&text.into());
+        } else {
+            self.lines
+                .append(&mut split_at_width(&text.into(), self.cols));
+        }
+    }
+    /// Prepare the terminal
+    ///
+    /// Sets the rows and columns of the terminal inside the pager.
+    /// Also prepares any unwraped text that might have come before running
+    ///
+    /// # Panics
+    /// This function panics if te pager is already running  
+    pub(crate) fn prepare(&mut self) -> Result<(), error::AlternateScreenPagingError> {
         let (cols, rows) = crossterm::terminal::size().map_err(|e| {
             error::AlternateScreenPagingError::HandleEvent(error::TermError::from(e))
         })?;
         self.cols = cols.into();
         self.rows = rows.into();
-        self.lines = split_at_width(&self.get_lines(), self.cols);
+        if !self.running {
+            self.running = true;
+            self.lines = split_at_width(&self.unwraped_text, self.cols);
+        } else {
+            panic!("prepare() called after the pager is started to run")
+        }
         Ok(())
+    }
+    /// Readjust the text to new terminal size
+    pub(crate) fn readjust_wraps(&mut self) {
+        self.lines = split_at_width(&self.get_lines(), self.cols);
     }
 }
 
