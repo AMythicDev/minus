@@ -86,7 +86,7 @@ pub enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.
     Exit,
     /// The terminal was resized. Contains the new number of rows.
-    UpdateRows(usize),
+    UpdateTermArea(usize, usize),
     /// `Up` or `Down` was pressed. Contains the new value for the upper mark.
     /// Also sent by `g` or `G`, which behave like Vim: jump to top or bottom.
     UpdateUpperMark(usize),
@@ -189,7 +189,9 @@ pub(crate) fn handle_input(ev: Event, pager: &Pager) -> Option<InputEvent> {
         )),
 
         // Resize event from the terminal.
-        Event::Resize(_, height) => Some(InputEvent::UpdateRows(height as usize)),
+        Event::Resize(width, height) => {
+            Some(InputEvent::UpdateTermArea(width as usize, height as usize))
+        }
         // Switch line number display.
         Event::Key(KeyEvent {
             code: KeyCode::Char('l'),

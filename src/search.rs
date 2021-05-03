@@ -153,7 +153,7 @@ pub(crate) fn highlight_search(
     pager.search_lines = pager.lines.clone();
     let mut lines: Vec<String> = pager
         .search_lines
-        .lines()
+        .iter()
         .map(std::string::ToString::to_string)
         .collect();
 
@@ -171,8 +171,6 @@ pub(crate) fn highlight_search(
             *line = replace;
         }
     }
-    pager.search_lines = lines.join("\n");
-    pager.search_lines.push('\n');
     Ok(coordinates)
 }
 
