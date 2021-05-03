@@ -1,7 +1,6 @@
 use futures::join;
 use std::time::Duration;
 use tokio::time::sleep;
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = minus::Pager::new().finish();

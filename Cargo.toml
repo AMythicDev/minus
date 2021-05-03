@@ -40,10 +40,6 @@ name = "dyn_async_std"
 required-features = ["async_std_lib"]
 
 [[example]]
-name = "log_async_std"
-required-features = ["async_std_lib"]
-
-[[example]]
 name = "dyn_tokio"
 required-features = ["tokio_lib"]
 

@@ -558,7 +558,10 @@ fn input_handling() {
 
     {
         let ev = Event::Resize(42, 35);
-        assert_eq!(Some(InputEvent::UpdateRows(35)), handle_input(ev, &pager));
+        assert_eq!(
+            Some(InputEvent::UpdateTermArea(42, 35)),
+            handle_input(ev, &pager)
+        );
     }
 
     {

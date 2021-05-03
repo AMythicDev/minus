@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut output = minus::Pager::new();
 

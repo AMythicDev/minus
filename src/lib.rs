@@ -88,6 +88,8 @@ pub use utils::LineNumbers;
 use utils::SearchMode;
 mod init;
 
+pub type PagerMutex = Arc<Mutex<Pager>>;
+
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
 ///
@@ -236,7 +238,7 @@ impl Pager {
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-    pub fn finish(self) -> Arc<Mutex<Pager>> {
+    pub fn finish(self) -> PagerMutex {
         Arc::new(Mutex::new(self))
     }
 
