@@ -19,6 +19,7 @@ fn short_no_line_numbers() {
     let mut pager = Pager::new();
     pager.rows = 10;
     pager.cols = COLS;
+    pager.running = true;
 
     pager.set_text(lines);
 
@@ -57,6 +58,7 @@ fn long_no_line_numbers() {
     // One extra line for prompt
     pager.rows = 4;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
 
     assert!(write_lines(&mut out, &mut pager).is_ok());
@@ -102,6 +104,7 @@ fn short_with_line_numbers() {
     let mut pager = Pager::new();
     pager.rows = 10;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
@@ -137,6 +140,7 @@ fn long_with_line_numbers() {
     let mut pager = Pager::new();
     pager.rows = 4;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
@@ -189,6 +193,7 @@ fn big_line_numbers_are_padded() {
     pager.upper_mark = 95;
     pager.rows = 11;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::AlwaysOn);
 
@@ -232,6 +237,7 @@ fn draw_short_no_line_numbers() {
     let mut pager = Pager::new();
     pager.rows = 10;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::AlwaysOff);
 
@@ -263,6 +269,7 @@ fn draw_long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = Pager::new();
     pager.rows = 3;
+    pager.running = true;
     pager.cols = COLS;
     pager.set_text(lines);
 
@@ -304,6 +311,7 @@ fn draw_short_with_line_numbers() {
     let mut pager = Pager::new();
     pager.rows = 10;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
@@ -335,6 +343,7 @@ fn draw_long_with_line_numbers() {
     let mut pager = Pager::new();
     pager.rows = 3;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
@@ -384,6 +393,7 @@ fn draw_big_line_numbers_are_padded() {
     pager.upper_mark = 95;
     pager.rows = 10;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
@@ -407,6 +417,7 @@ fn draw_help_message() {
     let mut pager = Pager::new();
     pager.rows = 10;
     pager.cols = COLS;
+    pager.running = true;
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::AlwaysOff);
 
@@ -423,6 +434,7 @@ fn input_handling() {
     pager.upper_mark = 12;
     pager.set_line_numbers(LineNumbers::Enabled);
     pager.rows = 5;
+    pager.running = true;
 
     {
         let ev = Event::Key(KeyEvent {

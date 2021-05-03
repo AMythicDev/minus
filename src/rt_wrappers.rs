@@ -39,7 +39,7 @@ use std::sync::Arc;
 ///    let increment = async {
 ///         for i in 0..=30_u32 {
 ///             let mut output = output.lock().await;
-///             writeln!(output.lines, "{}", i)?;
+///             output.push_str(format!("{}\n", i));
 ///             drop(output);
 ///             sleep(Duration::from_millis(100)).await;
 ///          }
@@ -94,7 +94,7 @@ pub async fn tokio_updating(pager: Arc<Mutex<Pager>>) -> Result<(), AlternateScr
 ///    let increment = async {
 ///        for i in 0..=30_u32 {
 ///            let mut output = output.lock().await;
-///            writeln!(output.lines, "{}", i)?;
+///            output.push_str(format!("{}\n", i));
 ///            drop(output);
 ///            sleep(Duration::from_millis(100)).await;
 ///        }

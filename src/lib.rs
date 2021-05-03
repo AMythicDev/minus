@@ -99,14 +99,13 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     use minus::{Pager, LineNumbers, tokio_updating};
-///     let pager = Pager::new()
-///                        .set_line_numbers(LineNumbers::AlwaysOn)
-///                        .set_prompt("A complex configuration")
-///                        .finish();
+///     let mut pager = Pager::new();
+///     pager.set_line_numbers(LineNumbers::AlwaysOn);
+///     pager.set_prompt("A complex configuration");
 ///
 ///     // Normally, you would use `futures::join` to join the pager and the text
 ///     // updating function. We are doing this here to make the example simple
-///     tokio_updating(pager).await?;
+///     tokio_updating(pager.finish()).await?;
 ///     Ok(())
 /// }
 ///```
@@ -233,8 +232,9 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let pager = Pager::new()
-    /// pager.set_text("This output is paged").finish();
+    /// let mut pager = Pager::new();
+    /// pager.set_text("This output is paged");
+    /// let _pager_mutex = pager.finish();
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
@@ -339,7 +339,6 @@ pub(crate) fn split_at_width(text: &impl ToString, cols: usize) -> Vec<String> {
 }
 
 fn split_line_at_width(mut line: String, cols: usize) -> Vec<String> {
-    println!("\r{:?}", line);
     // Calculate on how many lines, the line needds to be broken
     let breaks = (line.len() / cols).saturating_add(1);
     println!("{}", breaks);
@@ -362,64 +361,83 @@ mod tests {
     fn test_split_line_at_width_long() {
         let mut test_str = String::new();
 
-        for _ in 0..=200 {
+        for _ in 0..200 {
             test_str.push('#')
         }
-        let (line_1, line_2) = test_str.split_at(COLS);
-        let expected = vec![line_1.to_string(), line_2.to_string()];
-
-        assert_eq!(expected, split_line_at_width(test_str, COLS));
+        let result = split_line_at_width(test_str, COLS);
+        assert_eq!(200 / COLS + 1, result.len());
+        assert_eq!(
+            (COLS, COLS, 200 - COLS * 2),
+            (result[0].len(), result[1].len(), result[2].len())
+        );
     }
 
     #[test]
     fn test_split_line_at_width_short() {
         let mut test_str = String::new();
 
-        for _ in 0..=50 {
+        for _ in 0..50 {
             test_str.push('#')
         }
-
-        assert_eq!(vec![test_str.clone()], split_line_at_width(test_str, COLS));
+        let result = split_line_at_width(test_str, COLS);
+        assert_eq!(1, result.len());
+        assert_eq!(50, result[0].len());
     }
 
     #[test]
     fn test_set_text() {
         let mut test_str = String::new();
-        for _ in 0..=200 {
+        for _ in 0..200 {
             test_str.push('#')
         }
-        let (line_1, line_2) = test_str.split_at(COLS);
-        let expected = vec![line_1.to_string(), line_2.to_string()];
 
         let mut pager = Pager::new();
         pager.cols = COLS;
+        pager.running = true;
         pager.set_text(test_str);
-        assert_eq!(expected, pager.lines);
+
+        assert_eq!(200 / COLS + 1, pager.lines.len());
+        assert_eq!(
+            (COLS, COLS, 200 - COLS * 2),
+            (
+                pager.lines[0].len(),
+                pager.lines[1].len(),
+                pager.lines[2].len(),
+            ),
+        )
     }
 
     #[test]
     fn test_push_str() {
         let mut initial_str = String::new();
-        for _ in 0..=50 {
+        for _ in 0..50 {
             initial_str.push('#');
         }
         initial_str.push('\n');
 
         let mut test_str = String::new();
-        for _ in 0..=200 {
+        for _ in 0..200 {
             test_str.push('#')
         }
 
         let mut pager = Pager::new();
         pager.cols = COLS;
+        pager.running = true;
         pager.set_text(&initial_str);
         pager.push_str(&test_str);
 
-        let (line_1, line_2) = test_str.split_at(COLS);
         // Remove the last \n
         initial_str.pop();
-        let expected = vec![initial_str, line_1.to_string(), line_2.to_string()];
 
-        assert_eq!(expected, pager.lines);
+        assert_eq!(50 / COLS + 1 + 200 / COLS + 1, pager.lines.len());
+        assert_eq!(
+            (50, COLS, COLS, 200 - COLS * 2),
+            (
+                pager.lines[0].len(),
+                pager.lines[1].len(),
+                pager.lines[2].len(),
+                pager.lines[3].len(),
+            ),
+        )
     }
 }
