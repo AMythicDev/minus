@@ -329,6 +329,7 @@ pub enum ExitStrategy {
     PagerQuit,
 }
 
+/// Split text into a vector on the basis of given number of columns
 pub(crate) fn split_at_width(text: &impl ToString, cols: usize) -> Vec<String> {
     let mut lines = Vec::new();
 
@@ -338,10 +339,10 @@ pub(crate) fn split_at_width(text: &impl ToString, cols: usize) -> Vec<String> {
     lines
 }
 
+/// Split line into a vector on the basis of given number of columns
 fn split_line_at_width(mut line: String, cols: usize) -> Vec<String> {
     // Calculate on how many lines, the line needds to be broken
     let breaks = (line.len() / cols).saturating_add(1);
-    println!("{}", breaks);
     let mut lines = Vec::with_capacity(breaks);
     for _ in 1..breaks {
         let (line_1, line_2) = line.split_at(cols);
