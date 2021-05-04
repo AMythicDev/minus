@@ -9,7 +9,7 @@ use crossterm::{
     style::Attribute,
     terminal::{Clear, ClearType},
 };
-use std::time::Duration;
+use std::{convert::TryFrom, time::Duration};
 
 /// Fetch the search query asynchronously
 #[cfg(all(feature = "static_output", feature = "search"))]
@@ -159,7 +159,7 @@ pub(crate) fn highlight_search(pager: &mut Pager, query: &str) -> Result<Vec<u16
             let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
             let text = text.as_str();
             let replace = pattern.replace_all(line, text).to_string();
-            coordinates.push(i as u16);
+            coordinates.push(u16::try_from(i).unwrap());
 
             *line = replace;
         }

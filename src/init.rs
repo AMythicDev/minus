@@ -82,7 +82,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         s_mark += 1;
                     }
                     if s_co.len() > s_mark {
-                        while let Some(y) = s_co.get(usize::try_from(s_mark).unwrap()) {
+                        while let Some(y) = s_co.get(s_mark) {
                             if usize::from(*y) < pager.upper_mark {
                                 s_mark += 1;
                             } else {
@@ -100,7 +100,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     }
                     s_mark = s_mark.saturating_sub(1);
                     // Do the same steps that we have did in NextMatch block
-                    let y = s_co[usize::try_from(s_mark).unwrap()];
+                    let y = s_co[s_mark];
                     if usize::from(y) <= pager.upper_mark {
                         pager.upper_mark = y.into();
                     }
@@ -133,7 +133,7 @@ pub(crate) async fn dynamic_paging(
 ) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal, adjust line wraps and get rows
     let mut out = io::stdout();
-    setup(&mut out, true)?;
+    setup(&out, true)?;
     let mut guard = p.lock().await;
     guard.prepare()?;
     let mut rows = guard.rows;
@@ -180,7 +180,7 @@ pub(crate) async fn dynamic_paging(
                 &lock,
             );
             // Update any data that may have changed
-            // cleanup(out, &lock.exit_strategy)?
+            #[allow(clippy::clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => return Ok(cleanup(&mut out, &lock.exit_strategy)?),
                 Some(InputEvent::UpdateTermArea(c, r)) => {
@@ -224,7 +224,7 @@ pub(crate) async fn dynamic_paging(
                     }
                     if s_co.len() > s_mark {
                         // Get the search line
-                        while let Some(y) = s_co.get(usize::try_from(s_mark).unwrap()) {
+                        while let Some(y) = s_co.get(s_mark) {
                             // If the line is already paged down by the user
                             // move for the next line
                             if usize::from(*y) < lock.upper_mark {
@@ -246,7 +246,7 @@ pub(crate) async fn dynamic_paging(
                     }
                     s_mark = s_mark.saturating_sub(1);
                     // Get the search line
-                    let y = s_co[usize::try_from(s_mark).unwrap()];
+                    let y = s_co[s_mark];
                     // If it's passed by the user, go back to it
                     if usize::from(y) <= lock.upper_mark {
                         lock.upper_mark = y.into();

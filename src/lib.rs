@@ -194,10 +194,10 @@ impl Pager {
     /// pager.set_text("This is a line");
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
-        if !self.running {
-            self.unwraped_text = text.into();
-        } else {
+        if self.running {
             self.lines = split_at_width(&text.into(), self.cols);
+        } else {
+            self.unwraped_text = text.into();
         }
     }
 
@@ -271,11 +271,11 @@ impl Pager {
     /// This function will automatically split the lines, if they overflow
     /// the number of terminal columns
     pub fn push_str(&mut self, text: impl Into<String>) {
-        if !self.running {
-            self.unwraped_text.push_str(&text.into());
-        } else {
+        if self.running {
             self.lines
                 .append(&mut split_at_width(&text.into(), self.cols));
+        } else {
+            self.unwraped_text.push_str(&text.into());
         }
     }
     /// Prepare the terminal
@@ -291,11 +291,11 @@ impl Pager {
         })?;
         self.cols = cols.into();
         self.rows = rows.into();
-        if !self.running {
+        if self.running {
+            panic!("prepare() called after the pager is started to run")
+        } else {
             self.running = true;
             self.lines = split_at_width(&self.unwraped_text, self.cols);
-        } else {
-            panic!("prepare() called after the pager is started to run")
         }
         Ok(())
     }
