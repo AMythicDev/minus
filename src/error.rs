@@ -78,6 +78,9 @@ pub enum AlternateScreenPagingError {
     #[error("Failed to handle terminal event")]
     HandleEvent(TermError),
 
+    #[error("Failed to do an operation on the cursor")]
+    Cursor(#[from] TermError),
+
     #[error(transparent)]
     #[cfg(feature = "search")]
     SearchExpError(#[from] RegexError),

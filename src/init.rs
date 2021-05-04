@@ -10,7 +10,7 @@ use crate::utils::{cleanup, draw, handle_input, setup, InputEvent};
 use crate::{error::AlternateScreenPagingError, Pager};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
-use crossterm::{cursor::MoveTo, event};
+use crossterm::{cursor::MoveTo, event, execute};
 #[cfg(feature = "search")]
 use std::convert::{TryFrom, TryInto};
 use std::io::{self, Write as _};
@@ -26,9 +26,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     let mut redraw = true;
 
     #[cfg(feature = "search")]
-    let mut s_co: Vec<(u16, u16)> = Vec::new();
+    let mut s_co: Vec<u16> = Vec::new();
     #[cfg(feature = "search")]
-    let mut s_mark = -1;
+    let mut s_mark: usize = 0;
 
     draw(&mut out, &mut pager)?;
 
@@ -76,64 +76,35 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if !pager.search_term.is_empty() => {
-                    if s_mark < (s_co.len() - 1).try_into().unwrap() {
+                    if s_mark < s_co.len().saturating_sub(1)
+                        && pager.upper_mark + pager.rows < pager.lines.len()
+                    {
                         s_mark += 1;
                     }
-                    if isize::try_from(s_co.len()).unwrap() > s_mark {
-                        let (mut x, mut y) = (None, None);
-                        while let Some(co) = s_co.get(usize::try_from(s_mark).unwrap()) {
-                            if usize::from(co.1) < pager.upper_mark {
+                    if s_co.len() > s_mark {
+                        while let Some(y) = s_co.get(usize::try_from(s_mark).unwrap()) {
+                            if usize::from(*y) < pager.upper_mark {
                                 s_mark += 1;
-                            } else if usize::from(co.1)
-                                > pager.upper_mark.saturating_add(pager.rows - 2)
-                            {
-                                pager.upper_mark = co.1.into();
-                                x = Some(co.0);
-                                y = Some(co.1.saturating_sub(pager.upper_mark.try_into().unwrap()));
                             } else {
-                                x = Some(co.0);
-                                y = Some(co.1);
+                                pager.upper_mark = (*y).into();
                                 break;
                             }
                         }
-                        if x.is_none() || y.is_none() {
-                            continue;
-                        }
-
-                        draw(&mut out, &mut pager)?;
-                        y = Some(
-                            y.unwrap()
-                                .saturating_sub(pager.upper_mark.try_into().unwrap()),
-                        );
-
-                        write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
-                        out.flush()?;
-                        // Do not redraw the console
-                        redraw = false;
+                        redraw = true;
                     }
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !pager.search_term.is_empty() => {
-                    if isize::try_from(s_co.len()).unwrap() > s_mark {
-                        // If s_mark is less than 0, make it 0, else subtract 1 from it
-                        s_mark = if s_mark <= 0 {
-                            0
-                        } else {
-                            s_mark.saturating_sub(1)
-                        };
-                        // dbg!(s_mark);
-                        // Do the same steps that we have did in NextMatch block
-                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
-                        if usize::from(y) <= pager.upper_mark {
-                            pager.upper_mark = y.into();
-                        }
-                        draw(&mut out, &mut pager)?;
-                        y = y.saturating_sub(pager.upper_mark.try_into().unwrap());
-
-                        write!(out, "{}", MoveTo(x, y))?;
-                        out.flush()?;
-                        redraw = false;
+                    if s_co.is_empty() {
+                        continue;
                     }
+                    s_mark = s_mark.saturating_sub(1);
+                    // Do the same steps that we have did in NextMatch block
+                    let y = s_co[usize::try_from(s_mark).unwrap()];
+                    if usize::from(y) <= pager.upper_mark {
+                        pager.upper_mark = y.into();
+                    }
+                    redraw = true;
                 }
                 #[cfg(feature = "search")]
                 Some(_) => continue,
@@ -171,12 +142,12 @@ pub(crate) async fn dynamic_paging(
     // Vector of match coordinates
     // Earch element is a (x,y) pair, where the cursor will be placed
     #[cfg(feature = "search")]
-    let mut s_co: Vec<(u16, u16)> = Vec::new();
+    let mut s_co: Vec<u16> = Vec::new();
     // A marker of which element of s_co we are currently at
     // -1 means we have just highlighted all the matches but the cursor has not been
     // placed in any one of them
     #[cfg(feature = "search")]
-    let mut s_mark = -1;
+    let mut s_mark = 0;
     // Whether to redraw the console
     #[allow(unused_assignments)]
     let mut redraw = true;
@@ -232,77 +203,55 @@ pub(crate) async fn dynamic_paging(
                     lock.search_mode = m;
                     // Fetch the search query asynchronously
                     let string = search::fetch_input(&mut out, lock.search_mode, lock.rows).await?;
+                    // If the string is not empty, highlight all instances of the
+                    // match and return a vector of match coordinates
                     if !string.is_empty() {
-                        // If the string is not empty, highlight all instances of the
-                        // match and return a vector of match coordinates
                         s_co = search::highlight_search(&mut lock, &string)
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
-                        // Update the search term
                         lock.search_term = string;
                     }
+                    // Update the search term
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if !lock.search_term.is_empty() => {
                     // Increment the search mark only if it is less than s_co.len
-                    if s_mark < (s_co.len() - 1).try_into().unwrap() {
+                    // and it is not the last page
+                    if s_mark < s_co.len().saturating_sub(1)
+                        && lock.upper_mark + lock.rows < lock.lines.len()
+                    {
                         s_mark += 1;
                     }
-                    // These unwrap operations should be safe
-                    // Make sure s_mark is not greater than s_co's lenght
-                    if isize::try_from(s_co.len()).unwrap() > s_mark {
-                        // Get the next coordinates
-                        // Make sure that the next match taken is after the
-                        // current upper_mark
-                        let (mut x, mut y) = (None, None);
-                        while let Some(co) = s_co.get(usize::try_from(s_mark).unwrap()) {
-                            if usize::from(co.1) < lock.upper_mark {
+                    if s_co.len() > s_mark {
+                        // Get the search line
+                        while let Some(y) = s_co.get(usize::try_from(s_mark).unwrap()) {
+                            // If the line is already paged down by the user
+                            // move for the next line
+                            if usize::from(*y) < lock.upper_mark {
                                 s_mark += 1;
                             } else {
-                                x = Some(co.0);
-                                y = Some(co.1);
+                                // If the line is at the lower position than the top line
+                                // make it the next top line
+                                lock.upper_mark = (*y).into();
                                 break;
                             }
                         }
-                        if x.is_none() || y.is_none() {
-                            continue;
-                        }
-                        if usize::from(y.unwrap()) >= lock.upper_mark + rows {
-                            lock.upper_mark = y.unwrap().into();
-                        }
-                        draw(&mut out, &mut lock)?;
-                        y = Some(
-                            y.unwrap()
-                                .saturating_sub(lock.upper_mark.try_into().unwrap()),
-                        );
-
-                        write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
-                        out.flush()?;
-                        // Do not redraw the console
-                        redraw = false;
+                        redraw = true;
                     }
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !lock.search_term.is_empty() => {
-                    if isize::try_from(s_co.len()).unwrap() > s_mark {
-                        // If s_mark is less than 0, make it 0, else subtract 1 from it
-                        s_mark = if s_mark <= 0 {
-                            0
-                        } else {
-                            s_mark.saturating_sub(1)
-                        };
-                        // Do the same steps that we have did in NextMatch block
-                        let (x, mut y) = s_co[usize::try_from(s_mark).unwrap()];
-                        if usize::from(y) <= lock.upper_mark {
-                            lock.upper_mark = y.into();
-                        }
-                        draw(&mut out, &mut lock)?;
-                        y = y.saturating_sub(lock.upper_mark.try_into().unwrap());
-
-                        write!(out, "{}", MoveTo(x, y))?;
-                        out.flush()?;
-                        redraw = false;
+                    if s_co.is_empty() {
+                        continue;
                     }
+                    s_mark = s_mark.saturating_sub(1);
+                    // Get the search line
+                    let y = s_co[usize::try_from(s_mark).unwrap()];
+                    // If it's passed by the user, go back to it
+                    if usize::from(y) <= lock.upper_mark {
+                        lock.upper_mark = y.into();
+                    }
+                    redraw = true;
                 }
                 #[cfg(feature = "search")]
                 Some(_) => continue,

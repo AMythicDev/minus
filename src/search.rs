@@ -144,12 +144,9 @@ pub(crate) async fn fetch_input(
 
 /// Highlight all matches of the given query and return the coordinate of each match
 #[cfg(feature = "search")]
-pub(crate) fn highlight_search(
-    pager: &mut Pager,
-    query: &str,
-) -> Result<Vec<(u16, u16)>, regex::Error> {
+pub(crate) fn highlight_search(pager: &mut Pager, query: &str) -> Result<Vec<u16>, regex::Error> {
     let pattern = regex::Regex::new(query)?;
-    let mut coordinates: Vec<(u16, u16)> = Vec::new();
+    let mut coordinates: Vec<u16> = Vec::new();
     pager.search_lines = pager.lines.clone();
     let mut lines: Vec<String> = pager
         .search_lines
@@ -162,36 +159,11 @@ pub(crate) fn highlight_search(
             let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
             let text = text.as_str();
             let replace = pattern.replace_all(line, text).to_string();
-
-            find(line.clone(), &cap[0]).iter().for_each(|x| {
-                #[allow(clippy::cast_possible_truncation)]
-                coordinates.push((*x as u16, i as u16));
-            });
+            coordinates.push(i as u16);
 
             *line = replace;
         }
     }
+    pager.search_lines = lines;
     Ok(coordinates)
-}
-
-#[cfg(feature = "search")]
-pub(crate) fn find(mut text: String, query: &str) -> Vec<usize> {
-    // Initialize a vector of points
-    let mut points: Vec<usize> = Vec::new();
-    // Mark of searching in the line. This tells upto what poistion the search is done
-    let mut searched = 0;
-    // Replace all tabs with 6 spaces
-    text = text.replace('\t', "      ");
-
-    while let Some(x) = text.find(&query) {
-        // Push the point of the first character of the term
-        points.push(searched + x);
-        // Calculate the length of the text including the entire query
-        let truncate = x + query.char_indices().count();
-        // Drain everything upto the point
-        text.drain(..truncate);
-        // Update the searched
-        searched += truncate;
-    }
-    points
 }
