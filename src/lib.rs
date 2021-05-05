@@ -354,9 +354,21 @@ fn split_line_at_width(mut line: String, cols: usize) -> Vec<String> {
     lines
 }
 
+fn calc_range(text: &str, rows: usize, cols: usize) -> (usize, usize) {
+    let mut lc = rows;
+    for (i, l) in text.lines().enumerate() {
+        let wrap_lines = (l.len() / cols).saturating_add(1);
+        if lc <= wrap_lines {
+            return (i, lc);
+        }
+        lc = lc.saturating_sub(wrap_lines);
+    }
+    (0, 0)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{split_line_at_width, Pager};
+    use super::{calc_range, split_line_at_width, Pager};
     const COLS: usize = 80;
 
     #[test]
@@ -441,5 +453,17 @@ mod tests {
                 pager.lines[3].len(),
             ),
         )
+    }
+
+    #[test]
+    fn test_calc_range() {
+        let mut s = String::new();
+        for _ in 0..20 {
+            for _ in 0..200 {
+                s.push('#');
+            }
+            s.push('\n');
+        }
+        assert_eq!((7, 2), calc_range(&s, 22, COLS));
     }
 }
