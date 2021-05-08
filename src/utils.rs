@@ -15,7 +15,7 @@ use std::{
 use crate::{
     error::{CleanupError, SetupError},
     search::highlight_line_matches,
-    Pager,
+    AlternateScreenPagingError, Pager,
 };
 
 // This function should be kept close to `cleanup` to help ensure both are
@@ -253,7 +253,10 @@ pub(crate) fn handle_input(ev: Event, pager: &Pager) -> Option<InputEvent> {
 ///
 /// It will not wrap long lines.
 
-pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Result<()> {
+pub(crate) fn draw(
+    out: &mut impl io::Write,
+    mut pager: &mut Pager,
+) -> Result<(), AlternateScreenPagingError> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.
@@ -273,6 +276,7 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Resul
     }
 
     out.flush()
+        .map_err(|e| AlternateScreenPagingError::Draw(e.into()))
 }
 
 /// Writes the given `lines` to the given `out`put.
@@ -283,7 +287,10 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Resul
 /// Lines should be separated by `\n` and `\r\n`.
 ///
 /// No wrapping is done at all!
-pub(crate) fn write_lines(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Result<()> {
+pub(crate) fn write_lines(
+    out: &mut impl io::Write,
+    mut pager: &mut Pager,
+) -> Result<(), AlternateScreenPagingError> {
     let line_count = pager.lines.len();
     // Reduce one row for prompt
     let rows = pager.rows.saturating_sub(1);
@@ -339,7 +346,8 @@ pub(crate) fn write_lines(out: &mut impl io::Write, mut pager: &mut Pager) -> io
                 // Rehighlight  the lines which may have got distorted due to line
                 // numbers
                 for line in &mut displayed_lines {
-                    highlight_line_matches(line, &pager.search_term, padded_line_number).unwrap();
+                    highlight_line_matches(line, &pager.search_term, padded_line_number)
+                        .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                 }
             }
 
