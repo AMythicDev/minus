@@ -87,6 +87,9 @@ pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
 mod init;
+mod line;
+
+use line::{Line, WrappedLines};
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub type PagerMutex = Arc<Mutex<Pager>>;
@@ -125,7 +128,7 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
-    lines: Vec<String>,
+    lines: WrappedLines,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
@@ -145,12 +148,16 @@ pub struct Pager {
     search_term: String,
     /// A temporary space to store modifications to the lines string
     #[cfg(feature = "search")]
-    search_lines: Vec<String>,
+    search_lines: WrappedLines,
     // Direction of search
     #[cfg(feature = "search")]
     search_mode: SearchMode,
-    // Rows and columns of the terminal
+    /// Lines where searches have a match
+    #[cfg(feature = "search")]
+    pub(crate) search_idx: Vec<u16>,
+    /// Rows of the terminal
     pub(crate) rows: usize,
+    /// Columns of the terminal
     pub(crate) cols: usize,
 }
 
@@ -164,7 +171,7 @@ impl Pager {
     #[must_use]
     pub fn new() -> Self {
         Pager {
-            lines: Vec::new(),
+            lines: WrappedLines::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
@@ -174,9 +181,11 @@ impl Pager {
             #[cfg(feature = "search")]
             search_term: String::new(),
             #[cfg(feature = "search")]
-            search_lines: Vec::new(),
+            search_lines: WrappedLines::new(),
             #[cfg(feature = "search")]
             search_mode: SearchMode::Unknown,
+            #[cfg(feature = "search")]
+            search_idx: Vec::new(),
             // Just to be safe in tests, keep at 1x1 size
             cols: 1,
             rows: 1,
@@ -185,8 +194,8 @@ impl Pager {
 
     /// Set the output text to this `t`
     ///
-    /// Note that unlike [`push_str`], this replaces the original text.
-    /// If you want to append text, use the [`push_str`] function
+    /// Note that unlike [`Pager::push_str`], this replaces the original text.
+    /// If you want to append text, use the [`Pager::push_str`] function
     ///
     /// Example
     /// ```
@@ -195,7 +204,7 @@ impl Pager {
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
         if self.running {
-            self.lines = split_at_width(&text.into(), self.cols);
+            self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
         } else {
             self.unwraped_text = text.into();
         }
@@ -245,8 +254,15 @@ impl Pager {
 
     /// Set the default exit strategy.
     ///
-    /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
+    /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`.
     /// See [`ExitStrategy`] for available options
+    ///
+    /// ```
+    /// use minus::{Pager, ExitStrategy};
+    ///
+    /// let pager = Pager::new();
+    /// pager.set_exit_strategy(ExitStrategy::ProcessQuit);
+    /// ```
     pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
         self.exit_strategy = strategy;
     }
@@ -255,12 +271,12 @@ impl Pager {
     ///
     /// Nrmally it will return `self.lines`
     /// In case of a search, `self.search_lines` is returned
-    pub(crate) fn get_lines(&self) -> String {
+    pub(crate) fn get_lines(&self) -> WrappedLines {
         #[cfg(feature = "search")]
         if self.search_term.is_empty() {
-            self.lines.join("\n")
+            self.lines.clone()
         } else {
-            self.search_lines.join("\n")
+            self.search_lines.clone()
         }
         #[cfg(not(feature = "search"))]
         self.lines.join("\n")
@@ -270,12 +286,20 @@ impl Pager {
     ///
     /// This function will automatically split the lines, if they overflow
     /// the number of terminal columns
+    ///
+    /// ```
+    /// let pager = minus::Pager::new();
+    /// pager.push_str("This is some text");
+    /// ```
     pub fn push_str(&mut self, text: impl Into<String>) {
+        let text: String = text.into();
         if self.running {
-            self.lines
-                .append(&mut split_at_width(&text.into(), self.cols));
+            for line in text.lines() {
+                self.lines
+                    .push(Line::new(line, self.lines.len() + 1, self.cols));
+            }
         } else {
-            self.unwraped_text.push_str(&text.into());
+            self.unwraped_text.push_str(&text);
         }
     }
     /// Prepare the terminal
@@ -295,13 +319,15 @@ impl Pager {
             panic!("prepare() called after the pager is started to run")
         } else {
             self.running = true;
-            self.lines = split_at_width(&self.unwraped_text, self.cols);
+            self.lines = WrappedLines::from(Line::from_str(&self.unwraped_text, self.cols));
         }
         Ok(())
     }
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
-        self.lines = split_at_width(&self.get_lines(), self.cols);
+        for line in self.lines.iter_mut() {
+            line.readjust_line(self.cols);
+        }
     }
 }
 
@@ -328,142 +354,4 @@ pub enum ExitStrategy {
     /// if you've file system locks or you want to close database connectiions after
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
-}
-
-/// Split text into a vector on the basis of given number of columns
-pub(crate) fn split_at_width(text: &impl ToString, cols: usize) -> Vec<String> {
-    let mut lines = Vec::new();
-
-    for l in text.to_string().lines() {
-        lines.append(&mut split_line_at_width(l.to_string(), cols));
-    }
-    lines
-}
-
-/// Split line into a vector on the basis of given number of columns
-fn split_line_at_width(mut line: String, cols: usize) -> Vec<String> {
-    // Calculate on how many lines, the line needds to be broken
-    let breaks = (line.len() / cols).saturating_add(1);
-    let mut lines = Vec::with_capacity(breaks);
-    for _ in 1..breaks {
-        let (line_1, line_2) = line.split_at(cols);
-        lines.push(line_1.to_owned());
-        line = line_2.to_string();
-    }
-    lines.push(line);
-    lines
-}
-
-fn calc_range(text: &str, rows: usize, cols: usize) -> (usize, usize) {
-    let mut lc = rows;
-    for (i, l) in text.lines().enumerate() {
-        let wrap_lines = (l.len() / cols).saturating_add(1);
-        if lc <= wrap_lines {
-            return (i, lc);
-        }
-        lc = lc.saturating_sub(wrap_lines);
-    }
-    (0, 0)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{calc_range, split_line_at_width, Pager};
-    const COLS: usize = 80;
-
-    #[test]
-    fn test_split_line_at_width_long() {
-        let mut test_str = String::new();
-
-        for _ in 0..200 {
-            test_str.push('#')
-        }
-        let result = split_line_at_width(test_str, COLS);
-        assert_eq!(200 / COLS + 1, result.len());
-        assert_eq!(
-            (COLS, COLS, 200 - COLS * 2),
-            (result[0].len(), result[1].len(), result[2].len())
-        );
-    }
-
-    #[test]
-    fn test_split_line_at_width_short() {
-        let mut test_str = String::new();
-
-        for _ in 0..50 {
-            test_str.push('#')
-        }
-        let result = split_line_at_width(test_str, COLS);
-        assert_eq!(1, result.len());
-        assert_eq!(50, result[0].len());
-    }
-
-    #[test]
-    fn test_set_text() {
-        let mut test_str = String::new();
-        for _ in 0..200 {
-            test_str.push('#')
-        }
-
-        let mut pager = Pager::new();
-        pager.cols = COLS;
-        pager.running = true;
-        pager.set_text(test_str);
-
-        assert_eq!(200 / COLS + 1, pager.lines.len());
-        assert_eq!(
-            (COLS, COLS, 200 - COLS * 2),
-            (
-                pager.lines[0].len(),
-                pager.lines[1].len(),
-                pager.lines[2].len(),
-            ),
-        )
-    }
-
-    #[test]
-    fn test_push_str() {
-        let mut initial_str = String::new();
-        for _ in 0..50 {
-            initial_str.push('#');
-        }
-        initial_str.push('\n');
-
-        let mut test_str = String::new();
-        for _ in 0..200 {
-            test_str.push('#')
-        }
-
-        let mut pager = Pager::new();
-        pager.cols = COLS;
-        pager.running = true;
-        pager.set_text(&initial_str);
-        pager.push_str(&test_str);
-
-        // Remove the last \n
-        initial_str.pop();
-
-        assert_eq!(50 / COLS + 1 + 200 / COLS + 1, pager.lines.len());
-        assert_eq!(
-            (50, COLS, COLS, 200 - COLS * 2),
-            (
-                pager.lines[0].len(),
-                pager.lines[1].len(),
-                pager.lines[2].len(),
-                pager.lines[3].len(),
-            ),
-        )
-    }
-
-    #[test]
-    fn test_calc_range() {
-        let mut s = String::new();
-        for _ in 0..20 {
-            for _ in 0..200 {
-                s.push('#');
-            }
-            s.push('\n');
-        }
-        assert_eq!((7, 2), calc_range(&s, 22, COLS));
-    }
 }

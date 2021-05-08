@@ -26,8 +26,6 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     let mut redraw = true;
 
     #[cfg(feature = "search")]
-    let mut s_co: Vec<u16> = Vec::new();
-    #[cfg(feature = "search")]
     let mut s_mark: usize = 0;
 
     draw(&mut out, &mut pager)?;
@@ -68,21 +66,21 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     let string =
                         search::fetch_input_blocking(&mut out, pager.search_mode, pager.rows)?;
                     if !string.is_empty() {
-                        s_co = search::highlight_search(&mut pager, &string)
-                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                         pager.search_term = string;
+                        search::highlight_search(&mut pager)
+                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                     }
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if !pager.search_term.is_empty() => {
-                    if s_mark < s_co.len().saturating_sub(1)
+                    if s_mark < pager.search_idx.len().saturating_sub(1)
                         && pager.upper_mark + pager.rows < pager.lines.len()
                     {
                         s_mark += 1;
                     }
-                    if s_co.len() > s_mark {
-                        while let Some(y) = s_co.get(s_mark) {
+                    if pager.search_idx.len() > s_mark {
+                        while let Some(y) = pager.search_idx.get(s_mark) {
                             if usize::from(*y) < pager.upper_mark {
                                 s_mark += 1;
                             } else {
@@ -95,12 +93,12 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !pager.search_term.is_empty() => {
-                    if s_co.is_empty() {
+                    if pager.search_idx.is_empty() {
                         continue;
                     }
                     s_mark = s_mark.saturating_sub(1);
                     // Do the same steps that we have did in NextMatch block
-                    let y = s_co[s_mark];
+                    let y = pager.search_idx[s_mark];
                     if usize::from(y) <= pager.upper_mark {
                         pager.upper_mark = y.into();
                     }
@@ -140,9 +138,7 @@ pub(crate) async fn dynamic_paging(
     drop(guard);
     // Search related variables
     // Vector of match coordinates
-    // Earch element is a (x,y) pair, where the cursor will be placed
-    #[cfg(feature = "search")]
-    let mut s_co: Vec<u16> = Vec::new();
+
     // A marker of which element of s_co we are currently at
     // -1 means we have just highlighted all the matches but the cursor has not been
     // placed in any one of them
@@ -206,7 +202,7 @@ pub(crate) async fn dynamic_paging(
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
                     if !string.is_empty() {
-                        s_co = search::highlight_search(&mut lock, &string)
+                        search::highlight_search(&mut lock)
                             .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
                         lock.search_term = string;
                     }
@@ -217,14 +213,14 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::NextMatch) if !lock.search_term.is_empty() => {
                     // Increment the search mark only if it is less than s_co.len
                     // and it is not the last page
-                    if s_mark < s_co.len().saturating_sub(1)
+                    if s_mark < lock.search_idx.len().saturating_sub(1)
                         && lock.upper_mark + lock.rows < lock.lines.len()
                     {
                         s_mark += 1;
                     }
-                    if s_co.len() > s_mark {
+                    if lock.search_idx.len() > s_mark {
                         // Get the search line
-                        while let Some(y) = s_co.get(s_mark) {
+                        while let Some(y) = lock.search_idx.get(s_mark) {
                             // If the line is already paged down by the user
                             // move for the next line
                             if usize::from(*y) < lock.upper_mark {
@@ -241,12 +237,12 @@ pub(crate) async fn dynamic_paging(
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if !lock.search_term.is_empty() => {
-                    if s_co.is_empty() {
+                    if lock.search_idx.is_empty() {
                         continue;
                     }
                     s_mark = s_mark.saturating_sub(1);
                     // Get the search line
-                    let y = s_co[s_mark];
+                    let y = lock.search_idx[s_mark];
                     // If it's passed by the user, go back to it
                     if usize::from(y) <= lock.upper_mark {
                         lock.upper_mark = y.into();

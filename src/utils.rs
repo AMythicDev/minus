@@ -14,6 +14,7 @@ use std::{
 
 use crate::{
     error::{CleanupError, SetupError},
+    search::highlight_line_matches,
     Pager,
 };
 
@@ -251,6 +252,7 @@ pub(crate) fn handle_input(ev: Event, pager: &Pager) -> Option<InputEvent> {
 /// this).
 ///
 /// It will not wrap long lines.
+
 pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Result<()> {
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
@@ -281,7 +283,7 @@ pub(crate) fn draw(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Resul
 /// Lines should be separated by `\n` and `\r\n`.
 ///
 /// No wrapping is done at all!
-pub(crate) fn write_lines(out: &mut impl io::Write, pager: &mut Pager) -> io::Result<()> {
+pub(crate) fn write_lines(out: &mut impl io::Write, mut pager: &mut Pager) -> io::Result<()> {
     let line_count = pager.lines.len();
     // Reduce one row for prompt
     let rows = pager.rows.saturating_sub(1);
@@ -297,14 +299,14 @@ pub(crate) fn write_lines(out: &mut impl io::Write, pager: &mut Pager) -> io::Re
         };
     }
 
-    let lines = pager.get_lines();
-    let displayed_lines = lines
-        .lines()
-        .skip(pager.upper_mark)
-        .take(rows.min(line_count));
-
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
+            // Get the lines and display them
+            let lines = pager.get_lines();
+            let displayed_lines = lines
+                .iter_screen()
+                .skip(pager.upper_mark)
+                .take(rows.min(line_count));
             for line in displayed_lines {
                 writeln!(out, "\r{}", line)?;
             }
@@ -315,25 +317,34 @@ pub(crate) fn write_lines(out: &mut impl io::Write, pager: &mut Pager) -> io::Re
                 clippy::cast_sign_loss,
                 clippy::cast_precision_loss
             )]
-            {
-                // Compute the length of a number as a string without allocating.
-                //
-                // While this may in theory lose data, it will only do so if
-                // `line_count` is bigger than 2^52, which will probably never
-                // happen. Let's worry about that only if someone reports a bug
-                // for it.
-                let len_line_number = (line_count as f64).log10().floor() as usize + 1;
-                debug_assert_eq!(line_count.to_string().len(), len_line_number);
+            // Compute the length of a number as a string without allocating.
+            //
+            // While this may in theory lose data, it will only do so if
+            // `line_count` is bigger than 2^52, which will probably never
+            // happen. Let's worry about that only if someone reports a bug
+            // for it.
+            let len_line_number = (line_count as f64).log10().floor() as usize + 1;
+            // Line space + single dot character + 1 space
+            let padded_line_number = len_line_number + 2;
+            // Get the lines in a vector
+            let mut displayed_lines = pager
+                .lines
+                .clone()
+                .line_no_annotated(pager.cols, len_line_number)
+                .skip(pager.upper_mark)
+                .take(rows.min(line_count))
+                .collect::<Vec<String>>();
 
-                for (idx, line) in displayed_lines.enumerate() {
-                    writeln!(
-                        out,
-                        "\r{number: >len$}. {line}",
-                        number = pager.upper_mark + idx + 1,
-                        len = len_line_number,
-                        line = line
-                    )?;
+            if !pager.search_term.is_empty() {
+                // Rehighlight  the lines which may have got distorted due to line
+                // numbers
+                for line in &mut displayed_lines {
+                    highlight_line_matches(line, &pager.search_term, padded_line_number).unwrap();
                 }
+            }
+
+            for line in &displayed_lines {
+                writeln!(out, "\r{}", line)?;
             }
         }
     }
@@ -386,6 +397,8 @@ impl std::ops::Not for LineNumbers {
         }
     }
 }
+
+// fn get_total_line_count(lines: Vec<>)
 
 // Uncomment these once utils::tests are ready for the new API
 #[cfg(test)]

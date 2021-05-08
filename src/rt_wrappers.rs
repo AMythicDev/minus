@@ -1,7 +1,7 @@
 //! Dynamic information within a pager window.
 //!
 //! See [`tokio_updating`] and [`async_std_updating`] for more information.
-use crate::error::AlternateScreenPagingError;
+use crate::{error::AlternateScreenPagingError, PagerMutex};
 use crate::{init, Pager};
 use async_mutex::Mutex;
 use std::sync::Arc;
@@ -57,7 +57,7 @@ use std::sync::Arc;
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(pager: Arc<Mutex<Pager>>) -> Result<(), AlternateScreenPagingError> {
+pub async fn tokio_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
     tokio::task::spawn(run(pager)).await?
 }
 
@@ -112,9 +112,7 @@ pub async fn tokio_updating(pager: Arc<Mutex<Pager>>) -> Result<(), AlternateScr
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "async_std_lib")]
-pub async fn async_std_updating(
-    pager: Arc<Mutex<Pager>>,
-) -> Result<(), AlternateScreenPagingError> {
+pub async fn async_std_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
     async_std::task::spawn(run(pager)).await
 }
 
