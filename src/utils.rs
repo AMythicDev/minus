@@ -12,9 +12,10 @@ use std::{
     io::{self, Write as _},
 };
 
+#[cfg(feature = "search")]
+use crate::search::highlight_line_matches;
 use crate::{
     error::{CleanupError, SetupError},
-    search::highlight_line_matches,
     AlternateScreenPagingError, Pager,
 };
 
@@ -291,7 +292,7 @@ pub(crate) fn write_lines(
     out: &mut impl io::Write,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
-    let line_count = pager.lines.len();
+    let line_count = pager.lines.iter().flatten().count();
     // Reduce one row for prompt
     let rows = pager.rows.saturating_sub(1);
     // This may be too high but the `Iterator::take` call below will limit this
@@ -311,14 +312,18 @@ pub(crate) fn write_lines(
             // Get the lines and display them
             let lines = pager.get_lines();
             let displayed_lines = lines
-                .iter_screen()
+                .iter()
+                .flatten()
                 .skip(pager.upper_mark)
-                .take(rows.min(line_count));
+                .take(rows.min(line_count))
+                .collect::<Vec<&String>>();
             for line in displayed_lines {
                 writeln!(out, "\r{}", line)?;
             }
+            // writeln!(out, "{}", displayed_lines.len());
         }
         LineNumbers::AlwaysOn | LineNumbers::Enabled => {
+            /*
             #[allow(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
@@ -331,18 +336,20 @@ pub(crate) fn write_lines(
             // happen. Let's worry about that only if someone reports a bug
             // for it.
             let len_line_number = (line_count as f64).log10().floor() as usize + 1;
-            // Line space + single dot character + 1 space
-            let padded_line_number = len_line_number + 2;
             // Get the lines in a vector
+            // Allow it to be mutable, as if search is enabled, it could be overwritten
+            #[allow(unused_mut)]
             let mut displayed_lines = pager
                 .lines
-                .clone()
-                .line_no_annotated(pager.cols, len_line_number)
+                .iter()
+                // .line_no_annotated(pager.cols, len_line_number)
                 .skip(pager.upper_mark)
                 .take(rows.min(line_count))
-                .collect::<Vec<String>>();
-
+                .collect::<Vec<&String>>();
+            #[cfg(feature = "search")]
             if !pager.search_term.is_empty() {
+                // Line space + single dot character + 1 space
+                let padded_line_number = len_line_number + 2;
                 // Rehighlight  the lines which may have got distorted due to line
                 // numbers
                 for line in &mut displayed_lines {
@@ -354,6 +361,7 @@ pub(crate) fn write_lines(
             for line in &displayed_lines {
                 writeln!(out, "\r{}", line)?;
             }
+            */
         }
     }
 

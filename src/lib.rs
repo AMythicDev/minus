@@ -87,9 +87,9 @@ pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
 mod init;
-mod line;
+// mod line;
 
-use line::{Line, WrappedLines};
+// use line::{Line, WrappedLines};
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub type PagerMutex = Arc<Mutex<Pager>>;
@@ -128,7 +128,7 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
-    lines: WrappedLines,
+    lines: Vec<Vec<String>>,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
@@ -171,7 +171,7 @@ impl Pager {
     #[must_use]
     pub fn new() -> Self {
         Pager {
-            lines: WrappedLines::new(),
+            lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
@@ -204,7 +204,17 @@ impl Pager {
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
         if self.running {
-            self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
+            let text: String = text.into();
+            // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
+            self.lines = text
+                .lines()
+                .map(|l| {
+                    textwrap::wrap(l, self.cols)
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect::<Vec<String>>()
+                })
+                .collect();
         } else {
             self.unwraped_text = text.into();
         }
@@ -271,7 +281,7 @@ impl Pager {
     ///
     /// Nrmally it will return `self.lines`
     /// In case of a search, `self.search_lines` is returned
-    pub(crate) fn get_lines(&self) -> WrappedLines {
+    pub(crate) fn get_lines(&self) -> Vec<Vec<String>> {
         #[cfg(feature = "search")]
         if self.search_term.is_empty() {
             self.lines.clone()
@@ -279,7 +289,7 @@ impl Pager {
             self.search_lines.clone()
         }
         #[cfg(not(feature = "search"))]
-        self.lines.join("\n")
+        self.lines.clone()
     }
 
     /// Appends text to the pager output
@@ -294,10 +304,14 @@ impl Pager {
     pub fn push_str(&mut self, text: impl Into<String>) {
         let text: String = text.into();
         if self.running {
-            for line in text.lines() {
-                self.lines
-                    .push(Line::new(line, self.lines.len() + 1, self.cols));
-            }
+            text.lines().for_each(|l| {
+                self.lines.push(
+                    textwrap::wrap(l, self.cols)
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect::<Vec<String>>(),
+                )
+            });
         } else {
             self.unwraped_text.push_str(&text);
         }
@@ -319,14 +333,26 @@ impl Pager {
             panic!("prepare() called after the pager is started to run")
         } else {
             self.running = true;
-            self.lines = WrappedLines::from(Line::from_str(&self.unwraped_text, self.cols));
+            self.lines = self
+                .unwraped_text
+                .lines()
+                .map(|l| {
+                    textwrap::wrap(l, self.cols)
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect::<Vec<String>>()
+                })
+                .collect();
         }
         Ok(())
     }
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
         for line in self.lines.iter_mut() {
-            line.readjust_line(self.cols);
+            *line = textwrap::wrap(&line.join(""), self.cols)
+                .iter()
+                .map(|c| c.to_string())
+                .collect()
         }
     }
 }

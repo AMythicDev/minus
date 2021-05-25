@@ -124,14 +124,14 @@ impl Line {
     /// Break the line into single row guaranteed lines
     pub(crate) fn break_line(mut line: &str, cols: usize) -> Vec<String> {
         let breaks = Self::calc_breaks(line, cols);
-        let mut term_lines = Vec::with_capacity(breaks);
-        for _ in 1..breaks {
-            let (line_1, line_2) = line.split_at(cols);
-            term_lines.push(line_1.to_owned());
-            line = line_2;
-        }
-        term_lines.push(line.to_string());
-        term_lines
+        // let mut term_lines = Vec::with_capacity(breaks);
+        // for _ in 1..breaks {
+        //     let (line_1, line_2) = line.split_at(cols);
+        //     term_lines.push(line_1.to_owned());
+        //     line = line_2;
+        // }
+        // term_lines.push(line.to_string());
+        // term_lines
     }
 
     #[allow(dead_code)]
