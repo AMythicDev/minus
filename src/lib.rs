@@ -260,7 +260,7 @@ impl Pager {
     /// ```
     /// use minus::{Pager, ExitStrategy};
     ///
-    /// let pager = Pager::new();
+    /// let mut pager = Pager::new();
     /// pager.set_exit_strategy(ExitStrategy::ProcessQuit);
     /// ```
     pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
@@ -288,7 +288,7 @@ impl Pager {
     /// the number of terminal columns
     ///
     /// ```
-    /// let pager = minus::Pager::new();
+    /// let mut pager = minus::Pager::new();
     /// pager.push_str("This is some text");
     /// ```
     pub fn push_str(&mut self, text: impl Into<String>) {

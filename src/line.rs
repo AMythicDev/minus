@@ -134,6 +134,12 @@ impl Line {
         term_lines
     }
 
+    #[allow(dead_code)]
+    // TODO: Remove this in future and directly call .len() in tests
+    pub(crate) fn get_wrapped_count(&self) -> usize {
+        self.rows.len()
+    }
+
     /// Readjust the breaks for a new `cols` parameter
     pub(crate) fn readjust_line(&mut self, cols: usize) {
         let line = self.to_string();
