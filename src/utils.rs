@@ -307,10 +307,8 @@ pub(crate) fn write_lines(
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
             // Get the lines and display them
-            let lines = pager.get_lines();
-            let displayed_lines = lines
-                .iter()
-                .flatten()
+            let displayed_lines = pager
+                .get_flattened_lines()
                 .skip(pager.upper_mark)
                 .take(rows.min(line_count));
             for line in displayed_lines {
@@ -332,7 +330,7 @@ pub(crate) fn write_lines(
             let len_line_number = (line_count as f64).log10().floor() as usize + 1;
             #[cfg(feature = "search")]
             if !pager.search_term.is_empty() {
-                let mut lines = pager.lines.clone();
+                let mut lines = pager.get_flattened_lines();
 
                 // Line space + single dot character + 1 space
                 let padding = len_line_number + 3;

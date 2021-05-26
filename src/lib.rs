@@ -83,6 +83,7 @@ pub use error::*;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
+use std::{iter::Flatten, vec::IntoIter};
 pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
@@ -356,8 +357,12 @@ impl Pager {
         }
     }
 
+    pub(crate) fn get_flattened_lines(&self) -> Flatten<IntoIter<Vec<String>>> {
+        self.get_lines().into_iter().flatten()
+    }
+
     pub(crate) fn num_lines(&self) -> usize {
-        self.lines.iter().flatten().count()
+        self.get_flattened_lines().count()
     }
 }
 
