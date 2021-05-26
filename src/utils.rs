@@ -12,8 +12,6 @@ use std::{
     io::{self, Write as _},
 };
 
-#[cfg(feature = "search")]
-use crate::search::highlight_line_matches;
 use crate::{
     error::{CleanupError, SetupError},
     AlternateScreenPagingError, Pager,
@@ -276,8 +274,7 @@ pub(crate) fn draw(
         )?;
     }
 
-    out.flush()
-        .map_err(|e| AlternateScreenPagingError::Draw(e.into()))
+    out.flush().map_err(AlternateScreenPagingError::Draw)
 }
 
 /// Writes the given `lines` to the given `out`put.
@@ -292,7 +289,7 @@ pub(crate) fn write_lines(
     out: &mut impl io::Write,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
-    let line_count = pager.lines.iter().flatten().count();
+    let line_count = pager.num_lines();
     // Reduce one row for prompt
     let rows = pager.rows.saturating_sub(1);
     // This may be too high but the `Iterator::take` call below will limit this
@@ -315,15 +312,12 @@ pub(crate) fn write_lines(
                 .iter()
                 .flatten()
                 .skip(pager.upper_mark)
-                .take(rows.min(line_count))
-                .collect::<Vec<&String>>();
+                .take(rows.min(line_count));
             for line in displayed_lines {
                 writeln!(out, "\r{}", line)?;
             }
-            // writeln!(out, "{}", displayed_lines.len());
         }
         LineNumbers::AlwaysOn | LineNumbers::Enabled => {
-            /*
             #[allow(
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
@@ -336,32 +330,58 @@ pub(crate) fn write_lines(
             // happen. Let's worry about that only if someone reports a bug
             // for it.
             let len_line_number = (line_count as f64).log10().floor() as usize + 1;
-            // Get the lines in a vector
-            // Allow it to be mutable, as if search is enabled, it could be overwritten
-            #[allow(unused_mut)]
-            let mut displayed_lines = pager
-                .lines
-                .iter()
-                // .line_no_annotated(pager.cols, len_line_number)
-                .skip(pager.upper_mark)
-                .take(rows.min(line_count))
-                .collect::<Vec<&String>>();
             #[cfg(feature = "search")]
             if !pager.search_term.is_empty() {
+                let mut lines = pager.lines.clone();
+
                 // Line space + single dot character + 1 space
-                let padded_line_number = len_line_number + 2;
+                let padding = len_line_number + 3;
                 // Rehighlight  the lines which may have got distorted due to line
                 // numbers
-                for line in &mut displayed_lines {
-                    highlight_line_matches(line, &pager.search_term, padded_line_number)
-                        .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                for (idx, line) in lines.iter_mut().enumerate() {
+                    *line = textwrap::wrap(&line.join(" "), pager.cols.saturating_sub(padding))
+                        .iter()
+                        .map(|c| c.to_string())
+                        .collect();
+                    for mut row in line.iter_mut() {
+                        crate::search::highlight_line_matches(&mut row, &pager.search_term)
+                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+
+                        row.insert_str(
+                            0,
+                            &format!(
+                                "\r {bold}{number: >len$}.{reset}",
+                                bold = crossterm::style::Attribute::Bold,
+                                number = idx + 1,
+                                len = len_line_number,
+                                reset = crossterm::style::Attribute::Reset,
+                            ),
+                        );
+                    }
                 }
+
+                let displayed_lines = lines
+                    .iter()
+                    .flatten()
+                    .skip(pager.upper_mark)
+                    .take(rows.min(line_count));
+
+                for line in displayed_lines {
+                    writeln!(out, "\r{}", line)?;
+                }
+                return Ok(());
             }
 
-            for line in &displayed_lines {
+            let mut numbered_lines =
+                annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols);
+            let displayed_lines = numbered_lines
+                .iter_mut()
+                .skip(pager.upper_mark)
+                .take(rows.min(line_count));
+
+            for line in displayed_lines {
                 writeln!(out, "\r{}", line)?;
             }
-            */
         }
     }
 
@@ -419,3 +439,32 @@ impl std::ops::Not for LineNumbers {
 // Uncomment these once utils::tests are ready for the new API
 #[cfg(test)]
 mod tests;
+
+fn annotate_line_numbers(
+    mut lines: Vec<Vec<String>>,
+    len_line_number: usize,
+    cols: usize,
+) -> Vec<String> {
+    let padding = len_line_number + 3;
+    for (idx, line) in lines.iter_mut().enumerate() {
+        *line = textwrap::wrap(&line.join(" "), cols.saturating_sub(padding))
+            .iter()
+            .map(|c| c.to_string())
+            .collect();
+
+        for row in line.iter_mut() {
+            row.insert_str(
+                0,
+                &format!(
+                    " {bold}{number: >len$}.{reset} ",
+                    bold = crossterm::style::Attribute::Bold,
+                    number = idx + 1,
+                    len = len_line_number,
+                    reset = crossterm::style::Attribute::Reset
+                ),
+            );
+        }
+    }
+
+    lines.iter().flatten().map(|s| s.to_owned()).collect()
+}

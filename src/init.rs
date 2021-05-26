@@ -75,7 +75,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if !pager.search_term.is_empty() => {
                     if s_mark < pager.search_idx.len().saturating_sub(1)
-                        && pager.upper_mark + pager.rows < pager.lines.len()
+                        && pager.upper_mark + pager.rows < pager.num_lines()
                     {
                         s_mark += 1;
                     }
@@ -214,7 +214,7 @@ pub(crate) async fn dynamic_paging(
                     // Increment the search mark only if it is less than s_co.len
                     // and it is not the last page
                     if s_mark < lock.search_idx.len().saturating_sub(1)
-                        && lock.upper_mark + lock.rows < lock.lines.len()
+                        && lock.upper_mark + lock.rows < lock.num_lines()
                     {
                         s_mark += 1;
                     }

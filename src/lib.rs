@@ -148,7 +148,7 @@ pub struct Pager {
     search_term: String,
     /// A temporary space to store modifications to the lines string
     #[cfg(feature = "search")]
-    search_lines: WrappedLines,
+    search_lines: Vec<Vec<String>>,
     // Direction of search
     #[cfg(feature = "search")]
     search_mode: SearchMode,
@@ -181,7 +181,7 @@ impl Pager {
             #[cfg(feature = "search")]
             search_term: String::new(),
             #[cfg(feature = "search")]
-            search_lines: WrappedLines::new(),
+            search_lines: Vec::new(),
             #[cfg(feature = "search")]
             search_mode: SearchMode::Unknown,
             #[cfg(feature = "search")]
@@ -354,6 +354,10 @@ impl Pager {
                 .map(|c| c.to_string())
                 .collect()
         }
+    }
+
+    pub(crate) fn num_lines(&self) -> usize {
+        self.lines.iter().flatten().count()
     }
 }
 

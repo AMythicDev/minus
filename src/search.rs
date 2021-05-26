@@ -1,6 +1,5 @@
 #![allow(unused_imports)]
 use crate::error::AlternateScreenPagingError;
-use crate::line::WrappedLines;
 #[cfg(feature = "search")]
 use crate::utils::SearchMode;
 use crate::Pager;
@@ -172,16 +171,13 @@ pub(crate) fn highlight_search(pager: &mut Pager) -> Result<(), regex::Error> {
 pub(crate) fn highlight_line_matches(
     line: &mut String,
     query: &str,
-    split: usize,
 ) -> Result<(), regex::Error> {
     let pattern = regex::Regex::new(query)?;
 
-    let (line_no, line_contents) = line.split_at(split);
-
-    if let Some(cap) = pattern.captures(line_contents) {
+    if let Some(cap) = pattern.captures(line) {
         let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
         let text = text.as_str();
-        *line = line_no.to_owned() + &pattern.replace_all(&line_contents, text).to_string();
+        *line = pattern.replace_all(&line, text).to_string();
     }
 
     Ok(())
