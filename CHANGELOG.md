@@ -1,7 +1,14 @@
 # Changelog
 This file documents all noteable changes made to this project
 
-## v3.3.2 [2021-4-29]
+## v3.4.0 [2021-5-26]
+### Added
+* u and d keys for half page scrolling
+
+### Fixed
+* The reverse direction of j and k keys
+
+## v3.3.3 [2021-4-29]
 ### Fixed
 * Fixed warnings issued by clippy
 
