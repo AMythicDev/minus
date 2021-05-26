@@ -1,9 +1,9 @@
 # minus
 
-![crates.io](https://img.shields.io/crates/v/minus)
-![docs.rs](https://docs.rs/minus/badge.svg)
-![build](https://github.com/arijit79/minus/workflows/build/badge.svg)
-![Crates.io](https://img.shields.io/crates/l/minus)
+[![crates.io](https://img.shields.io/crates/v/minus)](https://crates.io/crates/minus)
+[![docs.rs](https://docs.rs/minus/badge.svg)](https://docs.rs/minus)
+[![build](https://github.com/arijit79/minus/workflows/build/badge.svg)](https://github.com/arijit79/minus/actions)
+[![Crates.io](https://img.shields.io/crates/l/minus)](https://github.com/arijit79/minus#license)
 
 A fast, asynchronous terminal paging library for Rust. `minus` provides high
 level functionalities to easily write a pager for any terminal application. Due
@@ -187,15 +187,13 @@ Here is some help for the end user using an application that depends on minus
 | n                 | Go to the next search match                        |
 | p                 | Go to the next previous match                      |
 
+## License
+Unless explicitly stated, all works to `minus` are dual licensed under the
+[MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
+
 ## Contributing
-
-Issues and pull requests are more than welcome. Unless explicitly stated
-otherwise, all works to `minus` are dual licensed under the MIT and Apache
-License 2.0.
-
+Issues and pull requests are more than welcome.
 See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
-
-See the licenses in their respective files at the root of the project.
 
 ## Get in touch
 If you want to discuss something with me regarding minus, the best place is at Matrix
