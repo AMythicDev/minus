@@ -83,7 +83,7 @@ pub use error::*;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
-use std::{iter::Flatten, vec::IntoIter};
+use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
@@ -146,10 +146,7 @@ pub struct Pager {
     pub(crate) upper_mark: usize,
     /// Stores the most recent search term
     #[cfg(feature = "search")]
-    search_term: String,
-    /// A temporary space to store modifications to the lines string
-    #[cfg(feature = "search")]
-    search_lines: Vec<Vec<String>>,
+    search_term: Option<regex::Regex>,
     // Direction of search
     #[cfg(feature = "search")]
     search_mode: SearchMode,
@@ -180,9 +177,7 @@ impl Pager {
             running: false,
             unwraped_text: String::new(),
             #[cfg(feature = "search")]
-            search_term: String::new(),
-            #[cfg(feature = "search")]
-            search_lines: Vec::new(),
+            search_term: None,
             #[cfg(feature = "search")]
             search_mode: SearchMode::Unknown,
             #[cfg(feature = "search")]
@@ -207,15 +202,7 @@ impl Pager {
         if self.running {
             let text: String = text.into();
             // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
-            self.lines = text
-                .lines()
-                .map(|l| {
-                    textwrap::wrap(l, self.cols)
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect::<Vec<String>>()
-                })
-                .collect();
+            self.lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
         } else {
             self.unwraped_text = text.into();
         }
@@ -283,13 +270,6 @@ impl Pager {
     /// Nrmally it will return `self.lines`
     /// In case of a search, `self.search_lines` is returned
     pub(crate) fn get_lines(&self) -> Vec<Vec<String>> {
-        #[cfg(feature = "search")]
-        if self.search_term.is_empty() {
-            self.lines.clone()
-        } else {
-            self.search_lines.clone()
-        }
-        #[cfg(not(feature = "search"))]
         self.lines.clone()
     }
 
@@ -305,14 +285,8 @@ impl Pager {
     pub fn push_str(&mut self, text: impl Into<String>) {
         let text: String = text.into();
         if self.running {
-            text.lines().for_each(|l| {
-                self.lines.push(
-                    textwrap::wrap(l, self.cols)
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect::<Vec<String>>(),
-                )
-            });
+            text.lines()
+                .for_each(|l| self.lines.push(wrap_str(l, self.cols)));
         } else {
             self.unwraped_text.push_str(&text);
         }
@@ -337,24 +311,14 @@ impl Pager {
             self.lines = self
                 .unwraped_text
                 .lines()
-                .map(|l| {
-                    textwrap::wrap(l, self.cols)
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect::<Vec<String>>()
-                })
+                .map(|l| wrap_str(l, self.cols))
                 .collect();
         }
         Ok(())
     }
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
-        for line in self.lines.iter_mut() {
-            *line = textwrap::wrap(&line.join(""), self.cols)
-                .iter()
-                .map(|c| c.to_string())
-                .collect()
-        }
+        rewrap_lines(&mut self.lines, self.cols)
     }
 
     pub(crate) fn get_flattened_lines(&self) -> Flatten<IntoIter<Vec<String>>> {
@@ -389,4 +353,24 @@ pub enum ExitStrategy {
     /// if you've file system locks or you want to close database connectiions after
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
+}
+
+pub(crate) fn rewrap_lines(lines: &mut Vec<Vec<String>>, cols: usize) {
+    for line in lines {
+        rewrap(line, cols);
+    }
+}
+
+pub(crate) fn rewrap(line: &mut Vec<String>, cols: usize) {
+    *line = textwrap::wrap(&line.join(" "), cols)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+}
+
+pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
+    textwrap::wrap(line, cols)
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>()
 }

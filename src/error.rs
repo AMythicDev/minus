@@ -89,3 +89,11 @@ pub enum AlternateScreenPagingError {
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
 }
+
+// Just for  convinience helper which is useful in many places
+#[cfg(feature = "search")]
+impl From<regex::Error> for AlternateScreenPagingError {
+    fn from(e: regex::Error) -> Self {
+        Self::SearchExpError(RegexError::from(e))
+    }
+}

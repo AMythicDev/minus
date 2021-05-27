@@ -144,41 +144,23 @@ pub(crate) async fn fetch_input(
 
 /// Highlight all matches of the given query and return the coordinate of each match
 #[cfg(feature = "search")]
-pub(crate) fn highlight_search(pager: &mut Pager) -> Result<(), regex::Error> {
-    let pattern = regex::Regex::new(&pager.search_term)?;
+pub(crate) fn highlight_search(pager: &mut Pager) {
+    let pattern = pager.search_term.as_ref().unwrap();
     let mut coordinates: Vec<u16> = Vec::new();
-    pager.search_lines = pager.lines.clone();
 
-    let mut idx = 0;
-
-    for line in pager.search_lines.iter_mut() {
-        for term_line in line.iter_mut() {
-            if let Some(cap) = pattern.captures(&(*term_line).to_string()) {
-                let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
-                let text = text.as_str();
-                let replace = pattern.replace_all(&term_line, text).to_string();
-                coordinates.push(u16::try_from(idx).unwrap());
-
-                *term_line = replace;
-            }
-            idx += 1;
+    for (idx, line) in pager.get_flattened_lines().enumerate() {
+        if pattern.is_match(&(*line).to_string()) {
+            coordinates.push(u16::try_from(idx).unwrap())
         }
     }
     pager.search_idx = coordinates;
-    Ok(())
 }
 
-pub(crate) fn highlight_line_matches(
-    line: &mut String,
-    query: &str,
-) -> Result<(), regex::Error> {
-    let pattern = regex::Regex::new(query)?;
-
-    if let Some(cap) = pattern.captures(line) {
+#[cfg(feature = "search")]
+pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
+    if let Some(cap) = query.captures(line) {
         let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
         let text = text.as_str();
-        *line = pattern.replace_all(&line, text).to_string();
+        *line = query.replace_all(&line, text).to_string();
     }
-
-    Ok(())
 }

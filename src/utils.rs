@@ -17,6 +17,9 @@ use crate::{
     AlternateScreenPagingError, Pager,
 };
 
+#[cfg(feature = "search")]
+use crate::search::highlight_line_matches;
+
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
 /// Setup the terminal and get the necessary informations.
@@ -307,13 +310,20 @@ pub(crate) fn write_lines(
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
             // Get the lines and display them
-            let displayed_lines = pager
+            // Use one writeln rather than a loop, because writing to stdout is slow
+            #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+            let mut displayed_lines = pager
                 .get_flattened_lines()
                 .skip(pager.upper_mark)
-                .take(rows.min(line_count));
-            for line in displayed_lines {
-                writeln!(out, "\r{}", line)?;
+                .take(rows.min(line_count))
+                .collect::<Vec<String>>();
+            #[cfg(feature = "search")]
+            if pager.search_term.is_some() {
+                for mut line in &mut displayed_lines {
+                    highlight_line_matches(&mut line, pager.search_term.as_ref().unwrap());
+                }
             }
+            writeln!(out, "{}", displayed_lines.join("\n\r"))?;
         }
         LineNumbers::AlwaysOn | LineNumbers::Enabled => {
             #[allow(
@@ -329,26 +339,22 @@ pub(crate) fn write_lines(
             // for it.
             let len_line_number = (line_count as f64).log10().floor() as usize + 1;
             #[cfg(feature = "search")]
-            if !pager.search_term.is_empty() {
-                let mut lines = pager.get_flattened_lines();
+            if pager.search_term.is_some() {
+                let mut lines = pager.lines.clone();
 
-                // Line space + single dot character + 1 space
+                // Line space + single dot character + 2 space
                 let padding = len_line_number + 3;
                 // Rehighlight  the lines which may have got distorted due to line
                 // numbers
                 for (idx, line) in lines.iter_mut().enumerate() {
-                    *line = textwrap::wrap(&line.join(" "), pager.cols.saturating_sub(padding))
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect();
+                    crate::rewrap(line, pager.cols.saturating_sub(padding));
                     for mut row in line.iter_mut() {
-                        crate::search::highlight_line_matches(&mut row, &pager.search_term)
-                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                        highlight_line_matches(&mut row, &pager.search_term.as_ref().unwrap());
 
                         row.insert_str(
                             0,
                             &format!(
-                                "\r {bold}{number: >len$}.{reset}",
+                                "\r {bold}{number: >len$}.{reset} ",
                                 bold = crossterm::style::Attribute::Bold,
                                 number = idx + 1,
                                 len = len_line_number,
@@ -445,10 +451,7 @@ fn annotate_line_numbers(
 ) -> Vec<String> {
     let padding = len_line_number + 3;
     for (idx, line) in lines.iter_mut().enumerate() {
-        *line = textwrap::wrap(&line.join(" "), cols.saturating_sub(padding))
-            .iter()
-            .map(|c| c.to_string())
-            .collect();
+        crate::rewrap(line, cols.saturating_sub(padding));
 
         for row in line.iter_mut() {
             row.insert_str(
@@ -464,5 +467,5 @@ fn annotate_line_numbers(
         }
     }
 
-    lines.iter().flatten().map(|s| s.to_owned()).collect()
+    lines.iter().flatten().map(ToOwned::to_owned).collect()
 }

@@ -66,14 +66,13 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     let string =
                         search::fetch_input_blocking(&mut out, pager.search_mode, pager.rows)?;
                     if !string.is_empty() {
-                        pager.search_term = string;
-                        search::highlight_search(&mut pager)
-                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
+                        pager.search_term = Some(regex::Regex::new(&string)?);
+                        search::highlight_search(&mut pager);
                     }
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::NextMatch) if !pager.search_term.is_empty() => {
+                Some(InputEvent::NextMatch) if pager.search_term.is_some() => {
                     if s_mark < pager.search_idx.len().saturating_sub(1)
                         && pager.upper_mark + pager.rows < pager.num_lines()
                     {
@@ -92,7 +91,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     }
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::PrevMatch) if !pager.search_term.is_empty() => {
+                Some(InputEvent::PrevMatch) if pager.search_term.is_some() => {
                     if pager.search_idx.is_empty() {
                         continue;
                     }
@@ -202,15 +201,14 @@ pub(crate) async fn dynamic_paging(
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
                     if !string.is_empty() {
-                        search::highlight_search(&mut lock)
-                            .map_err(|e| AlternateScreenPagingError::SearchExpError(e.into()))?;
-                        lock.search_term = string;
+                        search::highlight_search(&mut lock);
+                        lock.search_term = Some(regex::Regex::new(&string)?);
                     }
                     // Update the search term
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::NextMatch) if !lock.search_term.is_empty() => {
+                Some(InputEvent::NextMatch) if lock.search_term.is_some() => {
                     // Increment the search mark only if it is less than s_co.len
                     // and it is not the last page
                     if s_mark < lock.search_idx.len().saturating_sub(1)
@@ -236,7 +234,7 @@ pub(crate) async fn dynamic_paging(
                     }
                 }
                 #[cfg(feature = "search")]
-                Some(InputEvent::PrevMatch) if !lock.search_term.is_empty() => {
+                Some(InputEvent::PrevMatch) if lock.search_term.is_some() => {
                     if lock.search_idx.is_empty() {
                         continue;
                     }
