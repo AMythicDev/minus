@@ -307,23 +307,22 @@ pub(crate) fn write_lines(
         };
     }
 
-    match pager.line_numbers {
+    let displayed_lines = match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
-            // Get the lines and display them
+            // Get the unnested (flattened) lines and display them
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            let mut displayed_lines = pager
+            let mut lines = pager
                 .get_flattened_lines()
                 .skip(pager.upper_mark)
                 .take(rows.min(line_count))
                 .collect::<Vec<String>>();
             #[cfg(feature = "search")]
             if pager.search_term.is_some() {
-                for mut line in &mut displayed_lines {
+                for mut line in &mut lines {
                     highlight_line_matches(&mut line, pager.search_term.as_ref().unwrap());
                 }
             }
-            // Use one writeln rather than a loop, because writing to stdout is slow
-            writeln!(out, "{}", displayed_lines.join("\n\r"))?;
+            lines
         }
         LineNumbers::AlwaysOn | LineNumbers::Enabled => {
             // Compute the length of a number as a string without allocating.
@@ -363,31 +362,31 @@ pub(crate) fn write_lines(
                         );
                     }
                 }
-
-                // Display the lines
-                let displayed_lines = lines
+                lines
                     .iter()
                     .flatten()
                     .skip(pager.upper_mark)
                     .take(rows.min(line_count))
                     .map(ToOwned::to_owned)
-                    .collect::<Vec<String>>();
-
-                writeln!(out, "\r{}", displayed_lines.join("\n\r"))?;
-                return Ok(());
-            }
-
-            let displayed_lines =
+                    .collect::<Vec<String>>()
+            } else {
                 annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols)
                     .iter()
                     .skip(pager.upper_mark)
                     .take(rows.min(line_count))
                     .map(ToOwned::to_owned)
-                    .collect::<Vec<String>>();
-
-            writeln!(out, "\r{}", displayed_lines.join("\n\r"))?;
+                    .collect::<Vec<String>>()
+            }
+            #[cfg(not(feature = "search"))]
+            annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols)
+                .iter()
+                .skip(pager.upper_mark)
+                .take(rows.min(line_count))
+                .map(ToOwned::to_owned)
+                .collect::<Vec<String>>()
         }
-    }
+    };
+    writeln!(out, "\r{}", displayed_lines.join("\n\r"))?;
 
     Ok(())
 }
