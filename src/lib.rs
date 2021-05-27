@@ -129,6 +129,8 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 #[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
+    /// Represented by a vector of lines where each line is a vector of strings
+    /// split up on the basis of terminal width
     lines: Vec<Vec<String>>,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
@@ -321,10 +323,12 @@ impl Pager {
         rewrap_lines(&mut self.lines, self.cols)
     }
 
+    /// Returns all the text by flattening them into a single vector of strings
     pub(crate) fn get_flattened_lines(&self) -> Flatten<IntoIter<Vec<String>>> {
         self.get_lines().into_iter().flatten()
     }
 
+    /// Returns the number of lines the [`Pager`] currently holds
     pub(crate) fn num_lines(&self) -> usize {
         self.get_flattened_lines().count()
     }
@@ -355,12 +359,14 @@ pub enum ExitStrategy {
     PagerQuit,
 }
 
+/// Rewrap already wrapped vector of lines based on the number of columns
 pub(crate) fn rewrap_lines(lines: &mut Vec<Vec<String>>, cols: usize) {
     for line in lines {
         rewrap(line, cols);
     }
 }
 
+/// Rewrap a single line based on the number of columns
 pub(crate) fn rewrap(line: &mut Vec<String>, cols: usize) {
     *line = textwrap::wrap(&line.join(" "), cols)
         .iter()
@@ -368,6 +374,7 @@ pub(crate) fn rewrap(line: &mut Vec<String>, cols: usize) {
         .collect();
 }
 
+/// Wrap a line of string into a `Vec<String>` based on the number of columns
 pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
     textwrap::wrap(line, cols)
         .iter()

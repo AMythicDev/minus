@@ -310,7 +310,6 @@ pub(crate) fn write_lines(
     match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
             // Get the lines and display them
-            // Use one writeln rather than a loop, because writing to stdout is slow
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
             let mut displayed_lines = pager
                 .get_flattened_lines()
@@ -323,34 +322,35 @@ pub(crate) fn write_lines(
                     highlight_line_matches(&mut line, pager.search_term.as_ref().unwrap());
                 }
             }
+            // Use one writeln rather than a loop, because writing to stdout is slow
             writeln!(out, "{}", displayed_lines.join("\n\r"))?;
         }
         LineNumbers::AlwaysOn | LineNumbers::Enabled => {
-            #[allow(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                clippy::cast_precision_loss
-            )]
             // Compute the length of a number as a string without allocating.
             //
             // While this may in theory lose data, it will only do so if
             // `line_count` is bigger than 2^52, which will probably never
             // happen. Let's worry about that only if someone reports a bug
             // for it.
+            #[allow(
+                clippy::cast_possible_truncation,
+                clippy::cast_sign_loss,
+                clippy::cast_precision_loss
+            )]
             let len_line_number = (line_count as f64).log10().floor() as usize + 1;
             #[cfg(feature = "search")]
             if pager.search_term.is_some() {
-                let mut lines = pager.lines.clone();
-
+                let mut lines = pager.get_lines();
                 // Line space + single dot character + 2 space
                 let padding = len_line_number + 3;
-                // Rehighlight  the lines which may have got distorted due to line
-                // numbers
                 for (idx, line) in lines.iter_mut().enumerate() {
+                    // Rewrap the line for accomodation of the line numbers
                     crate::rewrap(line, pager.cols.saturating_sub(padding));
                     for mut row in line.iter_mut() {
+                        // Highlight  the lines
                         highlight_line_matches(&mut row, &pager.search_term.as_ref().unwrap());
 
+                        // Insert the line numbers
                         row.insert_str(
                             0,
                             &format!(
@@ -364,28 +364,28 @@ pub(crate) fn write_lines(
                     }
                 }
 
+                // Display the lines
                 let displayed_lines = lines
                     .iter()
                     .flatten()
                     .skip(pager.upper_mark)
-                    .take(rows.min(line_count));
+                    .take(rows.min(line_count))
+                    .map(ToOwned::to_owned)
+                    .collect::<Vec<String>>();
 
-                for line in displayed_lines {
-                    writeln!(out, "\r{}", line)?;
-                }
+                writeln!(out, "\r{}", displayed_lines.join("\n\r"))?;
                 return Ok(());
             }
 
-            let mut numbered_lines =
-                annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols);
-            let displayed_lines = numbered_lines
-                .iter_mut()
-                .skip(pager.upper_mark)
-                .take(rows.min(line_count));
+            let displayed_lines =
+                annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols)
+                    .iter()
+                    .skip(pager.upper_mark)
+                    .take(rows.min(line_count))
+                    .map(ToOwned::to_owned)
+                    .collect::<Vec<String>>();
 
-            for line in displayed_lines {
-                writeln!(out, "\r{}", line)?;
-            }
+            writeln!(out, "\r{}", displayed_lines.join("\n\r"))?;
         }
     }
 
