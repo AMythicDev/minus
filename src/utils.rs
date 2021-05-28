@@ -317,9 +317,9 @@ pub(crate) fn write_lines(
                 .take(rows.min(line_count))
                 .collect::<Vec<String>>();
             #[cfg(feature = "search")]
-            if pager.search_term.is_some() {
+            if let Some(st) = &pager.search_term {
                 for mut line in &mut lines {
-                    highlight_line_matches(&mut line, pager.search_term.as_ref().unwrap());
+                    highlight_line_matches(&mut line, st);
                 }
             }
             lines
@@ -337,53 +337,18 @@ pub(crate) fn write_lines(
                 clippy::cast_precision_loss
             )]
             let len_line_number = (line_count as f64).log10().floor() as usize + 1;
-            #[cfg(feature = "search")]
-            if pager.search_term.is_some() {
-                let mut lines = pager.get_lines();
-                // Line space + single dot character + 2 space
-                let padding = len_line_number + 3;
-                for (idx, line) in lines.iter_mut().enumerate() {
-                    // Rewrap the line for accomodation of the line numbers
-                    crate::rewrap(line, pager.cols.saturating_sub(padding));
-                    for mut row in line.iter_mut() {
-                        // Highlight  the lines
-                        highlight_line_matches(&mut row, &pager.search_term.as_ref().unwrap());
-
-                        // Insert the line numbers
-                        row.insert_str(
-                            0,
-                            &format!(
-                                "\r {bold}{number: >len$}.{reset} ",
-                                bold = crossterm::style::Attribute::Bold,
-                                number = idx + 1,
-                                len = len_line_number,
-                                reset = crossterm::style::Attribute::Reset,
-                            ),
-                        );
-                    }
-                }
-                lines
-                    .iter()
-                    .flatten()
-                    .skip(pager.upper_mark)
-                    .take(rows.min(line_count))
-                    .map(ToOwned::to_owned)
-                    .collect::<Vec<String>>()
-            } else {
-                annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols)
-                    .iter()
-                    .skip(pager.upper_mark)
-                    .take(rows.min(line_count))
-                    .map(ToOwned::to_owned)
-                    .collect::<Vec<String>>()
-            }
-            #[cfg(not(feature = "search"))]
-            annotate_line_numbers(pager.lines.clone(), len_line_number, pager.cols)
-                .iter()
-                .skip(pager.upper_mark)
-                .take(rows.min(line_count))
-                .map(ToOwned::to_owned)
-                .collect::<Vec<String>>()
+            annotate_line_numbers(
+                pager.get_lines(),
+                len_line_number,
+                pager.cols,
+                #[cfg(feature = "search")]
+                &pager.search_term,
+            )
+            .iter()
+            .skip(pager.upper_mark)
+            .take(rows.min(line_count))
+            .map(ToOwned::to_owned)
+            .collect()
         }
     };
     writeln!(out, "\r{}", displayed_lines.join("\n\r"))?;
@@ -437,22 +402,27 @@ impl std::ops::Not for LineNumbers {
     }
 }
 
-// fn get_total_line_count(lines: Vec<>)
-
-// Uncomment these once utils::tests are ready for the new API
-#[cfg(test)]
-mod tests;
-
+/// Add line numbers to all the lines taking into considerations the wraps
 fn annotate_line_numbers(
     mut lines: Vec<Vec<String>>,
     len_line_number: usize,
     cols: usize,
+    #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> Vec<String> {
+    // Calculate the amount of space required for the numbering ie. length of line
+    // numbers + . + 2 spaces and wrap according to it
     let padding = len_line_number + 3;
     for (idx, line) in lines.iter_mut().enumerate() {
         crate::rewrap(line, cols.saturating_sub(padding));
 
-        for row in line.iter_mut() {
+        // Insert the line numbers
+        #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+        for mut row in line.iter_mut() {
+            #[cfg(feature = "search")]
+            if let Some(st) = search_term {
+                // Highlight  the lines
+                highlight_line_matches(&mut row, st);
+            }
             row.insert_str(
                 0,
                 &format!(
@@ -466,5 +436,9 @@ fn annotate_line_numbers(
         }
     }
 
+    // Return the flattened lines
     lines.iter().flatten().map(ToOwned::to_owned).collect()
 }
+
+#[cfg(test)]
+mod tests;
