@@ -88,7 +88,7 @@ pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
 mod init;
-mod input;
+pub mod input;
 
 // use line::{Line, WrappedLines};
 
@@ -146,6 +146,13 @@ pub struct Pager {
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
+    /// Dictates whether the pager should run if we have ess than one page of data
+    run_on_no_overflow: bool,
+    /// Whether the coming data is ended
+    ///
+    /// Applications should strictly call [Pager::end_data_stream()] once their stream
+    /// of data to the pager is ended.
+    end_stream: bool,
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     pub(crate) upper_mark: usize,
@@ -183,6 +190,8 @@ impl Pager {
             unwraped_text: String::new(),
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
+            run_on_no_overflow: false,
+            end_stream: false,
             #[cfg(feature = "search")]
             search_term: None,
             #[cfg(feature = "search")]
@@ -298,6 +307,10 @@ impl Pager {
             self.unwraped_text.push_str(&text);
         }
     }
+
+    pub fn end_data_stream(&mut self) {
+        self.end_stream = true;
+    }
     /// Prepare the terminal
     ///
     /// Sets the rows and columns of the terminal inside the pager.
@@ -339,8 +352,33 @@ impl Pager {
     }
 
     /// Set custom input handler function
+    ///
+    /// See example in [InputHandler](input::InputHandler) on using this
+    /// function
     pub fn set_input_handler(&mut self, cb: Box<dyn input::InputHandler + Send + Sync>) {
         self.input_handler = cb;
+    }
+
+    /// Run the exit callbacks
+    ///
+    /// Note that this function consumes the pager
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// fn hello() {
+    ///     println!("Hello");
+    /// }
+    ///
+    /// let mut pager = Pager::new();
+    /// pager.push_exit_callback(hello);
+    /// pager.exit()
+    /// ```
+    pub fn exit(mut self) {
+        for func in &mut self.exit_callbacks {
+            func()
+        }
     }
 }
 

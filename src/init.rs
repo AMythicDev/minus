@@ -39,7 +39,8 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             let input = pager.input_handler.handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 pager.upper_mark,
-                #[cfg(feature = "search")] pager.search_mode,
+                #[cfg(feature = "search")]
+                pager.search_mode,
                 pager.line_numbers,
                 pager.rows,
             );
@@ -119,9 +120,6 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 
 /// Runs the pager in dynamic mode for the `PagerMutex`.
 ///
-/// `get` is a function that will extract the Pager lock from the
-/// `PageMutex`. `get` is only called when drawing, Therefore, it can be mutated the entire time, except while drawing
-///
 /// ## Errors
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
@@ -176,7 +174,8 @@ pub(crate) async fn dynamic_paging(
             let input = lock.input_handler.handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
                 lock.upper_mark,
-                #[cfg(feature = "search")] lock.search_mode,
+                #[cfg(feature = "search")]
+                lock.search_mode,
                 lock.line_numbers,
                 lock.rows,
             );

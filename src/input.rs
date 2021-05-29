@@ -1,3 +1,6 @@
+//! Provides the [`InputHandler`] trait, which can be used
+//! to customize the default keybindings of minus
+
 use crossterm::{
     event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind},
     terminal,
