@@ -71,6 +71,7 @@ pub trait InputHandler {
 pub struct DefaultInputHandler;
 
 impl InputHandler for DefaultInputHandler {
+    #[allow(clippy::too_many_lines)]
     fn handle_input(
         &self,
         ev: Event,

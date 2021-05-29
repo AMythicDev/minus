@@ -118,14 +118,6 @@ pub enum SearchMode {
     Unknown,
 }
 
-// TODO
-/// Returns the input corresponding to the given event, updating the data as
-/// needed (`pager.upper_mark`, `pager.line_numbers` or nothing).
-///
-/// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
-/// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
-///   for [`LineNumbers`] for more information.
-
 /// Draws (at most) `rows` `lines`, where the first line to display is
 /// `pager.upper_mark`. This function will always try to display as much lines as
 /// possible within `rows`.
