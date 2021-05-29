@@ -146,8 +146,6 @@ pub struct Pager {
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
-    /// Dictates whether the pager should run if we have ess than one page of data
-    run_on_no_overflow: bool,
     /// Whether the coming data is ended
     ///
     /// Applications should strictly call [Pager::end_data_stream()] once their stream
@@ -190,7 +188,6 @@ impl Pager {
             unwraped_text: String::new(),
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
-            run_on_no_overflow: false,
             end_stream: false,
             #[cfg(feature = "search")]
             search_term: None,
