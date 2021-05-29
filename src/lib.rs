@@ -88,7 +88,7 @@ pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 use utils::SearchMode;
 mod init;
-// mod line;
+mod input;
 
 // use line::{Line, WrappedLines};
 
@@ -126,7 +126,6 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 /// }
 ///```
 ///
-#[derive(Clone)]
 pub struct Pager {
     /// The output that is displayed
     /// Represented by a vector of lines where each line is a vector of strings
@@ -140,6 +139,10 @@ pub struct Pager {
     running: bool,
     // Text which may have come that may be unwraped
     unwraped_text: String,
+    /// The input handler to be called when a input is found
+    input_handler: Box<dyn input::InputHandler + Sync + Send>,
+    /// Functions to run when the pager quits
+    exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
@@ -178,6 +181,8 @@ impl Pager {
             exit_strategy: ExitStrategy::ProcessQuit,
             running: false,
             unwraped_text: String::new(),
+            input_handler: Box::new(input::DefaultInputHandler {}),
+            exit_callbacks: Vec::new(),
             #[cfg(feature = "search")]
             search_term: None,
             #[cfg(feature = "search")]
@@ -331,6 +336,11 @@ impl Pager {
     /// Returns the number of lines the [`Pager`] currently holds
     pub(crate) fn num_lines(&self) -> usize {
         self.get_flattened_lines().count()
+    }
+
+    /// Set custom input handler function
+    pub fn set_input_handler(&mut self, cb: Box<dyn input::InputHandler + Send + Sync>) {
+        self.input_handler = cb;
     }
 }
 

@@ -6,7 +6,7 @@
 use crate::search;
 #[cfg(feature = "search")]
 use crate::utils::SearchMode;
-use crate::utils::{cleanup, draw, handle_input, setup, InputEvent};
+use crate::utils::{cleanup, draw, setup, InputEvent};
 use crate::{error::AlternateScreenPagingError, Pager};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
@@ -36,9 +36,12 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
         {
             // Get the events
-            let input = handle_input(
+            let input = pager.input_handler.handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                &pager,
+                pager.upper_mark,
+                #[cfg(feature = "search")] pager.search_mode,
+                pager.line_numbers,
+                pager.rows,
             );
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
@@ -170,9 +173,12 @@ pub(crate) async fn dynamic_paging(
             let mut lock = p.lock().await;
 
             // Get the events
-            let input = handle_input(
+            let input = lock.input_handler.handle_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                &lock,
+                lock.upper_mark,
+                #[cfg(feature = "search")] lock.search_mode,
+                lock.line_numbers,
+                lock.rows,
             );
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
@@ -201,8 +207,8 @@ pub(crate) async fn dynamic_paging(
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
                     if !string.is_empty() {
-                        search::highlight_search(&mut lock);
                         lock.search_term = Some(regex::Regex::new(&string)?);
+                        search::highlight_search(&mut lock);
                     }
                     // Update the search term
                     redraw = true;

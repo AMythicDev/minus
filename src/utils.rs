@@ -1,7 +1,7 @@
 //! Utilities that are used in both static and async display.
 use crossterm::{
     cursor::{self, MoveTo},
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent},
+    event,
     execute,
     style::Attribute,
     terminal::{self, Clear, ClearType},
@@ -9,7 +9,7 @@ use crossterm::{
 
 use std::{
     convert::TryFrom,
-    io::{self, Write as _},
+    io,
 };
 
 use crate::{
@@ -118,132 +118,13 @@ pub enum SearchMode {
     Unknown,
 }
 
+// TODO
 /// Returns the input corresponding to the given event, updating the data as
 /// needed (`pager.upper_mark`, `pager.line_numbers` or nothing).
 ///
 /// - `pager.upper_mark` will be (inc|dec)remented if the (`Up`|`Down`) is pressed.
 /// - `pager.line_numbers` will be inverted if `Ctrl+L` is pressed. See the `Not` implementation
 ///   for [`LineNumbers`] for more information.
-#[allow(clippy::too_many_lines)]
-pub(crate) fn handle_input(ev: Event, pager: &Pager) -> Option<InputEvent> {
-    match ev {
-        // Scroll up by one.
-        Event::Key(KeyEvent {
-            code: KeyCode::Up,
-            modifiers: KeyModifiers::NONE,
-        })
-        | Event::Key(KeyEvent {
-            code: KeyCode::Char('j'),
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(
-            pager.upper_mark.saturating_sub(1),
-        )),
-
-        // Scroll down by one.
-        Event::Key(KeyEvent {
-            code: KeyCode::Down,
-            modifiers: KeyModifiers::NONE,
-        })
-        | Event::Key(KeyEvent {
-            code: KeyCode::Char('k'),
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(
-            pager.upper_mark.saturating_add(1),
-        )),
-
-        // Mouse scroll up/down
-        Event::Mouse(MouseEvent::ScrollUp(_, _, _)) => Some(InputEvent::UpdateUpperMark(
-            pager.upper_mark.saturating_sub(5),
-        )),
-        Event::Mouse(MouseEvent::ScrollDown(_, _, _)) => Some(InputEvent::UpdateUpperMark(
-            pager.upper_mark.saturating_add(5),
-        )),
-        // Go to top.
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('g'),
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(0)),
-        // Go to bottom.
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('g'),
-            modifiers: KeyModifiers::SHIFT,
-        })
-        | Event::Key(KeyEvent {
-            code: KeyCode::Char('G'),
-            modifiers: KeyModifiers::SHIFT,
-        })
-        | Event::Key(KeyEvent {
-            code: KeyCode::Char('G'),
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
-
-        // Page Up/Down
-        Event::Key(KeyEvent {
-            code: KeyCode::PageUp,
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(
-            pager.upper_mark.saturating_sub(pager.rows - 1),
-        )),
-        Event::Key(KeyEvent {
-            code: KeyCode::PageDown,
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::UpdateUpperMark(
-            pager.upper_mark.saturating_add(pager.rows - 1),
-        )),
-
-        // Resize event from the terminal.
-        Event::Resize(width, height) => {
-            Some(InputEvent::UpdateTermArea(width as usize, height as usize))
-        }
-        // Switch line number display.
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('l'),
-            modifiers: KeyModifiers::CONTROL,
-        }) => Some(InputEvent::UpdateLineNumber(!pager.line_numbers)),
-        // Quit.
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('q'),
-            modifiers: KeyModifiers::NONE,
-        })
-        | Event::Key(KeyEvent {
-            code: KeyCode::Char('c'),
-            modifiers: KeyModifiers::CONTROL,
-        }) => Some(InputEvent::Exit),
-        #[cfg(feature = "search")]
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('/'),
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::Search(SearchMode::Forward)),
-        #[cfg(feature = "search")]
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('?'),
-            modifiers: KeyModifiers::NONE,
-        }) => Some(InputEvent::Search(SearchMode::Reverse)),
-        #[cfg(feature = "search")]
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('n'),
-            modifiers: KeyModifiers::NONE,
-        }) => {
-            if pager.search_mode == SearchMode::Reverse {
-                Some(InputEvent::PrevMatch)
-            } else {
-                Some(InputEvent::NextMatch)
-            }
-        }
-        #[cfg(feature = "search")]
-        Event::Key(KeyEvent {
-            code: KeyCode::Char('p'),
-            modifiers: KeyModifiers::NONE,
-        }) => {
-            if pager.search_mode == SearchMode::Reverse {
-                Some(InputEvent::NextMatch)
-            } else {
-                Some(InputEvent::PrevMatch)
-            }
-        }
-        _ => None,
-    }
-}
 
 /// Draws (at most) `rows` `lines`, where the first line to display is
 /// `pager.upper_mark`. This function will always try to display as much lines as
