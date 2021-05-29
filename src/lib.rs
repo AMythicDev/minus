@@ -308,6 +308,19 @@ impl Pager {
         }
     }
 
+    /// Tells the running pager that no more data is coming
+    ///
+    /// Note that after this function is called, any call to [Pager::set_text()] or
+    /// [Pager::push_str()] will panic
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let mut pager = Pager::new();
+    /// pager.set_text("Hello from minus!");
+    /// pager.end_data_stream();
+    /// ```
     pub fn end_data_stream(&mut self) {
         self.end_stream = true;
     }
@@ -336,6 +349,7 @@ impl Pager {
         }
         Ok(())
     }
+
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
         rewrap_lines(&mut self.lines, self.cols)
@@ -355,8 +369,8 @@ impl Pager {
     ///
     /// See example in [InputHandler](input::InputHandler) on using this
     /// function
-    pub fn set_input_handler(&mut self, cb: Box<dyn input::InputHandler + Send + Sync>) {
-        self.input_handler = cb;
+    pub fn set_input_handler(&mut self, handler: Box<dyn input::InputHandler + Send + Sync>) {
+        self.input_handler = handler;
     }
 
     /// Run the exit callbacks
@@ -379,6 +393,21 @@ impl Pager {
         for func in &mut self.exit_callbacks {
             func()
         }
+    }
+
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// fn hello() {
+    ///     println!("Hello");
+    /// }
+    ///
+    /// let mut pager = Pager::new();
+    /// pager.push_exit_callback(hello);
+    /// ```
+    pub fn push_exit_callback(&mut self, cb: Box<dyn FnMut() + Send + Sync + 'static>) {
+        self.exit_callbacks.push(cb);
     }
 }
 

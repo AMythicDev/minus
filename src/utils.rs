@@ -1,16 +1,12 @@
 //! Utilities that are used in both static and async display.
 use crossterm::{
     cursor::{self, MoveTo},
-    event,
-    execute,
+    event, execute,
     style::Attribute,
     terminal::{self, Clear, ClearType},
 };
 
-use std::{
-    convert::TryFrom,
-    io,
-};
+use std::{convert::TryFrom, io};
 
 use crate::{
     error::{CleanupError, SetupError},
@@ -81,29 +77,6 @@ pub(crate) fn cleanup(
     } else {
         Ok(())
     }
-}
-
-/// Events handled by the `minus` pager.
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum InputEvent {
-    /// `Ctrl+C` or `Q`, exits the application.
-    Exit,
-    /// The terminal was resized. Contains the new number of rows.
-    UpdateTermArea(usize, usize),
-    /// `Up` or `Down` was pressed. Contains the new value for the upper mark.
-    /// Also sent by `g` or `G`, which behave like Vim: jump to top or bottom.
-    UpdateUpperMark(usize),
-    /// `Ctrl+L`, inverts the line number display. Contains the new value.
-    UpdateLineNumber(LineNumbers),
-    /// `/`, Searching for certain pattern of text
-    #[cfg(feature = "search")]
-    Search(SearchMode),
-    /// Get to the next match in forward mode
-    #[cfg(feature = "search")]
-    NextMatch,
-    /// Get to the previous match in forward mode
-    #[cfg(feature = "search")]
-    PrevMatch,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]

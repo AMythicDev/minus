@@ -6,10 +6,33 @@ use crossterm::{
     terminal,
 };
 
-use super::utils::InputEvent;
 #[cfg(feature = "search")]
 use super::utils::SearchMode;
 use crate::LineNumbers;
+
+/// Events handled by the `minus` pager.
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(clippy::module_name_repetitions)]
+pub enum InputEvent {
+    /// `Ctrl+C` or `Q`, exits the application.
+    Exit,
+    /// The terminal was resized. Contains the new number of rows.
+    UpdateTermArea(usize, usize),
+    /// `Up` or `Down` was pressed. Contains the new value for the upper mark.
+    /// Also sent by `g` or `G`, which behave like Vim: jump to top or bottom.
+    UpdateUpperMark(usize),
+    /// `Ctrl+L`, inverts the line number display. Contains the new value.
+    UpdateLineNumber(LineNumbers),
+    /// `/`, Searching for certain pattern of text
+    #[cfg(feature = "search")]
+    Search(SearchMode),
+    /// Get to the next match in forward mode
+    #[cfg(feature = "search")]
+    NextMatch,
+    /// Get to the previous match in forward mode
+    #[cfg(feature = "search")]
+    PrevMatch,
+}
 
 /// Define custom keybindings
 ///
@@ -23,7 +46,7 @@ use crate::LineNumbers;
 ///
 /// # Example
 /// ```
-/// use minus::{InputEvent, InputHandler, LineNumbers, Pager};
+/// use minus::{input::{InputEvent, InputHandler}, LineNumbers, Pager};
 #[cfg_attr(feature = "search", doc = "use minus::SearchMode;")]
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
