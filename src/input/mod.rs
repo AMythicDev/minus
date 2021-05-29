@@ -240,3 +240,6 @@ impl InputHandler for DefaultInputHandler {
         }
     }
 }
+
+// #[cfg(tests)]
+mod tests;
