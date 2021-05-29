@@ -310,8 +310,8 @@ impl Pager {
 
     /// Tells the running pager that no more data is coming
     ///
-    /// Note that after this function is called, any call to [Pager::set_text()] or
-    /// [Pager::push_str()] will panic
+    /// Note that after this function is called, any call to [`Pager::set_text()`] or
+    /// [`Pager::push_str()`] will panic
     ///
     /// Example
     /// ```
@@ -367,7 +367,7 @@ impl Pager {
 
     /// Set custom input handler function
     ///
-    /// See example in [InputHandler](input::InputHandler) on using this
+    /// See example in [`InputHandler`](input::InputHandler) on using this
     /// function
     pub fn set_input_handler(&mut self, handler: Box<dyn input::InputHandler + Send + Sync>) {
         self.input_handler = handler;
