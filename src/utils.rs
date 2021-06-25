@@ -269,16 +269,28 @@ fn annotate_line_numbers(
                 // Highlight  the lines
                 highlight_line_matches(&mut row, st);
             }
-            row.insert_str(
-                0,
-                &format!(
+            // Make the formatted text
+            // If function is called in a test run, reove the bold and reset
+            // sequences because at that time we care more about correctness than
+            // formatting
+            let fmt_numbers = if cfg!(not(test)) {
+                format!(
                     " {bold}{number: >len$}.{reset} ",
                     bold = crossterm::style::Attribute::Bold,
                     number = idx + 1,
                     len = len_line_number,
                     reset = crossterm::style::Attribute::Reset
-                ),
-            );
+                )
+            } else {
+                format!(
+                    " {number: >len$}. ",
+                    number = idx + 1,
+                    len = len_line_number,
+                )
+            };
+            // Insert line numbers at the beginning
+
+            row.insert_str(0, &fmt_numbers);
         }
     }
 

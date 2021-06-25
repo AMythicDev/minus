@@ -86,7 +86,7 @@ use std::sync::Arc;
 use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 #[cfg(feature = "search")]
-use utils::SearchMode;
+pub use utils::SearchMode;
 mod init;
 pub mod input;
 
@@ -383,7 +383,7 @@ impl Pager {
     /// }
     ///
     /// let mut pager = Pager::new();
-    /// pager.push_exit_callback(hello);
+    /// pager.push_exit_callback(Box::new(hello));
     /// pager.exit()
     /// ```
     pub fn exit(mut self) {
@@ -401,7 +401,7 @@ impl Pager {
     /// }
     ///
     /// let mut pager = Pager::new();
-    /// pager.push_exit_callback(hello);
+    /// pager.push_exit_callback(Box::new(hello));
     /// ```
     pub fn push_exit_callback(&mut self, cb: Box<dyn FnMut() + Send + Sync + 'static>) {
         self.exit_callbacks.push(cb);

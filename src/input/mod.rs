@@ -241,5 +241,5 @@ impl InputHandler for DefaultInputHandler {
     }
 }
 
-// #[cfg(tests)]
+#[cfg(tests)]
 mod tests;

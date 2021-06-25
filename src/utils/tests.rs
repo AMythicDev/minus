@@ -111,7 +111,7 @@ fn short_with_line_numbers() {
     assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
-        "\r1. A line\n\r2. Another line\n",
+        "\r 1. A line\n\r 2. Another line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(pager.upper_mark, 0);
@@ -125,7 +125,7 @@ fn short_with_line_numbers() {
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
     assert_eq!(
-        "\r1. A line\n\r2. Another line\n",
+        "\r 1. A line\n\r 2. Another line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(pager.upper_mark, 0);
@@ -147,7 +147,7 @@ fn long_with_line_numbers() {
     assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
-        "\r1. A line\n\r2. Another line\n\r3. Third line\n",
+        "\r 1. A line\n\r 2. Another line\n\r 3. Third line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(pager.upper_mark, 0);
@@ -159,7 +159,7 @@ fn long_with_line_numbers() {
     assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
-        "\r2. Another line\n\r3. Third line\n\r4. Fourth line\n",
+        "\r 2. Another line\n\r 3. Third line\n\r 4. Fourth line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(pager.upper_mark, 1);
@@ -172,7 +172,7 @@ fn long_with_line_numbers() {
     assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
-        "\r2. Another line\n\r3. Third line\n\r4. Fourth line\n",
+        "\r 2. Another line\n\r 3. Third line\n\r 4. Fourth line\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(pager.upper_mark, 1);
@@ -201,7 +201,7 @@ fn big_line_numbers_are_padded() {
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert_eq!(
-        "\r 96. L95\n\r 97. L96\n\r 98. L97\n\r 99. L98\n\r100. L99\n\r101. L100\n\r102. L101\n\r103. L102\n\r104. L103\n\r105. L104\n",
+        "\r  96. L95\n\r  97. L96\n\r  98. L97\n\r  99. L98\n\r 100. L99\n\r 101. L100\n\r 102. L101\n\r 103. L102\n\r 104. L103\n\r 105. L104\n",
         String::from_utf8(out).expect("Should have written valid UTF-8")
     );
     assert_eq!(pager.upper_mark, 95);
@@ -318,7 +318,7 @@ fn draw_short_with_line_numbers() {
     assert!(draw(&mut out, &mut pager).is_ok());
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r1. A line\n\r2. Another line\n"));
+        .contains("\r 1. A line\n\r 2. Another line\n"));
     assert_eq!(pager.upper_mark, 0);
 
     let mut out = Vec::with_capacity(lines.len());
@@ -330,7 +330,7 @@ fn draw_short_with_line_numbers() {
     // if we set it to 1. This is done because everything can be displayed without problems.
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r1. A line\n\r2. Another line\n"));
+        .contains("\r 1. A line\n\r 2. Another line\n"));
     assert_eq!(pager.upper_mark, 0);
 }
 
@@ -351,7 +351,7 @@ fn draw_long_with_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r1. A line\n\r2. Another line\n"));
+        .contains("\r 1. A line\n\r 2. Another line\n"));
     assert_eq!(pager.upper_mark, 0);
 
     // This ensures that asking for a position other than 0 works.
@@ -362,7 +362,7 @@ fn draw_long_with_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r2. Another line\n\r3. Third line\n"));
+        .contains("\r 2. Another line\n\r 3. Third line\n"));
     assert_eq!(pager.upper_mark, 1);
 
     // This test ensures that as much text as possible will be displayed, even
@@ -374,7 +374,7 @@ fn draw_long_with_line_numbers() {
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
-        .contains("\r3. Third line\n\r4. Fourth line\n"));
+        .contains("\r 3. Third line\n\r 4. Fourth line\n"));
     assert_eq!(pager.upper_mark, 2);
 }
 
@@ -399,11 +399,13 @@ fn draw_big_line_numbers_are_padded() {
 
     assert!(draw(&mut out, &mut pager).is_ok());
 
+    println!("{}", String::from_utf8_lossy(&out));
+
     // The padding should have inserted a space before the numbers that are less than 100.
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
         .contains(
-            "\r 96. L95\n\r 97. L96\n\r 98. L97\n\r 99. L98\n\r100. L99\n\r101. L100\n\r102. L101\n\r103. L102\n\r104. L103\n",
+            "\r  96. L95\n\r  97. L96\n\r  98. L97\n\r  99. L98\n\r 100. L99\n\r 101. L100\n\r 102. L101\n\r 103. L102\n\r 104. L103\n",
         )
     );
     assert_eq!(pager.upper_mark, 95);
