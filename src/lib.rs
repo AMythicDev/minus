@@ -154,6 +154,8 @@ pub struct Pager {
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     pub(crate) upper_mark: usize,
+    /// Do we want to page if there;s no overflow
+    pub(crate) run_no_overflow: bool,
     /// Stores the most recent search term
     #[cfg(feature = "search")]
     search_term: Option<regex::Regex>,
@@ -188,6 +190,7 @@ impl Pager {
             unwraped_text: String::new(),
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
+            run_no_overflow: false,
             end_stream: false,
             #[cfg(feature = "search")]
             search_term: None,
@@ -286,6 +289,21 @@ impl Pager {
         self.lines.clone()
     }
 
+    /// Set whether to display pager if there's less data than
+    /// available screen height
+    ///
+    /// By default this is set to false
+    ///
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let mut pager = Pager::new();
+    /// pager.set_run_no_overflow(true);
+    /// ```
+    pub fn set_run_no_overflow(&mut self, value: bool) {
+        self.run_no_overflow = value;
+    }
+
     /// Appends text to the pager output
     ///
     /// This function will automatically split the lines, if they overflow
@@ -372,8 +390,6 @@ impl Pager {
 
     /// Run the exit callbacks
     ///
-    /// Note that this function consumes the pager
-    ///
     /// Example
     /// ```
     /// use minus::Pager;
@@ -386,7 +402,7 @@ impl Pager {
     /// pager.push_exit_callback(Box::new(hello));
     /// pager.exit()
     /// ```
-    pub fn exit(mut self) {
+    pub fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
             func()
         }

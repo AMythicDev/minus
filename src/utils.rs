@@ -29,18 +29,24 @@ use crate::search::highlight_line_matches;
 /// ## Errors
 ///
 /// Setting up the terminal can fail, see [`SetupError`](SetupError).
-pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<(), SetupError> {
+pub(crate) fn setup(
+    stdout: &io::Stdout,
+    dynamic: bool,
+    setup: bool,
+) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
 
     // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
-    if dynamic {
-        use crossterm::tty::IsTty;
+    if setup {
+        if dynamic {
+            use crossterm::tty::IsTty;
 
-        if out.is_tty() {
-            Ok(())
-        } else {
-            Err(SetupError::InvalidTerminal)
-        }?;
+            if out.is_tty() {
+                Ok(())
+            } else {
+                Err(SetupError::InvalidTerminal)
+            }?;
+        }
     }
 
     execute!(out, terminal::EnterAlternateScreen)
@@ -64,14 +70,18 @@ pub(crate) fn setup(stdout: &io::Stdout, dynamic: bool) -> std::result::Result<(
 pub(crate) fn cleanup(
     mut out: impl io::Write,
     es: &crate::ExitStrategy,
+    cleanup: bool,
 ) -> std::result::Result<(), CleanupError> {
-    // Reverse order of setup.
-    execute!(out, event::DisableMouseCapture)
-        .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
-    execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
-    terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
-    execute!(out, terminal::LeaveAlternateScreen)
-        .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
+    if cleanup {
+        // Reverse order of setup.
+        execute!(out, event::DisableMouseCapture)
+            .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
+        execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
+        terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
+        execute!(out, terminal::LeaveAlternateScreen)
+            .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
+    }
+
     if *es == crate::ExitStrategy::ProcessQuit {
         std::process::exit(0);
     } else {
@@ -100,11 +110,13 @@ pub enum SearchMode {
 /// this).
 ///
 /// It will not wrap long lines.
-
 pub(crate) fn draw(
     out: &mut impl io::Write,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
+    if !pager.run_no_overflow && pager.num_lines() <= pager.rows {
+        return write_lines(out, &mut pager);
+    }
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     // There must be one free line for the help message at the bottom.

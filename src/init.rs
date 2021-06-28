@@ -135,17 +135,15 @@ pub(crate) async fn dynamic_paging(
 ) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal, adjust line wraps and get rows
     let mut out = io::stdout();
-    setup(&out, true)?;
     let mut guard = p.lock().await;
+    let run_no_overflow = guard.run_no_overflow;
+    setup(&out, true, run_no_overflow)?;
     guard.prepare()?;
-    let mut rows = guard.rows;
     drop(guard);
     // Search related variables
     // Vector of match coordinates
 
     // A marker of which element of s_co we are currently at
-    // -1 means we have just highlighted all the matches but the cursor has not been
-    // placed in any one of them
     #[cfg(feature = "search")]
     let mut s_mark = 0;
     // Whether to redraw the console
@@ -160,10 +158,18 @@ pub(crate) async fn dynamic_paging(
         // Display the text continously if last displayed line count is not same and
         // all rows are not filled
         let line_count = guard.lines.len();
-        let have_just_overflowed = (last_line_count < rows) && (line_count >= rows);
-        if last_line_count != line_count && (line_count < rows || have_just_overflowed) {
+        let have_just_overflowed = (last_line_count < guard.rows) && (line_count >= guard.rows);
+        if have_just_overflowed && !run_no_overflow {
+            setup(&out, true, true)?;
+        }
+        if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed) {
             draw(&mut out, &mut guard)?;
             last_line_count = line_count;
+        }
+
+        if guard.end_stream && !run_no_overflow && !(line_count > guard.rows) {
+            guard.exit();
+            return Ok(cleanup(out, &guard.exit_strategy, false)?);
         }
 
         drop(guard);
@@ -186,9 +192,8 @@ pub(crate) async fn dynamic_paging(
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(&mut out, &lock.exit_strategy)?),
+                Some(InputEvent::Exit) => return Ok(cleanup(&mut out, &lock.exit_strategy, true)?),
                 Some(InputEvent::UpdateTermArea(c, r)) => {
-                    rows = r;
                     lock.rows = r;
                     lock.cols = c;
                     lock.readjust_wraps();
