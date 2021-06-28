@@ -1,6 +1,39 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v3.4.0 [2021-5-26]
+### Added
+* u and d keys for half page scrolling
+
+### Fixed
+* The reverse direction of j and k keys
+
+## v3.3.3 [2021-4-29]
+### Fixed
+* Fixed warnings issued by clippy
+
+## v3.3.2 [2021-4-28]
+### Added
+* Add docs for InputHandler and DefaultInputHandler
+
+## v3.3.1 [2021-3-13]
+### Fixed
+* Documentation build failure
+
+## v3.3.0 [2021-3-5]
+### Added
+* A trait to coustomize the default keybindings
+
+### Fixed
+* Fixed bug where cursor movement stops at last search instance
+
+## v3.2.0 [2021-2-22]
+### Added
+* A new function to signal the end of data to the pager
+
+### Changed
+* Page cleanup when the pager needs to quit
+
 ## v3.1.2 [2021-2-16]
 ### Bug fixes
 * Fixed bug where text with large amount of lines where not displayed

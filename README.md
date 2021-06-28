@@ -1,9 +1,9 @@
 # minus
 
-![crates.io](https://img.shields.io/crates/v/minus)
-![docs.rs](https://docs.rs/minus/badge.svg)
-![build](https://github.com/arijit79/minus/workflows/build/badge.svg)
-![Crates.io](https://img.shields.io/crates/l/minus)
+[![crates.io](https://img.shields.io/crates/v/minus)](https://crates.io/crates/minus)
+[![docs.rs](https://docs.rs/minus/badge.svg)](https://docs.rs/minus)
+[![build](https://github.com/arijit79/minus/workflows/build/badge.svg)](https://github.com/arijit79/minus/actions)
+[![Crates.io](https://img.shields.io/crates/l/minus)](https://github.com/arijit79/minus#license)
 
 A fast, asynchronous terminal paging library for Rust. `minus` provides high
 level functionalities to easily write a pager for any terminal application. Due
@@ -44,7 +44,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "^3.1"
+version = "^3.3"
 # For tokio
 features = ["tokio_lib"]
 
@@ -82,7 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let increment = async {
         for i in 0..=30_u32 {
             let mut guard = pager.lock().await;
-			guard.push_str(format!("{}\n", i));
+            writeln!(guard.lines, "{}", i)?;
             drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
@@ -121,7 +121,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let increment = async {
         for i in 0..=30_u32 {
             let mut guard = output.lock().await;
-			guard.push_str(format!("{}\n", i));
+            writeln!(guard.lines, "{}", i)?;
             drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
@@ -150,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut output = Pager::new();
     // Push numbers blockingly
     for i in 0..=30 {
-		guard.push_str(format!("{}\n", i));
+        writeln!(output.lines, "{}", i)?;
     }
     // Run the pager
     minus::page_all(output)?;
@@ -167,34 +167,35 @@ pass the limit.
 ## End user help
 Here is some help for the end user using an application that depends on minus
 
-| Action            |   Description|
-| ----------        | -------------|
-| Ctrl+C/q          | Quit the pager|
-| Arrow Up/k        | Scroll up by one line|
-| Arrow Down/j      | Scroll down by one line|
-| Page Up           | Scroll up by entire page|
-| Page Down         | Scroll down by entire page|
-| g                 | Go to the very top of the output|
-| G                 | Go to the very bottom of the output|
-| Mouse scroll Up   | Scroll up by 5 lines|
-| Mouse scroll Down | Scroll down by 5 lines|
-| Ctrl+L            | Toggle line numbers if not forced enabled/disabled|
-| /		    | Start forward search|
-| ?                 | Start backward search|
-| Esc               | Cancel search input|
-| n		    | Go to the next search match|
-| p		    | Go to the next previous match|
+| Action            | Description                                        |
+| ----------        | -------------                                      |
+| Ctrl+C/q          | Quit the pager                                     |
+| Arrow Up/k        | Scroll up by one line                              |
+| Arrow Down/j      | Scroll down by one line                            |
+| Page Up           | Scroll up by entire page                           |
+| Page Down         | Scroll down by entire page                         |
+| Ctrl+U/u          | Scroll up by half a screen                         |
+| Ctrl+D/d          | Scroll down by half a screen                       |
+| g                 | Go to the very top of the output                   |
+| G                 | Go to the very bottom of the output                |
+| Mouse scroll Up   | Scroll up by 5 lines                               |
+| Mouse scroll Down | Scroll down by 5 lines                             |
+| Ctrl+L            | Toggle line numbers if not forced enabled/disabled |
+| /                 | Start forward search                               |
+| ?                 | Start backward search                              |
+| Esc               | Cancel search input                                |
+| n                 | Go to the next search match                        |
+| p                 | Go to the next previous match                      |
+
+## License
+Unless explicitly stated, all works to `minus` are dual licensed under the
+[MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
 
 ## Contributing
-
-Issues and pull requests are more than welcome. Unless explicitly stated
-otherwise, all works to `minus` are dual licensed under the MIT and Apache
-License 2.0.
-
+Issues and pull requests are more than welcome.
 See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
 
-See the licenses in their respective files at the root of the project.
+## Get in touch
+If you want to discuss something with me regarding minus, the best place is at Matrix
 
-**Sorry I don't get time to currently manage this as I am currently busy working
-on a side project. Although I look here almost daily. I am ready to fix any issues 
-or PRs. I will probably be back to it in a two to three months**
+@arijit079:matrix.org
