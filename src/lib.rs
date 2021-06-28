@@ -402,7 +402,7 @@ impl Pager {
     /// pager.push_exit_callback(Box::new(hello));
     /// pager.exit()
     /// ```
-    pub fn exit(mut self) {
+    pub fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
             func()
         }

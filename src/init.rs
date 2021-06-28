@@ -25,7 +25,7 @@ use std::sync::Arc;
 #[allow(clippy::clippy::too_many_lines)]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     let mut out = io::stdout();
-    setup(&out, false)?;
+    setup(&out, false, pager.run_no_overflow)?;
     #[allow(unused_assignments)]
     let mut redraw = true;
 
@@ -51,7 +51,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // Update any data that may have changed
             #[allow(clippy::clippy::match_same_arms)]
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy)?),
+                Some(InputEvent::Exit) => {
+                    return Ok(cleanup(out, &pager.exit_strategy, pager.run_no_overflow)?)
+                }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
                     pager.rows = r;
                     pager.cols = c;
