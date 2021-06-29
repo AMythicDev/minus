@@ -250,22 +250,6 @@ pub(crate) async fn dynamic_paging(
                         }
                         redraw = true;
                     }
-                    if x.is_none() || y.is_none() {
-                        continue;
-                    }
-                    if usize::from(y.unwrap()) >= lock.upper_mark + rows {
-                        lock.upper_mark = y.unwrap().into();
-                    }
-                    draw(&mut out, &mut lock, rows)?;
-                    y = Some(
-                        y.unwrap()
-                            .saturating_sub(lock.upper_mark.try_into().unwrap()),
-                    );
-
-                    write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
-                    out.flush()?;
-                    // Do not redraw the console
-                    redraw = false;
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if lock.search_term.is_some() => {

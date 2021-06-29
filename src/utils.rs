@@ -7,7 +7,6 @@ use crossterm::{
 };
 
 use std::{convert::TryFrom, io};
-use std::io;
 
 use crate::{
     error::{CleanupError, SetupError},
@@ -36,7 +35,6 @@ pub(crate) fn setup(
     setup_screen: bool,
 ) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
-    let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
     if setup_screen {
         // Check if the standard output is a TTY and not a file or something else but only in dynamic mode

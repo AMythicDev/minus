@@ -64,7 +64,6 @@
 #![warn(clippy::pedantic)]
 
 mod error;
-mod input;
 #[cfg(feature = "search")]
 mod search;
 #[cfg(feature = "static_output")]
@@ -72,25 +71,36 @@ mod static_pager;
 mod utils;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+mod rt_wrappers;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
 pub use error::*;
 
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use std::sync::Arc;
 use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
-#[cfg(feature = "search")]
-pub use utils::SearchMode;
-mod init;
 pub mod input;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub type PagerMutex = Arc<Mutex<Pager>>;
+
+#[cfg(feature = "search")]
+pub use utils::SearchMode;
+
+pub use input::{DefaultInputHandler, InputHandler};
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
+
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use std::sync::Arc;
+
+pub use error::*;
+
+mod init;
+
+pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
@@ -123,38 +133,6 @@ pub type PagerMutex = Arc<Mutex<Pager>>;
 /// }
 ///```
 ///
-=======
-#[cfg(feature = "search")]
-pub use utils::SearchMode;
-
-pub use utils::InputEvent;
-
-pub use input::{DefaultInputHandler, InputHandler};
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
-
-#[cfg(feature = "async_std_lib")]
-pub use {async_std::sync::Mutex, rt_wrappers::async_std_wrapper::async_std_updating};
-#[cfg(feature = "tokio_lib")]
-pub use {rt_wrappers::tokio_wrapper::tokio_updating, tokio::sync::Mutex};
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use std::sync::Arc;
-
-pub use error::*;
-
-pub use utils::LineNumbers;
-mod init;
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub type PagerMutex = Mutex<Pager>;
-
-pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
-
-/// A struct containing basic configurations for the pager. This is used by
-/// all initializing functions
-// #[derive(Clone)]
->>>>>>> main
 pub struct Pager {
     /// The output that is displayed
     /// Represented by a vector of lines where each line is a vector of strings
@@ -209,7 +187,6 @@ impl Pager {
     /// ```
     #[must_use]
     pub fn new() -> Self {
-        let input_handler = Box::new(DefaultInputHandler {});
         Pager {
             lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
@@ -309,15 +286,6 @@ impl Pager {
     /// ```
     pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
         self.exit_strategy = strategy;
-    }
-
-    /// Set the [`InputHandler`] that maps from crossterm input events
-    /// to minuses internal events, this allows custom keybindings
-    ///
-    #[must_use]
-    pub fn set_input_handler(mut self, input_handler: Box<dyn InputHandler + Send + Sync>) -> Self {
-        self.input_handler = input_handler;
-        self
     }
 
     /// Returns the appropriate text for displaying.
@@ -456,37 +424,12 @@ impl Pager {
     /// }
     ///
     /// let mut pager = Pager::new();
-    /// pager.push_exit_callback(Box::new(hello));
+    /// pager.add_exit_callback(Box::new(hello));
     /// ```
-    pub fn push_exit_callback(&mut self, cb: Box<dyn FnMut() + Send + Sync + 'static>) {
+    pub fn add_exit_callback(&mut self, cb: Box<dyn FnMut() + Send + Sync + 'static>) {
         self.exit_callbacks.push(cb);
     }
 
-    /// Indicate to the pager that the data has finished.
-    /// This is currently only used by the async runtimes.
-    pub fn data_finished(&mut self) {
-        self.data_finished = true;
-    }
-
-    /// Indicate to the pager that we want to exit
-    pub fn exit(&mut self) {
-        self.run_exit_callbacks();
-    }
-
-    /// Add a callback to be run when the pager has finished
-    pub fn add_exit_callback<F>(&mut self, callback: F)
-    where
-        F: FnMut() + Send + Sync + 'static,
-    {
-        self.on_exit_callbacks.push(Box::new(callback));
-    }
-
-    /// Run callbacks that want to be run on exit
-    pub fn run_exit_callbacks(&mut self) {
-        for exit_callback in &mut self.on_exit_callbacks {
-            exit_callback();
-        }
-    }
 }
 
 impl std::default::Default for Pager {
