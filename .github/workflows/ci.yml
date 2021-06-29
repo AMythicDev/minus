@@ -16,6 +16,21 @@ jobs:
     - name: Check formatting
       run: cargo fmt --all -- --check
 
+  build:
+    name: build
+    env:
+      RUST_BACKTRACE: 1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build crate (Static Output)
+        run: cargo build --verbose --features=static_output,search
+      - name: Build crate (Tokio)
+        run: cargo build --verbose --features=tokio_lib,search
+      - name: Build crate (Async-std)
+        run: cargo build --verbose --features=async_std_lib,search
+
   test:
     name: test
     env:
@@ -25,26 +40,20 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
-    - name: Build crate (Static Output)
-      run: cargo build --verbose --features=static_output,search
-    - name: Build crate (Tokio)
-      run: cargo build --verbose --features=tokio_lib,search
-    - name: Build crate (Async-std)
-      run: cargo build --verbose --features=async_std_lib,search
-    # This step helps separate buildtime and runtime errors in tests.
-    # Do not build or run doc tests
+      # This step helps separate buildtime and runtime errors in tests.
+      # Do not build or run doc tests
     - name: Build tests (Static Output)
-      run: cargo test --verbose --features=static_output,search --no-run
+      run: cargo test --verbose --features=static_output,search --no-run --lin
     - name: Run Tests (Static Output)
-      run: cargo test --verbose --features=static_output,search
+      run: cargo test --verbose --features=static_output,search --lib
     - name: Build tests (Tokio)
-      run: cargo test --verbose --features=tokio_lib,search --no-run
+      run: cargo test --verbose --features=tokio_lib,search --no-run --lib
     - name: Run Tests (Tokio)
-      run: cargo test --verbose --features=tokio_lib,search
+      run: cargo test --verbose --features=tokio_lib,search --lib
     - name: Build tests (Async-std)
-      run: cargo test --verbose --features=async_std_lib,search --no-run
+      run: cargo test --verbose --features=async_std_lib,search --no-run --lib
     - name: Run Tests (Async-std)
-      run: cargo test --verbose --features=async_std_lib,search
+      run: cargo test --verbose --features=async_std_lib,search --lib
 
   examples:
     name: examples
@@ -64,6 +73,17 @@ jobs:
       run: cargo check --example=static --features=static_output
     - name: Static long
       run: cargo check --example=static_long --features=static_output
+
+  doctests:
+    name: doctests
+    env:
+      RUST_BACKTRACE: 1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Run documentation tests
+        run: cargo test --doc --all-features
 
   lint:
     name: lint
