@@ -1,7 +1,12 @@
 #![allow(clippy::shadow_unrelated)]
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+
 use super::*;
 
-use crate::{LineNumbers, Pager};
+use crate::{
+    input::{DefaultInputHandler, InputHandler},
+    LineNumbers, Pager,
+};
 use std::fmt::Write;
 
 // Available columns in terminal during these tests
@@ -428,3 +433,340 @@ fn draw_help_message() {
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
     assert!(res.contains("minus"));
 }
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn input_handling() {
+    let upper_mark = 12;
+    let ln = LineNumbers::Enabled;
+    let rows = 5;
+
+    let input_handler: Box<dyn InputHandler> = Box::new(DefaultInputHandler {});
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark + 1)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark - 1)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            input_handler.handle_input(
+                ev,
+                usize::MAX,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MIN)),
+            input_handler.handle_input(
+                ev,
+                usize::MIN,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark + 5)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            column: 0,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(upper_mark - 5)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(0)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::PageUp,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            // rows is 5, therefore upper_mark = upper_mark - rows -1
+            Some(InputEvent::UpdateUpperMark(8)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::SHIFT,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::SHIFT,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::PageDown,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            // rows is 5, therefore upper_mark = upper_mark - rows -1
+            Some(InputEvent::UpdateUpperMark(16)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Resize(42, 35);
+        assert_eq!(
+            Some(InputEvent::UpdateRows(35)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('l'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateLineNumber(!ln)),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('q'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::Exit),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('c'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        assert_eq!(
+            Some(InputEvent::Exit),
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('a'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            None,
+            input_handler.handle_input(
+                ev,
+                upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                ln,
+                rows
+            )
+        );
+    }
+}
+#[cfg(feature = "async_std_lib")]
+#[cfg(test)]
+mod async_std_tests {
+    use crate::Pager;
+    use std::sync::atomic::Ordering;
+    use std::sync::{atomic::AtomicBool, Arc};
+    #[test]
+    pub fn test_exit_callback() {
+        let mut pager = Pager::new();
+        let exited = Arc::new(AtomicBool::new(false));
+        let exited_within_callback = exited.clone();
+        pager.add_exit_callback(move || exited_within_callback.store(true, Ordering::Relaxed));
+        pager.exit();
+
+        assert_eq!(true, exited.load(Ordering::Relaxed));
+    }
+}
+>>>>>>> main

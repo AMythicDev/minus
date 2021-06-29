@@ -22,7 +22,7 @@ use std::io::{self, Write as _};
 use std::sync::Arc;
 
 #[cfg(feature = "static_output")]
-#[allow(clippy::clippy::too_many_lines)]
+#[allow(clippy::too_many_lines)]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     let mut out = io::stdout();
     setup(&out, false, pager.run_no_overflow)?;
@@ -49,7 +49,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 pager.rows,
             );
             // Update any data that may have changed
-            #[allow(clippy::clippy::match_same_arms)]
+            #[allow(clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => {
                     return Ok(cleanup(out, &pager.exit_strategy, pager.run_no_overflow)?)
@@ -58,7 +58,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     pager.rows = r;
                     pager.cols = c;
                     pager.readjust_wraps();
-                    redraw = true;
+                    redraw = true
                 }
                 Some(InputEvent::UpdateUpperMark(um)) => {
                     pager.upper_mark = um;
@@ -131,7 +131,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-#[allow(clippy::clippy::too_many_lines)]
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn dynamic_paging(
     p: &Arc<Mutex<Pager>>,
 ) -> std::result::Result<(), AlternateScreenPagingError> {
@@ -191,13 +191,15 @@ pub(crate) async fn dynamic_paging(
                 lock.line_numbers,
                 lock.rows,
             );
-            // Update any data that may have changed
-            #[allow(clippy::clippy::match_same_arms)]
+            #[allow(clippy::match_same_arms)]
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(&mut out, &lock.exit_strategy, true)?),
+                Some(InputEvent::Exit) => {
+                    lock.exit();
+                    return Ok(cleanup(out, &lock.exit_strategy, true)?);
+                }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
-                    lock.rows = r;
                     lock.cols = c;
+                    lock.rows = r;
                     lock.readjust_wraps();
                     redraw = true;
                 }
@@ -248,6 +250,22 @@ pub(crate) async fn dynamic_paging(
                         }
                         redraw = true;
                     }
+                    if x.is_none() || y.is_none() {
+                        continue;
+                    }
+                    if usize::from(y.unwrap()) >= lock.upper_mark + rows {
+                        lock.upper_mark = y.unwrap().into();
+                    }
+                    draw(&mut out, &mut lock, rows)?;
+                    y = Some(
+                        y.unwrap()
+                            .saturating_sub(lock.upper_mark.try_into().unwrap()),
+                    );
+
+                    write!(out, "{}", MoveTo(x.unwrap(), y.unwrap()))?;
+                    out.flush()?;
+                    // Do not redraw the console
+                    redraw = false;
                 }
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if lock.search_term.is_some() => {

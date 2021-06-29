@@ -7,6 +7,7 @@ use crossterm::{
 };
 
 use std::{convert::TryFrom, io};
+use std::io;
 
 use crate::{
     error::{CleanupError, SetupError},
@@ -32,12 +33,13 @@ use crate::search::highlight_line_matches;
 pub(crate) fn setup(
     stdout: &io::Stdout,
     dynamic: bool,
-    setup: bool,
+    setup_screen: bool,
 ) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
+    let (_, rows) = terminal::size().map_err(|e| SetupError::TerminalSize(e.into()))?;
 
-    // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
-    if setup {
+    if setup_screen {
+        // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
         if dynamic {
             use crossterm::tty::IsTty;
 
@@ -47,7 +49,6 @@ pub(crate) fn setup(
                 Err(SetupError::InvalidTerminal)
             }?;
         }
-    }
 
     execute!(out, terminal::EnterAlternateScreen)
         .map_err(|e| SetupError::AlternateScreen(e.into()))?;
@@ -55,6 +56,7 @@ pub(crate) fn setup(
     execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
     execute!(out, event::EnableMouseCapture)
         .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
+    }
     Ok(())
 }
 
@@ -70,9 +72,9 @@ pub(crate) fn setup(
 pub(crate) fn cleanup(
     mut out: impl io::Write,
     es: &crate::ExitStrategy,
-    cleanup: bool,
+    cleanup_screen: bool,
 ) -> std::result::Result<(), CleanupError> {
-    if cleanup {
+    if cleanup_screen {
         // Reverse order of setup.
         execute!(out, event::DisableMouseCapture)
             .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
