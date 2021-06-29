@@ -106,6 +106,7 @@ impl InputHandler for DefaultInputHandler {
         ln: LineNumbers,
         rows: usize,
     ) -> Option<InputEvent> {
+        #[allow(clippy::unnested_or_patterns)]
         match ev {
             // Scroll up by one.
             Event::Key(KeyEvent {

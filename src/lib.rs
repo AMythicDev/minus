@@ -406,7 +406,7 @@ impl Pager {
     /// }
     ///
     /// let mut pager = Pager::new();
-    /// pager.push_exit_callback(Box::new(hello));
+    /// pager.add_exit_callback(Box::new(hello));
     /// pager.exit()
     /// ```
     pub fn exit(&mut self) {
@@ -426,10 +426,9 @@ impl Pager {
     /// let mut pager = Pager::new();
     /// pager.add_exit_callback(Box::new(hello));
     /// ```
-    pub fn add_exit_callback(&mut self, cb: Box<dyn FnMut() + Send + Sync + 'static>) {
-        self.exit_callbacks.push(cb);
+    pub fn add_exit_callback(&mut self, cb: impl FnMut() + Send + Sync + 'static) {
+        self.exit_callbacks.push(Box::new(cb));
     }
-
 }
 
 impl std::default::Default for Pager {

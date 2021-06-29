@@ -169,7 +169,7 @@ pub(crate) async fn dynamic_paging(
             last_line_count = line_count;
         }
 
-        if guard.end_stream && !run_no_overflow && !(line_count > guard.rows) {
+        if guard.end_stream && !run_no_overflow && line_count <= guard.rows {
             guard.exit();
             return Ok(cleanup(out, &guard.exit_strategy, false)?);
         }

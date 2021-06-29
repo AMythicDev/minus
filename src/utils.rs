@@ -48,12 +48,12 @@ pub(crate) fn setup(
             }?;
         }
 
-    execute!(out, terminal::EnterAlternateScreen)
-        .map_err(|e| SetupError::AlternateScreen(e.into()))?;
-    terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
-    execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
-    execute!(out, event::EnableMouseCapture)
-        .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
+        execute!(out, terminal::EnterAlternateScreen)
+            .map_err(|e| SetupError::AlternateScreen(e.into()))?;
+        terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
+        execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
+        execute!(out, event::EnableMouseCapture)
+            .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
     }
     Ok(())
 }
@@ -114,12 +114,11 @@ pub(crate) fn draw(
     out: &mut impl io::Write,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
-    if !pager.run_no_overflow && pager.num_lines() <= pager.rows {
+    if pager.run_no_overflow && pager.num_lines() <= pager.rows {
         return write_lines(out, &mut pager);
     }
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    // There must be one free line for the help message at the bottom.
     write_lines(out, &mut pager)?;
 
     // #[allow(clippy::cast_possible_truncation)]
