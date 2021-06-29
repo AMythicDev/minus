@@ -441,6 +441,6 @@ mod async_std_tests {
         pager.add_exit_callback(move || exited_within_callback.store(true, Ordering::Relaxed));
         pager.exit();
 
-        assert_eq!(true, exited.load(Ordering::Relaxed));
+        assert!(exited.load(Ordering::Relaxed));
     }
 }

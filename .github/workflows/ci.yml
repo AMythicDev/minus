@@ -1,4 +1,4 @@
-name: build
+name: ci
 on:
   pull_request:
   push:
@@ -43,7 +43,7 @@ jobs:
       # This step helps separate buildtime and runtime errors in tests.
       # Do not build or run doc tests
     - name: Build tests (Static Output)
-      run: cargo test --verbose --features=static_output,search --no-run --lin
+      run: cargo test --verbose --features=static_output,search --no-run --lib
     - name: Run Tests (Static Output)
       run: cargo test --verbose --features=static_output,search --lib
     - name: Build tests (Tokio)
