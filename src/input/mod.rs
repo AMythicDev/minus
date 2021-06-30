@@ -7,7 +7,7 @@ use crossterm::{
 };
 
 #[cfg(feature = "search")]
-use super::utils::SearchMode;
+use crate::search::SearchMode;
 use crate::LineNumbers;
 
 /// Events handled by the `minus` pager.

@@ -3,13 +3,12 @@
 #![allow(unused_imports)]
 
 #[cfg(feature = "search")]
-use crate::search;
+use crate::search::{self, SearchMode};
 #[cfg(feature = "search")]
-use crate::utils::SearchMode;
 use crate::{
     error::AlternateScreenPagingError,
     input::InputEvent,
-    utils::{cleanup, draw, setup},
+    utils::{term::{cleanup, setup}, draw},
     Pager,
 };
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]

@@ -1,7 +1,5 @@
 #![allow(unused_imports)]
 use crate::error::AlternateScreenPagingError;
-#[cfg(feature = "search")]
-use crate::utils::SearchMode;
 use crate::Pager;
 use crossterm::{
     cursor::{self, MoveTo},
@@ -11,11 +9,23 @@ use crossterm::{
 };
 use std::{convert::TryFrom, time::Duration};
 
+#[derive(PartialEq, Clone, Copy, Debug)]
+#[cfg(feature = "search")]
+/// Defines modes in which the search can run
+pub enum SearchMode {
+    /// Find matches from or after the current page
+    Forward,
+    /// Find matches before the current page
+    Reverse,
+    /// Don;t know the current search mode
+    Unknown,
+}
+
 /// Fetch the search query asynchronously
 #[cfg(all(feature = "static_output", feature = "search"))]
 pub(crate) fn fetch_input_blocking(
     out: &mut impl std::io::Write,
-    search_mode: crate::utils::SearchMode,
+    search_mode: SearchMode,
     rows: usize,
 ) -> Result<String, AlternateScreenPagingError> {
     // Place the cursor at the beginning of very last line of the terminal and clear
@@ -86,7 +96,7 @@ pub(crate) fn fetch_input_blocking(
 ))]
 pub(crate) async fn fetch_input(
     out: &mut impl std::io::Write,
-    search_mode: crate::utils::SearchMode,
+    search_mode: SearchMode,
     rows: usize,
 ) -> Result<String, AlternateScreenPagingError> {
     #[allow(clippy::cast_possible_truncation)]

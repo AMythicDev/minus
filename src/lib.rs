@@ -81,13 +81,13 @@ pub use error::*;
 pub use input::{DefaultInputHandler, InputHandler};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;
+#[cfg(feature = "search")]
+pub use search::SearchMode;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 use std::io::{self, stdout};
 use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
-#[cfg(feature = "search")]
-pub use utils::SearchMode;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
@@ -440,7 +440,7 @@ pub(crate) fn rewrap_lines(lines: &mut Vec<Vec<String>>, cols: usize) {
 
 /// Rewrap a single line based on the number of columns
 pub(crate) fn rewrap(line: &mut Vec<String>, cols: usize) {
-    *line = textwrap::wrap(&line.join(" "), cols)
+    *line = textwrap::wrap(&line.join(""), cols)
         .iter()
         .map(ToString::to_string)
         .collect();
