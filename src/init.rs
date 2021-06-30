@@ -4,13 +4,17 @@
 
 #[cfg(feature = "search")]
 use crate::search::{self, SearchMode};
-#[cfg(feature = "search")]
+
 use crate::{
     error::AlternateScreenPagingError,
     input::InputEvent,
-    utils::{term::{cleanup, setup}, draw},
+    utils::{
+        draw,
+        term::{cleanup, setup}
+    },
     Pager,
 };
+
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
 use crossterm::{cursor::MoveTo, event, execute};
