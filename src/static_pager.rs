@@ -47,7 +47,7 @@ pub enum PageAllError {
 /// use std::fmt::Write;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mut output = minus::Pager::new();
+///     let mut output = minus::Pager::new().unwrap();
 ///
 ///     for i in 0..=30 {
 ///         output.push_str(format!("{}\n", i));

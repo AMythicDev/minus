@@ -3,7 +3,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = minus::Pager::new().finish();
+    let output = minus::Pager::new().unwrap().finish();
 
     let increment = async {
         for i in 0..=30_u32 {
@@ -12,6 +12,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             drop(output);
             sleep(Duration::from_millis(100)).await;
         }
+        let mut output = output.lock().await;
+        output.end_data_stream();
         Result::<_, std::fmt::Error>::Ok(())
     };
 

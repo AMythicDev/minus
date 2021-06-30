@@ -76,7 +76,8 @@ pub enum InputEvent {
 ///     }
 /// }
 ///
-/// let pager = Pager::new().set_input_handler(
+/// let mut pager = Pager::new().unwrap();
+/// pager.set_input_handler(
 ///                 Box::new(CustomInputHandler)
 ///             );
 /// ```

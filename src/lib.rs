@@ -102,7 +102,7 @@ pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ///     use minus::{Pager, LineNumbers, tokio_updating};
-///     let mut pager = Pager::new();
+///     let mut pager = Pager::new().unwrap();
 ///     pager.set_line_numbers(LineNumbers::AlwaysOn);
 ///     pager.set_prompt("A complex configuration");
 ///
@@ -116,7 +116,7 @@ pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 /// For static output
 ///```rust,no_run
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///      let mut pager = minus::Pager::new();
+///      let mut pager = minus::Pager::new().unwrap();
 ///      pager.set_text("Hello");
 ///      pager.set_prompt("Example");
 ///      minus::page_all(pager)?;
@@ -172,7 +172,7 @@ impl Pager {
     ///
     /// Example
     /// ```
-    /// let pager = minus::Pager::new();
+    /// let pager = minus::Pager::new().unwrap();
     /// ```
     #[must_use]
     pub fn new() -> Result<Self, error::AlternateScreenPagingError> {
@@ -181,13 +181,16 @@ impl Pager {
         use std::io::stdout;
 
         if cfg!(test) {
+            // In tests, set these number of columns to 80 and rows to 10
             cols = 80;
             rows = 10;
         } else if stdout().is_tty() {
+            // If a proper terminal is present, get size and set it
             let size = crossterm::terminal::size()?;
             cols = size.0;
             rows = size.1;
         } else {
+            // For other cases beyond control
             cols = 1;
             rows = 1;
         };
@@ -222,7 +225,7 @@ impl Pager {
     ///
     /// Example
     /// ```
-    /// let mut pager = minus::Pager::new();
+    /// let mut pager = minus::Pager::new().unwrap();
     /// pager.set_text("This is a line");
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
@@ -237,7 +240,8 @@ impl Pager {
     /// ```
     /// use minus::{Pager, LineNumbers};
     ///
-    /// let pager = Pager::new().set_line_numbers(LineNumbers::Enabled);
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_line_numbers(LineNumbers::Enabled);
     /// ```
     pub fn set_line_numbers(&mut self, l: LineNumbers) {
         self.line_numbers = l;
@@ -249,7 +253,7 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.set_prompt("my awesome program");
     /// ```
     pub fn set_prompt(&mut self, t: impl Into<String>) {
@@ -263,7 +267,7 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.set_text("This output is paged");
     /// let _pager_mutex = pager.finish();
     /// ```
@@ -281,7 +285,7 @@ impl Pager {
     /// ```
     /// use minus::{Pager, ExitStrategy};
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.set_exit_strategy(ExitStrategy::ProcessQuit);
     /// ```
     pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
@@ -304,7 +308,7 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.set_run_no_overflow(true);
     /// ```
     pub fn set_run_no_overflow(&mut self, value: bool) {
@@ -317,7 +321,7 @@ impl Pager {
     /// the number of terminal columns
     ///
     /// ```
-    /// let mut pager = minus::Pager::new();
+    /// let mut pager = minus::Pager::new().unwrap();
     /// pager.push_str("This is some text");
     /// ```
     pub fn push_str(&mut self, text: impl Into<String>) {
@@ -335,7 +339,7 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.set_text("Hello from minus!");
     /// pager.end_data_stream();
     /// ```
@@ -376,7 +380,7 @@ impl Pager {
     ///     println!("Hello");
     /// }
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.add_exit_callback(Box::new(hello));
     /// pager.exit()
     /// ```
@@ -394,7 +398,7 @@ impl Pager {
     ///     println!("Hello");
     /// }
     ///
-    /// let mut pager = Pager::new();
+    /// let mut pager = Pager::new().unwrap();
     /// pager.add_exit_callback(Box::new(hello));
     /// ```
     pub fn add_exit_callback(&mut self, cb: impl FnMut() + Send + Sync + 'static) {

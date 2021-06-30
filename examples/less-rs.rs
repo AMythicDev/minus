@@ -49,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the filename
     let filename = arguments[1].clone();
     // Initialize the configuration
-    let mut output = minus::Pager::new();
+    let mut output = minus::Pager::new().unwrap();
     output.set_prompt(&filename);
     read_file(filename, output.finish()).await
 }
