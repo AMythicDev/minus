@@ -10,7 +10,7 @@ use crate::{
     input::InputEvent,
     utils::{
         draw,
-        term::{cleanup, setup}
+        term::{cleanup, setup},
     },
     Pager,
 };
