@@ -69,37 +69,28 @@ mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
 mod utils;
-
+pub mod input;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub use rt_wrappers::*;
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use async_mutex::Mutex;
-pub use error::*;
-
-use std::{iter::Flatten, string::ToString, vec::IntoIter};
-pub use utils::LineNumbers;
-pub mod input;
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub type PagerMutex = Arc<Mutex<Pager>>;
-
-#[cfg(feature = "search")]
-pub use utils::SearchMode;
-
-pub use input::{DefaultInputHandler, InputHandler};
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use std::sync::Arc;
-
-pub use error::*;
-
 mod init;
 
+
+pub use error::*;
+pub use input::{DefaultInputHandler, InputHandler};
+use std::{iter::Flatten, string::ToString, vec::IntoIter};
+pub use utils::LineNumbers;
+#[cfg(feature = "search")]
+pub use utils::SearchMode;
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub use rt_wrappers::*;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use async_mutex::Mutex;
+use std::io;
+
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 /// A struct containing basic configurations for the pager. This is used by
@@ -137,15 +128,13 @@ pub struct Pager {
     /// The output that is displayed
     /// Represented by a vector of lines where each line is a vector of strings
     /// split up on the basis of terminal width
-    lines: Vec<Vec<String>>,
+    wrap_lines: Vec<Vec<String>>,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
     prompt: String,
-    /// Is the pager running
-    running: bool,
-    // Text which may have come that may be unwraped
-    unwraped_text: String,
+    /// Text which may have come through writeln that is unwraped
+    lines: String,
     /// The input handler to be called when a input is found
     input_handler: Box<dyn input::InputHandler + Sync + Send>,
     /// Functions to run when the pager quits
@@ -186,18 +175,33 @@ impl Pager {
     /// let pager = minus::Pager::new();
     /// ```
     #[must_use]
-    pub fn new() -> Self {
-        Pager {
-            lines: Vec::new(),
+    pub fn new() -> Result<Self, error::AlternateScreenPagingError> {
+        let (rows, cols);
+        use crossterm::tty::IsTty;
+        use std::io::stdout;
+
+        if cfg!(test) {
+            cols = 80;
+            rows = 10;
+        } else if stdout().is_tty() {
+            let size = crossterm::terminal::size()?;
+            cols = size.0;
+            rows = size.1;
+        } else {
+            cols = 1;
+            rows = 1;
+        };
+
+        Ok(Pager {
+            wrap_lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
-            running: false,
-            unwraped_text: String::new(),
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
             run_no_overflow: false,
+            lines: String::new(),
             end_stream: false,
             #[cfg(feature = "search")]
             search_term: None,
@@ -206,9 +210,9 @@ impl Pager {
             #[cfg(feature = "search")]
             search_idx: Vec::new(),
             // Just to be safe in tests, keep at 1x1 size
-            cols: 1,
-            rows: 1,
-        }
+            cols: cols as usize,
+            rows: rows as usize,
+        })
     }
 
     /// Set the output text to this `t`
@@ -222,13 +226,9 @@ impl Pager {
     /// pager.set_text("This is a line");
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
-        if self.running {
-            let text: String = text.into();
-            // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
-            self.lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
-        } else {
-            self.unwraped_text = text.into();
-        }
+        let text: String = text.into();
+        // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
+        self.wrap_lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
     }
 
     /// Set line number to this setting
@@ -270,7 +270,7 @@ impl Pager {
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
     pub fn finish(self) -> PagerMutex {
-        Arc::new(Mutex::new(self))
+        std::sync::Arc::new(Mutex::new(self))
     }
 
     /// Set the default exit strategy.
@@ -293,7 +293,7 @@ impl Pager {
     /// Nrmally it will return `self.lines`
     /// In case of a search, `self.search_lines` is returned
     pub(crate) fn get_lines(&self) -> Vec<Vec<String>> {
-        self.lines.clone()
+        self.wrap_lines.clone()
     }
 
     /// Set whether to display pager if there's less data than
@@ -322,12 +322,8 @@ impl Pager {
     /// ```
     pub fn push_str(&mut self, text: impl Into<String>) {
         let text: String = text.into();
-        if self.running {
             text.lines()
-                .for_each(|l| self.lines.push(wrap_str(l, self.cols)));
-        } else {
-            self.unwraped_text.push_str(&text);
-        }
+                .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
     }
 
     /// Tells the running pager that no more data is coming
@@ -346,35 +342,10 @@ impl Pager {
     pub fn end_data_stream(&mut self) {
         self.end_stream = true;
     }
-    /// Prepare the terminal
-    ///
-    /// Sets the rows and columns of the terminal inside the pager.
-    /// Also prepares any unwraped text that might have come before running
-    ///
-    /// # Panics
-    /// This function panics if te pager is already running  
-    pub(crate) fn prepare(&mut self) -> Result<(), error::AlternateScreenPagingError> {
-        let (cols, rows) = crossterm::terminal::size().map_err(|e| {
-            error::AlternateScreenPagingError::HandleEvent(error::TermError::from(e))
-        })?;
-        self.cols = cols.into();
-        self.rows = rows.into();
-        if self.running {
-            panic!("prepare() called after the pager is started to run")
-        } else {
-            self.running = true;
-            self.lines = self
-                .unwraped_text
-                .lines()
-                .map(|l| wrap_str(l, self.cols))
-                .collect();
-        }
-        Ok(())
-    }
 
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
-        rewrap_lines(&mut self.lines, self.cols)
+        rewrap_lines(&mut self.wrap_lines, self.cols)
     }
 
     /// Returns all the text by flattening them into a single vector of strings
@@ -433,7 +404,7 @@ impl Pager {
 
 impl std::default::Default for Pager {
     fn default() -> Self {
-        Pager::new()
+        Pager::new().unwrap()
     }
 }
 
@@ -478,3 +449,48 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
         .map(ToString::to_string)
         .collect::<Vec<String>>()
 }
+
+impl io::Write for Pager {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let string = String::from_utf8_lossy(buf);
+        self.lines.push_str(&string);
+        if string.ends_with("\n") {
+            self.flush()?;
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        for line in self.lines.lines() {
+            self.wrap_lines.push(wrap_str(line, self.cols))
+        }
+        self.lines.clear();
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Pager;
+    use std::io::Write;
+
+    #[test]
+    fn test_writeln() {
+        const TEST: &str = "This is a line";
+        let mut pager = Pager::new().unwrap();
+        writeln!(pager, "{}", TEST).unwrap();
+        assert_eq!(pager.wrap_lines, vec![vec![TEST]]);
+        assert_eq!(&pager.lines, "");
+    }
+
+    #[test]
+    fn test_write() {
+        const TEST: &str = "This is a line";
+        let mut pager = Pager::new().unwrap();
+        write!(pager, "{}", TEST).unwrap();
+        let res: Vec<Vec<String>> = Vec::new();
+        assert_eq!(pager.wrap_lines, res);
+        assert_eq!(&pager.lines, TEST);
+    }
+}
+// TODO: Write some more tests

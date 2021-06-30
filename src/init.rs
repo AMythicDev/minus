@@ -137,10 +137,9 @@ pub(crate) async fn dynamic_paging(
 ) -> std::result::Result<(), AlternateScreenPagingError> {
     // Setup terminal, adjust line wraps and get rows
     let mut out = io::stdout();
-    let mut guard = p.lock().await;
+    let guard = p.lock().await;
     let run_no_overflow = guard.run_no_overflow;
     setup(&out, true, run_no_overflow)?;
-    guard.prepare()?;
     drop(guard);
     // Search related variables
     // Vector of match coordinates
@@ -159,7 +158,7 @@ pub(crate) async fn dynamic_paging(
 
         // Display the text continously if last displayed line count is not same and
         // all rows are not filled
-        let line_count = guard.lines.len();
+        let line_count = guard.num_lines();
         let have_just_overflowed = (last_line_count < guard.rows) && (line_count >= guard.rows);
         if have_just_overflowed && !run_no_overflow {
             setup(&out, true, true)?;

@@ -59,9 +59,8 @@ pub enum PageAllError {
 /// ```
 pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
     // Setup terminal
-    p.prepare()?;
     let stdout = io::stdout();
-    let line_count = p.lines.len();
+    let line_count = p.num_lines();
 
     // If stdout is not a tty, print all the output without paging
     // then print it and exit the function.
