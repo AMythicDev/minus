@@ -309,5 +309,5 @@ fn annotate_line_numbers(
     lines.iter().flatten().map(ToOwned::to_owned).collect()
 }
 
- #[cfg(test)]
- mod tests;
+#[cfg(test)]
+mod tests;

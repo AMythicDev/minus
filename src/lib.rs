@@ -64,30 +64,30 @@
 #![warn(clippy::pedantic)]
 
 mod error;
+mod init;
+pub mod input;
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+mod rt_wrappers;
 #[cfg(feature = "search")]
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
 mod utils;
-pub mod input;
+
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-mod rt_wrappers;
-mod init;
-
-
+use async_mutex::Mutex;
+use crossterm::{terminal, tty::IsTty};
 pub use error::*;
 pub use input::{DefaultInputHandler, InputHandler};
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub use rt_wrappers::*;
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
+use std::io::{self, stdout};
 use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 #[cfg(feature = "search")]
 pub use utils::SearchMode;
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub use rt_wrappers::*;
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use async_mutex::Mutex;
-use std::io;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
@@ -170,15 +170,15 @@ pub struct Pager {
 impl Pager {
     /// Initialize a new pager configuration
     ///
-    /// Example
+    /// ## Errors
+    /// This function will return an error if it cannot determine the terminal size
+    ///
+    /// # Example
     /// ```
     /// let pager = minus::Pager::new().unwrap();
     /// ```
-    #[must_use]
     pub fn new() -> Result<Self, error::AlternateScreenPagingError> {
         let (rows, cols);
-        use crossterm::tty::IsTty;
-        use std::io::stdout;
 
         if cfg!(test) {
             // In tests, set these number of columns to 80 and rows to 10
@@ -186,7 +186,7 @@ impl Pager {
             rows = 10;
         } else if stdout().is_tty() {
             // If a proper terminal is present, get size and set it
-            let size = crossterm::terminal::size()?;
+            let size = terminal::size()?;
             cols = size.0;
             rows = size.1;
         } else {
@@ -326,8 +326,8 @@ impl Pager {
     /// ```
     pub fn push_str(&mut self, text: impl Into<String>) {
         let text: String = text.into();
-            text.lines()
-                .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
+        text.lines()
+            .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
     }
 
     /// Tells the running pager that no more data is coming
@@ -458,7 +458,7 @@ impl io::Write for Pager {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         let string = String::from_utf8_lossy(buf);
         self.lines.push_str(&string);
-        if string.ends_with("\n") {
+        if string.ends_with('\n') {
             self.flush()?;
         }
         Ok(buf.len())
@@ -474,27 +474,4 @@ impl io::Write for Pager {
 }
 
 #[cfg(test)]
-mod tests {
-    use crate::Pager;
-    use std::io::Write;
-
-    #[test]
-    fn test_writeln() {
-        const TEST: &str = "This is a line";
-        let mut pager = Pager::new().unwrap();
-        writeln!(pager, "{}", TEST).unwrap();
-        assert_eq!(pager.wrap_lines, vec![vec![TEST]]);
-        assert_eq!(&pager.lines, "");
-    }
-
-    #[test]
-    fn test_write() {
-        const TEST: &str = "This is a line";
-        let mut pager = Pager::new().unwrap();
-        write!(pager, "{}", TEST).unwrap();
-        let res: Vec<Vec<String>> = Vec::new();
-        assert_eq!(pager.wrap_lines, res);
-        assert_eq!(&pager.lines, TEST);
-    }
-}
-// TODO: Write some more tests
+mod tests;

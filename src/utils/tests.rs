@@ -395,21 +395,3 @@ fn draw_help_message() {
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
     assert!(res.contains("minus"));
 }
-
-#[cfg(feature = "async_std_lib")]
-#[cfg(test)]
-mod async_std_tests {
-    use crate::Pager;
-    use std::sync::atomic::Ordering;
-    use std::sync::{atomic::AtomicBool, Arc};
-    #[test]
-    pub fn test_exit_callback() {
-        let mut pager = Pager::new();
-        let exited = Arc::new(AtomicBool::new(false));
-        let exited_within_callback = exited.clone();
-        pager.add_exit_callback(move || exited_within_callback.store(true, Ordering::Relaxed));
-        pager.exit();
-
-        assert!(exited.load(Ordering::Relaxed));
-    }
-}
