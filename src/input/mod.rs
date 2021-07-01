@@ -56,7 +56,7 @@ pub enum InputEvent {
 ///         &self,
 ///         ev: Event,
 ///         upper_mark: usize,
-///         // A `search_mode` parameter is available, if `search` feature is enabled
+///         // This `search_mode` parameter is available, only if `search` feature is enabled
 #[cfg_attr(feature = "search", doc = "        search_mode: SearchMode,")]
 ///         ln: LineNumbers,
 ///         rows: usize

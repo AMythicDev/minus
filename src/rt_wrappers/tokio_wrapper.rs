@@ -51,6 +51,7 @@ use super::{run, AlternateScreenPagingError, PagerMutex};
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
+#[cfg_attr(docsrs, doc(cfg(feature = "tokio_lib")))]
 pub async fn tokio_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
     tokio::task::spawn(run(pager)).await?
 }

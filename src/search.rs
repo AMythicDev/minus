@@ -10,6 +10,7 @@ use crossterm::{
 use std::{convert::TryFrom, time::Duration};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
+#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 #[cfg(feature = "search")]
 /// Defines modes in which the search can run
 pub enum SearchMode {

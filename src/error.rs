@@ -21,6 +21,7 @@ pub struct TermError(
 #[error(transparent)]
 #[allow(clippy::module_name_repetitions)]
 #[cfg(feature = "search")]
+#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 pub struct RegexError(
     // This member is private to avoid leaking the regex error type up the
     // dependency chain.
@@ -88,10 +89,12 @@ pub enum AlternateScreenPagingError {
 
     #[error(transparent)]
     #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
     SearchExpError(#[from] RegexError),
 
     #[cfg(feature = "tokio_lib")]
     #[error(transparent)]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tokio_lib")))]
     JoinError(#[from] tokio::task::JoinError),
 }
 

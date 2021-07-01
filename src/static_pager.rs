@@ -57,6 +57,7 @@ pub enum PageAllError {
 ///     Ok(())
 /// }
 /// ```
+#[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
 pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
     // Setup terminal
     let stdout = io::stdout();

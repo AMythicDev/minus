@@ -1,3 +1,5 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
 //! A fast, asynchronous terminal paging library for Rust. `minus` provides high
 //! level functionalities to easily write a pager for any terminal application.
 //! Due to the asynchronous nature of `minus`, the pager's data can be
@@ -88,6 +90,10 @@ use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "tokio_lib", feature = "async_std_lib")))
+)]
 /// A convinience tyoe for `std::sync::Arc<async_mutex::Mutex<Pager>>`
 pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
 /// A convinience type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
@@ -273,6 +279,10 @@ impl Pager {
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+    #[cfg_attr(
+        docsrs,
+        doc(cfg(any(feature = "tokio_lib", feature = "async_std_lib")))
+    )]
     pub fn finish(self) -> PagerMutex {
         std::sync::Arc::new(Mutex::new(self))
     }
@@ -384,7 +394,7 @@ impl Pager {
     /// pager.add_exit_callback(Box::new(hello));
     /// pager.exit()
     /// ```
-    pub fn exit(&mut self) {
+    pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
             func()
         }

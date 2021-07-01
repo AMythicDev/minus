@@ -51,6 +51,7 @@ use super::{run, AlternateScreenPagingError, PagerMutex};
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "async_std_lib")]
+#[cfg_attr(docsrs, doc(cfg(feature = "async_std_lib")))]
 pub async fn async_std_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
     async_std::task::spawn(run(pager)).await
 }
