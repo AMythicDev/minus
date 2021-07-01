@@ -380,20 +380,7 @@ impl Pager {
         self.input_handler = handler;
     }
 
-    /// Run the exit callbacks
-    ///
-    /// Example
-    /// ```
-    /// use minus::Pager;
-    ///
-    /// fn hello() {
-    ///     println!("Hello");
-    /// }
-    ///
-    /// let mut pager = Pager::new().unwrap();
-    /// pager.add_exit_callback(Box::new(hello));
-    /// pager.exit()
-    /// ```
+    // Runs the exit callbacks
     pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
             func()
