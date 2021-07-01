@@ -63,7 +63,7 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
-mod error;
+pub mod error;
 mod init;
 pub mod input;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
@@ -73,12 +73,10 @@ mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
 mod utils;
-
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
 use crossterm::{terminal, tty::IsTty};
-pub use error::*;
-pub use input::{DefaultInputHandler, InputHandler};
+use error::*;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;
 #[cfg(feature = "search")]
@@ -90,7 +88,9 @@ use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+/// A convinience tyoe for `std::sync::Arc<async_mutex::Mutex<Pager>>`
 pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
+/// A convinience type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 /// A struct containing basic configurations for the pager. This is used by

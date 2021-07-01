@@ -1,3 +1,8 @@
+//! Provides error types that are used in various places
+//!
+//! Some types provided are just present there to avoid leaking
+//! upstream error types
+
 /// An operation on the terminal failed, for example resizing it.
 ///
 /// You can get more informations about this error by calling

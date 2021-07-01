@@ -7,12 +7,12 @@ use crate::init;
 use crate::PagerMutex;
 
 #[cfg(feature = "async_std_lib")]
-pub mod async_std_wrapper;
+mod async_std_wrapper;
 #[cfg(feature = "async_std_lib")]
 pub use async_std_wrapper::async_std_updating;
 
 #[cfg(feature = "tokio_lib")]
-pub mod tokio_wrapper;
+mod tokio_wrapper;
 #[cfg(feature = "tokio_lib")]
 pub use tokio_wrapper::tokio_updating;
 
