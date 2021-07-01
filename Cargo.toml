@@ -11,7 +11,7 @@ keywords = ["pager", "asynchronous", "dynamic", "less", "more"]
 categories = ["Text processing", "Command-line interface", "Asynchronous"]
 
 [package.metadata.docs.rs]
-features = ["static_output", "async_std_lib", "search"]
+all-features = true
 
 [dependencies]
 async-std = { version = "^1", optional = true, default-features = false }
