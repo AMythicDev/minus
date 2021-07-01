@@ -44,7 +44,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "^3.3"
+version = "^4.0.0.alpha1"
 # For tokio
 features = ["tokio_lib"]
 
@@ -59,7 +59,6 @@ features = ["search"]
 ```
 
 ## Examples
-
 All examples are available in the `examples` directory and you can run them
 using `cargo`. Remember to set the correct feature for the targeted example
 (e.g.: `cargo run --example=dyn_tokio --features=tokio_lib`).
@@ -76,16 +75,22 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default dynamic configuration
-    let pager = minus::Pager::new().finish();
+    let pager = minus::Pager::new().unwrap().finish();
 
     // Asynchronously push numbers to the output
     let increment = async {
         for i in 0..=30_u32 {
             let mut guard = pager.lock().await;
-            writeln!(guard.lines, "{}", i)?;
+            writeln!(guard, "{}", i)?;
+            // Also you can use this syntax
+            // guard.push_str(&format("{}", i));
             drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
+        // Dynamic paging should hint the pager that it's stream of data has
+        // ended
+        let mut guard.lock().await;
+        guard.end_data_stream();
         // Return an Ok result
         Result::<_, std::fmt::Error>::Ok(())
     };
@@ -115,16 +120,22 @@ use std::time::Duration;
 #[async_std::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default dynamic configuration
-    let pager = minus::Pager::new().finish();
+    let pager = minus::Pager::new().unwrap().finish();
 
     // Asynchronously push numbers to the output
     let increment = async {
         for i in 0..=30_u32 {
-            let mut guard = output.lock().await;
-            writeln!(guard.lines, "{}", i)?;
+            let mut guard = pager.lock().await;
+            writeln!(guard, "{}", i)?;
+            // Also you can use this syntax
+            // guard.push_str(&format("{}", i));
             drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
+        // Dynamic paging should hint the pager that it's stream of data has
+        // ended
+        let mut guard.lock().await;
+        guard.end_data_stream();
         // Return an Ok result
         Result::<_, std::fmt::Error>::Ok(())
     };
@@ -147,10 +158,10 @@ use std::fmt::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default static configuration
-    let mut output = Pager::new();
+    let mut output = Pager::new().unwrap();
     // Push numbers blockingly
     for i in 0..=30 {
-        writeln!(output.lines, "{}", i)?;
+        writeln!(output, "{}", i)?;
     }
     // Run the pager
     minus::page_all(output)?;
