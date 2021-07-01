@@ -11,18 +11,19 @@
 use async_std::io::prelude::*;
 use futures::future::join;
 use std::env::args;
-use std::sync::Arc;
 
 // async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {
 async fn read_file(
     name: String,
-    pager: Arc<minus::PagerMutex>,
+    pager: minus::PagerMutex,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let file = async_std::fs::File::open(name).await?;
     let changes = async {
+        let mut buff = String::new();
         let mut buf_reader = async_std::io::BufReader::new(file);
+        buf_reader.read_to_string(&mut buff).await?;
         let mut guard = pager.lock().await;
-        buf_reader.read_to_string(&mut guard.lines).await?;
+        guard.push_str(buff);
         std::io::Result::<_>::Ok(())
     };
 
@@ -48,6 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the filename
     let filename = arguments[1].clone();
     // Initialize the configuration
-    let output = minus::Pager::new().set_prompt(&filename).finish();
-    read_file(filename, output).await
+    let mut output = minus::Pager::new().unwrap();
+    output.set_prompt(&filename);
+    read_file(filename, output.finish()).await
 }

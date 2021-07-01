@@ -3,7 +3,6 @@ use crate::{init, utils};
 
 use crate::error::AlternateScreenPagingError;
 use crate::Pager;
-use crossterm::terminal;
 use crossterm::tty::IsTty;
 use std::io::{self, Write};
 
@@ -48,10 +47,10 @@ pub enum PageAllError {
 /// use std::fmt::Write;
 ///
 /// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mut output = minus::Pager::new();
+///     let mut output = minus::Pager::new().unwrap();
 ///
 ///     for i in 0..=30 {
-///         writeln!(output.lines, "{}", i)?;
+///         output.push_str(format!("{}\n", i));
 ///     }
 ///
 ///     minus::page_all(output)?;
@@ -59,28 +58,26 @@ pub enum PageAllError {
 /// }
 /// ```
 pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
+    // Setup terminal
     let stdout = io::stdout();
-    let line_count = p.lines.lines().count();
+    let line_count = p.num_lines();
 
     // If stdout is not a tty, print all the output without paging
     // then print it and exit the function.
     {
         if !stdout.is_tty() {
             let mut out = stdout.lock();
-            utils::write_lines(&mut out, &mut p, line_count)?;
+            utils::write_lines(&mut out, &mut p)?;
             out.flush()?;
             return Ok(());
         }
     }
 
     {
-        let (_, rows) = terminal::size().map_err(PageAllError::TerminalSize)?;
-        let rows = rows as usize;
-
         // If the number of lines in the output is less than the number of rows
-        if !p.page_if_havent_overflowed && rows > line_count {
+        if !p.run_no_overflow && p.rows > line_count {
             let mut out = stdout.lock();
-            utils::write_lines(&mut out, &mut p, line_count)?;
+            utils::write_lines(&mut out, &mut p)?;
             out.flush()?;
         } else {
             init::static_paging(p)?;

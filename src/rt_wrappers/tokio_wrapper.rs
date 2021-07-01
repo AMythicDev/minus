@@ -1,4 +1,4 @@
-use super::{run, AlternateScreenPagingError, Arc, PagerMutex};
+use super::{run, AlternateScreenPagingError, PagerMutex};
 
 /// Run the pager inside a [`tokio task`](tokio::task).
 ///
@@ -28,12 +28,12 @@ use super::{run, AlternateScreenPagingError, Arc, PagerMutex};
 
 /// #[tokio::main]
 /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///    let output = minus::Pager::new().finish();
+///    let output = minus::Pager::new().unwrap().finish();
 ///
 ///    let increment = async {
 ///         for i in 0..=30_u32 {
 ///             let mut output = output.lock().await;
-///             writeln!(output.lines, "{}", i)?;
+///             output.push_str(&format!("{}", i));
 ///             drop(output);
 ///             sleep(Duration::from_millis(100)).await;
 ///          }
@@ -51,6 +51,6 @@ use super::{run, AlternateScreenPagingError, Arc, PagerMutex};
 /// will cause the paging thread to be paused. Only borrow it when it is
 /// required and drop it if you have further asynchronous blocking code.**
 #[cfg(feature = "tokio_lib")]
-pub async fn tokio_updating(pager: Arc<PagerMutex>) -> Result<(), AlternateScreenPagingError> {
+pub async fn tokio_updating(pager: PagerMutex) -> Result<(), AlternateScreenPagingError> {
     tokio::task::spawn(run(pager)).await?
 }

@@ -63,176 +63,203 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
-#[cfg(all(feature = "tokio_lib", feature = "async_std_lib"))]
-compile_error!("Only tokio, or async_std_lib can be enabled at a time");
-
 mod error;
-mod input;
+mod init;
+pub mod input;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 mod rt_wrappers;
-// #[cfg(feature = "search")]
+#[cfg(feature = "search")]
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
 mod utils;
 
-#[cfg(feature = "search")]
-pub use utils::SearchMode;
-
-pub use utils::InputEvent;
-
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+use async_mutex::Mutex;
+use crossterm::{terminal, tty::IsTty};
+pub use error::*;
 pub use input::{DefaultInputHandler, InputHandler};
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
+pub use rt_wrappers::*;
+#[cfg(feature = "search")]
+pub use search::SearchMode;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
-
-#[cfg(feature = "async_std_lib")]
-pub use {async_std::sync::Mutex, rt_wrappers::async_std_wrapper::async_std_updating};
-#[cfg(feature = "tokio_lib")]
-pub use {rt_wrappers::tokio_wrapper::tokio_updating, tokio::sync::Mutex};
-
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use std::sync::Arc;
-
-pub use error::*;
-
+use std::io::{self, stdout};
+use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
-mod init;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-pub type PagerMutex = Mutex<Pager>;
-
+pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
-// #[derive(Clone)]
+///
+/// ## Example
+/// You can use any async runtime, but we are taking the example of [`tokio`]
+///```rust,no_run
+/// #[tokio::main]
+/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     use minus::{Pager, LineNumbers, tokio_updating};
+///     let mut pager = Pager::new().unwrap();
+///     pager.set_line_numbers(LineNumbers::AlwaysOn);
+///     pager.set_prompt("A complex configuration");
+///
+///     // Normally, you would use `futures::join` to join the pager and the text
+///     // updating function. We are doing this here to make the example simple
+///     tokio_updating(pager.finish()).await?;
+///     Ok(())
+/// }
+///```
+///
+/// For static output
+///```rust,no_run
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///      let mut pager = minus::Pager::new().unwrap();
+///      pager.set_text("Hello");
+///      pager.set_prompt("Example");
+///      minus::page_all(pager)?;
+///      Ok(())
+/// }
+///```
+///
 pub struct Pager {
     /// The output that is displayed
-    pub lines: String,
+    /// Represented by a vector of lines where each line is a vector of strings
+    /// split up on the basis of terminal width
+    wrap_lines: Vec<Vec<String>>,
     /// Configuration for line numbers. See [`LineNumbers`]
-    line_numbers: LineNumbers,
+    pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
-    pub prompt: String,
-    // has all the data been sent to the pager
-    pub data_finished: bool,
-    // trait which will handle mapping crossterm input, into minus events
-    pub input_handler: Box<dyn InputHandler + Send + Sync>,
-    // callbacks which will be called when we finish
-    on_exit_callbacks: ExitCallbacks,
+    prompt: String,
+    /// Text which may have come through writeln that is unwraped
+    lines: String,
+    /// The input handler to be called when a input is found
+    input_handler: Box<dyn input::InputHandler + Sync + Send>,
+    /// Functions to run when the pager quits
+    exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
+    /// Whether the coming data is ended
+    ///
+    /// Applications should strictly call [Pager::end_data_stream()] once their stream
+    /// of data to the pager is ended.
+    end_stream: bool,
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
-    upper_mark: usize,
-    /// Do we want to actually page if we dont have more than a screen of output
-    page_if_havent_overflowed: bool,
-    /// Tells whether the searching is possible inside the pager
-    ///
-    /// This is a candidate for deprecation. If you want to enable search, enable the
-    /// `search` feature. This is because this dosen't really give any major benifits
-    /// since `regex` and all related functions are already compiled
-    searchable: bool,
+    pub(crate) upper_mark: usize,
+    /// Do we want to page if there;s no overflow
+    pub(crate) run_no_overflow: bool,
     /// Stores the most recent search term
     #[cfg(feature = "search")]
-    search_term: String,
-    /// A temporary space to store modifications to the lines string
+    search_term: Option<regex::Regex>,
+    // Direction of search
     #[cfg(feature = "search")]
-    search_lines: String,
+    search_mode: SearchMode,
+    /// Lines where searches have a match
+    #[cfg(feature = "search")]
+    pub(crate) search_idx: Vec<u16>,
+    /// Rows of the terminal
+    pub(crate) rows: usize,
+    /// Columns of the terminal
+    pub(crate) cols: usize,
 }
 
 impl Pager {
     /// Initialize a new pager configuration
     ///
-    /// Example
+    /// ## Errors
+    /// This function will return an error if it cannot determine the terminal size
+    ///
+    /// # Example
     /// ```
-    /// let pager = minus::Pager::new();
+    /// let pager = minus::Pager::new().unwrap();
     /// ```
-    #[must_use]
-    pub fn new() -> Self {
-        let input_handler = Box::new(DefaultInputHandler {});
-        Pager {
-            lines: String::new(),
+    pub fn new() -> Result<Self, error::AlternateScreenPagingError> {
+        let (rows, cols);
+
+        if cfg!(test) {
+            // In tests, set these number of columns to 80 and rows to 10
+            cols = 80;
+            rows = 10;
+        } else if stdout().is_tty() {
+            // If a proper terminal is present, get size and set it
+            let size = terminal::size()?;
+            cols = size.0;
+            rows = size.1;
+        } else {
+            // For other cases beyond control
+            cols = 1;
+            rows = 1;
+        };
+
+        Ok(Pager {
+            wrap_lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: "minus".to_string(),
             exit_strategy: ExitStrategy::ProcessQuit,
-            data_finished: false,
-            on_exit_callbacks: Vec::new(),
-            page_if_havent_overflowed: true,
-            input_handler,
-            searchable: true,
+            input_handler: Box::new(input::DefaultInputHandler {}),
+            exit_callbacks: Vec::new(),
+            run_no_overflow: false,
+            lines: String::new(),
+            end_stream: false,
             #[cfg(feature = "search")]
-            search_term: String::new(),
+            search_term: None,
             #[cfg(feature = "search")]
-            search_lines: String::new(),
-        }
+            search_mode: SearchMode::Unknown,
+            #[cfg(feature = "search")]
+            search_idx: Vec::new(),
+            // Just to be safe in tests, keep at 1x1 size
+            cols: cols as usize,
+            rows: rows as usize,
+        })
     }
 
     /// Set the output text to this `t`
+    ///
+    /// Note that unlike [`Pager::push_str`], this replaces the original text.
+    /// If you want to append text, use the [`Pager::push_str`] function
+    ///
     /// Example
     /// ```
-    /// let pager = minus::Pager::new().set_text("This is a line");
+    /// let mut pager = minus::Pager::new().unwrap();
+    /// pager.set_text("This is a line");
     /// ```
-    pub fn set_text(mut self, t: impl Into<String>) -> Self {
-        self.lines = t.into();
-        self
+    pub fn set_text(&mut self, text: impl Into<String>) {
+        let text: String = text.into();
+        // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
+        self.wrap_lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
     }
+
     /// Set line number to this setting
     ///
     /// Example
     /// ```
     /// use minus::{Pager, LineNumbers};
     ///
-    /// let pager = Pager::new().set_line_numbers(LineNumbers::Enabled);
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_line_numbers(LineNumbers::Enabled);
     /// ```
-    #[must_use]
-    pub fn set_line_numbers(mut self, l: LineNumbers) -> Self {
+    pub fn set_line_numbers(&mut self, l: LineNumbers) {
         self.line_numbers = l;
-        self
     }
+
     /// Set the prompt displayed at the prompt to `t`
     ///
     /// Example
     /// ```
     /// use minus::Pager;
     ///
-    /// let pager = Pager::new().set_prompt("my awesome program");
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_prompt("my awesome program");
     /// ```
-    pub fn set_prompt(mut self, t: impl Into<String>) -> Self {
+    pub fn set_prompt(&mut self, t: impl Into<String>) {
         self.prompt = t.into();
-        self
     }
-    /// Sets whether searching is possible inside the pager. Default s set to true
-    ///
-    /// Example
-    /// ```
-    /// use minus::Pager;
-    ///
-    /// let pager = Pager::new().set_searchable(false);
-    /// ```
-    ///
-    /// This is a candidate for deprecation. If you want to enable search, enable the
-    /// `search` feature. This is because this dosen't really give any major benifits
-    /// since `regex` and all related functions are already compiled
-    #[must_use]
-    pub fn set_searchable(mut self, s: bool) -> Self {
-        self.searchable = s;
-        self
-    }
-    /// Sets whether the pager actually blocks UI if our data is finished, and we havent overflowed the page
-    ///
-    /// Example
-    /// ```
-    /// use minus::Pager;
-    ///
-    /// let pager = Pager::new().set_page_if_havent_overflowed(false);
-    /// ```
-    #[must_use]
-    pub fn set_page_if_havent_overflowed(mut self, p: bool) -> Self {
-        self.page_if_havent_overflowed = p;
-        self
-    }
+
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
     /// `async_std_lib` feature
     ///
@@ -240,77 +267,148 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// let pager = Pager::new().set_text("This output is paged").finish();
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_text("This output is paged");
+    /// let _pager_mutex = pager.finish();
     /// ```
     #[must_use]
     #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-    pub fn finish(self) -> Arc<PagerMutex> {
-        Arc::new(PagerMutex::new(self))
-    }
-    /// Set the default exit strategy.
-    ///
-    /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`
-    /// See [`ExitStrategy`] for available options
-    #[must_use]
-    pub fn set_exit_strategy(mut self, strategy: ExitStrategy) -> Self {
-        self.exit_strategy = strategy;
-        self
+    pub fn finish(self) -> PagerMutex {
+        std::sync::Arc::new(Mutex::new(self))
     }
 
-    /// Set the [`InputHandler`] that maps from crossterm input events
-    /// to minuses internal events, this allows custom keybindings
+    /// Set the default exit strategy.
     ///
-    #[must_use]
-    pub fn set_input_handler(mut self, input_handler: Box<dyn InputHandler + Send + Sync>) -> Self {
-        self.input_handler = input_handler;
-        self
+    /// This controls how the pager will behave when the user presses `q` or `Ctrl+C`.
+    /// See [`ExitStrategy`] for available options
+    ///
+    /// ```
+    /// use minus::{Pager, ExitStrategy};
+    ///
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_exit_strategy(ExitStrategy::ProcessQuit);
+    /// ```
+    pub fn set_exit_strategy(&mut self, strategy: ExitStrategy) {
+        self.exit_strategy = strategy;
     }
 
     /// Returns the appropriate text for displaying.
     ///
     /// Nrmally it will return `self.lines`
-    /// In case a search, `self.search_lines` is returned
-    pub(crate) fn get_lines(&self) -> String {
-        #[cfg(feature = "search")]
-        if self.search_term.is_empty() {
-            self.lines.clone()
-        } else {
-            self.search_lines.clone()
-        }
-        #[cfg(not(feature = "search"))]
-        self.lines.clone()
+    /// In case of a search, `self.search_lines` is returned
+    pub(crate) fn get_lines(&self) -> Vec<Vec<String>> {
+        self.wrap_lines.clone()
     }
 
-    /// Indicate to the pager that the data has finished.
-    /// This is currently only used by the async runtimes.
-    pub fn data_finished(&mut self) {
-        self.data_finished = true;
+    /// Set whether to display pager if there's less data than
+    /// available screen height
+    ///
+    /// By default this is set to false
+    ///
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_run_no_overflow(true);
+    /// ```
+    pub fn set_run_no_overflow(&mut self, value: bool) {
+        self.run_no_overflow = value;
     }
 
-    /// Indicate to the pager that we want to exit
+    /// Appends text to the pager output
+    ///
+    /// This function will automatically split the lines, if they overflow
+    /// the number of terminal columns
+    ///
+    /// ```
+    /// let mut pager = minus::Pager::new().unwrap();
+    /// pager.push_str("This is some text");
+    /// ```
+    pub fn push_str(&mut self, text: impl Into<String>) {
+        let text: String = text.into();
+        text.lines()
+            .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
+    }
+
+    /// Tells the running pager that no more data is coming
+    ///
+    /// Note that after this function is called, any call to [`Pager::set_text()`] or
+    /// [`Pager::push_str()`] will panic
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.set_text("Hello from minus!");
+    /// pager.end_data_stream();
+    /// ```
+    pub fn end_data_stream(&mut self) {
+        self.end_stream = true;
+    }
+
+    /// Readjust the text to new terminal size
+    pub(crate) fn readjust_wraps(&mut self) {
+        rewrap_lines(&mut self.wrap_lines, self.cols)
+    }
+
+    /// Returns all the text by flattening them into a single vector of strings
+    pub(crate) fn get_flattened_lines(&self) -> Flatten<IntoIter<Vec<String>>> {
+        self.get_lines().into_iter().flatten()
+    }
+
+    /// Returns the number of lines the [`Pager`] currently holds
+    pub(crate) fn num_lines(&self) -> usize {
+        self.get_flattened_lines().count()
+    }
+
+    /// Set custom input handler function
+    ///
+    /// See example in [`InputHandler`](input::InputHandler) on using this
+    /// function
+    pub fn set_input_handler(&mut self, handler: Box<dyn input::InputHandler + Send + Sync>) {
+        self.input_handler = handler;
+    }
+
+    /// Run the exit callbacks
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// fn hello() {
+    ///     println!("Hello");
+    /// }
+    ///
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.add_exit_callback(Box::new(hello));
+    /// pager.exit()
+    /// ```
     pub fn exit(&mut self) {
-        self.run_exit_callbacks();
-    }
-
-    /// Add a callback to be run when the pager has finished
-    pub fn add_exit_callback<F>(&mut self, callback: F)
-    where
-        F: FnMut() + Send + Sync + 'static,
-    {
-        self.on_exit_callbacks.push(Box::new(callback));
-    }
-
-    /// Run callbacks that want to be run on exit
-    pub fn run_exit_callbacks(&mut self) {
-        for exit_callback in &mut self.on_exit_callbacks {
-            exit_callback();
+        for func in &mut self.exit_callbacks {
+            func()
         }
+    }
+
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// fn hello() {
+    ///     println!("Hello");
+    /// }
+    ///
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.add_exit_callback(Box::new(hello));
+    /// ```
+    pub fn add_exit_callback(&mut self, cb: impl FnMut() + Send + Sync + 'static) {
+        self.exit_callbacks.push(Box::new(cb));
     }
 }
 
 impl std::default::Default for Pager {
     fn default() -> Self {
-        Pager::new()
+        Pager::new().unwrap()
     }
 }
 
@@ -332,3 +430,48 @@ pub enum ExitStrategy {
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
 }
+
+/// Rewrap already wrapped vector of lines based on the number of columns
+pub(crate) fn rewrap_lines(lines: &mut Vec<Vec<String>>, cols: usize) {
+    for line in lines {
+        rewrap(line, cols);
+    }
+}
+
+/// Rewrap a single line based on the number of columns
+pub(crate) fn rewrap(line: &mut Vec<String>, cols: usize) {
+    *line = textwrap::wrap(&line.join(""), cols)
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+}
+
+/// Wrap a line of string into a `Vec<String>` based on the number of columns
+pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
+    textwrap::wrap(line, cols)
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<String>>()
+}
+
+impl io::Write for Pager {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        let string = String::from_utf8_lossy(buf);
+        self.lines.push_str(&string);
+        if string.ends_with('\n') {
+            self.flush()?;
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        for line in self.lines.lines() {
+            self.wrap_lines.push(wrap_str(line, self.cols))
+        }
+        self.lines.clear();
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests;

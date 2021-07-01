@@ -195,6 +195,16 @@ Unless explicitly stated, all works to `minus` are dual licensed under the
 Issues and pull requests are more than welcome.
 See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
 
+## Thanks
+Thank you to everyone here for giving there time and contribution to `minus`
+* @rezural
+* @poliorcetics
+* @danieleades
+* @mark-a
+* @mkatychev
+* @tomstoneham
+* @Hardy7cc
+
 ## Get in touch
 If you want to discuss something with me regarding minus, the best place is at Matrix
 

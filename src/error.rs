@@ -78,6 +78,9 @@ pub enum AlternateScreenPagingError {
     #[error("Failed to handle terminal event")]
     HandleEvent(TermError),
 
+    #[error("Failed to do an operation on the cursor")]
+    Cursor(#[from] TermError),
+
     #[error(transparent)]
     #[cfg(feature = "search")]
     SearchExpError(#[from] RegexError),
@@ -85,4 +88,12 @@ pub enum AlternateScreenPagingError {
     #[cfg(feature = "tokio_lib")]
     #[error(transparent)]
     JoinError(#[from] tokio::task::JoinError),
+}
+
+// Just for  convinience helper which is useful in many places
+#[cfg(feature = "search")]
+impl From<regex::Error> for AlternateScreenPagingError {
+    fn from(e: regex::Error) -> Self {
+        Self::SearchExpError(RegexError::from(e))
+    }
 }
