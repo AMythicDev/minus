@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/minus)](https://crates.io/crates/minus)
 [![docs.rs](https://docs.rs/minus/badge.svg)](https://docs.rs/minus)
-[![build](https://github.com/arijit79/minus/workflows/build/badge.svg)](https://github.com/arijit79/minus/actions)
+[![ci](https://github.com/arijit79/minus/actions/workflows/ci.yml/badge.svg)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/l/minus)](https://github.com/arijit79/minus#license)
 
 A fast, asynchronous terminal paging library for Rust. `minus` provides high
