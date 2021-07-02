@@ -12,6 +12,7 @@ categories = ["Text processing", "Command-line interface", "Asynchronous"]
 
 [package.metadata.docs.rs]
 all-features = true
+rustc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 async-std = { version = "^1", optional = true, default-features = false }
@@ -55,4 +56,8 @@ required-features = ["static_output"]
 
 [[example]]
 name = "large_lines"
+required-features = ["static_output"]
+
+[[example]]
+name = "color-output"
 required-features = ["static_output"]

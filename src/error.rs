@@ -3,6 +3,10 @@
 //! Some types provided are just present there to avoid leaking
 //! upstream error types
 
+#[cfg(feature = "static_output")]
+#[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
+pub use crate::static_pager::PageAllError;
+
 /// An operation on the terminal failed, for example resizing it.
 ///
 /// You can get more informations about this error by calling
