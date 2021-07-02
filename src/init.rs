@@ -55,7 +55,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             #[allow(clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => {
-                    return Ok(cleanup(out, &pager.exit_strategy, !pager.run_no_overflow)?)
+                    return Ok(cleanup(out, &pager.exit_strategy, true)?)
                 }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
                     pager.rows = r;
@@ -163,7 +163,7 @@ pub(crate) async fn dynamic_paging(
         // all rows are not filled
         let line_count = guard.num_lines();
         let have_just_overflowed = (last_line_count < guard.rows) && (line_count >= guard.rows);
-        if have_just_overflowed && !run_no_overflow {
+        if have_just_overflowed && run_no_overflow {
             setup(&out, true, true)?;
         }
         if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed) {
@@ -171,7 +171,7 @@ pub(crate) async fn dynamic_paging(
             last_line_count = line_count;
         }
 
-        if guard.end_stream && !run_no_overflow && line_count <= guard.rows {
+        if guard.end_stream && run_no_overflow && line_count <= guard.rows {
             guard.exit();
             return Ok(cleanup(out, &guard.exit_strategy, false)?);
         }
