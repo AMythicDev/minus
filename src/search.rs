@@ -177,3 +177,15 @@ pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
         *line = query.replace_all(line, text).to_string();
     }
 }
+
+#[cfg(feature = "search")]
+pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
+    while let Some(y) = pager.search_idx.get(*s_mark) {
+        if usize::from(*y) < pager.upper_mark {
+            *s_mark += 1;
+        } else {
+            pager.upper_mark = *y as usize;
+            break;
+        }
+    }
+}

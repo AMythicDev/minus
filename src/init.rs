@@ -82,7 +82,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     if !string.is_empty() {
                         pager.search_term = Some(regex::Regex::new(&string)?);
                         search::highlight_search(&mut pager);
+                        dbg!(&pager.upper_mark);
                     }
+                        search::next_match(&mut pager, &mut s_mark);
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
@@ -93,14 +95,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         s_mark += 1;
                     }
                     if pager.search_idx.len() > s_mark {
-                        while let Some(y) = pager.search_idx.get(s_mark) {
-                            if usize::from(*y) < pager.upper_mark {
-                                s_mark += 1;
-                            } else {
-                                pager.upper_mark = (*y).into();
-                                break;
-                            }
-                        }
+                        search::next_match(&mut pager, &mut s_mark);
                         redraw = true;
                     }
                 }
@@ -225,6 +220,7 @@ pub(crate) async fn dynamic_paging(
                         lock.search_term = Some(regex::Regex::new(&string)?);
                         search::highlight_search(&mut lock);
                     }
+                        search::next_match(&mut lock, &mut s_mark);
                     // Update the search term
                     redraw = true;
                 }
@@ -238,19 +234,7 @@ pub(crate) async fn dynamic_paging(
                         s_mark += 1;
                     }
                     if lock.search_idx.len() > s_mark {
-                        // Get the search line
-                        while let Some(y) = lock.search_idx.get(s_mark) {
-                            // If the line is already paged down by the user
-                            // move for the next line
-                            if usize::from(*y) < lock.upper_mark {
-                                s_mark += 1;
-                            } else {
-                                // If the line is at the lower position than the top line
-                                // make it the next top line
-                                lock.upper_mark = (*y).into();
-                                break;
-                            }
-                        }
+                        search::next_match(&mut lock, &mut s_mark);
                         redraw = true;
                     }
                 }
