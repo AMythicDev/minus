@@ -169,8 +169,9 @@ pub(crate) fn highlight_search(pager: &mut Pager) {
 
 #[cfg(feature = "search")]
 pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
+    use crossterm::style::Stylize;
     if let Some(cap) = query.captures(line) {
-        let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::Reset);
+        let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::NoReverse);
         let text = text.as_str();
         *line = query.replace_all(&line, text).to_string();
     }
