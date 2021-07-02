@@ -54,12 +54,15 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // Update any data that may have changed
             #[allow(clippy::match_same_arms)]
             match input {
-                Some(InputEvent::Exit) => return Ok(cleanup(out, &pager.exit_strategy, true)?),
+                Some(InputEvent::Exit) => {
+                    pager.exit();
+                    return Ok(cleanup(out, &pager.exit_strategy, true)?);
+                }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
                     pager.rows = r;
                     pager.cols = c;
                     pager.readjust_wraps();
-                    redraw = true
+                    redraw = true;
                 }
                 Some(InputEvent::UpdateUpperMark(um)) => {
                     pager.upper_mark = um;

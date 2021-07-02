@@ -5,6 +5,8 @@
 
 #[cfg(feature = "static_output")]
 #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
+#[allow(clippy::module_name_repetitions)]
+#[allow(clippy::useless_attribute)]
 pub use crate::static_pager::PageAllError;
 
 /// An operation on the terminal failed, for example resizing it.

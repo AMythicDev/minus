@@ -78,7 +78,7 @@ mod utils;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use async_mutex::Mutex;
 use crossterm::{terminal, tty::IsTty};
-use error::*;
+use error::AlternateScreenPagingError;
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 pub use rt_wrappers::*;
 #[cfg(feature = "search")]
@@ -359,7 +359,7 @@ impl Pager {
 
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
-        rewrap_lines(&mut self.wrap_lines, self.cols)
+        rewrap_lines(&mut self.wrap_lines, self.cols);
     }
 
     /// Returns all the text by flattening them into a single vector of strings
@@ -383,7 +383,7 @@ impl Pager {
     // Runs the exit callbacks
     pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
-            func()
+            func();
         }
     }
 
@@ -463,7 +463,7 @@ impl io::Write for Pager {
 
     fn flush(&mut self) -> io::Result<()> {
         for line in self.lines.lines() {
-            self.wrap_lines.push(wrap_str(line, self.cols))
+            self.wrap_lines.push(wrap_str(line, self.cols));
         }
         self.lines.clear();
         Ok(())

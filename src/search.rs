@@ -12,6 +12,7 @@ use std::{convert::TryFrom, time::Duration};
 #[derive(PartialEq, Clone, Copy, Debug)]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 #[cfg(feature = "search")]
+#[allow(clippy::module_name_repetitions)]
 /// Defines modes in which the search can run
 pub enum SearchMode {
     /// Find matches from or after the current page
@@ -161,7 +162,7 @@ pub(crate) fn highlight_search(pager: &mut Pager) {
 
     for (idx, line) in pager.get_flattened_lines().enumerate() {
         if pattern.is_match(&(*line).to_string()) {
-            coordinates.push(u16::try_from(idx).unwrap())
+            coordinates.push(u16::try_from(idx).unwrap());
         }
     }
     pager.search_idx = coordinates;
@@ -173,6 +174,6 @@ pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
     if let Some(cap) = query.captures(line) {
         let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::NoReverse);
         let text = text.as_str();
-        *line = query.replace_all(&line, text).to_string();
+        *line = query.replace_all(line, text).to_string();
     }
 }

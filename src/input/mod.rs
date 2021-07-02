@@ -182,11 +182,11 @@ impl InputHandler for DefaultInputHandler {
                 upper_mark.saturating_sub(rows - 1),
             )),
             Event::Key(KeyEvent {
-                code: KeyCode::PageDown,
+                code: c,
                 modifiers: KeyModifiers::NONE,
-            }) => Some(InputEvent::UpdateUpperMark(
-                upper_mark.saturating_add(rows - 1),
-            )),
+            }) if c == KeyCode::Down || c == KeyCode::Char(' ') => Some(
+                InputEvent::UpdateUpperMark(upper_mark.saturating_add(rows - 1)),
+            ),
 
             // Resize event from the terminal.
             Event::Resize(cols, rows) => {
