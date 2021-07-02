@@ -55,7 +55,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             #[allow(clippy::match_same_arms)]
             match input {
                 Some(InputEvent::Exit) => {
-                    return Ok(cleanup(out, &pager.exit_strategy, pager.run_no_overflow)?)
+                    return Ok(cleanup(out, &pager.exit_strategy, !pager.run_no_overflow)?)
                 }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
                     pager.rows = r;
