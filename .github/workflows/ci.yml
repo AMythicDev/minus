@@ -54,6 +54,10 @@ jobs:
       run: cargo test --verbose --features=async_std_lib,search --no-run --lib
     - name: Run Tests (Async-std)
       run: cargo test --verbose --features=async_std_lib,search --lib
+    - name: Build tests (Search-only)
+      run: cargo test --verbose --features=search --no-run --lib
+    - name: Run Tests (Search-only)
+      run: cargo test --verbose --features=search --lib
 
   examples:
     name: examples
@@ -73,6 +77,12 @@ jobs:
       run: cargo check --example=static --features=static_output
     - name: Static long
       run: cargo check --example=static_long --features=static_output
+    - name: Less-rs
+      run: cargo check --example=less-rs --features=static_output
+    - name: Color output
+      run: cargo check --example=color-output --features=static_output
+    - name: Large Lines
+      run: cargo check --example=large_lines --features=static_output
 
   doctests:
     name: doctests

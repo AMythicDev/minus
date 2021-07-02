@@ -73,6 +73,7 @@ pub(crate) fn fetch_input_blocking(
                     code: KeyCode::Enter,
                     modifiers: KeyModifiers::NONE,
                 }) => {
+                    write!(out, "{}", cursor::Hide)?;
                     // Return the string when enter is pressed
                     return Ok(string);
                 }
@@ -181,11 +182,69 @@ pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
 #[cfg(feature = "search")]
 pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
     while let Some(y) = pager.search_idx.get(*s_mark) {
-        if usize::from(*y) < pager.upper_mark {
+        if usize::from(*y) <= pager.upper_mark {
             *s_mark += 1;
         } else {
             pager.upper_mark = *y as usize;
             break;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{highlight_line_matches, next_match, highlight_search};
+    use crate::Pager;
+    use crossterm::style::Attribute;
+    use regex::Regex;
+
+    #[test]
+    fn test_next_match() {
+        let mut pager = Pager::new().unwrap();
+        let mut s_mark = 0;
+        // A sample index for mocking actual search index matches
+        pager.search_idx = vec![2, 10, 15, 17, 50];
+        for i in &pager.search_idx.clone() {
+            next_match(&mut pager, &mut s_mark);
+            dbg!(pager.upper_mark);
+            assert_eq!(pager.upper_mark, *i as usize);
+        }
+    }
+
+    #[test]
+    fn test_highlight_matches() {
+        let mut line = "Integer placerat tristique nisl. placerat non mollis, magna orci dolor, placerat at vulputate neque nulla lacinia eros.".to_string();
+        let pat = Regex::new(r"\W\w+t\W").unwrap();
+        let result = format!(
+            "Integer{inverse} placerat {noinverse}tristique nisl.\
+{inverse} placerat {noinverse}non mollis, magna orci dolor,\
+{inverse} placerat {noinverse}at vulputate neque nulla lacinia \
+eros.",
+            inverse = Attribute::Reverse,
+            noinverse = Attribute::NoReverse
+        );
+
+        highlight_line_matches(&mut line, &pat);
+        assert_eq!(line, result);
+    }
+
+    #[test]
+    fn test_highlight_search() {
+        let mut pager = Pager::new().unwrap();
+
+        pager.set_text("\
+Fusce suscipit, wisi nec facilisis facilisis, est dui fermentum leo, quis tempor ligula 
+erat quis odio.  Nunc porta vulputate tellus.  Nunc rutrum turpis sed pede.  Sed 
+bibendum.  Aliquam posuere.  Nunc aliquet, augue nec adipiscing interdum, lacus tellus 
+malesuada massa, quis varius mi purus non odio.  Pellentesque condimentum, magna ut 
+suscipit hendrerit, ipsum augue ornare nulla, non luctus diam neque sit amet urna.  
+Curabitur vulputate vestibulum lorem.  Fusce sagittis, libero non molestie mollis, magna 
+orci ultrices dolor, at vulputate neque nulla lacinia eros.  Sed id ligula quis est 
+convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien.");
+
+        pager.search_term = Some(Regex::new(r"\Wa\w+\W").unwrap());
+        let res = vec![3, 7, 11];
+        highlight_search(&mut pager);
+        assert_eq!(pager.search_idx, res);
     }
 }

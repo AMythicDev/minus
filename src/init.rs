@@ -84,7 +84,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         search::highlight_search(&mut pager);
                         dbg!(&pager.upper_mark);
                     }
-                        search::next_match(&mut pager, &mut s_mark);
+                    search::next_match(&mut pager, &mut s_mark);
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
@@ -220,7 +220,7 @@ pub(crate) async fn dynamic_paging(
                         lock.search_term = Some(regex::Regex::new(&string)?);
                         search::highlight_search(&mut lock);
                     }
-                        search::next_match(&mut lock, &mut s_mark);
+                    search::next_match(&mut lock, &mut s_mark);
                     // Update the search term
                     redraw = true;
                 }
