@@ -6,7 +6,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output = minus::Pager::new().unwrap().finish();
 
     let increment = async {
-        for i in 0..=30_u32 {
+        for i in 0..=100_u32 {
             let mut output = output.lock().await;
             output.push_str(format!("{}\n", i));
             drop(output);

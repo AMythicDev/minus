@@ -1,5 +1,5 @@
 // Terminal functions
-// Contains functions for dealing with setup, cleanup, getting size
+// Contains functions for dealing with setup, cleanup
 
 use crate::error::{CleanupError, SetupError};
 use crossterm::{cursor, event, execute, terminal};
