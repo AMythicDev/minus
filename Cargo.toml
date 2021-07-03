@@ -61,3 +61,7 @@ required-features = ["static_output"]
 [[example]]
 name = "color-output"
 required-features = ["static_output"]
+
+[[example]]
+name = "tokio-no-overflow"
+required-features = ["tokio_lib"]

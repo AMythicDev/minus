@@ -22,7 +22,7 @@ fn test_write() {
     assert_eq!(&pager.lines, TEST);
 }
 
-#[cfg(feature = "tokio_lib")]
+#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 #[test]
 fn test_exit_callback() {
     let mut pager = Pager::new().unwrap();
