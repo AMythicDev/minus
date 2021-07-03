@@ -193,7 +193,7 @@ pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::{highlight_line_matches, next_match, highlight_search};
+    use super::{highlight_line_matches, highlight_search, next_match};
     use crate::Pager;
     use crossterm::style::Attribute;
     use regex::Regex;
@@ -232,7 +232,8 @@ eros.",
     fn test_highlight_search() {
         let mut pager = Pager::new().unwrap();
 
-        pager.set_text("\
+        pager.set_text(
+            "\
 Fusce suscipit, wisi nec facilisis facilisis, est dui fermentum leo, quis tempor ligula 
 erat quis odio.  Nunc porta vulputate tellus.  Nunc rutrum turpis sed pede.  Sed 
 bibendum.  Aliquam posuere.  Nunc aliquet, augue nec adipiscing interdum, lacus tellus 
@@ -240,7 +241,8 @@ malesuada massa, quis varius mi purus non odio.  Pellentesque condimentum, magna
 suscipit hendrerit, ipsum augue ornare nulla, non luctus diam neque sit amet urna.  
 Curabitur vulputate vestibulum lorem.  Fusce sagittis, libero non molestie mollis, magna 
 orci ultrices dolor, at vulputate neque nulla lacinia eros.  Sed id ligula quis est 
-convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien.");
+convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien.",
+        );
 
         pager.search_term = Some(Regex::new(r"\Wa\w+\W").unwrap());
         let res = vec![3, 7, 11];

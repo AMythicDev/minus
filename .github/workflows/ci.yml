@@ -78,7 +78,7 @@ jobs:
     - name: Static long
       run: cargo check --example=static_long --features=static_output
     - name: Less-rs
-      run: cargo check --example=less-rs --features=static_output
+      run: cargo check --example=less-rs --features=async_std_lib
     - name: Color output
       run: cargo check --example=color-output --features=static_output
     - name: Large Lines
