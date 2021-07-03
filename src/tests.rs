@@ -1,5 +1,5 @@
 use super::{rewrap, wrap_str, Pager};
-use std::io::Write;
+use std::fmt::Write;
 use std::sync::atomic::Ordering;
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -9,7 +9,6 @@ fn test_writeln() {
     let mut pager = Pager::new().unwrap();
     writeln!(pager, "{}", TEST).unwrap();
     assert_eq!(pager.wrap_lines, vec![vec![TEST]]);
-    assert_eq!(&pager.lines, "");
 }
 
 #[test]
@@ -17,9 +16,30 @@ fn test_write() {
     const TEST: &str = "This is a line";
     let mut pager = Pager::new().unwrap();
     write!(pager, "{}", TEST).unwrap();
-    let res: Vec<Vec<String>> = Vec::new();
-    assert_eq!(pager.wrap_lines, res);
-    assert_eq!(&pager.lines, TEST);
+    assert_eq!(pager.wrap_lines, vec![vec![TEST.to_string()]]);
+}
+
+#[test]
+fn test_sequential_write() {
+    const TEXT1: &str = "This is a line.";
+    const TEXT2: &str = " This is a follow up line";
+    let mut pager = Pager::new().unwrap();
+    write!(pager, "{}", TEXT1).unwrap();
+    write!(pager, "{}", TEXT2).unwrap();
+    assert_eq!(pager.wrap_lines, vec![vec![format!("{}{}", TEXT1, TEXT2)]]);
+}
+
+#[test]
+fn test_sequential_writeln() {
+    const TEXT1: &str = "This is a line.";
+    const TEXT2: &str = " This is a follow up line";
+    let mut pager = Pager::new().unwrap();
+    writeln!(pager, "{}", TEXT1).unwrap();
+    writeln!(pager, "{}", TEXT2).unwrap();
+    assert_eq!(
+        pager.wrap_lines,
+        vec![vec![TEXT1.to_string()], vec![TEXT2.to_string()]]
+    );
 }
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]

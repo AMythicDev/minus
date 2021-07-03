@@ -1,6 +1,6 @@
 use futures::join;
 use minus::{tokio_updating, Pager};
-use std::io::Write;
+use std::fmt::Write;
 use std::time::Duration;
 use tokio::time::sleep;
 
@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let mut output = pager.lock().await;
         output.end_data_stream();
-        Result::<_, std::io::Error>::Ok(())
+        Result::<_, std::fmt::Error>::Ok(())
     };
     let (res1, res2) = join!(tokio_updating(pager.clone()), incrementor);
     res1?;

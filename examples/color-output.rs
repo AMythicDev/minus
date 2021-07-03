@@ -1,6 +1,6 @@
 use crossterm::style::{Color, ResetColor, SetForegroundColor};
 use minus::{page_all, Pager};
-use std::io::Write;
+use std::fmt::Write;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut pager = Pager::new()?;

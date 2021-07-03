@@ -85,7 +85,7 @@ pub use rt_wrappers::*;
 pub use search::SearchMode;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
-use std::io::{self, stdout};
+use std::{fmt, io::stdout};
 use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 
@@ -338,6 +338,9 @@ impl Pager {
         let text: String = text.into();
         text.lines()
             .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
+        if self.wrap_lines.last() == Some(&vec![String::new()]) {
+            self.wrap_lines.pop();
+        }
     }
 
     /// Tells the running pager that no more data is coming
@@ -451,21 +454,9 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-impl io::Write for Pager {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let string = String::from_utf8_lossy(buf);
-        self.lines.push_str(&string);
-        if string.ends_with('\n') {
-            self.flush()?;
-        }
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        for line in self.lines.lines() {
-            self.wrap_lines.push(wrap_str(line, self.cols));
-        }
-        self.lines.clear();
+impl fmt::Write for Pager {
+    fn write_str(&mut self, string: &str) -> fmt::Result {
+        self.push_str(string);
         Ok(())
     }
 }
