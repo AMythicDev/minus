@@ -44,7 +44,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "^4.0.0.alpha3"
+version = "4.0.0.alpha4"
 # For tokio
 features = ["tokio_lib"]
 
