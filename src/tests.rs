@@ -3,6 +3,7 @@ use std::fmt::Write;
 use std::sync::atomic::Ordering;
 use std::sync::{atomic::AtomicBool, Arc};
 
+// Test the implementation of std::fmt::Write on Pager
 #[test]
 fn test_writeln() {
     const TEST: &str = "This is a line";
@@ -16,7 +17,9 @@ fn test_write() {
     const TEST: &str = "This is a line";
     let mut pager = Pager::new().unwrap();
     write!(pager, "{}", TEST).unwrap();
-    assert_eq!(pager.wrap_lines, vec![vec![TEST.to_string()]]);
+    let res: Vec<Vec<String>> = Vec::new();
+    assert_eq!(pager.wrap_lines, res);
+    assert_eq!(pager.lines, TEST.to_string())
 }
 
 #[test]
@@ -26,7 +29,9 @@ fn test_sequential_write() {
     let mut pager = Pager::new().unwrap();
     write!(pager, "{}", TEXT1).unwrap();
     write!(pager, "{}", TEXT2).unwrap();
-    assert_eq!(pager.wrap_lines, vec![vec![format!("{}{}", TEXT1, TEXT2)]]);
+    let res: Vec<Vec<String>> = Vec::new();
+    assert_eq!(pager.wrap_lines, res);
+    assert_eq!(pager.lines, TEXT1.to_string() + TEXT2)
 }
 
 #[test]
@@ -42,6 +47,22 @@ fn test_sequential_writeln() {
     );
 }
 
+#[test]
+fn test_floating_newline_write() {
+    const TEST: &str = "This is a line with a bunch of\nin between\nbut not at the end";
+    let mut pager = Pager::new().unwrap();
+    write!(pager, "{}", TEST).unwrap();
+    assert_eq!(
+        pager.wrap_lines,
+        vec![
+            vec!["This is a line with a bunch of".to_string()],
+            vec!["in between".to_string()]
+        ]
+    );
+    assert_eq!(pager.lines, "but not at the end".to_string());
+}
+
+// Test exit callbacks function
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 #[test]
 fn test_exit_callback() {
@@ -54,6 +75,7 @@ fn test_exit_callback() {
     assert!(exited.load(Ordering::Relaxed));
 }
 
+// Test wrapping functions
 #[test]
 fn test_wrap_str() {
     let test = {

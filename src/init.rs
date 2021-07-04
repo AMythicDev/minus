@@ -141,7 +141,6 @@ pub(crate) async fn dynamic_paging(
     setup(&out, true, !run_no_overflow)?;
     drop(guard);
     // Search related variables
-    // Vector of match coordinates
 
     // A marker of which element of s_co we are currently at
     #[cfg(feature = "search")]

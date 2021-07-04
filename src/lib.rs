@@ -338,9 +338,6 @@ impl Pager {
         let text: String = text.into();
         text.lines()
             .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
-        if self.wrap_lines.last() == Some(&vec![String::new()]) {
-            self.wrap_lines.pop();
-        }
     }
 
     /// Tells the running pager that no more data is coming
@@ -456,7 +453,29 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
 
 impl fmt::Write for Pager {
     fn write_str(&mut self, string: &str) -> fmt::Result {
-        self.push_str(string);
+        if string.ends_with('\n') {
+            self.wrap_lines.append(
+                &mut self
+                    .lines
+                    .lines()
+                    .map(|l| wrap_str(l, self.cols))
+                    .collect::<Vec<Vec<String>>>(),
+            );
+            self.lines.clear();
+        } else if string.contains('\n') {
+            let mut lines = string.lines().collect::<Vec<&str>>();
+            let line_count = lines.len();
+            let push_lines = &mut lines[0..line_count - 1];
+            self.wrap_lines.append(
+                &mut push_lines
+                    .iter()
+                    .map(|l| wrap_str(l, self.cols))
+                    .collect::<Vec<Vec<String>>>(),
+            );
+            self.lines.push_str(lines[line_count - 1]);
+        } else {
+            self.lines.push_str(string);
+        }
         Ok(())
     }
 }
