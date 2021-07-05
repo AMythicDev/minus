@@ -1,7 +1,4 @@
-use crate::{
-    input::{InputEvent, InputHandler},
-    LineNumbers, Pager, SearchMode,
-};
+use crate::{input::InputEvent, LineNumbers, Pager, SearchMode};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 // Just a transparent function to fix incompatiblity issues between
@@ -15,11 +12,10 @@ fn handle_input(ev: Event, p: &Pager) -> Option<InputEvent> {
 #[test]
 #[allow(clippy::too_many_lines)]
 fn input_handling() {
-    let mut pager = Pager::new();
+    let mut pager = Pager::new().unwrap();
     pager.upper_mark = 12;
     pager.set_line_numbers(LineNumbers::Enabled);
     pager.rows = 5;
-    pager.running = true;
 
     {
         let ev = Event::Key(KeyEvent {
@@ -49,11 +45,10 @@ fn input_handling() {
             modifiers: KeyModifiers::NONE,
         });
         // Pager for local use
-        let mut pager = Pager::new();
+        let mut pager = Pager::new().unwrap();
         pager.upper_mark = usize::MAX;
         pager.set_line_numbers(LineNumbers::Enabled);
         pager.rows = 5;
-        pager.running = true;
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
             handle_input(ev, &pager)
@@ -66,11 +61,10 @@ fn input_handling() {
             modifiers: KeyModifiers::NONE,
         });
         // Pager for local use
-        let mut pager = Pager::new();
+        let mut pager = Pager::new().unwrap();
         pager.upper_mark = usize::MIN;
         pager.set_line_numbers(LineNumbers::Enabled);
         pager.rows = 5;
-        pager.running = true;
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MIN)),
             handle_input(ev, &pager)

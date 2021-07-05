@@ -184,7 +184,7 @@ impl InputHandler for DefaultInputHandler {
             Event::Key(KeyEvent {
                 code: c,
                 modifiers: KeyModifiers::NONE,
-            }) if c == KeyCode::Down || c == KeyCode::Char(' ') => Some(
+            }) if c == KeyCode::PageDown || c == KeyCode::Char(' ') => Some(
                 InputEvent::UpdateUpperMark(upper_mark.saturating_add(rows - 1)),
             ),
 
@@ -242,5 +242,5 @@ impl InputHandler for DefaultInputHandler {
         }
     }
 }
-#[cfg(tests)]
+#[cfg(test)]
 mod tests;
