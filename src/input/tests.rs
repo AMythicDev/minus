@@ -230,4 +230,69 @@ fn input_handling() {
             handle_input(ev, &pager)
         );
     }
+    {
+        // NextMatch and PrevMatch forward search
+        let next_event = Event::Key(KeyEvent {
+            code: KeyCode::Char('n'),
+            modifiers: KeyModifiers::NONE,
+        });
+        let prev_event = Event::Key(KeyEvent {
+            code: KeyCode::Char('p'),
+            modifiers: KeyModifiers::NONE,
+        });
+
+        assert_eq!(
+            pager.input_handler.handle_input(
+                next_event,
+                pager.upper_mark,
+                SearchMode::Forward,
+                pager.line_numbers,
+                pager.rows
+            ),
+            Some(InputEvent::NextMatch)
+        );
+        assert_eq!(
+            pager.input_handler.handle_input(
+                prev_event,
+                pager.upper_mark,
+                SearchMode::Forward,
+                pager.line_numbers,
+                pager.rows
+            ),
+            Some(InputEvent::PrevMatch)
+        )
+    }
+
+    {
+        // NextMatch and PrevMatch reverse search
+        let next_event = Event::Key(KeyEvent {
+            code: KeyCode::Char('n'),
+            modifiers: KeyModifiers::NONE,
+        });
+        let prev_event = Event::Key(KeyEvent {
+            code: KeyCode::Char('p'),
+            modifiers: KeyModifiers::NONE,
+        });
+
+        assert_eq!(
+            pager.input_handler.handle_input(
+                next_event,
+                pager.upper_mark,
+                SearchMode::Reverse,
+                pager.line_numbers,
+                pager.rows
+            ),
+            Some(InputEvent::PrevMatch)
+        );
+        assert_eq!(
+            pager.input_handler.handle_input(
+                prev_event,
+                pager.upper_mark,
+                SearchMode::Reverse,
+                pager.line_numbers,
+                pager.rows
+            ),
+            Some(InputEvent::NextMatch)
+        )
+    }
 }
