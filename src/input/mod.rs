@@ -1,10 +1,7 @@
 //! Provides the [`InputHandler`] trait, which can be used
 //! to customize the default keybindings of minus
 
-use crossterm::{
-    event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind},
-    terminal,
-};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 #[cfg(feature = "search")]
 use crate::search::SearchMode;
@@ -130,7 +127,7 @@ impl InputHandler for DefaultInputHandler {
                 code: KeyCode::Char('u'),
                 modifiers,
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
-                let half_screen = (terminal::size().ok()?.1 / 2) as usize;
+                let half_screen = (rows / 2) as usize;
                 Some(InputEvent::UpdateUpperMark(
                     upper_mark.saturating_sub(half_screen),
                 ))
@@ -140,7 +137,7 @@ impl InputHandler for DefaultInputHandler {
                 code: KeyCode::Char('d'),
                 modifiers,
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
-                let half_screen = (terminal::size().ok()?.1 / 2) as usize;
+                let half_screen = (rows / 2) as usize;
                 Some(InputEvent::UpdateUpperMark(
                     upper_mark.saturating_add(half_screen),
                 ))

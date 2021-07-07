@@ -230,6 +230,33 @@ fn input_handling() {
             handle_input(ev, &pager)
         );
     }
+
+    {
+        // Half page down
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        // Rows is 5 and upper_mark is at 12 so result should be 14
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(14)),
+            handle_input(ev, &pager)
+        );
+    }
+
+    {
+        // Half page down
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('u'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        // Rows is 5 and upper_mark is at 12 so result should be 10
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(10)),
+            handle_input(ev, &pager)
+        );
+    }
+
     {
         // NextMatch and PrevMatch forward search
         let next_event = Event::Key(KeyEvent {

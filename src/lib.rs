@@ -340,10 +340,7 @@ impl Pager {
             .for_each(|l| self.wrap_lines.push(wrap_str(l, self.cols)));
     }
 
-    /// Tells the running pager that no more data is coming
-    ///
-    /// Note that after this function is called, any call to [`Pager::set_text()`] or
-    /// [`Pager::push_str()`] will panic
+    /// Hints the running pager that no more data is coming
     ///
     /// Example
     /// ```

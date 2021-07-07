@@ -395,3 +395,15 @@ fn draw_help_message() {
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
     assert!(res.contains("minus"));
 }
+
+#[test]
+fn test_draw_no_overflow() {
+    const TEXT: &str = "This is a line of text to the pager";
+    let mut out = Vec::with_capacity(TEXT.len());
+    let mut pager = Pager::new().unwrap();
+    writeln!(pager, "{}", TEXT).unwrap();
+    draw(&mut out, &mut pager).unwrap();
+    assert!(String::from_utf8(out)
+        .expect("Should have written valid UTF-8")
+        .contains(TEXT),);
+}
