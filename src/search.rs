@@ -208,6 +208,7 @@ mod tests {
             next_match(&mut pager, &mut s_mark);
             dbg!(pager.upper_mark);
             assert_eq!(pager.upper_mark, *i as usize);
+            s_mark += 1;
         }
     }
 

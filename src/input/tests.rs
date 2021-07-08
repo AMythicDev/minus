@@ -9,9 +9,10 @@ fn handle_input(ev: Event, p: &Pager) -> Option<InputEvent> {
         .handle_input(ev, p.upper_mark, p.search_mode, p.line_numbers, p.rows)
 }
 
+// Keyboard navigation
 #[test]
 #[allow(clippy::too_many_lines)]
-fn input_handling() {
+fn test_kb_nav() {
     let mut pager = Pager::new().unwrap();
     pager.upper_mark = 12;
     pager.set_line_numbers(LineNumbers::Enabled);
@@ -35,65 +36,6 @@ fn input_handling() {
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(pager.upper_mark - 1)),
-            handle_input(ev, &pager)
-        );
-    }
-
-    {
-        let ev = Event::Key(KeyEvent {
-            code: KeyCode::Down,
-            modifiers: KeyModifiers::NONE,
-        });
-        // Pager for local use
-        let mut pager = Pager::new().unwrap();
-        pager.upper_mark = usize::MAX;
-        pager.set_line_numbers(LineNumbers::Enabled);
-        pager.rows = 5;
-        assert_eq!(
-            Some(InputEvent::UpdateUpperMark(usize::MAX)),
-            handle_input(ev, &pager)
-        );
-    }
-
-    {
-        let ev = Event::Key(KeyEvent {
-            code: KeyCode::Up,
-            modifiers: KeyModifiers::NONE,
-        });
-        // Pager for local use
-        let mut pager = Pager::new().unwrap();
-        pager.upper_mark = usize::MIN;
-        pager.set_line_numbers(LineNumbers::Enabled);
-        pager.rows = 5;
-        assert_eq!(
-            Some(InputEvent::UpdateUpperMark(usize::MIN)),
-            handle_input(ev, &pager)
-        );
-    }
-
-    {
-        let ev = Event::Mouse(MouseEvent {
-            kind: MouseEventKind::ScrollDown,
-            row: 0,
-            column: 0,
-            modifiers: KeyModifiers::NONE,
-        });
-
-        assert_eq!(
-            Some(InputEvent::UpdateUpperMark(pager.upper_mark + 5)),
-            handle_input(ev, &pager)
-        );
-    }
-
-    {
-        let ev = Event::Mouse(MouseEvent {
-            kind: MouseEventKind::ScrollUp,
-            row: 0,
-            column: 0,
-            modifiers: KeyModifiers::NONE,
-        });
-        assert_eq!(
-            Some(InputEvent::UpdateUpperMark(pager.upper_mark - 5)),
             handle_input(ev, &pager)
         );
     }
@@ -167,6 +109,114 @@ fn input_handling() {
     }
 
     {
+        // Half page down
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        // Rows is 5 and upper_mark is at 12 so result should be 14
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(14)),
+            handle_input(ev, &pager)
+        );
+    }
+
+    {
+        // Half page up
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('u'),
+            modifiers: KeyModifiers::CONTROL,
+        });
+        // Rows is 5 and upper_mark is at 12 so result should be 10
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(10)),
+            handle_input(ev, &pager)
+        );
+    }
+}
+
+#[test]
+fn test_mouse_nav() {
+    let mut pager = Pager::new().unwrap();
+    pager.upper_mark = 12;
+    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.rows = 5;
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            row: 0,
+            column: 0,
+            modifiers: KeyModifiers::NONE,
+        });
+
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(pager.upper_mark + 5)),
+            handle_input(ev, &pager)
+        );
+    }
+
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            row: 0,
+            column: 0,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(pager.upper_mark - 5)),
+            handle_input(ev, &pager)
+        );
+    }
+}
+
+#[test]
+fn test_saturation() {
+    let mut pager = Pager::new().unwrap();
+    pager.upper_mark = 12;
+    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.rows = 5;
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE,
+        });
+        // Pager for local use
+        let mut pager = Pager::new().unwrap();
+        pager.upper_mark = usize::MAX;
+        pager.set_line_numbers(LineNumbers::Enabled);
+        pager.rows = 5;
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            handle_input(ev, &pager)
+        );
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE,
+        });
+        // Pager for local use
+        let mut pager = Pager::new().unwrap();
+        pager.upper_mark = usize::MIN;
+        pager.set_line_numbers(LineNumbers::Enabled);
+        pager.rows = 5;
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(usize::MIN)),
+            handle_input(ev, &pager)
+        );
+    }
+}
+
+#[test]
+fn test_misc_events() {
+    let mut pager = Pager::new().unwrap();
+    pager.upper_mark = 12;
+    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.rows = 5;
+
+    {
         let ev = Event::Resize(42, 35);
         assert_eq!(
             Some(InputEvent::UpdateTermArea(42, 35)),
@@ -208,6 +258,15 @@ fn input_handling() {
         });
         assert_eq!(None, handle_input(ev, &pager));
     }
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn test_search_bindings() {
+    let mut pager = Pager::new().unwrap();
+    pager.upper_mark = 12;
+    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.rows = 5;
 
     {
         let ev = Event::Key(KeyEvent {
@@ -230,33 +289,6 @@ fn input_handling() {
             handle_input(ev, &pager)
         );
     }
-
-    {
-        // Half page down
-        let ev = Event::Key(KeyEvent {
-            code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL,
-        });
-        // Rows is 5 and upper_mark is at 12 so result should be 14
-        assert_eq!(
-            Some(InputEvent::UpdateUpperMark(14)),
-            handle_input(ev, &pager)
-        );
-    }
-
-    {
-        // Half page down
-        let ev = Event::Key(KeyEvent {
-            code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL,
-        });
-        // Rows is 5 and upper_mark is at 12 so result should be 10
-        assert_eq!(
-            Some(InputEvent::UpdateUpperMark(10)),
-            handle_input(ev, &pager)
-        );
-    }
-
     {
         // NextMatch and PrevMatch forward search
         let next_event = Event::Key(KeyEvent {

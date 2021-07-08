@@ -1,7 +1,5 @@
 use super::{rewrap, wrap_str, Pager};
 use std::fmt::Write;
-use std::sync::atomic::Ordering;
-use std::sync::{atomic::AtomicBool, Arc};
 
 // Test the implementation of std::fmt::Write on Pager
 #[test]
@@ -66,6 +64,8 @@ fn test_floating_newline_write() {
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 #[test]
 fn test_exit_callback() {
+    use std::sync::atomic::Ordering;
+    use std::sync::{atomic::AtomicBool, Arc};
     let mut pager = Pager::new().unwrap();
     let exited = Arc::new(AtomicBool::new(false));
     let exited_within_callback = exited.clone();
