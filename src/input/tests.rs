@@ -1,12 +1,20 @@
-use crate::{input::InputEvent, LineNumbers, Pager, SearchMode};
+#[cfg(feature = "search")]
+use crate::SearchMode;
+use crate::{input::InputEvent, LineNumbers, Pager};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 // Just a transparent function to fix incompatiblity issues between
 // versions
 // TODO: Remove this later in favour of how handle_event should actually be called
 fn handle_input(ev: Event, p: &Pager) -> Option<InputEvent> {
-    p.input_handler
-        .handle_input(ev, p.upper_mark, p.search_mode, p.line_numbers, p.rows)
+    p.input_handler.handle_input(
+        ev,
+        p.upper_mark,
+        #[cfg(feature = "search")]
+        p.search_mode,
+        p.line_numbers,
+        p.rows,
+    )
 }
 
 // Keyboard navigation
@@ -130,6 +138,18 @@ fn test_kb_nav() {
         // Rows is 5 and upper_mark is at 12 so result should be 10
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(10)),
+            handle_input(ev, &pager)
+        );
+    }
+    {
+        // Space for page down
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char(' '),
+            modifiers: KeyModifiers::NONE,
+        });
+        // rows is 5, therefore upper_mark = upper_mark - rows -1
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(16)),
             handle_input(ev, &pager)
         );
     }
@@ -262,6 +282,7 @@ fn test_misc_events() {
 
 #[test]
 #[allow(clippy::too_many_lines)]
+#[cfg(feature = "search")]
 fn test_search_bindings() {
     let mut pager = Pager::new().unwrap();
     pager.upper_mark = 12;
