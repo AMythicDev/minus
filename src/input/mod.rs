@@ -20,6 +20,8 @@ pub enum InputEvent {
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
+    /// Restore the original prompt
+    RestorePrompt,
     /// `/`, Searching for certain pattern of text
     #[cfg(feature = "search")]
     Search(SearchMode),
@@ -86,6 +88,7 @@ pub trait InputHandler {
         upper_mark: usize,
         #[cfg(feature = "search")] search_mode: SearchMode,
         ln: LineNumbers,
+        message: bool,
         rows: usize,
     ) -> Option<InputEvent>;
 }
@@ -102,6 +105,7 @@ impl InputHandler for DefaultInputHandler {
         upper_mark: usize,
         #[cfg(feature = "search")] search_mode: SearchMode,
         ln: LineNumbers,
+        message: bool,
         rows: usize,
     ) -> Option<InputEvent> {
         #[allow(clippy::unnested_or_patterns)]
@@ -120,6 +124,17 @@ impl InputHandler for DefaultInputHandler {
                 modifiers: KeyModifiers::NONE,
             }) if code == KeyCode::Down || code == KeyCode::Char('j') => {
                 Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1)))
+            }
+
+            Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                if message {
+                    Some(InputEvent::RestorePrompt)
+                } else {
+                    Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1)))
+                }
             }
 
             // Scroll up by half screen height.

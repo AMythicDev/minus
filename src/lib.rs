@@ -153,6 +153,8 @@ pub struct Pager {
     /// Applications should strictly call [Pager::end_data_stream()] once their stream
     /// of data to the pager is ended.
     end_stream: bool,
+    /// Any warning or error to display to the user at the prompt
+    message: Option<String>,
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     pub(crate) upper_mark: usize,
@@ -210,6 +212,7 @@ impl Pager {
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
             run_no_overflow: false,
+            message: None,
             lines: String::new(),
             end_stream: false,
             #[cfg(feature = "search")]

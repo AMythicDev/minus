@@ -49,6 +49,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 #[cfg(feature = "search")]
                 pager.search_mode,
                 pager.line_numbers,
+                pager.message.is_some(),
                 pager.rows,
             );
             // Update any data that may have changed
@@ -57,6 +58,10 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 Some(InputEvent::Exit) => {
                     pager.exit();
                     return Ok(cleanup(out, &pager.exit_strategy, true)?);
+                }
+                Some(InputEvent::RestorePrompt) => {
+                    pager.message = None;
+                    redraw = true;
                 }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
                     pager.rows = r;
@@ -141,7 +146,6 @@ pub(crate) async fn dynamic_paging(
     setup(&out, true, !run_no_overflow)?;
     drop(guard);
     // Search related variables
-
     // A marker of which element of s_co we are currently at
     #[cfg(feature = "search")]
     let mut s_mark = 0;
@@ -186,6 +190,7 @@ pub(crate) async fn dynamic_paging(
                 #[cfg(feature = "search")]
                 lock.search_mode,
                 lock.line_numbers,
+                lock.message.is_some(),
                 lock.rows,
             );
             #[allow(clippy::match_same_arms)]
@@ -193,6 +198,10 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::Exit) => {
                     lock.exit();
                     return Ok(cleanup(out, &lock.exit_strategy, true)?);
+                }
+                Some(InputEvent::RestorePrompt) => {
+                    lock.message = None;
+                    redraw = true;
                 }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
                     lock.cols = c;

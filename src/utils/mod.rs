@@ -36,16 +36,20 @@ pub(crate) fn draw(
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     write_lines(out, &mut pager)?;
+    let prompt = if let Some(message) = &pager.message {
+        message.clone()
+    } else {
+        pager.prompt.clone()
+    };
 
-    // #[allow(clippy::cast_possible_truncation)]
+    // Prompt
     {
         write!(
             out,
             "{mv}\r{rev}{prompt}{reset}",
-            // `rows` is originally a u16, we got it from crossterm::terminal::size.
             mv = MoveTo(0, u16::try_from(pager.rows).unwrap()),
             rev = Attribute::Reverse,
-            prompt = pager.prompt,
+            prompt = prompt,
             reset = Attribute::Reset,
         )?;
     }
