@@ -154,7 +154,9 @@ pub struct Pager {
     /// of data to the pager is ended.
     end_stream: bool,
     /// Any warning or error to display to the user at the prompt
-    message: Option<String>,
+    /// The first element contains the actual message, while the second element tells
+    /// whether the message has changed since the last display.
+    message: (Option<String>, bool),
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     pub(crate) upper_mark: usize,
@@ -212,7 +214,7 @@ impl Pager {
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
             run_no_overflow: false,
-            message: None,
+            message: (None, false),
             lines: String::new(),
             end_stream: false,
             #[cfg(feature = "search")]
@@ -254,6 +256,20 @@ impl Pager {
     /// ```
     pub fn set_line_numbers(&mut self, l: LineNumbers) {
         self.line_numbers = l;
+    }
+
+    /// Display a temporary message at the prompt area
+    ///
+    /// Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let mut pager = Pager::new().unwrap();
+    /// pager.send_message("An error occurred");
+    /// ```
+    pub fn send_message(&mut self, text: impl Into<String>) {
+        self.message.0 = Some(text.into());
+        self.message.1 = true;
     }
 
     /// Set the prompt displayed at the prompt to `t`

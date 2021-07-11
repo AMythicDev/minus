@@ -49,7 +49,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 #[cfg(feature = "search")]
                 pager.search_mode,
                 pager.line_numbers,
-                pager.message.is_some(),
+                pager.message.0.is_some(),
                 pager.rows,
             );
             // Update any data that may have changed
@@ -60,7 +60,8 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     return Ok(cleanup(out, &pager.exit_strategy, true)?);
                 }
                 Some(InputEvent::RestorePrompt) => {
-                    pager.message = None;
+                    pager.message.0 = None;
+                    pager.message.1 = false;
                     redraw = true;
                 }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
@@ -89,8 +90,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         match regex {
                             Ok(r) => pager.search_term = Some(r),
                             Err(_) => {
-                                pager.message =
-                                    Some("Invalid regular expression. Press Enter".to_string());
+                                pager.send_message("Invalid regular expression. Press Enter");
                                 draw(&mut out, &mut pager)?;
                                 continue;
                             }
@@ -173,8 +173,13 @@ pub(crate) async fn dynamic_paging(
         if have_just_overflowed && run_no_overflow {
             setup(&out, true, true)?;
         }
-        if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed) {
+        if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed)
+            || guard.message.1
+        {
             draw(&mut out, &mut guard)?;
+            if guard.message.1 {
+                guard.message.1 = false;
+            }
             last_line_count = line_count;
         }
 
@@ -198,7 +203,7 @@ pub(crate) async fn dynamic_paging(
                 #[cfg(feature = "search")]
                 lock.search_mode,
                 lock.line_numbers,
-                lock.message.is_some(),
+                lock.message.0.is_some(),
                 lock.rows,
             );
             #[allow(clippy::match_same_arms)]
@@ -208,7 +213,8 @@ pub(crate) async fn dynamic_paging(
                     return Ok(cleanup(out, &lock.exit_strategy, true)?);
                 }
                 Some(InputEvent::RestorePrompt) => {
-                    lock.message = None;
+                    lock.message.0 = None;
+                    lock.message.1 = false;
                     redraw = true;
                 }
                 Some(InputEvent::UpdateTermArea(c, r)) => {
@@ -237,8 +243,7 @@ pub(crate) async fn dynamic_paging(
                         match regex {
                             Ok(r) => lock.search_term = Some(r),
                             Err(_) => {
-                                lock.message =
-                                    Some("Invalid regular expression. Press Enter".to_string());
+                                lock.send_message("Invalid regular expression. Press Enter");
                                 continue;
                             }
                         }

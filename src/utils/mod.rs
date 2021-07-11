@@ -36,7 +36,7 @@ pub(crate) fn draw(
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     write_lines(out, &mut pager)?;
-    let prompt = if let Some(message) = &pager.message {
+    let prompt = if let Some(message) = &pager.message.0 {
         message.clone()
     } else {
         pager.prompt.clone()
