@@ -84,7 +84,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 Some(InputEvent::Search(m)) => {
                     pager.search_mode = m;
                     let string =
-                        search::fetch_input_blocking(&mut out, pager.search_mode, pager.rows)?;
+                        search::fetch_input(&mut out, pager.search_mode, pager.rows)?;
                     if !string.is_empty() {
                         let regex = regex::Regex::new(&string);
                         match regex {
@@ -235,7 +235,7 @@ pub(crate) async fn dynamic_paging(
                 Some(InputEvent::Search(m)) => {
                     lock.search_mode = m;
                     // Fetch the search query asynchronously
-                    let string = search::fetch_input(&mut out, lock.search_mode, lock.rows).await?;
+                    let string = search::fetch_input(&mut out, lock.search_mode, lock.rows)?;
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
                     if !string.is_empty() {

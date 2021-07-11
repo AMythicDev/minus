@@ -24,8 +24,8 @@ pub enum SearchMode {
 }
 
 /// Fetch the search query asynchronously
-#[cfg(all(feature = "static_output", feature = "search"))]
-pub(crate) fn fetch_input_blocking(
+#[cfg(feature = "search")]
+pub(crate) fn fetch_input(
     out: &mut impl std::io::Write,
     search_mode: SearchMode,
     rows: usize,
@@ -57,6 +57,7 @@ pub(crate) fn fetch_input_blocking(
                     code: KeyCode::Esc,
                     modifiers: KeyModifiers::NONE,
                 }) => {
+                    write!(out, "{}", cursor::Hide)?;
                     return Ok(String::new());
                 }
                 // On backspace, pop the last character from the string
@@ -80,69 +81,6 @@ pub(crate) fn fetch_input_blocking(
                 Event::Key(event) => {
                     // For any character key, without a modifier, append it to the
                     // string and update the line
-                    if let KeyCode::Char(c) = event.code {
-                        string.push(c);
-                        write!(out, "\r/{}", string)?;
-                        out.flush()?;
-                    }
-                }
-                _ => continue,
-            }
-        }
-    }
-}
-/// Fetch input anychronously
-// This is similar to fetch_input_blocking except that it is async
-#[cfg(all(
-    any(feature = "async_std_lib", feature = "tokio_lib"),
-    feature = "search"
-))]
-pub(crate) async fn fetch_input(
-    out: &mut impl std::io::Write,
-    search_mode: SearchMode,
-    rows: usize,
-) -> Result<String, AlternateScreenPagingError> {
-    #[allow(clippy::cast_possible_truncation)]
-    write!(
-        out,
-        "{}{}{}{}",
-        MoveTo(0, rows as u16),
-        Clear(ClearType::CurrentLine),
-        if search_mode == SearchMode::Forward {
-            "/"
-        } else {
-            "?"
-        },
-        cursor::Show
-    )?;
-    out.flush()?;
-    let mut string = String::new();
-    loop {
-        if event::poll(Duration::from_millis(10))
-            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
-        {
-            match event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))? {
-                Event::Key(KeyEvent {
-                    code: KeyCode::Esc,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    return Ok(String::new());
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Backspace,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    string.pop();
-                    write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
-                    out.flush()?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Enter,
-                    modifiers: KeyModifiers::NONE,
-                }) => {
-                    return Ok(string);
-                }
-                Event::Key(event) => {
                     if let KeyCode::Char(c) = event.code {
                         string.push(c);
                         write!(out, "\r/{}", string)?;
