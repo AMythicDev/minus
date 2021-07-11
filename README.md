@@ -217,6 +217,5 @@ Thank you to everyone here for giving there time and contribution to `minus`
 * @Hardy7cc
 
 ## Get in touch
-If you want to discuss something with me regarding minus, the best place is at Matrix
-
-@arijit079:matrix.org
+We are open to discussion and thoughts om improving `minus`. Join us at
+[Zulip](https://minus.zulipchat.com)
