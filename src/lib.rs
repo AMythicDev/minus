@@ -260,6 +260,11 @@ impl Pager {
 
     /// Display a temporary message at the prompt area
     ///
+    /// # Panics
+    /// This function panics if the given text contains newline characters.
+    /// This is because, the pager reserves only one line for showing the prompt
+    /// and a newline will cause it to span multiple lines, breaking the display
+    ///
     /// Example
     /// ```
     /// use minus::Pager;
@@ -268,11 +273,20 @@ impl Pager {
     /// pager.send_message("An error occurred");
     /// ```
     pub fn send_message(&mut self, text: impl Into<String>) {
-        self.message.0 = Some(text.into());
+        let message = text.into();
+        if message.contains('\n') {
+            panic!("Prompt text cannot contain newlines")
+        }
+        self.message.0 = Some(message);
         self.message.1 = true;
     }
 
     /// Set the prompt displayed at the prompt to `t`
+    ///
+    /// # Panics
+    /// This function panics if the given text contains newline characters.
+    /// This is because, the pager reserves only one line for showing the prompt
+    /// and a newline will cause it to span multiple lines, breaking the display
     ///
     /// Example
     /// ```
@@ -282,7 +296,11 @@ impl Pager {
     /// pager.set_prompt("my awesome program");
     /// ```
     pub fn set_prompt(&mut self, t: impl Into<String>) {
-        self.prompt = t.into();
+        let prompt = t.into();
+        if prompt.contains('\n') {
+            panic!("Prompt text cannot contain newlines")
+        }
+        self.prompt = prompt;
     }
 
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
