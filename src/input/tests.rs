@@ -13,6 +13,9 @@ fn handle_input(ev: Event, p: &Pager) -> Option<InputEvent> {
         #[cfg(feature = "search")]
         p.search_mode,
         p.line_numbers,
+        // We set `message` to false explicitly, for the sake of correctness
+        // This will be tested inside a seperate so that it produces the result as expected
+        false,
         p.rows,
     )
 }
@@ -151,6 +154,43 @@ fn test_kb_nav() {
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(16)),
             handle_input(ev, &pager)
+        );
+    }
+    {
+        // Enter key for one line down when no message on prompt
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Enter,
+            modifiers: KeyModifiers::NONE,
+        });
+        // therefore upper_mark += 1
+        assert_eq!(
+            Some(InputEvent::UpdateUpperMark(13)),
+            handle_input(ev, &pager)
+        );
+    }
+}
+
+#[test]
+fn test_restore_prompt() {
+    let pager = Pager::new().unwrap();
+    {
+        // Enter key for one line down when no message on prompt
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Enter,
+            modifiers: KeyModifiers::NONE,
+        });
+        // therefore upper_mark += 1
+        assert_eq!(
+            Some(InputEvent::RestorePrompt),
+            pager.input_handler.handle_input(
+                ev,
+                pager.upper_mark,
+                #[cfg(feature = "search")]
+                SearchMode::Unknown,
+                LineNumbers::Disabled,
+                true,
+                pager.rows
+            )
         );
     }
 }
@@ -327,6 +367,7 @@ fn test_search_bindings() {
                 pager.upper_mark,
                 SearchMode::Forward,
                 pager.line_numbers,
+                false,
                 pager.rows
             ),
             Some(InputEvent::NextMatch)
@@ -337,6 +378,7 @@ fn test_search_bindings() {
                 pager.upper_mark,
                 SearchMode::Forward,
                 pager.line_numbers,
+                false,
                 pager.rows
             ),
             Some(InputEvent::PrevMatch)
@@ -360,6 +402,7 @@ fn test_search_bindings() {
                 pager.upper_mark,
                 SearchMode::Reverse,
                 pager.line_numbers,
+                false,
                 pager.rows
             ),
             Some(InputEvent::PrevMatch)
@@ -370,6 +413,7 @@ fn test_search_bindings() {
                 pager.upper_mark,
                 SearchMode::Reverse,
                 pager.line_numbers,
+                false,
                 pager.rows
             ),
             Some(InputEvent::NextMatch)

@@ -83,8 +83,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 #[cfg(feature = "search")]
                 Some(InputEvent::Search(m)) => {
                     pager.search_mode = m;
-                    let string =
-                        search::fetch_input(&mut out, pager.search_mode, pager.rows)?;
+                    let string = search::fetch_input(&mut out, pager.search_mode, pager.rows)?;
                     if !string.is_empty() {
                         let regex = regex::Regex::new(&string);
                         match regex {
