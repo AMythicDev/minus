@@ -86,17 +86,14 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     let string = search::fetch_input(&mut out, pager.search_mode, pager.rows)?;
                     if !string.is_empty() {
                         let regex = regex::Regex::new(&string);
-                        match regex {
-                            Ok(r) => pager.search_term = Some(r),
-                            Err(_) => {
-                                pager.send_message("Invalid regular expression. Press Enter");
-                                draw(&mut out, &mut pager)?;
-                                continue;
-                            }
+                        if let Ok(r) = regex {
+                            pager.search_term = Some(r);
+                            search::highlight_search(&mut pager);
+                            search::next_match(&mut pager, &mut s_mark);
+                        } else {
+                            pager.send_message("Invalid regular expression. Press Enter")
                         }
-                        search::highlight_search(&mut pager);
                     }
-                    search::next_match(&mut pager, &mut s_mark);
                     redraw = true;
                 }
                 #[cfg(feature = "search")]
@@ -128,7 +125,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 Some(_) => continue,
                 None => continue,
             }
-            if redraw {
+            if (input.is_some() || pager.message.1) && redraw {
                 draw(&mut out, &mut pager)?;
             }
         }
@@ -239,17 +236,16 @@ pub(crate) async fn dynamic_paging(
                     // match and return a vector of match coordinates
                     if !string.is_empty() {
                         let regex = regex::Regex::new(&string);
-                        match regex {
-                            Ok(r) => lock.search_term = Some(r),
-                            Err(_) => {
-                                lock.send_message("Invalid regular expression. Press Enter");
-                                continue;
-                            }
+                        if let Ok(r) = regex {
+                            // Update the search term
+                            lock.search_term = Some(r);
+                            search::highlight_search(&mut lock);
+                            search::next_match(&mut lock, &mut s_mark);
+                        } else {
+                            lock.send_message("Invalid regular expression. Press Enter");
+                            continue;
                         }
-                        search::highlight_search(&mut lock);
                     }
-                    search::next_match(&mut lock, &mut s_mark);
-                    // Update the search term
                     redraw = true;
                 }
                 #[cfg(feature = "search")]

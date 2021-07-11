@@ -36,12 +36,11 @@ pub(crate) fn draw(
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
     write_lines(out, &mut pager)?;
-    let prompt = if let Some(message) = &pager.message.0 {
-        message.clone()
-    } else {
-        pager.prompt.clone()
-    };
-
+    let prompt = pager
+        .message
+        .0
+        .as_ref()
+        .map_or_else(|| pager.prompt.clone(), std::clone::Clone::clone);
     // Prompt
     {
         write!(
