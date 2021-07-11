@@ -85,9 +85,17 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                     let string =
                         search::fetch_input_blocking(&mut out, pager.search_mode, pager.rows)?;
                     if !string.is_empty() {
-                        pager.search_term = Some(regex::Regex::new(&string)?);
+                        let regex = regex::Regex::new(&string);
+                        match regex {
+                            Ok(r) => pager.search_term = Some(r),
+                            Err(_) => {
+                                pager.message =
+                                    Some("Invalid regular expression. Press Enter".to_string());
+                                draw(&mut out, &mut pager)?;
+                                continue;
+                            }
+                        }
                         search::highlight_search(&mut pager);
-                        dbg!(&pager.upper_mark);
                     }
                     search::next_match(&mut pager, &mut s_mark);
                     redraw = true;
@@ -225,7 +233,15 @@ pub(crate) async fn dynamic_paging(
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
                     if !string.is_empty() {
-                        lock.search_term = Some(regex::Regex::new(&string)?);
+                        let regex = regex::Regex::new(&string);
+                        match regex {
+                            Ok(r) => lock.search_term = Some(r),
+                            Err(_) => {
+                                lock.message =
+                                    Some("Invalid regular expression. Press Enter".to_string());
+                                continue;
+                            }
+                        }
                         search::highlight_search(&mut lock);
                     }
                     search::next_match(&mut lock, &mut s_mark);
