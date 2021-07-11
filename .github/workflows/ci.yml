@@ -71,6 +71,8 @@ jobs:
     # No terminal available in CI, only check the examples.
     - name: Tokio
       run: cargo check --example=dyn_tokio --features=tokio_lib
+    - name: Tokio Messages
+      run: cargo check --example=msg-tokio --features=tokio_lib
     - name: Async-std
       run: cargo check --example=dyn_async_std --features=async_std_lib
     - name: Static
