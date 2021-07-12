@@ -415,6 +415,10 @@ impl Pager {
     /// Readjust the text to new terminal size
     pub(crate) fn readjust_wraps(&mut self) {
         rewrap_lines(&mut self.wrap_lines, self.cols);
+        if self.message.0.is_some() {
+            rewrap(&mut self.message.0.as_mut().unwrap(), self.cols);
+        }
+        rewrap(&mut self.prompt, self.cols);
     }
 
     /// Returns all the text by flattening them into a single vector of strings
