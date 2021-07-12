@@ -48,7 +48,7 @@ pub(crate) fn draw(
             "{mv}\r{rev}{prompt}{reset}",
             mv = MoveTo(0, u16::try_from(pager.rows).unwrap()),
             rev = Attribute::Reverse,
-            prompt = prompt,
+            prompt = prompt.first().unwrap(),
             reset = Attribute::Reset,
         )?;
     }

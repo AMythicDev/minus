@@ -138,7 +138,7 @@ pub struct Pager {
     /// Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
     /// The prompt displayed at the bottom
-    prompt: String,
+    prompt: Vec<String>,
     /// Text which may have come through writeln that is unwraped
     lines: String,
     /// The input handler to be called when a input is found
@@ -156,7 +156,7 @@ pub struct Pager {
     /// Any warning or error to display to the user at the prompt
     /// The first element contains the actual message, while the second element tells
     /// whether the message has changed since the last display.
-    message: (Option<String>, bool),
+    message: (Option<Vec<String>>, bool),
     /// The upper mark of scrolling. It is kept private to prevent end-applications
     /// from mutating this
     pub(crate) upper_mark: usize,
@@ -209,7 +209,7 @@ impl Pager {
             wrap_lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
-            prompt: "minus".to_string(),
+            prompt: wrap_str("minus", cols.into()),
             exit_strategy: ExitStrategy::ProcessQuit,
             input_handler: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
@@ -277,7 +277,7 @@ impl Pager {
         if message.contains('\n') {
             panic!("Prompt text cannot contain newlines")
         }
-        self.message.0 = Some(message);
+        self.message.0 = Some(wrap_str(&message, self.cols));
         self.message.1 = true;
     }
 
@@ -300,7 +300,7 @@ impl Pager {
         if prompt.contains('\n') {
             panic!("Prompt text cannot contain newlines")
         }
-        self.prompt = prompt;
+        self.prompt = wrap_str(&prompt, self.cols);
     }
 
     /// Return a [`PagerMutex`] from this [`Pager`]. This is gated on `tokio_lib` or
