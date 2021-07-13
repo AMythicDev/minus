@@ -37,23 +37,24 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mut pager = Pager::new().unwrap().finish();
+//!     let mut pager = Pager::new().unwrap();
 //!     pager.set_prompt("An asynchronous example");
+//!     let pager = pager.finish();
 //!
 //!     let updater = async {
-//!         for i in 1..=100 {
-//!             let guard = pager.lock().await;
+//!         for i in 1..=100u8 {
+//!             let mut guard = pager.lock().await;
 //!             writeln!(guard, "{}", i)?;
 //!             // Remember to drop the guard before any await or blocking operation
 //!             drop(guard);
 //!             sleep(Duration::from_millis(100)).await;
 //!         }
 //!         let mut guard = pager.lock().await;
-//!         output.end_data_stream();
+//!         guard.end_data_stream();
 //!         Result::<_, std::fmt::Error>::Ok(())
-//!     }
+//!     };
 //!
-//!     let (res1, res2) = join!(tokio_updating(pager.clone()).await, updater);
+//!     let (res1, res2) = join!(tokio_updating(pager.clone()), updater);
 //!     res1?;
 //!     res2?;
 //!     Ok(())
@@ -63,6 +64,7 @@
 //! Print 1 through 100 in a blocking fashion (static output)
 //!```rust,no_run
 //! use std::fmt::Write;
+//! use minus::page_all;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!      let mut pager = minus::Pager::new().unwrap();
@@ -130,52 +132,72 @@ pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
 /// A convenience type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
-/// A struct containing basic configurations for the pager. This is used by
-/// all initializing functions
+// The Wrapping Model
+//
+// minus heavily uses the wrapping model. This is key to understand how minus
+// internally.
+//
+// When a text is given to minus in for displaying, it internally takes each
+// logical line of it and breaks it into a `Vec<String>`. To hold multiple of
+// those lines, it stores them inside another Vec container. This makes it the
+// `Vec<Vec<String>>` struct.
+//
+// Each element in the 1st `Vec` is a logical line. While each String in the 2nd
+// `Vec` is a line wrapped to the available terminal width.
+//
+// In case of prompt text and message, which are allowed to take only one row in
+// the terminal, and hence, must contain only 1 line are contained in a
+// `Vec<String>`
+//
+// If the terminal is resized, we update the rows and columns and rewrap the
+// text
+
+/// A struct containing all configurations for the pager.
+///
+/// This is used by all initializing functions
 pub struct Pager {
-    /// The output that is displayed
-    /// Represented by a vector of lines where each line is a vector of strings
-    /// split up on the basis of terminal width
+    // The output that is displayed wrapped to the available terminal width
     wrap_lines: Vec<Vec<String>>,
-    /// Configuration for line numbers. See [`LineNumbers`]
+    // Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
-    /// The prompt displayed at the bottom
+    // The prompt displayed at the bottom wrapped to available terminal width
     prompt: Vec<String>,
-    /// Text which may have come through writeln that is unwraped
+    // Text which may have come through `push_str` (or `writeln`) that isn't
+    // flushed to wrap_lines, since it isn't terminated yet with a \n
     lines: String,
-    /// The input handler to be called when a input is found
+    // The input handler to be called when a input is found
     input_handler: Box<dyn input::InputHandler + Sync + Send>,
-    /// Functions to run when the pager quits
+    // Functions to run when the pager quits
     exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
-    /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
-    /// See [`ExitStrategy`] for available options
+    // The behaviour to do when user quits the program using `q` or `Ctrl+C`
+    // See [`ExitStrategy`] for available options
     exit_strategy: ExitStrategy,
-    /// Whether the coming data is ended
-    ///
-    /// Applications should strictly call [Pager::end_data_stream()] once their stream
-    /// of data to the pager is ended.
+    // Whether the coming data is ended
+    //
+    // Applications should strictly call [Pager::end_data_stream()] once their stream
+    // of data to the pager is ended.
     end_stream: bool,
-    /// Any warning or error to display to the user at the prompt
-    /// The first element contains the actual message, while the second element tells
-    /// whether the message has changed since the last display.
+    // Any warning or error to display to the user at the prompt
+    // The first element contains the actual message, while the second element tells
+    // whether the message has changed since the last display.
     message: (Option<Vec<String>>, bool),
-    /// The upper mark of scrolling. It is kept private to prevent end-applications
-    /// from mutating this
+    // The upper mark of scrolling. It is kept private to prevent end-applications
+    // from mutating this
     pub(crate) upper_mark: usize,
-    /// Do we want to page if there;s no overflow
+    // Do we want to page if there's no overflow
     pub(crate) run_no_overflow: bool,
-    /// Stores the most recent search term
+    // Stores the most recent search term
     #[cfg(feature = "search")]
     search_term: Option<regex::Regex>,
     // Direction of search
     #[cfg(feature = "search")]
     search_mode: SearchMode,
-    /// Lines where searches have a match
+    // Lines where searches have a match
     #[cfg(feature = "search")]
     pub(crate) search_idx: Vec<u16>,
-    /// Rows of the terminal
+    // Rows of the terminal
     pub(crate) rows: usize,
-    /// Columns of the terminal
+    // Columns of the terminal
     pub(crate) cols: usize,
 }
 
@@ -244,7 +266,8 @@ impl Pager {
     pub fn set_text(&mut self, text: impl Into<String>) {
         let text: String = text.into();
         // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
-        self.wrap_lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
+        self.wrap_lines =
+            text.lines().map(|l| wrap_str(l, self.cols)).collect();
     }
 
     /// Set line number to this setting
@@ -437,7 +460,10 @@ impl Pager {
     ///
     /// See example in [`InputHandler`](input::InputHandler) on using this
     /// function
-    pub fn set_input_handler(&mut self, handler: Box<dyn input::InputHandler + Send + Sync>) {
+    pub fn set_input_handler(
+        &mut self,
+        handler: Box<dyn input::InputHandler + Send + Sync>,
+    ) {
         self.input_handler = handler;
     }
 
@@ -459,7 +485,10 @@ impl Pager {
     /// let mut pager = Pager::new().unwrap();
     /// pager.add_exit_callback(Box::new(hello));
     /// ```
-    pub fn add_exit_callback(&mut self, cb: impl FnMut() + Send + Sync + 'static) {
+    pub fn add_exit_callback(
+        &mut self,
+        cb: impl FnMut() + Send + Sync + 'static,
+    ) {
         self.exit_callbacks.push(Box::new(cb));
     }
 }
