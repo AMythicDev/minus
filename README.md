@@ -4,6 +4,7 @@
 [![docs.rs](https://docs.rs/minus/badge.svg)](https://docs.rs/minus)
 [![ci](https://github.com/arijit79/minus/actions/workflows/ci.yml/badge.svg)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/l/minus)](https://github.com/arijit79/minus#license)
+[![chat](https://img.shields.io/badge/chat-on%20zulip-blue)](https://minus.zulipchat.com/)
 
 A fast, asynchronous terminal paging library for Rust. `minus` provides high
 level functionalities to easily write a pager for any terminal application. Due
