@@ -1,47 +1,22 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! A fast, asynchronous terminal paging library for Rust. `minus` provides high
-//! level functionalities to easily write a pager for any terminal application.
-//! Due to the asynchronous nature of `minus`, the pager's data can be
-//! **updated** (this needs the correct feature to be enabled).
+//! level functions to easily embed a pager for any terminal application.
 //!
-//! `minus` supports both [`tokio`] as well as [`async-std`] runtimes. What's
-//! more, if you only want to use `minus` for serving static output, you can
-//! simply opt out of these dynamic features, see the
-//! [**Features**](crate#features) section below.
+//! `minus` can be used in asynchronous mode or in a blocking fashion
 //!
-//! ## Why this crate ?
+//! * In asynchronous mode, the pager's data as well as it's
+//! configuration can be **updated** at any time.`minus` supports both
+//! [`tokio`] as well as [`async-std`] runtimes. The support
+//! for these runtimes are gated on individual features.
 //!
-//! `minus` was started by me for my work on [`pijul`]. I was unsatisfied with
-//! the existing options like [`pager`] and [`moins`].
+//! * In blocking mode, the pager stops any other code from being executed. This
+//! is good if you want to show some static information but it does not allow
+//! you to change the configuration of the pager at runtime.
 //!
-//! * [`pager`]:
-//!     * Only provides functions to join the standard output of the current
-//!       program to the standard input of external pager like `more` or `less`.
-//!     * Due to this, to work within Windows, the external pagers need to be
-//!       packaged along with the executable.
+//! * When using `minus`, you select what features you need and **nothing else**.
 //!
-//! * [`moins`]:
-//!     * The output could only be defined once and for all. It is not asynchronous
-//!       and does not support updating.
-//!
-//! The main goals of `minus` are to be very compact and as configurable as possible.
-//! * `minus` provides a lot of configurablity to the end-application and this
-//! configuration can be defined not just in compile-time but also in **runtime.** Your
-//! entire configuration like the output displayed, prompt and line numbers are inside
-//! a `Arc<Mutex>`, which means at any time you can lock the configuration, change
-//! something, and voila minus will automatically update the screen
-//!
-//! * When using `minus`, you select what features you need and **nothing else**. See
-//! [Features](crate#features) below
-//!
-//! [`tokio`]: https://crates.io/crates/tokio
-//! [`async-std`]: https://crates.io/crates/async-std
-//! [`pager`]: https://crates.io/crates/pager
-//! [`moins`]: https://crates.io/crates/moins
-//! [`pijul`]: https://pijul.org/
-//!
-//! ## Features
+//! # Features
 //!
 //! * `async_std_lib`: Use this if you use [`async_std`] runtime in your
 //! application
@@ -49,6 +24,62 @@
 //! * `static_output`: Use this if you only want to use `minus` for displaying static
 //! output
 //! * `search`: If you want searching capablities inside the feature
+//!
+//! # Examples
+//! Print numbers 1 through 100 with 100ms delay in asynchronous mode
+//!
+//! You can use any async runtime, but we are taking the example of [`tokio`]
+//!```rust,no_run
+//! use futures::join;
+//! use minus::{Pager, tokio_updating};
+//! use std::{fmt::Write, time::Duration};
+//! use tokio::time::sleep;
+//!
+//! #[tokio::main]
+//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let mut pager = Pager::new().unwrap().finish();
+//!     pager.set_prompt("An asynchronous example");
+//!
+//!     let updater = async {
+//!         for i in 1..=100 {
+//!             let guard = pager.lock().await;
+//!             writeln!(guard, "{}", i)?;
+//!             // Remember to drop the guard before any await or blocking operation
+//!             drop(guard);
+//!             sleep(Duration::from_millis(100)).await;
+//!         }
+//!         let mut guard = pager.lock().await;
+//!         output.end_data_stream();
+//!         Result::<_, std::fmt::Error>::Ok(())
+//!     }
+//!
+//!     let (res1, res2) = join!(tokio_updating(pager.clone()).await, updater);
+//!     res1?;
+//!     res2?;
+//!     Ok(())
+//! }
+//!```
+//!
+//! Print 1 through 100 in a blocking fashion (static output)
+//!```rust,no_run
+//! use std::fmt::Write;
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!      let mut pager = minus::Pager::new().unwrap();
+//!      for i in 1..=100 {
+//!         writeln!(pager, "{}", i)?;
+//!      }
+//!      pager.set_prompt("Example");
+//!      minus::page_all(pager)?;
+//!      Ok(())
+//! }
+//!```
+//!
+//! [`tokio`]: https://crates.io/crates/tokio
+//! [`async-std`]: https://crates.io/crates/async-std
+//! [`pager`]: https://crates.io/crates/pager
+//! [`moins`]: https://crates.io/crates/moins
+//! [`pijul`]: https://pijul.org/
 
 // When no feature is active this crate is unusable but contains lots of
 // unused imports and dead code. To avoid useless warnings about this they
@@ -94,42 +125,13 @@ pub use utils::LineNumbers;
     docsrs,
     doc(cfg(any(feature = "tokio_lib", feature = "async_std_lib")))
 )]
-/// A convinience tyoe for `std::sync::Arc<async_mutex::Mutex<Pager>>`
+/// A convenience type for `std::sync::Arc<async_mutex::Mutex<Pager>>`
 pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
-/// A convinience type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
+/// A convenience type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 /// A struct containing basic configurations for the pager. This is used by
 /// all initializing functions
-///
-/// ## Example
-/// You can use any async runtime, but we are taking the example of [`tokio`]
-///```rust,no_run
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     use minus::{Pager, LineNumbers, tokio_updating};
-///     let mut pager = Pager::new().unwrap();
-///     pager.set_line_numbers(LineNumbers::AlwaysOn);
-///     pager.set_prompt("A complex configuration");
-///
-///     // Normally, you would use `futures::join` to join the pager and the text
-///     // updating function. We are doing this here to make the example simple
-///     tokio_updating(pager.finish()).await?;
-///     Ok(())
-/// }
-///```
-///
-/// For static output
-///```rust,no_run
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///      let mut pager = minus::Pager::new().unwrap();
-///      pager.set_text("Hello");
-///      pager.set_prompt("Example");
-///      minus::page_all(pager)?;
-///      Ok(())
-/// }
-///```
-///
 pub struct Pager {
     /// The output that is displayed
     /// Represented by a vector of lines where each line is a vector of strings
