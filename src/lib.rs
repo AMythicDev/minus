@@ -398,6 +398,7 @@ impl Pager {
     pub fn push_str(&mut self, string: impl Into<String>) {
         let string = string.into();
         if string.ends_with('\n') {
+            self.lines.push_str(&string);
             self.wrap_lines.append(
                 &mut self
                     .lines
