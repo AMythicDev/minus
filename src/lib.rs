@@ -266,8 +266,7 @@ impl Pager {
     pub fn set_text(&mut self, text: impl Into<String>) {
         let text: String = text.into();
         // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
-        self.wrap_lines =
-            text.lines().map(|l| wrap_str(l, self.cols)).collect();
+        self.wrap_lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
     }
 
     /// Set line number to this setting
@@ -460,10 +459,7 @@ impl Pager {
     ///
     /// See example in [`InputHandler`](input::InputHandler) on using this
     /// function
-    pub fn set_input_handler(
-        &mut self,
-        handler: Box<dyn input::InputHandler + Send + Sync>,
-    ) {
+    pub fn set_input_handler(&mut self, handler: Box<dyn input::InputHandler + Send + Sync>) {
         self.input_handler = handler;
     }
 
@@ -485,10 +481,7 @@ impl Pager {
     /// let mut pager = Pager::new().unwrap();
     /// pager.add_exit_callback(Box::new(hello));
     /// ```
-    pub fn add_exit_callback(
-        &mut self,
-        cb: impl FnMut() + Send + Sync + 'static,
-    ) {
+    pub fn add_exit_callback(&mut self, cb: impl FnMut() + Send + Sync + 'static) {
         self.exit_callbacks.push(Box::new(cb));
     }
 }
@@ -527,7 +520,7 @@ pub(crate) fn rewrap_lines(lines: &mut Vec<Vec<String>>, cols: usize) {
 
 /// Rewrap a single line based on the number of columns
 pub(crate) fn rewrap(line: &mut Vec<String>, cols: usize) {
-    *line = textwrap::wrap(&line.join(""), cols)
+    *line = textwrap::wrap(&line.join(" "), cols)
         .iter()
         .map(ToString::to_string)
         .collect();

@@ -111,6 +111,7 @@ fn test_rewrap() {
 
     rewrap(&mut line, 100);
 
-    assert_eq!(line.len(), 2);
-    assert_eq!((100, 100), (line[0].len(), line[1].len()));
+    assert_eq!(line.len(), 3);
+    // No change, since it's already in a good optimal state
+    assert_eq!((80, 80, 40), (line[0].len(), line[1].len(), line[2].len()));
 }
