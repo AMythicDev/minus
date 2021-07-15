@@ -211,7 +211,7 @@ impl Pager {
     /// ```
     /// let pager = minus::Pager::new().unwrap();
     /// ```
-    pub fn new() -> Result<Self, error::AlternateScreenPagingError> {
+    pub fn new() -> Result<Self, error::TermError> {
         let (rows, cols);
 
         if cfg!(test) {

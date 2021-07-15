@@ -24,7 +24,7 @@ pub(crate) fn setup(
 ) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
 
-    if setup_screen {
+    if !setup_screen {
         // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
         if dynamic {
             use crossterm::tty::IsTty;

@@ -28,7 +28,7 @@ use std::sync::Arc;
 #[allow(clippy::too_many_lines)]
 pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
     let mut out = io::stdout();
-    setup(&out, false, !pager.run_no_overflow)?;
+    setup(&out, false, pager.run_no_overflow)?;
     #[allow(unused_assignments)]
     let mut redraw = true;
 
@@ -147,7 +147,7 @@ pub(crate) async fn dynamic_paging(
     let mut out = io::stdout();
     let guard = p.lock().await;
     let run_no_overflow = guard.run_no_overflow;
-    setup(&out, true, !run_no_overflow)?;
+    setup(&out, true, run_no_overflow)?;
     drop(guard);
     // Search related variables
     // A marker of which element of s_co we are currently at

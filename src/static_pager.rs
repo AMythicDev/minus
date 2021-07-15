@@ -76,7 +76,8 @@ pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
 
     {
         // If the number of lines in the output is less than the number of rows
-        if !p.run_no_overflow && p.rows > line_count {
+        // or run_no_overflow is true
+        if p.run_no_overflow && p.rows > line_count {
             let mut out = stdout.lock();
             utils::write_lines(&mut out, &mut p)?;
             out.flush()?;
