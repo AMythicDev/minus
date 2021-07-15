@@ -88,7 +88,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                         let regex = regex::Regex::new(&string);
                         if let Ok(r) = regex {
                             pager.search_term = Some(r);
-                            search::highlight_search(&mut pager);
+                            search::set_match_indices(&mut pager);
                             search::next_match(&mut pager, &mut s_mark);
                         } else {
                             pager.send_message("Invalid regular expression. Press Enter")
@@ -230,7 +230,7 @@ pub(crate) async fn dynamic_paging(
                 #[cfg(feature = "search")]
                 Some(InputEvent::Search(m)) => {
                     lock.search_mode = m;
-                    // Fetch the search query asynchronously
+                    // Fetch the search query
                     let string = search::fetch_input(&mut out, lock.search_mode, lock.rows)?;
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
@@ -239,7 +239,7 @@ pub(crate) async fn dynamic_paging(
                         if let Ok(r) = regex {
                             // Update the search term
                             lock.search_term = Some(r);
-                            search::highlight_search(&mut lock);
+                            search::set_match_indices(&mut lock);
                             search::next_match(&mut lock, &mut s_mark);
                         } else {
                             lock.send_message("Invalid regular expression. Press Enter");

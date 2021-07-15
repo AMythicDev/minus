@@ -93,12 +93,14 @@ pub(crate) fn fetch_input(
     }
 }
 
-/// Highlight all matches of the given query and return the coordinate of each match
+// Set `Pager.search_idx` to the line numbers at which search matches are found
 #[cfg(feature = "search")]
-pub(crate) fn highlight_search(pager: &mut Pager) {
+pub(crate) fn set_match_indices(pager: &mut Pager) {
     let pattern = pager.search_term.as_ref().unwrap();
     let mut coordinates: Vec<u16> = Vec::new();
 
+    // Get all the lines in wrapping, check if they have a match and put their line numbers if they
+    // do
     for (idx, line) in pager.get_flattened_lines().enumerate() {
         if pattern.is_match(&(*line).to_string()) {
             coordinates.push(u16::try_from(idx).unwrap());
@@ -110,6 +112,7 @@ pub(crate) fn highlight_search(pager: &mut Pager) {
 #[cfg(feature = "search")]
 pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
     use crossterm::style::Stylize;
+    // Replace all matches with a reverse colorscheme
     if let Some(cap) = query.captures(line) {
         let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::NoReverse);
         let text = text.as_str();
@@ -131,7 +134,7 @@ pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
 
 #[cfg(test)]
 mod tests {
-    use super::{highlight_line_matches, highlight_search, next_match};
+    use super::{highlight_line_matches, next_match, set_match_indices};
     use crate::Pager;
     use crossterm::style::Attribute;
     use regex::Regex;
@@ -168,7 +171,7 @@ eros.",
     }
 
     #[test]
-    fn test_highlight_search() {
+    fn test_set_match_indexes() {
         let mut pager = Pager::new().unwrap();
 
         pager.set_text(
@@ -185,7 +188,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien.",
 
         pager.search_term = Some(Regex::new(r"\Wa\w+\W").unwrap());
         let res = vec![3, 7, 11];
-        highlight_search(&mut pager);
+        set_match_indices(&mut pager);
         assert_eq!(pager.search_idx, res);
     }
 }

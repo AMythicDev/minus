@@ -59,17 +59,15 @@ pub enum PageAllError {
 /// ```
 #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
 pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
-    // Setup terminal
-    let stdout = io::stdout();
+    // Get stdout
+    let mut stdout = io::stdout();
     let line_count = p.num_lines();
 
-    // If stdout is not a tty, print all the output without paging
-    // then print it and exit the function.
+    // If stdout is not a tty, print all the output without paging and exit
     {
         if !stdout.is_tty() {
-            let mut out = stdout.lock();
-            utils::write_lines(&mut out, &mut p)?;
-            out.flush()?;
+            utils::write_lines(&mut stdout, &mut p)?;
+            stdout.flush()?;
             return Ok(());
         }
     }
