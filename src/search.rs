@@ -30,7 +30,7 @@ pub(crate) fn fetch_input(
     search_mode: SearchMode,
     rows: usize,
 ) -> Result<String, AlternateScreenPagingError> {
-    // Place the cursor at the beginning of very last line of the terminal and clear
+    // Place the cursor at the beginning of very prompt line, clear
     // the prompt and show the cursor
     #[allow(clippy::cast_possible_truncation)]
     write!(
@@ -120,12 +120,18 @@ pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
     }
 }
 
+// Set variables to move to the next match
 #[cfg(feature = "search")]
 pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
+    // Loop untill we find a match, that's below the upper_mark
+    //
+    // Get match at the given mark
     while let Some(y) = pager.search_idx.get(*s_mark) {
+        // If it's above upper_mark, continue for the next match
         if usize::from(*y) < pager.upper_mark {
             *s_mark += 1;
         } else {
+            // If the condition is satisfied, set it and break
             pager.upper_mark = *y as usize;
             break;
         }
