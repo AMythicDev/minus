@@ -24,120 +24,12 @@ use std::io::{self, Write as _};
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
 use std::sync::Arc;
 
-#[cfg(feature = "static_output")]
-#[allow(clippy::too_many_lines)]
-pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
-    let mut out = io::stdout();
-    setup(&out, false, pager.run_no_overflow)?;
-    #[allow(unused_assignments)]
-    let mut redraw = true;
-
-    #[cfg(feature = "search")]
-    let mut s_mark: usize = 0;
-
-    draw(&mut out, &mut pager)?;
-
-    loop {
-        // Check for events
-        if event::poll(std::time::Duration::from_millis(10))
-            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
-        {
-            // Get the events
-            let input = pager.input_handler.handle_input(
-                event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                pager.upper_mark,
-                #[cfg(feature = "search")]
-                pager.search_mode,
-                pager.line_numbers,
-                pager.message.0.is_some(),
-                pager.rows,
-            );
-            // Update any data that may have changed
-            #[allow(clippy::match_same_arms)]
-            match input {
-                Some(InputEvent::Exit) => {
-                    pager.exit();
-                    return Ok(cleanup(out, &pager.exit_strategy, true)?);
-                }
-                Some(InputEvent::RestorePrompt) => {
-                    pager.message.0 = None;
-                    pager.message.1 = false;
-                    redraw = true;
-                }
-                Some(InputEvent::UpdateTermArea(c, r)) => {
-                    pager.rows = r;
-                    pager.cols = c;
-                    pager.readjust_wraps();
-                    redraw = true;
-                }
-                Some(InputEvent::UpdateUpperMark(um)) => {
-                    pager.upper_mark = um;
-                    redraw = true;
-                }
-                Some(InputEvent::UpdateLineNumber(l)) => {
-                    pager.line_numbers = l;
-                    redraw = true;
-                }
-                // These are same as their dynamic counterparts, except for the fact
-                // that they use a blocking fetch_input function
-                #[cfg(feature = "search")]
-                Some(InputEvent::Search(m)) => {
-                    pager.search_mode = m;
-                    let string = search::fetch_input(&mut out, pager.search_mode, pager.rows)?;
-                    if !string.is_empty() {
-                        let regex = regex::Regex::new(&string);
-                        if let Ok(r) = regex {
-                            pager.search_term = Some(r);
-                            search::set_match_indices(&mut pager);
-                            search::next_match(&mut pager, &mut s_mark);
-                        } else {
-                            pager.send_message("Invalid regular expression. Press Enter")
-                        }
-                    }
-                    redraw = true;
-                }
-                #[cfg(feature = "search")]
-                Some(InputEvent::NextMatch) if pager.search_term.is_some() => {
-                    if s_mark < pager.search_idx.len().saturating_sub(1)
-                        && pager.upper_mark + pager.rows < pager.num_lines()
-                    {
-                        s_mark += 1;
-                    }
-                    if pager.search_idx.len() > s_mark {
-                        search::next_match(&mut pager, &mut s_mark);
-                        redraw = true;
-                    }
-                }
-                #[cfg(feature = "search")]
-                Some(InputEvent::PrevMatch) if pager.search_term.is_some() => {
-                    if pager.search_idx.is_empty() {
-                        continue;
-                    }
-                    s_mark = s_mark.saturating_sub(1);
-                    // Do the same steps that we have did in NextMatch block
-                    let y = pager.search_idx[s_mark];
-                    if usize::from(y) <= pager.upper_mark {
-                        pager.upper_mark = y.into();
-                    }
-                    redraw = true;
-                }
-                #[cfg(feature = "search")]
-                Some(_) => continue,
-                None => continue,
-            }
-            if (input.is_some() || pager.message.1) && redraw {
-                draw(&mut out, &mut pager)?;
-            }
-        }
-    }
-}
-
-/// Runs the pager in dynamic mode for the `PagerMutex`.
-///
-/// ## Errors
-///
-/// Setting/cleaning up the terminal can fail and IO to/from the terminal can
-/// fail.
+// Runs the pager in dynamic mode for the `PagerMutex`.
+//
+// ## Errors
+//
+// Setting/cleaning up the terminal can fail and IO to/from the terminal can
+// fail.
 #[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
 #[allow(clippy::too_many_lines)]
 pub(crate) async fn dynamic_paging(
@@ -235,22 +127,27 @@ pub(crate) async fn dynamic_paging(
                     // If the string is not empty, highlight all instances of the
                     // match and return a vector of match coordinates
                     if !string.is_empty() {
+                        // If it isn't empty, generate a regex for it
                         let regex = regex::Regex::new(&string);
                         if let Ok(r) = regex {
-                            // Update the search term
+                            // If the regex is ok, set it as the search_term
                             lock.search_term = Some(r);
+                            // These calls sets a index of the lines where search matches are
+                            // found and moves the display to the next match after the
+                            // upper_mark
                             search::set_match_indices(&mut lock);
                             search::next_match(&mut lock, &mut s_mark);
                         } else {
-                            lock.send_message("Invalid regular expression. Press Enter");
-                            continue;
+                            // If there's a a error in regex, send a message
+                            lock.send_message("Invalid regular expression. Press Enter")
                         }
                     }
                     redraw = true;
                 }
+
                 #[cfg(feature = "search")]
                 Some(InputEvent::NextMatch) if lock.search_term.is_some() => {
-                    // Increment the search mark only if it is less than s_co.len
+                    // Increment the search mark only if it is less than search index's length
                     // and it is not the last page
                     if s_mark < lock.search_idx.len().saturating_sub(1)
                         && lock.upper_mark + lock.rows < lock.num_lines()
@@ -262,6 +159,7 @@ pub(crate) async fn dynamic_paging(
                         redraw = true;
                     }
                 }
+
                 #[cfg(feature = "search")]
                 Some(InputEvent::PrevMatch) if lock.search_term.is_some() => {
                     if lock.search_idx.is_empty() {
@@ -283,6 +181,113 @@ pub(crate) async fn dynamic_paging(
             // If redraw is true, then redraw the screen
             if redraw {
                 draw(&mut out, &mut lock)?;
+            }
+        }
+    }
+}
+
+#[cfg(feature = "static_output")]
+#[allow(clippy::too_many_lines)]
+pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
+    let mut out = io::stdout();
+    setup(&out, false, pager.run_no_overflow)?;
+    #[allow(unused_assignments)]
+    let mut redraw = true;
+
+    #[cfg(feature = "search")]
+    let mut s_mark: usize = 0;
+
+    draw(&mut out, &mut pager)?;
+
+    loop {
+        // Check for events
+        if event::poll(std::time::Duration::from_millis(10))
+            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
+        {
+            // Get the event
+            let input = pager.input_handler.handle_input(
+                event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
+                pager.upper_mark,
+                #[cfg(feature = "search")]
+                pager.search_mode,
+                pager.line_numbers,
+                pager.message.0.is_some(),
+                pager.rows,
+            );
+            // Update any data that may have changed
+            // Do the same steps that we have did in dynamic_paging
+            #[allow(clippy::match_same_arms)]
+            match input {
+                Some(InputEvent::Exit) => {
+                    pager.exit();
+                    return Ok(cleanup(out, &pager.exit_strategy, true)?);
+                }
+                Some(InputEvent::RestorePrompt) => {
+                    pager.message.0 = None;
+                    pager.message.1 = false;
+                    redraw = true;
+                }
+                Some(InputEvent::UpdateTermArea(c, r)) => {
+                    pager.rows = r;
+                    pager.cols = c;
+                    pager.readjust_wraps();
+                    redraw = true;
+                }
+                Some(InputEvent::UpdateUpperMark(um)) => {
+                    pager.upper_mark = um;
+                    redraw = true;
+                }
+                Some(InputEvent::UpdateLineNumber(l)) => {
+                    pager.line_numbers = l;
+                    redraw = true;
+                }
+                #[cfg(feature = "search")]
+                Some(InputEvent::Search(m)) => {
+                    pager.search_mode = m;
+                    // Fetch the query
+                    let string = search::fetch_input(&mut out, pager.search_mode, pager.rows)?;
+                    if !string.is_empty() {
+                        let regex = regex::Regex::new(&string);
+                        if let Ok(r) = regex {
+                            pager.search_term = Some(r);
+                            search::set_match_indices(&mut pager);
+                            search::next_match(&mut pager, &mut s_mark);
+                        } else {
+                            pager.send_message("Invalid regular expression. Press Enter")
+                        }
+                    }
+                    redraw = true;
+                }
+                #[cfg(feature = "search")]
+                Some(InputEvent::NextMatch) if pager.search_term.is_some() => {
+                    if s_mark < pager.search_idx.len().saturating_sub(1)
+                        && pager.upper_mark + pager.rows < pager.num_lines()
+                    {
+                        s_mark += 1;
+                    }
+                    if pager.search_idx.len() > s_mark {
+                        search::next_match(&mut pager, &mut s_mark);
+                        redraw = true;
+                    }
+                }
+                #[cfg(feature = "search")]
+                Some(InputEvent::PrevMatch) if pager.search_term.is_some() => {
+                    if pager.search_idx.is_empty() {
+                        continue;
+                    }
+                    s_mark = s_mark.saturating_sub(1);
+                    let y = pager.search_idx[s_mark];
+                    if usize::from(y) <= pager.upper_mark {
+                        pager.upper_mark = y.into();
+                    }
+                    redraw = true;
+                }
+                #[cfg(feature = "search")]
+                Some(_) => continue,
+                None => continue,
+            }
+            if (input.is_some() || pager.message.1) && redraw {
+                draw(&mut out, &mut pager)?;
             }
         }
     }

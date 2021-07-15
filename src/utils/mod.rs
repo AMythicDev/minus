@@ -218,7 +218,7 @@ fn annotate_line_numbers(
         for mut row in line.iter_mut() {
             #[cfg(feature = "search")]
             if let Some(st) = search_term {
-                // Highlight  the lines
+                // Highlight the lines
                 highlight_line_matches(&mut row, st);
             }
             // Make the formatted text
