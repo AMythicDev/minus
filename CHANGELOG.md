@@ -1,6 +1,47 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v4.0.0
+### Added
+* Introduced robust line wrappings using the textwrap crate
+* Added a `Pager::send_message` function to send messages at the prompt site
+* Added `Space` and `Enter` keybindings
+* The docs now show feature tags on items that are gated on features
+* The `Pager::set_prompt` function now panics if it contains a line with \n characters
+* Added a Code of Conduct
+* Implemented the `std::fmt::Write` trait directly on `Pager`
+* Add new examples 3 new examples:- *color_output*, *msg-tokio*, *tokio-no-overflow*
+* Expanded the test suite of minus
+
+### Changed
+* The `Pager::set_page_if_havent_overflowed` has been replaced with `Pager::set_run_no_overflow`
+* The `Pager::set_data_finished` has been replaced with `Pager::end_data_stream`
+* All fields inside the pager are now private and cannot be accessed or directly written to
+* All tests now run without requiring `--all-features`
+* The `Pager::new` function now returns a `Result<Pager, TermError>`
+* The Pager API has changed from a builder pattern to a more programatic pattern like
+
+  ```rust
+  use minus::Pager;
+
+  let mut pager = Pager::new().unwrap();
+  pager.set_prompt("Example")
+  ```
+
+* Line Numbers displayed are now bold and have a little more left padding
+* Next and Previous now simply move the display to the match line number rather than moving the cursor
+
+### Fixed
+* Prevent panic if invalid regex is given during search
+* Fix run\_no\_overflow for static pager (#43)
+  
+   Previously, this setting had no effect if paging static output, due to an if condition in
+   `static_pager.rs` which did not consider the setting. This commit makes
+   this setting behave as expected. (@tomstoneham) 
+
+* The cursor is hidden as soon as the search query entry is complete.
+* Fix where color outputs get distorted after search matches
+
 ## v3.4.0 [2021-5-26]
 ### Added
 * u and d keys for half page scrolling

@@ -7,8 +7,8 @@
 [![chat](https://img.shields.io/badge/chat-on%20zulip-blue?style=for-the-badge)](https://minus.zulipchat.com/)
 
 A fast, asynchronous terminal paging library for Rust. `minus` provides high
-level functionalities to easily write a pager for any terminal application. Due
-to the asynchronous nature of `minus`, the pager's data can be **updated**.
+level functions to easily embed a pager for any terminal application. Due
+to the asynchronous nature of `minus`, the pager's data and configuration can be **updated** at any time.
 
 ![Demo.png](demo.png)
 
@@ -45,7 +45,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "4.0.0.alpha4"
+version = "4.0.0"
 # For tokio
 features = ["tokio_lib"]
 
@@ -84,7 +84,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut guard = pager.lock().await;
             writeln!(guard, "{}", i)?;
             // Also you can use this syntax
-            // guard.push_str(&format("{}", i));
+            // guard.push_str(&format("{}\n", i));
             drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut guard = pager.lock().await;
             writeln!(guard, "{}", i)?;
             // Also you can use this syntax
-            // guard.push_str(&format("{}", i));
+            // guard.push_str(&format("{}\n", i));
             drop(guard);
             sleep(Duration::from_millis(100)).await;
         }
@@ -177,7 +177,7 @@ paging since asynchronous paging could still receive more data that makes it
 pass the limit.
 
 ## End user help
-Here is some help for the end user using an application that depends on minus
+Here is the list of default key bindings. 
 
 | Action            | Description                                        |
 | ----------        | -------------                                      |
@@ -186,6 +186,8 @@ Here is some help for the end user using an application that depends on minus
 | Arrow Down/j      | Scroll down by one line                            |
 | Page Up           | Scroll up by entire page                           |
 | Page Down         | Scroll down by entire page                         |
+| Enter             | Scroll down by one line or clear prompt messages   |
+| Space             | Scroll down by one page                            |
 | Ctrl+U/u          | Scroll up by half a screen                         |
 | Ctrl+D/d          | Scroll down by half a screen                       |
 | g                 | Go to the very top of the output                   |
@@ -198,6 +200,8 @@ Here is some help for the end user using an application that depends on minus
 | Esc               | Cancel search input                                |
 | n                 | Go to the next search match                        |
 | p                 | Go to the next previous match                      |
+
+Applications can customize these keybindings to better suite there needs
 
 ## License
 Unless explicitly stated, all works to `minus` are dual licensed under the
@@ -216,6 +220,7 @@ Thank you to everyone here for giving there time and contribution to `minus`
 * @mkatychev
 * @tomstoneham
 * @Hardy7cc
+* @tomstoneham
 
 ## Get in touch
 We are open to discussion and thoughts om improving `minus`. Join us at
