@@ -69,7 +69,7 @@ Using [`tokio`]:
 ```rust
 use futures::join;
 use tokio::time::sleep;
-
+use minus::{Pager, async_std_updating};
 use std::fmt::Write;
 use std::time::Duration;
 
@@ -114,7 +114,7 @@ Using [`async-std`]:
 ```rust
 use async_std::task::sleep;
 use futures::join;
-
+use minus::{Pager, async_std_updating};
 use std::fmt::Write;
 use std::time::Duration;
 
@@ -156,6 +156,7 @@ Some static output:
 
 ```rust
 use std::fmt::Write;
+use minus::{Pager, page_all};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize a default static configuration

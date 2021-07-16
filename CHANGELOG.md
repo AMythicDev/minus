@@ -1,7 +1,7 @@
 # Changelog
 This file documents all noteable changes made to this project
 
-## v4.0.0
+## v4.0.0 [2021-07-16]
 ### Added
 * Introduced robust line wrappings using the textwrap crate
 * Added a `Pager::send_message` function to send messages at the prompt site
@@ -19,7 +19,7 @@ This file documents all noteable changes made to this project
 * All fields inside the pager are now private and cannot be accessed or directly written to
 * All tests now run without requiring `--all-features`
 * The `Pager::new` function now returns a `Result<Pager, TermError>`
-* The Pager API has changed from a builder pattern to a more programatic pattern like
+* The Pager API has changed from a builder pattern to a more programmatic pattern like
 
   ```rust
   use minus::Pager;
@@ -30,6 +30,7 @@ This file documents all noteable changes made to this project
 
 * Line Numbers displayed are now bold and have a little more left padding
 * Next and Previous now simply move the display to the match line number rather than moving the cursor
+* The `utils` module file has have been transformed into a directory with it's own separate
 
 ### Fixed
 * Prevent panic if invalid regex is given during search
@@ -42,59 +43,59 @@ This file documents all noteable changes made to this project
 * The cursor is hidden as soon as the search query entry is complete.
 * Fix where color outputs get distorted after search matches
 
-## v3.4.0 [2021-5-26]
+## v3.4.0 [2021-05-26]
 ### Added
 * u and d keys for half page scrolling
 
 ### Fixed
 * The reverse direction of j and k keys
 
-## v3.3.3 [2021-4-29]
+## v3.3.3 [2021-04-29]
 ### Fixed
 * Fixed warnings issued by clippy
 
-## v3.3.2 [2021-4-28]
+## v3.3.2 [2021-04-28]
 ### Added
 * Add docs for InputHandler and DefaultInputHandler
 
-## v3.3.1 [2021-3-13]
+## v3.3.1 [2021-03-13]
 ### Fixed
 * Documentation build failure
 
-## v3.3.0 [2021-3-5]
+## v3.3.0 [2021-03-5]
 ### Added
 * A trait to coustomize the default keybindings
 
 ### Fixed
 * Fixed bug where cursor movement stops at last search instance
 
-## v3.2.0 [2021-2-22]
+## v3.2.0 [2021-02-22]
 ### Added
 * A new function to signal the end of data to the pager
 
 ### Changed
 * Page cleanup when the pager needs to quit
 
-## v3.1.2 [2021-2-16]
+## v3.1.2 [2021-02-16]
 ### Bug fixes
 * Fixed bug where text with large amount of lines where not displayed
 * Fixed bug last line of text was not displayed when the string is pushed with multiple lines
 
-## v3.1.1 [2021-2-5]
+## v3.1.1 [2021-02-5]
 ### Documentation Fixes
 * Added information about the backward search feature in README
 
 ### Bug fixes
 * Removed the unstable `spin\_loop` function
 
-## v3.1.0 [2021-1-14]
+## v3.1.0 [2021-01-14]
 ### Added
 * Backward searching
 
 ### Bug fixes
 * Fix bug where cursor is placed in wrong position if upper\_mark is not 1
 
-## v3.0.2 [2021-1-12]
+## v3.0.2 [2021-01-12]
 ### Bug Fixes
 * If two consecutive searches are done in a single session, the previous search
 highlghts are not removed
@@ -104,11 +105,11 @@ highlghts are not removed
 * Add info about `search` feature
 * Add info about `searchable` field and `set_searchable` soft-deprecation
 
-## v3.0.1 [2021-1-10]
+## v3.0.1 [2021-01-10]
 ### Documentation Fixes
 * Fix README examples
 
-## v3.0.0 [2021-1-10]
+## v3.0.0 [2021-01-10]
 ### Added
 * A special mutex for the Pager that is runtime-agnostic and implements `Send` +
 `Sync`
