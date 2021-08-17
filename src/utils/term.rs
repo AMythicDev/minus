@@ -40,8 +40,6 @@ pub(crate) fn setup(
             .map_err(|e| SetupError::AlternateScreen(e.into()))?;
         terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
         execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
-        execute!(out, event::EnableMouseCapture)
-            .map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
     }
     Ok(())
 }
