@@ -1,6 +1,10 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v4.0.1 [2021-08-18]
+### Fixed
+* Fixed bug where selecting with mouse didn't select anything on the output
+
 ## v4.0.0 [2021-07-16]
 ### Added
 * Introduced robust line wrappings using the textwrap crate
