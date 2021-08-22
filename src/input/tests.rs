@@ -7,7 +7,7 @@ use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, Mouse
 // versions
 // TODO: Remove this later in favour of how handle_event should actually be called
 fn handle_input(ev: Event, p: &Pager) -> Option<InputEvent> {
-    p.input_handler.handle_input(
+    p.input_classifier.classify_input(
         ev,
         p.upper_mark,
         #[cfg(feature = "search")]
@@ -182,7 +182,7 @@ fn test_restore_prompt() {
         // therefore upper_mark += 1
         assert_eq!(
             Some(InputEvent::RestorePrompt),
-            pager.input_handler.handle_input(
+            pager.input_classifier.classify_input(
                 ev,
                 pager.upper_mark,
                 #[cfg(feature = "search")]
@@ -362,7 +362,7 @@ fn test_search_bindings() {
         });
 
         assert_eq!(
-            pager.input_handler.handle_input(
+            pager.input_classifier.classify_input(
                 next_event,
                 pager.upper_mark,
                 SearchMode::Forward,
@@ -373,7 +373,7 @@ fn test_search_bindings() {
             Some(InputEvent::NextMatch)
         );
         assert_eq!(
-            pager.input_handler.handle_input(
+            pager.input_classifier.classify_input(
                 prev_event,
                 pager.upper_mark,
                 SearchMode::Forward,
@@ -397,7 +397,7 @@ fn test_search_bindings() {
         });
 
         assert_eq!(
-            pager.input_handler.handle_input(
+            pager.input_classifier.classify_input(
                 next_event,
                 pager.upper_mark,
                 SearchMode::Reverse,
@@ -408,7 +408,7 @@ fn test_search_bindings() {
             Some(InputEvent::PrevMatch)
         );
         assert_eq!(
-            pager.input_handler.handle_input(
+            pager.input_classifier.classify_input(
                 prev_event,
                 pager.upper_mark,
                 SearchMode::Reverse,

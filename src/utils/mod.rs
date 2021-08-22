@@ -2,6 +2,7 @@
 //
 // The `term` module provide functions for setup/teardown of
 // the terminal
+pub(crate) mod ev_handler;
 pub(crate) mod term;
 
 use crossterm::{

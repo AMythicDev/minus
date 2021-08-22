@@ -45,13 +45,13 @@ pub enum InputEvent {
 ///
 /// # Example
 /// ```
-/// use minus::{input::{InputEvent, InputHandler}, LineNumbers, Pager};
+/// use minus::{input::{InputEvent, InputClassifier}, LineNumbers, Pager};
 #[cfg_attr(feature = "search", doc = "use minus::SearchMode;")]
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
 /// struct CustomInputHandler;
-/// impl InputHandler for CustomInputHandler {
-///     fn handle_input(
+/// impl InputClassifier for CustomInputHandler {
+///     fn classify_input(
 ///         &self,
 ///         ev: Event,
 ///         upper_mark: usize,
@@ -82,8 +82,8 @@ pub enum InputEvent {
 ///             );
 /// ```
 #[allow(clippy::module_name_repetitions)]
-pub trait InputHandler {
-    fn handle_input(
+pub trait InputClassifier {
+    fn classify_input(
         &self,
         ev: Event,
         upper_mark: usize,
@@ -98,9 +98,9 @@ pub trait InputHandler {
 /// making a custom input handler struct and implementing the [`InputHandler`] trait
 pub struct DefaultInputHandler;
 
-impl InputHandler for DefaultInputHandler {
+impl InputClassifier for DefaultInputHandler {
     #[allow(clippy::too_many_lines)]
-    fn handle_input(
+    fn classify_input(
         &self,
         ev: Event,
         upper_mark: usize,

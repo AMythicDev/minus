@@ -165,8 +165,8 @@ pub struct Pager {
     // Text which may have come through `push_str` (or `writeln`) that isn't
     // flushed to wrap_lines, since it isn't terminated yet with a \n
     lines: String,
-    // The input handler to be called when a input is found
-    input_handler: Box<dyn input::InputHandler + Sync + Send>,
+    // The input classifier to be called when a input is found
+    input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
     // Functions to run when the pager quits
     exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     // The behaviour to do when user quits the program using `q` or `Ctrl+C`
@@ -235,7 +235,7 @@ impl Pager {
             upper_mark: 0,
             prompt: wrap_str("minus", cols.into()),
             exit_strategy: ExitStrategy::ProcessQuit,
-            input_handler: Box::new(input::DefaultInputHandler {}),
+            input_classifier: Box::new(input::DefaultInputHandler {}),
             exit_callbacks: Vec::new(),
             run_no_overflow: false,
             message: (None, false),
@@ -299,7 +299,7 @@ impl Pager {
     pub fn send_message(&mut self, text: impl Into<String>) {
         let message = text.into();
         if message.contains('\n') {
-            panic!("Prompt text cannot contain newlines")
+            panic!("Prompt text cannot contain newlines");
         }
         self.message.0 = Some(wrap_str(&message, self.cols));
         self.message.1 = true;
@@ -322,7 +322,7 @@ impl Pager {
     pub fn set_prompt(&mut self, t: impl Into<String>) {
         let prompt = t.into();
         if prompt.contains('\n') {
-            panic!("Prompt text cannot contain newlines")
+            panic!("Prompt text cannot contain newlines");
         }
         self.prompt = wrap_str(&prompt, self.cols);
     }
@@ -460,8 +460,8 @@ impl Pager {
     ///
     /// See example in [`InputHandler`](input::InputHandler) on using this
     /// function
-    pub fn set_input_handler(&mut self, handler: Box<dyn input::InputHandler + Send + Sync>) {
-        self.input_handler = handler;
+    pub fn set_input_handler(&mut self, handler: Box<dyn input::InputClassifier + Send + Sync>) {
+        self.input_classifier = handler;
     }
 
     // Runs the exit callbacks
