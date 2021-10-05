@@ -97,13 +97,13 @@ pub(crate) fn fetch_input(
 #[cfg(feature = "search")]
 pub(crate) fn set_match_indices(pager: &mut Pager) {
     let pattern = pager.search_term.as_ref().unwrap();
-    let mut coordinates: Vec<u16> = Vec::new();
+    let mut coordinates: Vec<usize> = Vec::new();
 
     // Get all the lines in wrapping, check if they have a match and put their line numbers if they
     // do
     for (idx, line) in pager.get_flattened_lines().enumerate() {
         if pattern.is_match(&(*line).to_string()) {
-            coordinates.push(u16::try_from(idx).unwrap());
+            coordinates.push(idx);
         }
     }
     pager.search_idx = coordinates;
