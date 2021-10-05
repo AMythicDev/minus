@@ -128,7 +128,7 @@ pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
     // Get match at the given mark
     while let Some(y) = pager.search_idx.get(*s_mark) {
         // If it's above upper_mark, continue for the next match
-        if usize::from(*y) < pager.upper_mark {
+        if *y < pager.upper_mark {
             *s_mark += 1;
         } else {
             // If the condition is satisfied, set it and break

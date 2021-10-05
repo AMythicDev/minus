@@ -87,8 +87,8 @@ pub(crate) fn handle_input(
             *s_mark = s_mark.saturating_sub(1);
             let y = pager.search_idx[*s_mark];
             // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
-            if usize::from(y) < pager.upper_mark {
-                pager.upper_mark = y.into();
+            if y < pager.upper_mark {
+                pager.upper_mark = y;
             }
             *redraw = true;
         }

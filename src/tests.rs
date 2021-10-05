@@ -17,7 +17,7 @@ fn test_write() {
     write!(pager, "{}", TEST).unwrap();
     let res: Vec<Vec<String>> = Vec::new();
     assert_eq!(pager.wrap_lines, res);
-    assert_eq!(pager.lines, TEST.to_string())
+    assert_eq!(pager.lines, TEST.to_string());
 }
 
 #[test]
@@ -29,7 +29,7 @@ fn test_sequential_write() {
     write!(pager, "{}", TEXT2).unwrap();
     let res: Vec<Vec<String>> = Vec::new();
     assert_eq!(pager.wrap_lines, res);
-    assert_eq!(pager.lines, TEXT1.to_string() + TEXT2)
+    assert_eq!(pager.lines, TEXT1.to_string() + TEXT2);
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn test_wrap_str() {
     let test = {
         let mut line = String::with_capacity(200);
         for _ in 1..=200 {
-            line.push('#')
+            line.push('#');
         }
         line
     };
@@ -98,7 +98,7 @@ fn test_rewrap() {
     let test = {
         let mut line = String::with_capacity(200);
         for _ in 1..=200 {
-            line.push('#')
+            line.push('#');
         }
         line
     };

@@ -382,7 +382,7 @@ fn test_search_bindings() {
                 pager.rows
             ),
             Some(InputEvent::PrevMatch)
-        )
+        );
     }
 
     {
@@ -417,6 +417,6 @@ fn test_search_bindings() {
                 pager.rows
             ),
             Some(InputEvent::NextMatch)
-        )
+        );
     }
 }
