@@ -194,7 +194,7 @@ pub struct Pager {
     search_mode: SearchMode,
     // Lines where searches have a match
     #[cfg(feature = "search")]
-    pub(crate) search_idx: Vec<u16>,
+    pub(crate) search_idx: Vec<usize>,
     // Rows of the terminal
     pub(crate) rows: usize,
     // Columns of the terminal
