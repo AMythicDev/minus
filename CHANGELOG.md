@@ -1,6 +1,14 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v4.0.2 [2021-10-10]
+
+### Added
+* Added the `minus` logo in README
+
+### Fixed
+* Fixed panic when more than 65,535 lines were searched at once
+
 ## v4.0.1 [2021-08-18]
 ### Fixed
 * Fixed bug where selecting with mouse didn't select anything on the output
