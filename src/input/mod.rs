@@ -1,4 +1,4 @@
-//! Provides the [`InputHandler`] trait, which can be used
+//! Provides the [`InputClassifier`] trait, which can be used
 //! to customize the default keybindings of minus
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
@@ -49,8 +49,8 @@ pub enum InputEvent {
 #[cfg_attr(feature = "search", doc = "use minus::SearchMode;")]
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
-/// struct CustomInputHandler;
-/// impl InputClassifier for CustomInputHandler {
+/// struct CustomInputClassifier;
+/// impl InputClassifier for CustomInputClassifier {
 ///     fn classify_input(
 ///         &self,
 ///         ev: Event,
@@ -78,7 +78,7 @@ pub enum InputEvent {
 ///
 /// let mut pager = Pager::new().unwrap();
 /// pager.set_input_handler(
-///                 Box::new(CustomInputHandler)
+///                 Box::new(CustomInputClassifier)
 ///             );
 /// ```
 #[allow(clippy::module_name_repetitions)]
@@ -95,10 +95,10 @@ pub trait InputClassifier {
 }
 
 /// The default keybindings in `minus`. These can be overriden by
-/// making a custom input handler struct and implementing the [`InputHandler`] trait
-pub struct DefaultInputHandler;
+/// making a custom input handler struct and implementing the [`InputClassifier`] trait
+pub struct DefaultInputClassifier;
 
-impl InputClassifier for DefaultInputHandler {
+impl InputClassifier for DefaultInputClassifier {
     #[allow(clippy::too_many_lines)]
     fn classify_input(
         &self,

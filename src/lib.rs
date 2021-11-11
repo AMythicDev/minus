@@ -1,29 +1,31 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-//! A fast, asynchronous terminal paging library for Rust. `minus` provides high
-//! level functions to easily embed a pager for any terminal application.
+//! `minus` is a terminal paging library for Rust. It provides high
+//! level functions to easily embed a pager for any terminal application without
+//! requiring you to think about the nitty-gritty of building a pager.
 //!
-//! `minus` can be used in asynchronous mode or in a blocking fashion
+//! `minus` can be used in asynchronous mode or in a blocking fashion.
 //!
-//! * In asynchronous mode, the pager's data as well as it's
-//! configuration can be **updated** at any time.`minus` supports both
-//! [`tokio`] as well as [`async-std`] runtimes. The support
-//! for these runtimes are gated on individual features.
+//! In asynchronous mode, the pager's data as well as it's
+//! configuration can be **updated** at any time. `minus` supports both
+//! [`tokio`] as well as [`async-std`] runtimes. These runtimes are gated
+//! on specific [features](./index.html#features).
 //!
-//! * In blocking mode, the pager stops any other code from being executed. This
+//! In blocking mode, the pager stops any other task from being executed. This
 //! is good if you want to show some static information but it does not allow
 //! you to change the configuration of the pager at runtime.
 //!
-//! * When using `minus`, you select what features you need and **nothing else**.
-//!
 //! # Features
-//!
 //! * `async_std_lib`: Use this if you use [`async_std`] runtime in your
 //! application
 //! * `tokio_lib`:Use this if you are using [`tokio`] runtime for your application
 //! * `static_output`: Use this if you only want to use `minus` for displaying static
 //! output
 //! * `search`: If you want searching capablities inside the feature
+//!
+//! **Note:** You must select a either a runtime feature or `static_output`. If you do not
+//! select any features when adding `minus` to `Cargo.toml`, it will not have any functions
+//! to start a pager.
 //!
 //! # Examples
 //! Print numbers 1 through 100 with 100ms delay in asynchronous mode
@@ -37,24 +39,24 @@
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let mut pager = Pager::new().unwrap();
+//!     let mut pager = Pager::new()?;
 //!     pager.set_prompt("An asynchronous example");
-//!     let pager = pager.finish();
+//!     let pager_mutex = pager.finish();
 //!
 //!     let updater = async {
 //!         for i in 1..=100u8 {
-//!             let mut guard = pager.lock().await;
+//!             let mut guard = pager_mutex.lock().await;
 //!             writeln!(guard, "{}", i)?;
 //!             // Remember to drop the guard before any await or blocking operation
 //!             drop(guard);
 //!             sleep(Duration::from_millis(100)).await;
 //!         }
-//!         let mut guard = pager.lock().await;
+//!         let mut guard = pager_mutex.lock().await;
 //!         guard.end_data_stream();
 //!         Result::<_, std::fmt::Error>::Ok(())
 //!     };
 //!
-//!     let (res1, res2) = join!(tokio_updating(pager.clone()), updater);
+//!     let (res1, res2) = join!(tokio_updating(pager_mutex.clone()), updater);
 //!     res1?;
 //!     res2?;
 //!     Ok(())
@@ -127,9 +129,9 @@ pub use utils::LineNumbers;
     docsrs,
     doc(cfg(any(feature = "tokio_lib", feature = "async_std_lib")))
 )]
-/// A convenience type for `std::sync::Arc<async_mutex::Mutex<Pager>>`
+/// A convenient type for `std::sync::Arc<async_mutex::Mutex<Pager>>`
 pub type PagerMutex = std::sync::Arc<Mutex<Pager>>;
-/// A convenience type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
+/// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 // The Wrapping Model
@@ -137,16 +139,16 @@ pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 // minus heavily uses the wrapping model. This is key to understand how minus
 // internally.
 //
-// When a text is given to minus in for displaying, it internally takes each
-// logical line of it and breaks it into a `Vec<String>`. To hold multiple of
+// When a text is given to minus for displaying, it internally takes each
+// logical line of it and breaks it into a `Vec<String>`. To hold all of
 // those lines, it stores them inside another Vec container. This makes it the
 // `Vec<Vec<String>>` struct.
 //
 // Each element in the 1st `Vec` is a logical line. While each String in the 2nd
 // `Vec` is a line wrapped to the available terminal width.
 //
-// In case of prompt text and message, which are allowed to take only one row in
-// the terminal, and hence, must contain only 1 line are contained in a
+// In case of prompt text and message, which are allowed to occupy only a single
+//  row in the terminal, and hence, must contain only 1 line are contained in a
 // `Vec<String>`
 //
 // If the terminal is resized, we update the rows and columns and rewrap the
@@ -238,7 +240,7 @@ impl Pager {
             upper_mark: 0,
             prompt: wrap_str("minus", cols.into()),
             exit_strategy: ExitStrategy::ProcessQuit,
-            input_classifier: Box::new(input::DefaultInputHandler {}),
+            input_classifier: Box::new(input::DefaultInputClassifier {}),
             exit_callbacks: Vec::new(),
             run_no_overflow: false,
             message: (None, false),
@@ -535,7 +537,7 @@ impl Pager {
 
     /// Set custom input handler function
     ///
-    /// See example in [`InputHandler`](input::InputHandler) on using this
+    /// See example in [`InputHandler`](input::InputClassifier) on using this
     /// function
     pub fn set_input_handler(&mut self, handler: Box<dyn input::InputClassifier + Send + Sync>) {
         self.input_classifier = handler;
