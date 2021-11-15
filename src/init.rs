@@ -83,8 +83,6 @@ pub(crate) async fn dynamic_paging(
             // Lock the value again
             let mut lock = p.lock().await;
 
-            let line_count = lock.num_lines();
-
             // Get the events
             let input = lock.input_classifier.classify_input(
                 event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
@@ -127,7 +125,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     #[cfg(feature = "search")]
     let mut s_mark: usize = 0;
 
-    let line_count = pager.num_lines();
+    let mut line_count = pager.num_lines();
 
     draw(&mut out, line_count, &mut pager)?;
 
@@ -160,6 +158,10 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // Redraw the screen
             if (input.is_some() || pager.message.1) && redraw {
                 draw(&mut out, line_count, &mut pager)?;
+            }
+
+            if matches!(input, Some(InputEvent::UpdateTermArea(_, _)) | Some(InputEvent::UpdateLineNumber(_))) {
+                line_count = pager.num_lines();
             }
         }
     }
