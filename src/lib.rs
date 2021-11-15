@@ -118,8 +118,8 @@ pub use rt_wrappers::*;
 pub use search::SearchMode;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
-use std::{fmt, io::stdout};
 use std::string::ToString;
+use std::{fmt, io::stdout};
 pub use utils::LineNumbers;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
@@ -439,55 +439,67 @@ impl Pager {
         let mut clone = self.wrap_lines.clone();
         let line_count = clone.len();
 
-        if matches!(self.line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn) {
+        if matches!(
+            self.line_numbers,
+            LineNumbers::Enabled | LineNumbers::AlwaysOn
+        ) {
             // the number of colums to show the line number in
             //let len_line_number = (line_count as f64).log10().floor() as usize + 6;
             let len_line_number = line_count.to_string().len();
 
-            self.formatted_lines = clone.into_iter().enumerate().flat_map(|(idx, mut line)| {
-                crate::rewrap(&mut line, self.cols.saturating_sub(len_line_number + 3));
+            self.formatted_lines = clone
+                .into_iter()
+                .enumerate()
+                .flat_map(|(idx, mut line)| {
+                    crate::rewrap(&mut line, self.cols.saturating_sub(len_line_number + 3));
 
-                // insert the line numbers
-                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-                line.into_iter().map(|mut row| {
-                    #[cfg(feature = "search")]
-                    if let Some(st) = self.search_term.as_ref() {
-                        // highlight the lines with matching search terms
-                        search::highlight_line_matches(&mut row, st);
-                    }
+                    // insert the line numbers
+                    #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+                    line.into_iter()
+                        .map(|mut row| {
+                            #[cfg(feature = "search")]
+                            if let Some(st) = self.search_term.as_ref() {
+                                // highlight the lines with matching search terms
+                                search::highlight_line_matches(&mut row, st);
+                            }
 
-                    if cfg!(not(test)) {
-                        format!(
-                            " {bold}{number: >len$}.{reset} {row}",
-                            bold = crossterm::style::Attribute::Bold,
-                            number = idx + 1,
-                            len = len_line_number,
-                            reset = crossterm::style::Attribute::Reset,
-                            row = row
-                        )
-                    } else {
-                        format!(
-                            " {number: >len$}. {row}",
-                            number = idx + 1,
-                            len = len_line_number,
-                            row = row
-                        )
-                    }
-                }).collect::<Vec<String>>()
-            }).collect::<Vec<String>>();
+                            if cfg!(not(test)) {
+                                format!(
+                                    " {bold}{number: >len$}.{reset} {row}",
+                                    bold = crossterm::style::Attribute::Bold,
+                                    number = idx + 1,
+                                    len = len_line_number,
+                                    reset = crossterm::style::Attribute::Reset,
+                                    row = row
+                                )
+                            } else {
+                                format!(
+                                    " {number: >len$}. {row}",
+                                    number = idx + 1,
+                                    len = len_line_number,
+                                    row = row
+                                )
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                })
+                .collect::<Vec<String>>();
         } else {
             rewrap_lines(&mut clone, self.cols);
 
-            self.formatted_lines = clone.into_iter().flat_map(|mut line| {
-                #[cfg(feature = "search")]
-                if let Some(st) = self.search_term.as_ref() {
-                    for row in &mut line {
-                        search::highlight_line_matches(row, st);
+            self.formatted_lines = clone
+                .into_iter()
+                .flat_map(|mut line| {
+                    #[cfg(feature = "search")]
+                    if let Some(st) = self.search_term.as_ref() {
+                        for row in &mut line {
+                            search::highlight_line_matches(row, st);
+                        }
                     }
-                }
 
-                line
-            }).collect::<Vec<String>>();
+                    line
+                })
+                .collect::<Vec<String>>();
         }
 
         if self.message.0.is_some() {
