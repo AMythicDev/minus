@@ -451,6 +451,7 @@ impl Pager {
         self.get_lines().into_iter().flatten()
     }
 
+    /// Returns all the text within the bounds, after flattening
     pub(crate) fn get_flattened_lines_with_bounds(&self, start: usize, len: usize) -> Vec<String> {
         let end = std::cmp::min(start + len, self.wrap_lines.len());
         self.wrap_lines[..end].to_vec().into_iter().flatten().skip(start).take(len).collect()
