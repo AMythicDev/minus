@@ -125,9 +125,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     #[cfg(feature = "search")]
     let mut s_mark: usize = 0;
 
-    let mut line_count = pager.num_lines();
-
-    draw(&mut out, line_count, &mut pager)?;
+    draw(&mut out, &mut pager)?;
 
     loop {
         // Check for events
@@ -157,11 +155,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // If there is some input, or messages and redraw is true
             // Redraw the screen
             if (input.is_some() || pager.message.1) && redraw {
-                draw(&mut out, line_count, &mut pager)?;
-            }
-
-            if matches!(input, Some(InputEvent::UpdateTermArea(_, _)) | Some(InputEvent::UpdateLineNumber(_))) {
-                line_count = pager.num_lines();
+                draw(&mut out, &mut pager)?;
             }
         }
     }
