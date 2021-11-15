@@ -15,9 +15,6 @@ use std::{convert::TryFrom, io};
 
 use crate::{AlternateScreenPagingError, Pager};
 
-#[cfg(feature = "search")]
-use crate::search::highlight_line_matches;
-
 // Writes the given `lines` to the given `out`put.
 //
 // - `rows` is the maximum number of lines to display at once.
@@ -95,58 +92,8 @@ pub(crate) fn write_lines(
         };
     }
 
-    // We use the `Iterator::skip` and `Iterator::take` method extensively in this
-    // block
-    // This may be too high but the `Iterator::take` call below will limit this
-    // anyway while allowing us to display as much lines as possible.
+    let displayed_lines = pager.get_flattened_lines_with_bounds(pager.upper_mark, lower_mark);
 
-    let displayed_lines = match pager.line_numbers {
-        LineNumbers::AlwaysOff | LineNumbers::Disabled => {
-            let start = pager.upper_mark;
-
-            // Get the unnested (flattened) lines and display them
-            #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            let mut lines = pager
-                .get_flattened_lines_with_bounds(start, rows.min(line_count));
-
-            // If search is enabled and there is a query, then highlight the matches
-            #[cfg(feature = "search")]
-            if let Some(st) = &pager.search_term {
-                for mut line in &mut lines {
-                    highlight_line_matches(&mut line, st);
-                }
-            }
-            lines
-        }
-        LineNumbers::AlwaysOn | LineNumbers::Enabled => {
-            // Compute the length of a number as a string without allocating.
-            //
-            // While this may in theory lose data, it will only do so if
-            // `line_count` is bigger than 2^52, which will probably never
-            // happen. Let's worry about that only if someone reports a bug
-            // for it.
-            #[allow(
-                clippy::cast_possible_truncation,
-                clippy::cast_sign_loss,
-                clippy::cast_precision_loss
-            )]
-            let len_line_number = (line_count as f64).log10().floor() as usize + 1;
-            // Get the line number annotated lines, optionally with search highlights, if
-            // there is a search query
-            annotate_line_numbers(
-                pager.get_lines(),
-                len_line_number,
-                pager.cols,
-                #[cfg(feature = "search")]
-                &pager.search_term,
-            )
-            .iter()
-            .skip(pager.upper_mark)
-            .take(rows.min(line_count))
-            .map(ToOwned::to_owned)
-            .collect()
-        }
-    };
     // Join the lines and display them at once
     // This is because, writing to console is slow
     //
@@ -200,55 +147,6 @@ impl std::ops::Not for LineNumbers {
             ln => ln,
         }
     }
-}
-
-// Add line numbers to all the lines taking into considerations the wraps
-fn annotate_line_numbers(
-    mut lines: Vec<Vec<String>>,
-    len_line_number: usize,
-    cols: usize,
-    #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
-) -> Vec<String> {
-    // Calculate the amount of space required for the numbering ie. length of line
-    // numbers + . + 2 spaces and wrap according to it
-    let padding = len_line_number + 3;
-    for (idx, line) in lines.iter_mut().enumerate() {
-        crate::rewrap(line, cols.saturating_sub(padding));
-
-        // Insert the line numbers
-        #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-        for mut row in line.iter_mut() {
-            #[cfg(feature = "search")]
-            if let Some(st) = search_term {
-                // Highlight the lines
-                highlight_line_matches(&mut row, st);
-            }
-            // Make the formatted text
-            // If function is called in a test run, reove the bold and reset
-            // sequences because at that time we care more about correctness than
-            // formatting
-            let fmt_numbers = if cfg!(not(test)) {
-                format!(
-                    " {bold}{number: >len$}.{reset} ",
-                    bold = crossterm::style::Attribute::Bold,
-                    number = idx + 1,
-                    len = len_line_number,
-                    reset = crossterm::style::Attribute::Reset
-                )
-            } else {
-                format!(
-                    " {number: >len$}. ",
-                    number = idx + 1,
-                    len = len_line_number,
-                )
-            };
-            // Insert line numbers at the beginning
-            row.insert_str(0, &fmt_numbers);
-        }
-    }
-
-    // Return the flattened lines
-    lines.iter().flatten().map(ToOwned::to_owned).collect()
 }
 
 #[cfg(test)]

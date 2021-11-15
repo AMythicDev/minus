@@ -25,13 +25,14 @@ pub(crate) fn handle_input(
             // Set the message to None and new messages to false as all messages have been shown
             pager.message.0 = None;
             pager.message.1 = false;
+            pager.format_lines();
             *redraw = true;
         }
         Some(InputEvent::UpdateTermArea(c, r)) => {
             pager.rows = *r;
             pager.cols = *c;
             // Readjust the text wrapping for the new number of columns
-            pager.readjust_wraps();
+            pager.format_lines();
             *redraw = true;
         }
         Some(InputEvent::UpdateUpperMark(um)) => {
@@ -40,6 +41,7 @@ pub(crate) fn handle_input(
         }
         Some(InputEvent::UpdateLineNumber(l)) => {
             pager.line_numbers = *l;
+            pager.format_lines();
             *redraw = true;
         }
         #[cfg(feature = "search")]
@@ -61,6 +63,7 @@ pub(crate) fn handle_input(
                     pager.send_message("Invalid regular expression. Press Enter");
                 }
             }
+            pager.format_lines();
             *redraw = true;
         }
         #[cfg(feature = "search")]
