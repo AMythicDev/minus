@@ -20,7 +20,7 @@ fn short_no_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rA line\n\rAnother line\n",
@@ -31,7 +31,7 @@ fn short_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark += 1;
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -53,7 +53,7 @@ fn long_no_line_numbers() {
     pager.rows = 4;
     pager.set_text(lines);
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rA line\n\rAnother line\n\rThird line\n",
@@ -66,7 +66,7 @@ fn long_no_line_numbers() {
     pager.set_text("Another line\nThird line\nFourth line\nFifth line");
     pager.upper_mark = 1;
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rThird line\n\rFourth line\n\rFifth line\n",
@@ -79,7 +79,7 @@ fn long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 2;
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rThird line\n\rFourth line\n\rFifth line\n",
@@ -97,7 +97,7 @@ fn short_with_line_numbers() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r 1. A line\n\r 2. Another line\n",
@@ -109,7 +109,7 @@ fn short_with_line_numbers() {
     pager.upper_mark = 1;
     pager.line_numbers = LineNumbers::AlwaysOn;
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -131,7 +131,7 @@ fn long_with_line_numbers() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r 1. A line\n\r 2. Another line\n\r 3. Third line\n",
@@ -143,7 +143,7 @@ fn long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r 2. Another line\n\r 3. Third line\n\r 4. Fourth line\n",
@@ -156,7 +156,7 @@ fn long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 2;
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r 2. Another line\n\r 3. Third line\n\r 4. Fourth line\n",
@@ -182,7 +182,7 @@ fn big_line_numbers_are_padded() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::AlwaysOn);
 
-    assert!(write_lines(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(write_lines(&mut out, &mut pager).is_ok());
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert_eq!(
@@ -223,7 +223,7 @@ fn draw_short_no_line_numbers() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::AlwaysOff);
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -233,7 +233,7 @@ fn draw_short_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -253,7 +253,7 @@ fn draw_long_no_line_numbers() {
     pager.rows = 3;
     pager.set_text(lines);
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -264,7 +264,7 @@ fn draw_long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -276,7 +276,7 @@ fn draw_long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 3;
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -292,7 +292,7 @@ fn draw_short_with_line_numbers() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
         .contains("\r 1. A line\n\r 2. Another line\n"));
@@ -301,7 +301,7 @@ fn draw_short_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -322,7 +322,7 @@ fn draw_long_with_line_numbers() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -333,7 +333,7 @@ fn draw_long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -345,7 +345,7 @@ fn draw_long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 3;
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
@@ -369,7 +369,7 @@ fn draw_big_line_numbers_are_padded() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::Enabled);
 
-    assert!(draw(&mut out, pager.num_lines(), &mut pager).is_ok());
+    assert!(draw(&mut out, &mut pager).is_ok());
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert!(String::from_utf8(out)
@@ -390,7 +390,7 @@ fn draw_help_message() {
     pager.set_text(lines);
     pager.set_line_numbers(LineNumbers::AlwaysOff);
 
-    draw(&mut out, pager.num_lines(), &mut pager).expect("Should have written");
+    draw(&mut out, &mut pager).expect("Should have written");
 
     let res = String::from_utf8(out).expect("Should have written valid UTF-8");
     assert!(res.contains("minus"));
@@ -402,7 +402,7 @@ fn test_draw_no_overflow() {
     let mut out = Vec::with_capacity(TEXT.len());
     let mut pager = Pager::new().unwrap();
     writeln!(pager, "{}", TEXT).unwrap();
-    draw(&mut out, pager.num_lines(), &mut pager).unwrap();
+    draw(&mut out, &mut pager).unwrap();
     assert!(String::from_utf8(out)
         .expect("Should have written valid UTF-8")
         .contains(TEXT),);

@@ -63,7 +63,7 @@ pub(crate) async fn dynamic_paging(
         if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed)
             || guard.message.1
         {
-            draw(&mut out, line_count, &mut guard)?;
+            draw(&mut out, &mut guard)?;
             if guard.message.1 {
                 guard.message.1 = false;
             }
@@ -103,7 +103,7 @@ pub(crate) async fn dynamic_paging(
             )?;
             // If redraw is true, then redraw the screen
             if redraw {
-                draw(&mut out, line_count, &mut lock)?;
+                draw(&mut out, &mut lock)?;
             }
         }
     }
