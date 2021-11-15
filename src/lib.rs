@@ -481,8 +481,8 @@ impl Pager {
             self.formatted_lines = clone.into_iter().flat_map(|mut line| {
                 #[cfg(feature = "search")]
                 if let Some(st) = self.search_term.as_ref() {
-                    for row in line.iter_mut() {
-                        search::highlight_line_matches(row, &st);
+                    for row in &mut line {
+                        search::highlight_line_matches(row, st);
                     }
                 }
 
