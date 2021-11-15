@@ -451,6 +451,11 @@ impl Pager {
         self.get_lines().into_iter().flatten()
     }
 
+    pub(crate) fn get_flattened_lines_with_bounds(&self, start: usize, len: usize) -> Vec<String> {
+		let end = std::cmp::min(start + len, self.wrap_lines.len());
+        self.wrap_lines[..end].to_vec().into_iter().flatten().skip(start).take(len).collect()
+    }
+
     /// Returns the number of lines the [`Pager`] currently holds
     pub(crate) fn num_lines(&self) -> usize {
         self.get_flattened_lines().count()

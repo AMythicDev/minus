@@ -63,7 +63,7 @@ pub(crate) async fn dynamic_paging(
         if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed)
             || guard.message.1
         {
-            draw(&mut out, &mut guard)?;
+            draw(&mut out, line_count, &mut guard)?;
             if guard.message.1 {
                 guard.message.1 = false;
             }
@@ -82,6 +82,8 @@ pub(crate) async fn dynamic_paging(
         {
             // Lock the value again
             let mut lock = p.lock().await;
+
+            let line_count = lock.num_lines();
 
             // Get the events
             let input = lock.input_classifier.classify_input(
@@ -103,7 +105,7 @@ pub(crate) async fn dynamic_paging(
             )?;
             // If redraw is true, then redraw the screen
             if redraw {
-                draw(&mut out, &mut lock)?;
+                draw(&mut out, line_count, &mut lock)?;
             }
         }
     }
@@ -125,7 +127,9 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
     #[cfg(feature = "search")]
     let mut s_mark: usize = 0;
 
-    draw(&mut out, &mut pager)?;
+    let line_count = pager.num_lines();
+
+    draw(&mut out, line_count, &mut pager)?;
 
     loop {
         // Check for events
@@ -155,7 +159,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
             // If there is some input, or messages and redraw is true
             // Redraw the screen
             if (input.is_some() || pager.message.1) && redraw {
-                draw(&mut out, &mut pager)?;
+                draw(&mut out, line_count, &mut pager)?;
             }
         }
     }

@@ -66,7 +66,7 @@ pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
     // If stdout is not a tty, print all the output without paging and exit
     {
         if !stdout.is_tty() {
-            utils::write_lines(&mut stdout, &mut p)?;
+            utils::write_lines(&mut stdout, line_count, &mut p)?;
             stdout.flush()?;
             return Ok(());
         }
@@ -78,7 +78,7 @@ pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
         // display everything and quit
         if p.run_no_overflow && p.rows > line_count {
             let mut out = stdout.lock();
-            utils::write_lines(&mut out, &mut p)?;
+            utils::write_lines(&mut out, line_count, &mut p)?;
             out.flush()?;
         } else {
             init::static_paging(p)?;

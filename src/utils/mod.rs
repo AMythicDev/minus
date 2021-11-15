@@ -36,18 +36,19 @@ use crate::search::highlight_line_matches;
 // Note that the last line is reserved for prompt and messages
 pub(crate) fn draw(
     out: &mut impl io::Write,
+	line_count: usize,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
     // If number of lines is less than number of rows and run_no_overflow is true, then write
     // the output and return
     //
     // No prompt to be displayed in this case
-    if pager.run_no_overflow && pager.num_lines() <= pager.rows {
-        return write_lines(out, &mut pager);
+    if pager.run_no_overflow && line_count <= pager.rows {
+        return write_lines(out, line_count, &mut pager);
     }
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    write_lines(out, &mut pager)?;
+    write_lines(out, line_count, &mut pager)?;
     // If we have message, then show it or show the prompt text instead
     let prompt = pager
         .message
@@ -72,9 +73,9 @@ pub(crate) fn draw(
 // Write the lines to the terminal
 pub(crate) fn write_lines(
     out: &mut impl io::Write,
+	line_count: usize,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
-    let line_count = pager.num_lines();
     // Reduce one row for prompt
     let rows = pager.rows.saturating_sub(1);
     //
@@ -101,13 +102,13 @@ pub(crate) fn write_lines(
 
     let displayed_lines = match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
+			let start = pager.upper_mark;
+
             // Get the unnested (flattened) lines and display them
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
             let mut lines = pager
-                .get_flattened_lines()
-                .skip(pager.upper_mark)
-                .take(rows.min(line_count))
-                .collect::<Vec<String>>();
+                .get_flattened_lines_with_bounds(start, rows.min(line_count));
+
             // If search is enabled and there is a query, then highlight the matches
             #[cfg(feature = "search")]
             if let Some(st) = &pager.search_term {
