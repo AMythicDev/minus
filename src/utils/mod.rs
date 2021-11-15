@@ -36,7 +36,7 @@ use crate::search::highlight_line_matches;
 // Note that the last line is reserved for prompt and messages
 pub(crate) fn draw(
     out: &mut impl io::Write,
-	line_count: usize,
+    line_count: usize,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
     // If number of lines is less than number of rows and run_no_overflow is true, then write
@@ -73,7 +73,7 @@ pub(crate) fn draw(
 // Write the lines to the terminal
 pub(crate) fn write_lines(
     out: &mut impl io::Write,
-	line_count: usize,
+    line_count: usize,
     mut pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
     // Reduce one row for prompt
@@ -102,7 +102,7 @@ pub(crate) fn write_lines(
 
     let displayed_lines = match pager.line_numbers {
         LineNumbers::AlwaysOff | LineNumbers::Disabled => {
-			let start = pager.upper_mark;
+            let start = pager.upper_mark;
 
             // Get the unnested (flattened) lines and display them
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
