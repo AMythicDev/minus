@@ -11,7 +11,7 @@ use crate::{error::AlternateScreenPagingError, input::InputEvent, Pager};
 pub(crate) fn handle_input(
     ev: &Option<InputEvent>,
     mut pager: &mut Pager,
-    mut out: &mut Stdout,
+    #[cfg_attr(not(feature = "search"), allow(unused_mut))] mut out: &mut Stdout,
     redraw: &mut bool,
     #[cfg(feature = "search")] mut s_mark: &mut usize,
 ) -> Result<(), AlternateScreenPagingError> {

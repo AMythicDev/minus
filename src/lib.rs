@@ -487,19 +487,25 @@ impl Pager {
         } else {
             rewrap_lines(&mut clone, self.cols);
 
-            self.formatted_lines = clone
-                .into_iter()
-                .flat_map(|mut line| {
-                    #[cfg(feature = "search")]
-                    if let Some(st) = self.search_term.as_ref() {
-                        for row in &mut line {
-                            search::highlight_line_matches(row, st);
+            self.formatted_lines = if cfg!(feature = "search") {
+                #[allow(clippy::flat_map_identity)]
+                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+                clone
+                    .into_iter()
+                    .flat_map(|mut line| {
+                        #[cfg(feature = "search")]
+                        if let Some(st) = self.search_term.as_ref() {
+                            for row in &mut line {
+                                search::highlight_line_matches(row, st);
+                            }
                         }
-                    }
 
-                    line
-                })
-                .collect::<Vec<String>>();
+                        line
+                    })
+                    .collect::<Vec<String>>()
+            } else {
+                clone.into_iter().flatten().collect()
+            };
         }
 
         if self.message.0.is_some() {
