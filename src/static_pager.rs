@@ -61,7 +61,6 @@ pub enum PageAllError {
 pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
     // Get stdout
     let mut stdout = io::stdout();
-    let line_count = p.num_lines();
 
     // If stdout is not a tty, print all the output without paging and exit
     {
@@ -76,7 +75,7 @@ pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
         // If the number of lines in the output is less than the number of rows
         // or run_no_overflow is true
         // display everything and quit
-        if p.run_no_overflow && p.rows > line_count {
+        if p.run_no_overflow && p.rows > p.num_lines() {
             let mut out = stdout.lock();
             utils::write_lines(&mut out, &mut p)?;
             out.flush()?;

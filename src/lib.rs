@@ -118,8 +118,8 @@ pub use rt_wrappers::*;
 pub use search::SearchMode;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
+use std::string::ToString;
 use std::{fmt, io::stdout};
-use std::{iter::Flatten, string::ToString, vec::IntoIter};
 pub use utils::LineNumbers;
 
 #[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
@@ -158,6 +158,8 @@ pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 pub struct Pager {
     // The output that is displayed wrapped to the available terminal width
     wrap_lines: Vec<Vec<String>>,
+    // The output, flattened and formatted into the lines that should be displayed
+    formatted_lines: Vec<String>,
     // Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
     // The prompt displayed at the bottom wrapped to available terminal width
@@ -231,6 +233,7 @@ impl Pager {
 
         Ok(Pager {
             wrap_lines: Vec::new(),
+            formatted_lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: wrap_str("minus", cols.into()),
@@ -265,8 +268,8 @@ impl Pager {
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
         let text: String = text.into();
-        // self.lines = WrappedLines::from(Line::from_str(&text.into(), self.cols));
         self.wrap_lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
+        self.format_lines();
     }
 
     /// Set line number to this setting
@@ -280,6 +283,7 @@ impl Pager {
     /// ```
     pub fn set_line_numbers(&mut self, l: LineNumbers) {
         self.line_numbers = l;
+        self.format_lines();
     }
 
     /// Display a temporary message at the prompt area
@@ -363,14 +367,6 @@ impl Pager {
         self.exit_strategy = strategy;
     }
 
-    /// Returns the appropriate text for displaying.
-    ///
-    /// Nrmally it will return `self.lines`
-    /// In case of a search, `self.search_lines` is returned
-    pub(crate) fn get_lines(&self) -> Vec<Vec<String>> {
-        self.wrap_lines.clone()
-    }
-
     /// Set whether to display pager if there's less data than
     /// available screen height
     ///
@@ -421,6 +417,8 @@ impl Pager {
         } else {
             self.lines.push_str(&string);
         }
+
+        self.format_lines();
     }
 
     /// Hints the running pager that no more data is coming
@@ -437,23 +435,102 @@ impl Pager {
         self.end_stream = true;
     }
 
-    /// Readjust the text to new terminal size
-    pub(crate) fn readjust_wraps(&mut self) {
-        rewrap_lines(&mut self.wrap_lines, self.cols);
+    pub(crate) fn format_lines(&mut self) {
+        let mut clone = self.wrap_lines.clone();
+        let line_count = clone.len();
+
+        if matches!(
+            self.line_numbers,
+            LineNumbers::Enabled | LineNumbers::AlwaysOn
+        ) {
+            // the number of colums to show the line number in
+            //let len_line_number = (line_count as f64).log10().floor() as usize + 6;
+            let len_line_number = line_count.to_string().len();
+
+            self.formatted_lines = clone
+                .into_iter()
+                .enumerate()
+                .flat_map(|(idx, mut line)| {
+                    crate::rewrap(&mut line, self.cols.saturating_sub(len_line_number + 3));
+
+                    // insert the line numbers
+                    #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+                    line.into_iter()
+                        .map(|mut row| {
+                            #[cfg(feature = "search")]
+                            if let Some(st) = self.search_term.as_ref() {
+                                // highlight the lines with matching search terms
+                                search::highlight_line_matches(&mut row, st);
+                            }
+
+                            if cfg!(not(test)) {
+                                format!(
+                                    " {bold}{number: >len$}.{reset} {row}",
+                                    bold = crossterm::style::Attribute::Bold,
+                                    number = idx + 1,
+                                    len = len_line_number,
+                                    reset = crossterm::style::Attribute::Reset,
+                                    row = row
+                                )
+                            } else {
+                                format!(
+                                    " {number: >len$}. {row}",
+                                    number = idx + 1,
+                                    len = len_line_number,
+                                    row = row
+                                )
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                })
+                .collect::<Vec<String>>();
+        } else {
+            rewrap_lines(&mut clone, self.cols);
+
+            self.formatted_lines = if cfg!(feature = "search") {
+                #[allow(clippy::flat_map_identity)]
+                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+                clone
+                    .into_iter()
+                    .flat_map(|mut line| {
+                        #[cfg(feature = "search")]
+                        if let Some(st) = self.search_term.as_ref() {
+                            for row in &mut line {
+                                search::highlight_line_matches(row, st);
+                            }
+                        }
+
+                        line
+                    })
+                    .collect::<Vec<String>>()
+            } else {
+                clone.into_iter().flatten().collect()
+            };
+        }
+
         if self.message.0.is_some() {
             rewrap(&mut self.message.0.as_mut().unwrap(), self.cols);
         }
         rewrap(&mut self.prompt, self.cols);
+
+        #[cfg(feature = "search")]
+        search::set_match_indices(self);
     }
 
-    /// Returns all the text by flattening them into a single vector of strings
-    pub(crate) fn get_flattened_lines(&self) -> Flatten<IntoIter<Vec<String>>> {
-        self.get_lines().into_iter().flatten()
+    /// Returns all the text within the bounds, after flattening
+    pub(crate) fn get_flattened_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
+        if start >= self.num_lines() || start > end {
+            &[]
+        } else if end >= self.num_lines() {
+            &self.formatted_lines[start..]
+        } else {
+            &self.formatted_lines[start..end]
+        }
     }
 
     /// Returns the number of lines the [`Pager`] currently holds
     pub(crate) fn num_lines(&self) -> usize {
-        self.get_flattened_lines().count()
+        self.formatted_lines.len()
     }
 
     /// Set custom input handler function

@@ -96,13 +96,17 @@ pub(crate) fn fetch_input(
 // Set `Pager.search_idx` to the line numbers at which search matches are found
 #[cfg(feature = "search")]
 pub(crate) fn set_match_indices(pager: &mut Pager) {
-    let pattern = pager.search_term.as_ref().unwrap();
+    let pattern = match pager.search_term.as_ref() {
+        Some(pat) => pat,
+        None => return,
+    };
+
     let mut coordinates: Vec<usize> = Vec::new();
 
     // Get all the lines in wrapping, check if they have a match and put their line numbers if they
     // do
-    for (idx, line) in pager.get_flattened_lines().enumerate() {
-        if pattern.is_match(&(*line).to_string()) {
+    for (idx, line) in pager.formatted_lines.iter().enumerate() {
+        if pattern.is_match(line) {
             coordinates.push(idx);
         }
     }
@@ -123,7 +127,7 @@ pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
 // Set variables to move to the next match
 #[cfg(feature = "search")]
 pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
-    // Loop untill we find a match, that's below the upper_mark
+    // Loop until we find a match, that's below the upper_mark
     //
     // Get match at the given mark
     while let Some(y) = pager.search_idx.get(*s_mark) {
