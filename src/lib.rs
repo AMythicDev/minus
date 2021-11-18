@@ -158,17 +158,14 @@ pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 ///
 /// This is used by all initializing functions
 pub struct Pager {
-    // The output that is displayed wrapped to the available terminal width
-    wrap_lines: Vec<Vec<String>>,
+    // The text the pager has been told to be displayed
+    lines: String,
     // The output, flattened and formatted into the lines that should be displayed
     formatted_lines: Vec<String>,
     // Configuration for line numbers. See [`LineNumbers`]
     pub(crate) line_numbers: LineNumbers,
     // The prompt displayed at the bottom wrapped to available terminal width
     prompt: Vec<String>,
-    // Text which may have come through `push_str` (or `writeln`) that isn't
-    // flushed to wrap_lines, since it isn't terminated yet with a \n
-    lines: String,
     // The input classifier to be called when a input is found
     input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
     // Functions to run when the pager quits
@@ -225,8 +222,8 @@ impl Pager {
         } else if stdout().is_tty() {
             // If a proper terminal is present, get size and set it
             let size = terminal::size()?;
-            cols = size.0;
-            rows = size.1;
+            cols = size.0 as usize;
+            rows = size.1 as usize;
         } else {
             // For other cases beyond control
             cols = 1;
@@ -234,17 +231,16 @@ impl Pager {
         };
 
         Ok(Pager {
-            wrap_lines: Vec::new(),
+            lines: String::new(),
             formatted_lines: Vec::new(),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
-            prompt: wrap_str("minus", cols.into()),
+            prompt: wrap_str("minus", cols),
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
             exit_callbacks: Vec::new(),
             run_no_overflow: false,
             message: (None, false),
-            lines: String::new(),
             end_stream: false,
             #[cfg(feature = "search")]
             search_term: None,
@@ -253,8 +249,8 @@ impl Pager {
             #[cfg(feature = "search")]
             search_idx: Vec::new(),
             // Just to be safe in tests, keep at 1x1 size
-            cols: cols as usize,
-            rows: rows as usize,
+            cols,
+            rows,
         })
     }
 
@@ -269,8 +265,7 @@ impl Pager {
     /// pager.set_text("This is a line");
     /// ```
     pub fn set_text(&mut self, text: impl Into<String>) {
-        let text: String = text.into();
-        self.wrap_lines = text.lines().map(|l| wrap_str(l, self.cols)).collect();
+        self.lines = text.into();
         self.format_lines();
     }
 
@@ -394,33 +389,73 @@ impl Pager {
     /// pager.push_str("This is some text");
     /// ```
     pub fn push_str(&mut self, string: impl Into<String>) {
-        let string = string.into();
-        if string.ends_with('\n') {
-            self.lines.push_str(&string);
-            self.wrap_lines.append(
-                &mut self
-                    .lines
-                    .lines()
-                    .map(|l| wrap_str(l, self.cols))
-                    .collect::<Vec<Vec<String>>>(),
-            );
-            self.lines.clear();
-        } else if string.contains('\n') {
-            let mut lines = string.lines().collect::<Vec<&str>>();
-            let line_count = lines.len();
-            let push_lines = &mut lines[0..line_count - 1];
-            self.wrap_lines.append(
-                &mut push_lines
-                    .iter()
-                    .map(|l| wrap_str(l, self.cols))
-                    .collect::<Vec<Vec<String>>>(),
-            );
-            self.lines.push_str(lines[line_count - 1]);
-        } else {
-            self.lines.push_str(&string);
+        let text = string.into();
+
+        // if the text we have saved currently ends with a newline,
+        // we want the formatted_text vector to append the line instead of
+        // trying to add it to the last item
+        let newline = self.lines.ends_with('\n') || self.lines.ends_with("\n\r");
+
+        // find the number of trailing whitespace characters currently on self.lines
+        let mut ending_whitespace = String::new();
+
+        // but if there's a newline, don't even check 'cause we know there's no trailing whitespace
+        if !newline {
+            for c in self.lines.chars().rev() {
+                if c.is_whitespace() && c != '\n' {
+                    ending_whitespace.push(c);
+                } else {
+                    break;
+                }
+            }
         }
 
-        self.format_lines();
+        // push the text to lines
+        self.lines.push_str(&text);
+
+        // And get how many lines of text will be shown (not how many rows, how many wrapped
+        // lines), and get its string length
+        let len_line_number = self.lines.lines().count().to_string().len();
+
+        // if we want a newline, just format the new text and append it.
+        // if we don't, format the text with the last line currently formatted
+        // since it will be appended to that
+        //
+        // also get the line number to start at when formatting
+        let (to_format, to_skip) = if newline {
+            (text, self.lines.lines().count())
+        } else {
+            // add the trailing whitespace in here, since it isn't preserved when wrapping the
+            // lines, and thus won't appear on the last element in self.formatted_lines
+            let to_fmt = format!(
+                "{}{}{}",
+                self.formatted_lines.pop().unwrap_or_default(),
+                ending_whitespace,
+                text
+            );
+
+            (to_fmt, self.lines.lines().count().saturating_sub(1))
+        };
+
+        // format the lines we want to format
+        let mut to_append = to_format
+            .lines()
+            .enumerate()
+            .flat_map(|(idx, line)| {
+                self.formatted_line(
+                    line,
+                    matches!(
+                        self.line_numbers,
+                        LineNumbers::AlwaysOn | LineNumbers::Enabled
+                    ),
+                    len_line_number,
+                    idx + to_skip,
+                )
+            })
+            .collect::<Vec<String>>();
+
+        // append the new vector to the formatted lines
+        self.formatted_lines.append(&mut to_append);
     }
 
     /// Hints the running pager that no more data is coming
@@ -437,78 +472,74 @@ impl Pager {
         self.end_stream = true;
     }
 
-    pub(crate) fn format_lines(&mut self) {
-        let mut clone = self.wrap_lines.clone();
-        let line_count = clone.len();
-
-        if matches!(
-            self.line_numbers,
-            LineNumbers::Enabled | LineNumbers::AlwaysOn
-        ) {
-            // the number of colums to show the line number in
-            //let len_line_number = (line_count as f64).log10().floor() as usize + 6;
-            let len_line_number = line_count.to_string().len();
-
-            self.formatted_lines = clone
+    pub(crate) fn formatted_line(
+        &self,
+        line: &str,
+        line_numbers: bool,
+        len_line_number: usize,
+        idx: usize,
+    ) -> Vec<String> {
+        if line_numbers {
+            #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+            wrap_str(line, self.cols.saturating_sub(len_line_number + 3))
                 .into_iter()
-                .enumerate()
-                .flat_map(|(idx, mut line)| {
-                    crate::rewrap(&mut line, self.cols.saturating_sub(len_line_number + 3));
+                .map(|mut row| {
+                    #[cfg(feature = "search")]
+                    if let Some(st) = self.search_term.as_ref() {
+                        // highlight the lines with matching search terms
+                        row = search::highlight_line_matches(&row, st);
+                    }
 
-                    // insert the line numbers
-                    #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-                    line.into_iter()
-                        .map(|mut row| {
-                            #[cfg(feature = "search")]
-                            if let Some(st) = self.search_term.as_ref() {
-                                // highlight the lines with matching search terms
-                                search::highlight_line_matches(&mut row, st);
-                            }
-
-                            if cfg!(not(test)) {
-                                format!(
-                                    " {bold}{number: >len$}.{reset} {row}",
-                                    bold = crossterm::style::Attribute::Bold,
-                                    number = idx + 1,
-                                    len = len_line_number,
-                                    reset = crossterm::style::Attribute::Reset,
-                                    row = row
-                                )
-                            } else {
-                                format!(
-                                    " {number: >len$}. {row}",
-                                    number = idx + 1,
-                                    len = len_line_number,
-                                    row = row
-                                )
-                            }
-                        })
-                        .collect::<Vec<String>>()
+                    if cfg!(not(test)) {
+                        format!(
+                            " {bold}{number: >len$}.{reset} {row}",
+                            bold = crossterm::style::Attribute::Bold,
+                            number = idx + 1,
+                            len = len_line_number,
+                            reset = crossterm::style::Attribute::Reset,
+                            row = row
+                        )
+                    } else {
+                        format!(
+                            " {number: >len$}. {row}",
+                            number = idx + 1,
+                            len = len_line_number,
+                            row = row
+                        )
+                    }
                 })
-                .collect::<Vec<String>>();
+                .collect::<Vec<String>>()
         } else {
-            rewrap_lines(&mut clone, self.cols);
+            #[cfg(feature = "search")]
+            if let Some(st) = self.search_term.as_ref() {
+                return wrap_str(&search::highlight_line_matches(line, st), self.cols);
+            }
 
-            self.formatted_lines = if cfg!(feature = "search") {
-                #[allow(clippy::flat_map_identity)]
-                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-                clone
-                    .into_iter()
-                    .flat_map(|mut line| {
-                        #[cfg(feature = "search")]
-                        if let Some(st) = self.search_term.as_ref() {
-                            for row in &mut line {
-                                search::highlight_line_matches(row, st);
-                            }
-                        }
-
-                        line
-                    })
-                    .collect::<Vec<String>>()
-            } else {
-                clone.into_iter().flatten().collect()
-            };
+            wrap_str(line, self.cols)
         }
+    }
+
+    pub(crate) fn format_lines(&mut self) {
+        let line_count = self.lines.lines().count();
+
+        let len_line_number = line_count.to_string().len();
+
+        self.formatted_lines = self
+            .lines
+            .lines()
+            .enumerate()
+            .flat_map(|(idx, line)| {
+                self.formatted_line(
+                    line,
+                    matches!(
+                        self.line_numbers,
+                        LineNumbers::AlwaysOn | LineNumbers::Enabled
+                    ),
+                    len_line_number,
+                    idx,
+                )
+            })
+            .collect::<Vec<String>>();
 
         if self.message.0.is_some() {
             rewrap(&mut self.message.0.as_mut().unwrap(), self.cols);
@@ -589,13 +620,6 @@ pub enum ExitStrategy {
     /// if you've file system locks or you want to close database connectiions after
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
-}
-
-/// Rewrap already wrapped vector of lines based on the number of columns
-pub(crate) fn rewrap_lines(lines: &mut Vec<Vec<String>>, cols: usize) {
-    for line in lines {
-        rewrap(line, cols);
-    }
 }
 
 /// Rewrap a single line based on the number of columns

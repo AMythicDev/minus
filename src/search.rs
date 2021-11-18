@@ -101,27 +101,31 @@ pub(crate) fn set_match_indices(pager: &mut Pager) {
         None => return,
     };
 
-    let mut coordinates: Vec<usize> = Vec::new();
-
-    // Get all the lines in wrapping, check if they have a match and put their line numbers if they
-    // do
-    for (idx, line) in pager.formatted_lines.iter().enumerate() {
-        if pattern.is_match(line) {
-            coordinates.push(idx);
-        }
-    }
-    pager.search_idx = coordinates;
+    // Get all the lines in wrapping, check if they have a match
+    // and put their line numbers if they do
+    pager.search_idx = pager
+        .formatted_lines
+        .iter()
+        .enumerate()
+        .filter_map(|(idx, line)| {
+            if pattern.is_match(line) {
+                Some(idx)
+            } else {
+                None
+            }
+        })
+        .collect();
 }
 
 #[cfg(feature = "search")]
-pub(crate) fn highlight_line_matches(line: &mut String, query: &regex::Regex) {
+pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
     use crossterm::style::Stylize;
-    // Replace all matches with a reverse colorscheme
-    if let Some(cap) = query.captures(line) {
-        let text = format!("{}{}{}", Attribute::Reverse, &cap[0], Attribute::NoReverse);
-        let text = text.as_str();
-        *line = query.replace_all(line, text).to_string();
-    }
+
+    query
+        .replace_all(line, |caps: &regex::Captures| {
+            format!("{}{}{}", Attribute::Reverse, &caps[0], Attribute::NoReverse)
+        })
+        .to_string()
 }
 
 // Set variables to move to the next match
@@ -165,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_highlight_matches() {
-        let mut line = "Integer placerat tristique nisl. placerat non mollis, magna orci dolor, placerat at vulputate neque nulla lacinia eros.".to_string();
+        let line = "Integer placerat tristique nisl. placerat non mollis, magna orci dolor, placerat at vulputate neque nulla lacinia eros.".to_string();
         let pat = Regex::new(r"\W\w+t\W").unwrap();
         let result = format!(
             "Integer{inverse} placerat {noinverse}tristique nisl.\
@@ -176,8 +180,7 @@ eros.",
             noinverse = Attribute::NoReverse
         );
 
-        highlight_line_matches(&mut line, &pat);
-        assert_eq!(line, result);
+        assert_eq!(highlight_line_matches(&line, &pat), result);
     }
 
     #[test]

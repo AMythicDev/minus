@@ -7,7 +7,7 @@ fn test_writeln() {
     const TEST: &str = "This is a line";
     let mut pager = Pager::new().unwrap();
     writeln!(pager, "{}", TEST).unwrap();
-    assert_eq!(pager.wrap_lines, vec![vec![TEST]]);
+    assert_eq!(pager.lines, format!("{}\n", TEST));
 }
 
 #[test]
@@ -15,8 +15,7 @@ fn test_write() {
     const TEST: &str = "This is a line";
     let mut pager = Pager::new().unwrap();
     write!(pager, "{}", TEST).unwrap();
-    let res: Vec<Vec<String>> = Vec::new();
-    assert_eq!(pager.wrap_lines, res);
+    assert_eq!(pager.formatted_lines, vec![TEST.to_string()]);
     assert_eq!(pager.lines, TEST.to_string());
 }
 
@@ -27,8 +26,7 @@ fn test_sequential_write() {
     let mut pager = Pager::new().unwrap();
     write!(pager, "{}", TEXT1).unwrap();
     write!(pager, "{}", TEXT2).unwrap();
-    let res: Vec<Vec<String>> = Vec::new();
-    assert_eq!(pager.wrap_lines, res);
+    assert_eq!(pager.formatted_lines, vec![format!("{}{}", TEXT1, TEXT2)]);
     assert_eq!(pager.lines, TEXT1.to_string() + TEXT2);
 }
 
@@ -39,9 +37,129 @@ fn test_sequential_writeln() {
     let mut pager = Pager::new().unwrap();
     writeln!(pager, "{}", TEXT1).unwrap();
     writeln!(pager, "{}", TEXT2).unwrap();
+
     assert_eq!(
-        pager.wrap_lines,
-        vec![vec![TEXT1.to_string()], vec![TEXT2.to_string()]]
+        pager.formatted_lines,
+        vec![TEXT1.to_string(), TEXT2.to_string()]
+    );
+}
+
+#[test]
+fn test_crlf_write() {
+    const LINES: [&str; 4] = [
+        "hello,\n",
+        "this is ",
+        "a test\r\n",
+        "of weird line endings",
+    ];
+
+    let mut pager = Pager::new().unwrap();
+
+    for line in LINES {
+        write!(pager, "{}", line).unwrap();
+    }
+
+    assert_eq!(
+        pager.formatted_lines,
+        vec![
+            "hello,".to_string(),
+            "this is a test".to_string(),
+            "of weird line endings".to_string()
+        ]
+    );
+}
+
+#[test]
+fn test_unusual_whitespace() {
+    const LINES: [&str; 4] = [
+        "This line has trailing whitespace      ",
+        "     This has leading whitespace\n",
+        "   This has whitespace on both sides   ",
+        "Andthishasnone",
+    ];
+
+    let mut pager = Pager::new().unwrap();
+
+    for line in LINES {
+        write!(pager, "{}", line).unwrap();
+    }
+
+    assert_eq!(
+        pager.formatted_lines,
+        vec![
+            "This line has trailing whitespace           This has leading whitespace",
+            "   This has whitespace on both sides   Andthishasnone"
+        ]
+    );
+}
+
+#[test]
+fn test_incrementally_push() {
+    const LINES: [&str; 4] = [
+        "this is a line",
+        " and this is another",
+        " and this is yet another\n",
+        "and this should be on a newline",
+    ];
+
+    let mut pager = Pager::new().unwrap();
+
+    pager.push_str(LINES[0]);
+
+    assert_eq!(pager.lines, LINES[0].to_owned());
+    assert_eq!(pager.formatted_lines, vec![LINES[0].to_owned()]);
+
+    pager.push_str(LINES[1]);
+
+    let line = LINES[..2].join("");
+    assert_eq!(pager.lines, line);
+    assert_eq!(pager.formatted_lines, vec![line]);
+
+    pager.push_str(LINES[2]);
+
+    let mut line = LINES[..3].join("");
+    assert_eq!(pager.lines, line);
+
+    line.pop();
+    assert_eq!(pager.formatted_lines, vec![line]);
+
+    pager.push_str(LINES[3]);
+
+    let joined = LINES.join("");
+    assert_eq!(pager.lines, joined);
+    assert_eq!(
+        pager.formatted_lines,
+        joined
+            .lines()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+    );
+}
+
+#[test]
+fn test_multiple_newlines() {
+    const TEST: &str = "This\n\n\nhas many\n newlines\n";
+
+    let mut pager = Pager::new().unwrap();
+
+    pager.push_str(TEST);
+
+    assert_eq!(pager.lines, TEST.to_owned());
+    assert_eq!(
+        pager.formatted_lines,
+        TEST.lines()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
+    );
+
+    pager.set_text(TEST);
+
+    assert_eq!(pager.lines, TEST.to_owned());
+    assert_eq!(
+        pager.formatted_lines,
+        TEST.lines()
+            .map(ToString::to_string)
+            .collect::<Vec<String>>()
     );
 }
 
@@ -51,13 +169,14 @@ fn test_floating_newline_write() {
     let mut pager = Pager::new().unwrap();
     write!(pager, "{}", TEST).unwrap();
     assert_eq!(
-        pager.wrap_lines,
+        pager.formatted_lines,
         vec![
-            vec!["This is a line with a bunch of".to_string()],
-            vec!["in between".to_string()]
+            "This is a line with a bunch of".to_string(),
+            "in between".to_string(),
+            "but not at the end".to_owned()
         ]
     );
-    assert_eq!(pager.lines, "but not at the end".to_string());
+    assert_eq!(pager.lines, TEST.to_string());
 }
 
 // Test exit callbacks function
@@ -102,10 +221,9 @@ fn test_rewrap() {
         }
         line
     };
-    let mut line: Vec<String> = textwrap::wrap(&test, 80)
-        .iter()
-        .map(std::string::ToString::to_string)
-        .collect();
+
+    let mut line = crate::wrap_str(&test, 80);
+
     assert_eq!(line.len(), 3);
     assert_eq!((80, 80, 40), (line[0].len(), line[1].len(), line[2].len()),);
 
