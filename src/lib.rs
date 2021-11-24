@@ -394,21 +394,15 @@ impl Pager {
         // if the text we have saved currently ends with a newline,
         // we want the formatted_text vector to append the line instead of
         // trying to add it to the last item
-        let newline = self.lines.ends_with('\n') || self.lines.ends_with("\n\r");
+        let newline = self.lines.ends_with('\n');
 
         // find the number of trailing whitespace characters currently on self.lines
-        let mut ending_whitespace = String::new();
-
-        // but if there's a newline, don't even check 'cause we know there's no trailing whitespace
-        if !newline {
-            for c in self.lines.chars().rev() {
-                if c.is_whitespace() && c != '\n' {
-                    ending_whitespace.push(c);
-                } else {
-                    break;
-                }
-            }
-        }
+        let ending_whitespace = self
+            .lines
+            .chars()
+            .rev()
+            .take_while(|c| c.is_whitespace() && *c != '\n')
+            .collect::<String>();
 
         // push the text to lines
         self.lines.push_str(&text);
