@@ -1,5 +1,9 @@
 # minus
 
+:warning: `minus` moving over to Gitlab
+`minus` will find it's new home at over at Gitlab. Find the [repo here](https://gitlab.com/arijit79/minus)
+The Github repo will be in sync with Gitlab and all issues and pull requests on Github will still be handled :warning:
+
 <p align="center">
     <img src="./minus.svg"/>
 </p>
