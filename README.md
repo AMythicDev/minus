@@ -10,42 +10,22 @@
 [![chat](https://img.shields.io/badge/chat-on%20zulip-blue?style=for-the-badge)](https://minus.zulipchat.com/)
 [![Crates.io](https://img.shields.io/crates/l/minus?style=for-the-badge)](https://github.com/arijit79/minus#license)
 
-A fast, asynchronous terminal paging library for Rust. `minus` provides high
-level functions to easily embed a pager for any terminal application. Due
-to the asynchronous nature of `minus`, the pager's data and configuration can be **updated** at any time.
+`minus` is a small terminal paging library for Rust. `minus` provides an intuitive API for easily embedding a pager in any terminal application. It does all the low level stuff for you like setting up the terminal on start, handling keyboard/mouse/terminal resize events etc.
 
-![Demo.png](demo.png)
+<p align="center">
+    <img src="./demo.png"/>
+</p>
 
-`minus` supports both [`tokio`] as well as [`async-std`] runtimes. What's more,
-if you only want to use `minus` for serving static output, you can simply opt
-out of these dynamic features, see the **Usage** section below.
+The basic thing that `minus` does is to take some string data and display it one page at a time. What makes `minus` unique is that it can allow the end-application to update it's data and configuration while running.
 
-## Why this crate ?
-
-`minus` was started by me for my work on [`pijul`]. I was unsatisfied with the 
-existing options like `pager` and `moins`.
-
-* `pager`:
-    * Only provides functions to join the standard output of the current
-      program to the standard input of external pager like `more` or `less`.
-    * Due to this, to work within Windows, the external pagers need to be
-      packaged along with the executable.
-
-* `moins`:
-    * The output could only be defined once and for all. It is not asynchronous
-      and does not support updating.
-
-[`tokio`]: https://crates.io/crates/tokio
-[`async-std`]: https://crates.io/crates/async-std
-[`pijul`]: https://pijul.org/
+Every functionality in `minus` is gated on certain Cargo feature. By default `minus` comes with no features turned on. This is to prevent end-applications from getting useless dependencies.
 
 ## Usage
-
+When adding `minus` to your `Cargo.toml` file, enable the features as necessory
 * Using [`tokio`] for your application ? Use the `tokio_lib` feature.
 * Using [`async-std`] for your application ? Use the `async_std_lib` feature.
 * Using only static information ? Use the `static_output` feature.
-
-In your `Cargo.toml` file:
+* Want search capablities using regex? Enable the `search` feature.
 
 ```toml
 [dependencies.minus]
@@ -59,8 +39,8 @@ features = ["async_std_lib"]
 # For static output
 features = ["static_output"]
 
-# If you want search capablities
-features = ["search"]
+# Search feature
+features = ["tokio_lib", "search"]
 ```
 
 ## Examples
@@ -181,8 +161,8 @@ data, `minus` will simply print the data and quit. This only works in static
 paging since asynchronous paging could still receive more data that makes it 
 pass the limit.
 
-## End user help
-Here is the list of default key bindings. 
+## Standard actions
+Here is the list of default key/mouse actions handled by `minus`. Note that end-applications can change these bindings to better suit their needs.
 
 | Action            | Description                                        |
 | ----------        | -------------                                      |
@@ -205,8 +185,6 @@ Here is the list of default key bindings.
 | Esc               | Cancel search input                                |
 | n                 | Go to the next search match                        |
 | p                 | Go to the next previous match                      |
-
-Applications can customize these keybindings to better suite there needs
 
 ## License
 Unless explicitly stated, all works to `minus` are dual licensed under the

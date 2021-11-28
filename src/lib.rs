@@ -239,7 +239,7 @@ impl Pager {
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
             exit_callbacks: Vec::new(),
-            run_no_overflow: false,
+            run_no_overflow: true,
             message: (None, false),
             end_stream: false,
             #[cfg(feature = "search")]

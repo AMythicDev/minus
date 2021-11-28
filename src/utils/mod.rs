@@ -39,7 +39,7 @@ pub(crate) fn draw(
     // the output and return
     //
     // No prompt to be displayed in this case
-    if pager.run_no_overflow && pager.num_lines() <= pager.rows {
+    if !pager.run_no_overflow && pager.num_lines() <= pager.rows {
         return write_lines(out, &mut pager);
     }
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
