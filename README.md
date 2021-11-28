@@ -49,7 +49,7 @@ In your `Cargo.toml` file:
 
 ```toml
 [dependencies.minus]
-version = "4.0.0"
+version = "^4.0"
 # For tokio
 features = ["tokio_lib"]
 
@@ -226,6 +226,7 @@ Thank you to everyone here for giving there time and contribution to `minus`
 * @tomstoneham
 * @Hardy7cc
 * @tomstoneham
+* @iandwelker
 
 ## Get in touch
 We are open to discussion and thoughts om improving `minus`. Join us at

@@ -1,6 +1,11 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v4.0.3 [2021-11-28]
+
+### Fixed
+* Introduce a bunch of performance improvements
+
 ## v4.0.2 [2021-10-10]
 
 ### Added
