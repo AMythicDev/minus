@@ -66,4 +66,4 @@ release:
       when: always
     - when: never
   script:
-    - 'cargo publish --token "$CRATES_IO_TOKEN"''
+    - 'cargo publish --token "$CRATES_IO_TOKEN"'
