@@ -14,35 +14,31 @@ workflow:
       when: always
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       when: always
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
     - when: never
 
 stages:
-  - rustfmt
-  - build
-  - test
-  - lint
+  - checks
+  - release
 
 check-code-fmt:
-  stage: rustfmt
+  stage: checks
   script:
     - rustup component add rustfmt
     - cargo fmt --all -- --check
 
 build-code:
-  stage: build
+  stage: checks
   script:
     - cargo build --verbose --all-features
   
 tests:
-  stage: test
+  stage: checks
   script:
     - cargo test --verbose --all-features --no-run
     - cargo test --verbose --all-features
 
 examples:
-  stage: test
+  stage: checks
   script:
     - cargo check --example=dyn_tokio --features=tokio_lib
     - cargo check --example=dyn_async_std --features=async_std_lib
@@ -50,15 +46,24 @@ examples:
     - cargo check --example=static_long --features=static_output
 
 lint-stable:
-  stage: lint
+  stage: checks
   script:
     - rustup component add clippy
     - cargo clippy --all-features --tests --examples
 
 lint-nightly:
   image: "rustlang/rust:nightly"
-  stage: lint
+  stage: checks
   allow_failure: true
   script:
     - rustup component add clippy
     - cargo clippy --all-features --tests --examples
+
+release:
+  stage: release
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "release"'
+      when: always
+    - when: never
+  script:
+    - 'cargo publish --token "$CRATES_IO_TOKEN"''
