@@ -1,12 +1,12 @@
 # minus
 
-**:warning: `minus` moving over to Gitlab
-`minus` will find it's new home at over at Gitlab. Find the [repo here](https://gitlab.com/arijit79/minus)
-The Github repo will be in sync with Gitlab and all issues and pull requests on Github will still be handled :warning:**
-
 <p align="center">
     <img src="./minus.svg"/>
 </p>
+
+### :warning: `minus` moving over to Gitlab
+**`minus` will find it's new home at over at Gitlab. Find the [repo here](https://gitlab.com/arijit79/minus)
+The Github repo will be in sync with Gitlab and all issues and pull requests on Github will still be handled**
 
 [![crates.io](https://img.shields.io/crates/v/minus?style=for-the-badge)](https://crates.io/crates/minus)
 [![ci](https://img.shields.io/github/workflow/status/arijit79/minus/ci?label=CI&style=for-the-badge)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
