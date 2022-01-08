@@ -14,11 +14,13 @@ pub(crate) fn handle_input(
     #[cfg_attr(not(feature = "search"), allow(unused_mut))] mut out: &mut Stdout,
     redraw: &mut bool,
     #[cfg(feature = "search")] mut s_mark: &mut usize,
+    is_exitted: &mut bool,
 ) -> Result<(), AlternateScreenPagingError> {
     #[allow(clippy::match_same_arms)]
     match ev {
         Some(InputEvent::Exit) => {
             pager.exit();
+            *is_exitted = true;
             return Ok(cleanup(out, &pager.exit_strategy, true)?);
         }
         Some(InputEvent::RestorePrompt) => {

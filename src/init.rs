@@ -38,8 +38,8 @@ pub(crate) async fn dynamic_paging(
     let mut out = io::stdout();
     let guard = p.lock().await;
     let run_no_overflow = guard.run_no_overflow;
-    setup(&out, true, run_no_overflow)?;
     drop(guard);
+    setup(&out, true, run_no_overflow)?;
     // Search related variables
     // A marker of which element of s_co we are currently at
     #[cfg(feature = "search")]
@@ -48,8 +48,12 @@ pub(crate) async fn dynamic_paging(
     #[allow(unused_assignments)]
     let mut redraw = true;
     let mut last_line_count = 0;
+    let mut is_exitted = false;
 
     loop {
+        if is_exitted {
+            return Ok(());
+        }
         // Get the lock, clone it and immidiately drop the lock
         let mut guard = p.lock().await;
 
@@ -100,6 +104,7 @@ pub(crate) async fn dynamic_paging(
                 &mut redraw,
                 #[cfg(feature = "search")]
                 &mut s_mark,
+                &mut is_exitted,
             )?;
             // If redraw is true, then redraw the screen
             if redraw {
@@ -124,10 +129,14 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
 
     #[cfg(feature = "search")]
     let mut s_mark: usize = 0;
+    let mut is_exitted = false;
 
     draw(&mut out, &mut pager)?;
 
     loop {
+        if is_exitted {
+            return Ok(());
+        }
         // Check for events
         if event::poll(std::time::Duration::from_millis(10))
             .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
@@ -150,6 +159,7 @@ pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagin
                 &mut redraw,
                 #[cfg(feature = "search")]
                 &mut s_mark,
+                &mut is_exitted,
             )?;
 
             // If there is some input, or messages and redraw is true
