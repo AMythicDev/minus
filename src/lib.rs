@@ -300,7 +300,7 @@ impl Pager {
     pub fn send_message(&mut self, text: impl Into<String>) {
         let message = text.into();
         assert!(
-            message.contains('\n'),
+            !message.contains('\n'),
             "Prompt text cannot contain newlines"
         );
         self.message.0 = Some(wrap_str(&message, self.cols));
@@ -323,7 +323,10 @@ impl Pager {
     /// ```
     pub fn set_prompt(&mut self, t: impl Into<String>) {
         let prompt = t.into();
-        assert!(prompt.contains('\n'), "Prompt text cannot contain newlines");
+        assert!(
+            !prompt.contains('\n'),
+            "Prompt text cannot contain newlines"
+        );
         self.prompt = wrap_str(&prompt, self.cols);
     }
 
