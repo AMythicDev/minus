@@ -1,6 +1,10 @@
 # Changelog
 This file documents all noteable changes made to this project
 
+## v4.0.5 [2022-1-8]
+### Fixed
+* Fix all clippy warnings
+
 ## v4.0.4 [2022-1-8]
 ### Fixed
 * Fixed a bug where `q` key didn't quit the pager in `PagerQuit` exit strategy (#56)

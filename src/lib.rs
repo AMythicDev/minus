@@ -299,9 +299,7 @@ impl Pager {
     /// ```
     pub fn send_message(&mut self, text: impl Into<String>) {
         let message = text.into();
-        if message.contains('\n') {
-            panic!("Prompt text cannot contain newlines");
-        }
+        assert!(message.contains('\n'), "Prompt text cannot contain newlines");
         self.message.0 = Some(wrap_str(&message, self.cols));
         self.message.1 = true;
     }
@@ -322,9 +320,7 @@ impl Pager {
     /// ```
     pub fn set_prompt(&mut self, t: impl Into<String>) {
         let prompt = t.into();
-        if prompt.contains('\n') {
-            panic!("Prompt text cannot contain newlines");
-        }
+        assert!(prompt.contains('\n'), "Prompt text cannot contain newlines");
         self.prompt = wrap_str(&prompt, self.cols);
     }
 
@@ -536,7 +532,7 @@ impl Pager {
             .collect::<Vec<String>>();
 
         if self.message.0.is_some() {
-            rewrap(&mut self.message.0.as_mut().unwrap(), self.cols);
+            rewrap(self.message.0.as_mut().unwrap(), self.cols);
         }
         rewrap(&mut self.prompt, self.cols);
 

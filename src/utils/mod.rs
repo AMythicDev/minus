@@ -33,18 +33,18 @@ use crate::{AlternateScreenPagingError, Pager};
 // Note that the last line is reserved for prompt and messages
 pub(crate) fn draw(
     out: &mut impl io::Write,
-    mut pager: &mut Pager,
+    pager: &mut Pager,
 ) -> Result<(), AlternateScreenPagingError> {
     // If number of lines is less than number of rows and run_no_overflow is true, then write
     // the output and return
     //
     // No prompt to be displayed in this case
     if !pager.run_no_overflow && pager.num_lines() <= pager.rows {
-        return write_lines(out, &mut pager);
+        return write_lines(out, pager);
     }
     write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
 
-    write_lines(out, &mut pager)?;
+    write_lines(out, pager)?;
     // If we have message, then show it or show the prompt text instead
     let prompt = pager
         .message

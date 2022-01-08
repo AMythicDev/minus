@@ -10,10 +10,10 @@ use crate::{error::AlternateScreenPagingError, input::InputEvent, Pager};
 // This function matches the given Option<InputEvent> and handles the event appropriately
 pub(crate) fn handle_input(
     ev: &Option<InputEvent>,
-    mut pager: &mut Pager,
+    pager: &mut Pager,
     #[cfg_attr(not(feature = "search"), allow(unused_mut))] mut out: &mut Stdout,
     redraw: &mut bool,
-    #[cfg(feature = "search")] mut s_mark: &mut usize,
+    #[cfg(feature = "search")] s_mark: &mut usize,
     is_exitted: &mut bool,
 ) -> Result<(), AlternateScreenPagingError> {
     #[allow(clippy::match_same_arms)]
@@ -57,9 +57,9 @@ pub(crate) fn handle_input(
                     pager.search_term = Some(r);
                     // Prepare a index where search matches are found
                     // and set it to pager.search_idx
-                    search::set_match_indices(&mut pager);
+                    search::set_match_indices(pager);
                     // Move to
-                    search::next_match(&mut pager, &mut s_mark);
+                    search::next_match(pager, s_mark);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
                     pager.send_message("Invalid regular expression. Press Enter");
@@ -79,7 +79,7 @@ pub(crate) fn handle_input(
                 *s_mark += 1;
             }
             // Go to the next match
-            search::next_match(&mut pager, &mut s_mark);
+            search::next_match(pager, s_mark);
             *redraw = true;
         }
         #[cfg(feature = "search")]
