@@ -1,13 +1,15 @@
 # Changelog
 This file documents all noteable changes made to this project
 
-## v4.0.3 [2021-11-28]
+## v4.0.4 [2022-1-8]
+### Fixed
+* Fixed a bug where `q` key didn't quit the pager in `PagerQuit` exit strategy (#56)
 
+## v4.0.3 [2021-11-28]
 ### Fixed
 * Introduce a bunch of performance improvements
 
 ## v4.0.2 [2021-10-10]
-
 ### Added
 * Added the `minus` logo in README
 
