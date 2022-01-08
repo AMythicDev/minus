@@ -1,88 +1,33 @@
-//! Static information output, see [`page_all`].
-use crate::{init, utils};
+//! Contains function for displaying static data
+//!
+//! This module provides provides the [`page_all`] function to display static output via minus
+use crate::error::MinusError;
+use crate::{init, Pager};
 
-use crate::error::AlternateScreenPagingError;
-use crate::Pager;
-use crossterm::tty::IsTty;
-use std::io::{self, Write};
-
-#[derive(Debug, thiserror::Error)]
-pub enum PageAllError {
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-
-    #[error(transparent)]
-    Paging(#[from] AlternateScreenPagingError),
-
-    #[error("Failed to determine terminal size")]
-    TerminalSize(crossterm::ErrorKind),
-}
-
-/// Outputs static information.
+/// Display static information to the screen
 ///
-/// Once called, the `Pager` passed to this function can never be changed. If you
-/// want dynamic information:
+/// Since it is sure that fed data will never change, minus can do some checks like:-
+/// * If stdout is not a tty, minus not start a pager. It will simply print all the data and quit
+/// * If there are more rows in the terminal than the number of lines of data to display
+/// minus will not start a pager and simply display all data on the main stdout screen.
+/// This behaviour can be turned off if
+/// [`Pager::set_run_no_overflow(true)`](Pager::set_run_no_overflow) has been
+/// called before starting
+/// * Since any other event except user inputs will not occur, we can do some optimizations on
+/// matching events.
 ///
-#[cfg_attr(
-    feature = "async_std_lib",
-    doc = "- [`async_std_updating`](crate::async_std_updating)\n"
-)]
-#[cfg_attr(
-    feature = "tokio_lib",
-    doc = "- [`tokio_updating`](crate::tokio_updating)\n"
-)]
-#[cfg_attr(
-    not(any(feature = "async_std_lib", feature = "tokio_lib")),
-    doc = "- Asynchronous features are disabled, see [here](crate#features) for more information.\n"
-)]
+/// See [example](../index.html#static-output) on how to use this functon.
 ///
-/// ## Errors
+/// # Panics
+/// This function will panic if another instance of minus is already running.
 ///
-/// Several operations can fail when outputting information to a terminal, see
-/// the [`Result`] type.
-///
-/// ## Example
-///
-/// ```rust,no_run
-/// use std::fmt::Write;
-///
-/// fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let mut output = minus::Pager::new().unwrap();
-///
-///     for i in 0..=30 {
-///         output.push_str(format!("{}\n", i));
-///     }
-///
-///     minus::page_all(output)?;
-///     Ok(())
-/// }
-/// ```
+/// # Errors
+/// The function will return with an error if it encounters a error during paging.
 #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
-pub fn page_all(mut p: Pager) -> Result<(), PageAllError> {
-    // Get stdout
-    let mut stdout = io::stdout();
-
-    // If stdout is not a tty, print all the output without paging and exit
-    {
-        if !stdout.is_tty() {
-            utils::write_lines(&mut stdout, &mut p)?;
-            stdout.flush()?;
-            return Ok(());
-        }
-    }
-
-    {
-        // If the number of lines in the output is less than the number of rows
-        // or run_no_overflow is true
-        // display everything and quit
-        if !p.run_no_overflow && p.rows > p.num_lines() {
-            let mut out = stdout.lock();
-            utils::write_lines(&mut out, &mut p)?;
-            out.flush()?;
-        } else {
-            init::static_paging(p)?;
-        }
-
-        Ok(())
-    }
+#[allow(clippy::needless_pass_by_value)]
+pub fn page_all(pager: Pager) -> Result<(), MinusError> {
+    #[cfg(all(feature = "async_output", feature = "static_output"))]
+    assert!(init::RUNMODE.set(init::RunMode::Static).is_ok(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
+    init::init_core(pager)?;
+    Ok(())
 }

@@ -1,6 +1,6 @@
 [package]
 name = "minus"
-version = "4.0.5"
+version = "5.0.0.alpha1"
 authors = ["Arijit Dey <arijid79@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -15,43 +15,39 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-async-std = { version = "^1", optional = true, default-features = false }
-crossterm = "~0.20"
+crossterm = "0.22.1"
 textwrap = { version = "~0.13", default-features = false, features = ["unicode-width"] }
-tokio = { version = "^1", optional = true, default-features = false, features = ["rt"] }
 thiserror = "^1"
 regex = { version = "^1", optional = true }
-async-mutex = { version="^1", optional = true }
+crossbeam-channel = "0.5.1"
+async-global-executor = { version = "^2", optional = true }
+futures-lite = { version = "^1", optional = true }
+once_cell = "1.9.0"
 
 [features]
-async_std_lib = [ "async-std", "async-mutex" ]
-tokio_lib = [ "tokio", "async-mutex" ]
 search = [ "regex" ]
 static_output = []
+async_output = [ "async-global-executor", "futures-lite", "crossterm/event-stream" ]
 
 [dev-dependencies]
-futures = "^0.3.8"
+futures-lite = { version = "^1" }
 async-std = { version = "^1.7.0", features = ["attributes"] }
 tokio = { version = "^1.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
 
 [[example]]
 name = "dyn_async_std"
-required-features = ["async_std_lib"]
+required-features = ["async_output"]
 
 [[example]]
 name = "dyn_tokio"
-required-features = ["tokio_lib"]
+required-features = ["async_output"]
 
 [[example]]
 name = "less-rs"
-required-features = ["async_std_lib"]
+required-features = ["async_output"]
 
 [[example]]
 name = "static"
-required-features = ["static_output"]
-
-[[example]]
-name = "static_long"
 required-features = ["static_output"]
 
 [[example]]
@@ -63,9 +59,9 @@ name = "color-output"
 required-features = ["static_output"]
 
 [[example]]
-name = "tokio-no-overflow"
-required-features = ["tokio_lib"]
+name = "static-no-overflow"
+required-features = ["static_output"]
 
 [[example]]
 name = "msg-tokio"
-required-features = ["tokio_lib"]
+required-features = ["async_output"]

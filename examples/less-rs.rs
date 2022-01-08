@@ -9,25 +9,22 @@
 //also uses thiserror
 
 use async_std::io::prelude::*;
-use futures::future::join;
+use async_std::task::spawn;
+use futures_lite::future;
 use std::env::args;
 
 // async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {
-async fn read_file(
-    name: String,
-    pager: minus::PagerMutex,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn read_file(name: String, pager: minus::Pager) -> Result<(), Box<dyn std::error::Error>> {
     let file = async_std::fs::File::open(name).await?;
     let changes = async {
         let mut buff = String::new();
         let mut buf_reader = async_std::io::BufReader::new(file);
         buf_reader.read_to_string(&mut buff).await?;
-        let mut guard = pager.lock().await;
-        guard.push_str(buff);
-        std::io::Result::<_>::Ok(())
+        pager.push_str(&buff)?;
+        Result::<(), Box<dyn std::error::Error>>::Ok(())
     };
 
-    let (res1, res2) = join(minus::async_std_updating(pager.clone()), changes).await;
+    let (res1, res2) = future::zip(spawn(minus::async_paging(pager.clone())), changes).await;
     res1?;
     res2?;
     Ok(())
@@ -49,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the filename
     let filename = arguments[1].clone();
     // Initialize the configuration
-    let mut output = minus::Pager::new().unwrap();
-    output.set_prompt(&filename);
-    read_file(filename, output.finish()).await
+    let output = minus::Pager::new();
+    output.set_prompt(&filename)?;
+    read_file(filename, output).await
 }

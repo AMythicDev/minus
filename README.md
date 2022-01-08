@@ -4,151 +4,137 @@
     <img src="./minus.svg"/>
 </p>
 
-### :warning: `minus` moving over to Gitlab
-**`minus` will find it's new home at over at Gitlab. Find the [repo here](https://gitlab.com/arijit79/minus)
-The Github repo will be in sync with Gitlab and all issues and pull requests on Github will still be handled**
-
 [![crates.io](https://img.shields.io/crates/v/minus?style=for-the-badge)](https://crates.io/crates/minus)
 [![ci](https://img.shields.io/github/workflow/status/arijit79/minus/ci?label=CI&style=for-the-badge)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
 [![docs.rs](https://img.shields.io/docsrs/minus?label=docs.rs&style=for-the-badge)](https://docs.rs/minus)
 [![Matrix](https://img.shields.io/matrix/minus:matrix.org?style=for-the-badge)](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
 [![Crates.io](https://img.shields.io/crates/l/minus?style=for-the-badge)](https://github.com/arijit79/minus#license)
 
-`minus` is a small terminal paging library for Rust. `minus` provides an intuitive API for easily embedding a pager in any terminal application. It does all the low level stuff for you like setting up the terminal on start, handling keyboard/mouse/terminal resize events etc.
+minus is an asynchronous terminal paging library written in Rust.
 
 <p align="center">
     <img src="./demo.png"/>
 </p>
 
-The basic thing that `minus` does is to take some string data and display it one page at a time. What makes `minus` unique is that it can allow the end-application to update it's data and configuration while running.
+## What is a Pager?
 
-Every functionality in `minus` is gated on certain Cargo feature. By default `minus` comes with no features turned on. This is to prevent end-applications from getting useless dependencies.
+A pager is a program that lets you view and scroll through large amounts of text using a keyboard in a TTY where no mouse support is available.
+
+Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager. For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty much non-existent.
+
+Examples of some popular pager include `more` and its successor `less`.
+
+## The problem with traditional pagers
+
+First, traditional pagers like `more` or `less` weren't made for integrating into other applications. They were meant to be standalone binaries that are executed directly by the users.
+
+Applications leveraged these pagers by calling them as external programs and passing the data through the standard input. This method worked for Unix and other Unix-like OSs like Linux and MacOS because they already came with any of these pagers installed  But it wasn't this easy on Windows, it required shipping the pager binary along with the applications. Since these programs were originally designed for Unix and Unix-like OSs, distributing these binaries meant shipping an entire environment like MinGW or Cygwin so that these can run properly on Windows.
+
+ Recently, some libraries have emerged to solve this issue. They are compiled along with your application and give you a single to distribute. The problem with this is most of them require you to feed the entire data to the pager before the pager can run, this meant that there will be no output on the terminal until the entire data isn't loaded by the application and passed on to the pager.
+
+These could cause long delays before output if the data comes from a very large file or is being downloaded from the internet.
+
+## Enter minus
+
+As above described, minus is an asynchronous terminal paging library for Rust. It allows not just data but also configuration to be fed into itself while it is running.
+
+minus achieves this by using Rust's amazing concurrency support and no data race conditions which are guaranteed by Rust
+
+With minus, you can initialize a pager with any async runtime of your choice or even no runtime, if you want just native threads.
 
 ## Usage
-When adding `minus` to your `Cargo.toml` file, enable the features as necessory
-* Using [`tokio`] for your application ? Use the `tokio_lib` feature.
-* Using [`async-std`] for your application ? Use the `async_std_lib` feature.
-* Using only static information ? Use the `static_output` feature.
-* Want search capablities using regex? Enable the `search` feature.
+
+Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
+
+* If you only want a pager to display static data, enable the `static_output` feature
+
+* If you want a pager to display dynamic data and be configurable at runtime, enable the `async_output` feature
+
+* If you want search support inside the pager, you need to enable the `search` feature
 
 ```toml
 [dependencies.minus]
-version = "^4.0"
-# For tokio
-features = ["tokio_lib"]
-
-# For async_std
-features = ["async_std_lib"]
-
-# For static output
-features = ["static_output"]
-
-# Search feature
-features = ["tokio_lib", "search"]
+version = "5.0.0.alpha1"
+features = [
+    # Enable features you want. For example
+    "async_output",
+    "search"
+]
 ```
 
 ## Examples
-All examples are available in the `examples` directory and you can run them
-using `cargo`. Remember to set the correct feature for the targeted example
-(e.g.: `cargo run --example=dyn_tokio --features=tokio_lib`).
 
-Using [`tokio`]:
+All example are available in the `examples` directory and you can run them using `cargo`.
+
+### [`tokio`]:
 
 ```rust
-use futures::join;
-use tokio::time::sleep;
-use minus::{Pager, async_std_updating};
-use std::fmt::Write;
+use minus::{async_paging, MinusError, Pager};
 use std::time::Duration;
+use std::fmt::Write;
+use tokio::{join, spawn, time::sleep};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize a default dynamic configuration
-    let pager = minus::Pager::new().unwrap().finish();
-
-    // Asynchronously push numbers to the output
+async fn main() -> Result<(), MinusError> {
+    // Initialize the pager
+    let mut pager = Pager::new();
+    // Asynchronously send data to the pager
     let increment = async {
-        for i in 0..=30_u32 {
-            let mut guard = pager.lock().await;
-            writeln!(guard, "{}", i)?;
-            // Also you can use this syntax
-            // guard.push_str(&format("{}\n", i));
-            drop(guard);
+        let mut pager = pager.clone();
+        for i in 0..=100_u32 {
+            writeln!(pager, "{}", i);
             sleep(Duration::from_millis(100)).await;
         }
-        // Dynamic paging should hint the pager that it's stream of data has
-        // ended
-        let mut guard.lock().await;
-        guard.end_data_stream();
-        // Return an Ok result
-        Result::<_, std::fmt::Error>::Ok(())
+        Result::<_, MinusError>::Ok(())
     };
-
-    // Join the futures
-    let (res1, res2) = join!(
-        minus::tokio_updating(pager.clone()),
-        increment
-    );
-    // Check for errors
-    res1?;
+    // spawn(async_paging(...)) creates a tokio task and runs the async_paging
+    // inside it
+    let (res1, res2) = join!(spawn(async_paging(pager.clone())), increment);
+    // .unwrap() unwraps any error while creating the tokio task
+    //  The ? mark unpacks any error that might have occured while the
+    // pager is running
+    res1.unwrap()?;
     res2?;
-    // Return Ok result
     Ok(())
 }
 ```
 
-Using [`async-std`]:
+### [`async-std`]:
 
 ```rust
-use async_std::task::sleep;
-use futures::join;
-use minus::{Pager, async_std_updating};
-use std::fmt::Write;
+use async_std::task::{sleep, spawn};
+use futures_lite::future;
+use minus::{async_paging, MinusError, Pager};
 use std::time::Duration;
 
 #[async_std::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize a default dynamic configuration
-    let pager = minus::Pager::new().unwrap().finish();
+async fn main() -> Result<(), MinusError> {
+    let output = Pager::new();
 
-    // Asynchronously push numbers to the output
     let increment = async {
-        for i in 0..=30_u32 {
-            let mut guard = pager.lock().await;
-            writeln!(guard, "{}", i)?;
-            // Also you can use this syntax
-            // guard.push_str(&format("{}\n", i));
-            drop(guard);
+        for i in 0..=100_u32 {
+            output.push_str(&format!("{}\n", i))?;
             sleep(Duration::from_millis(100)).await;
         }
-        // Dynamic paging should hint the pager that it's stream of data has
-        // ended
-        let mut guard.lock().await;
-        guard.end_data_stream();
-        // Return an Ok result
-        Result::<_, std::fmt::Error>::Ok(())
+        Result::<_, MinusError>::Ok(())
     };
-    // Join the futures
-    let (res1, res2) = join!(
-        minus::async_std_updating(guard.clone()), increment);
 
-    // Check for errors
+    let (res1, res2) = future::zip(spawn(async_paging(output.clone())), increment).await;
     res1?;
     res2?;
-    // Return Ok result
     Ok(())
 }
 ```
 
-Some static output:
+### Static output:
 
 ```rust
 use std::fmt::Write;
-use minus::{Pager, page_all};
+use minus::{MinusError, Pager, page_all};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), MinusError> {
     // Initialize a default static configuration
-    let mut output = Pager::new().unwrap();
+    let mut output = Pager::new();
     // Push numbers blockingly
     for i in 0..=30 {
         writeln!(output, "{}", i)?;
@@ -166,10 +152,11 @@ paging since asynchronous paging could still receive more data that makes it
 pass the limit.
 
 ## Standard actions
-Here is the list of default key/mouse actions handled by `minus`. Note that end-applications can change these bindings to better suit their needs.
+
+Here is the list of default key/mouse actions handled by `minus`.  End-applications can change these bindings to better suit their needs.
 
 | Action            | Description                                        |
-| ----------        | -------------                                      |
+| ----------------- | -------------------------------------------------- |
 | Ctrl+C/q          | Quit the pager                                     |
 | Arrow Up/k        | Scroll up by one line                              |
 | Arrow Down/j      | Scroll down by one line                            |
@@ -191,15 +178,19 @@ Here is the list of default key/mouse actions handled by `minus`. Note that end-
 | p                 | Go to the next previous match                      |
 
 ## License
+
 Unless explicitly stated, all works to `minus` are dual licensed under the
 [MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
 
 ## Contributing
+
 Issues and pull requests are more than welcome.
 See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
 
 ## Thanks
-Thank you to everyone here for giving there time and contribution to `minus`
+
+minus would never have been this without the :heart: from these kind people
+
 * @rezural
 * @poliorcetics
 * @danieleades
@@ -211,5 +202,9 @@ Thank you to everyone here for giving there time and contribution to `minus`
 * @iandwelker
 
 ## Get in touch
-We are open to discussion and thoughts om improving `minus`. Join us at
-[Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
+
+We are open to discussion and thoughts om improving `minus`. Join us at [Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
+
+[`tokio`]: https://crates.io/crates/tokio
+
+[`async-std`]: https://crates.io/crates/async-std

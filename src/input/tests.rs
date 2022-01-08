@@ -1,32 +1,22 @@
 #[cfg(feature = "search")]
 use crate::SearchMode;
-use crate::{input::InputEvent, LineNumbers, Pager};
+use crate::{input::InputEvent, LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 // Just a transparent function to fix incompatiblity issues between
 // versions
 // TODO: Remove this later in favour of how handle_event should actually be called
-fn handle_input(ev: Event, p: &Pager) -> Option<InputEvent> {
-    p.input_classifier.classify_input(
-        ev,
-        p.upper_mark,
-        #[cfg(feature = "search")]
-        p.search_mode,
-        p.line_numbers,
-        // We set `message` to false explicitly, for the sake of correctness
-        // This will be tested inside a seperate so that it produces the result as expected
-        false,
-        p.rows,
-    )
+fn handle_input(ev: Event, p: &PagerState) -> Option<InputEvent> {
+    p.input_classifier.classify_input(ev, p)
 }
 
 // Keyboard navigation
 #[test]
 #[allow(clippy::too_many_lines)]
 fn test_kb_nav() {
-    let mut pager = Pager::new().unwrap();
+    let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 12;
-    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.line_numbers = LineNumbers::Enabled;
     pager.rows = 5;
 
     {
@@ -80,7 +70,7 @@ fn test_kb_nav() {
             modifiers: KeyModifiers::SHIFT,
         });
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            Some(InputEvent::UpdateUpperMark(usize::MAX - 1)),
             handle_input(ev, &pager)
         );
     }
@@ -91,7 +81,7 @@ fn test_kb_nav() {
             modifiers: KeyModifiers::NONE,
         });
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            Some(InputEvent::UpdateUpperMark(usize::MAX - 1)),
             handle_input(ev, &pager)
         );
     }
@@ -102,7 +92,7 @@ fn test_kb_nav() {
             modifiers: KeyModifiers::SHIFT,
         });
         assert_eq!(
-            Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            Some(InputEvent::UpdateUpperMark(usize::MAX - 1)),
             handle_input(ev, &pager)
         );
     }
@@ -172,7 +162,8 @@ fn test_kb_nav() {
 
 #[test]
 fn test_restore_prompt() {
-    let pager = Pager::new().unwrap();
+    let mut pager = PagerState::new().unwrap();
+    pager.message.1 = true;
     {
         // Enter key for one line down when no message on prompt
         let ev = Event::Key(KeyEvent {
@@ -182,24 +173,16 @@ fn test_restore_prompt() {
         // therefore upper_mark += 1
         assert_eq!(
             Some(InputEvent::RestorePrompt),
-            pager.input_classifier.classify_input(
-                ev,
-                pager.upper_mark,
-                #[cfg(feature = "search")]
-                SearchMode::Unknown,
-                LineNumbers::Disabled,
-                true,
-                pager.rows
-            )
+            pager.input_classifier.classify_input(ev, &pager)
         );
     }
 }
 
 #[test]
 fn test_mouse_nav() {
-    let mut pager = Pager::new().unwrap();
+    let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 12;
-    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.line_numbers = LineNumbers::Enabled;
     pager.rows = 5;
     {
         let ev = Event::Mouse(MouseEvent {
@@ -231,9 +214,9 @@ fn test_mouse_nav() {
 
 #[test]
 fn test_saturation() {
-    let mut pager = Pager::new().unwrap();
+    let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 12;
-    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.line_numbers = LineNumbers::Enabled;
     pager.rows = 5;
 
     {
@@ -241,10 +224,10 @@ fn test_saturation() {
             code: KeyCode::Down,
             modifiers: KeyModifiers::NONE,
         });
-        // Pager for local use
-        let mut pager = Pager::new().unwrap();
+        // PagerState for local use
+        let mut pager = PagerState::new().unwrap();
         pager.upper_mark = usize::MAX;
-        pager.set_line_numbers(LineNumbers::Enabled);
+        pager.line_numbers = LineNumbers::Enabled;
         pager.rows = 5;
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX)),
@@ -257,10 +240,10 @@ fn test_saturation() {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
         });
-        // Pager for local use
-        let mut pager = Pager::new().unwrap();
+        // PagerState for local use
+        let mut pager = PagerState::new().unwrap();
         pager.upper_mark = usize::MIN;
-        pager.set_line_numbers(LineNumbers::Enabled);
+        pager.line_numbers = LineNumbers::Enabled;
         pager.rows = 5;
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MIN)),
@@ -271,9 +254,9 @@ fn test_saturation() {
 
 #[test]
 fn test_misc_events() {
-    let mut pager = Pager::new().unwrap();
+    let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 12;
-    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.line_numbers = LineNumbers::Enabled;
     pager.rows = 5;
 
     {
@@ -324,9 +307,9 @@ fn test_misc_events() {
 #[allow(clippy::too_many_lines)]
 #[cfg(feature = "search")]
 fn test_search_bindings() {
-    let mut pager = Pager::new().unwrap();
+    let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 12;
-    pager.set_line_numbers(LineNumbers::Enabled);
+    pager.line_numbers = LineNumbers::Enabled;
     pager.rows = 5;
 
     {
@@ -362,30 +345,17 @@ fn test_search_bindings() {
         });
 
         assert_eq!(
-            pager.input_classifier.classify_input(
-                next_event,
-                pager.upper_mark,
-                SearchMode::Forward,
-                pager.line_numbers,
-                false,
-                pager.rows
-            ),
+            pager.input_classifier.classify_input(next_event, &pager),
             Some(InputEvent::NextMatch)
         );
         assert_eq!(
-            pager.input_classifier.classify_input(
-                prev_event,
-                pager.upper_mark,
-                SearchMode::Forward,
-                pager.line_numbers,
-                false,
-                pager.rows
-            ),
+            pager.input_classifier.classify_input(prev_event, &pager),
             Some(InputEvent::PrevMatch)
         );
     }
 
     {
+        pager.search_mode = SearchMode::Reverse;
         // NextMatch and PrevMatch reverse search
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
@@ -397,25 +367,11 @@ fn test_search_bindings() {
         });
 
         assert_eq!(
-            pager.input_classifier.classify_input(
-                next_event,
-                pager.upper_mark,
-                SearchMode::Reverse,
-                pager.line_numbers,
-                false,
-                pager.rows
-            ),
+            pager.input_classifier.classify_input(next_event, &pager),
             Some(InputEvent::PrevMatch)
         );
         assert_eq!(
-            pager.input_classifier.classify_input(
-                prev_event,
-                pager.upper_mark,
-                SearchMode::Reverse,
-                pager.line_numbers,
-                false,
-                pager.rows
-            ),
+            pager.input_classifier.classify_input(prev_event, &pager),
             Some(InputEvent::NextMatch)
         );
     }

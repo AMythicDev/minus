@@ -1,172 +1,369 @@
-// There maybe a lot of junk that may get imported if not needed. So we allow
-// unused imports
-#![allow(unused_imports)]
-
-#[cfg(feature = "search")]
-use crate::search::{self, SearchMode};
-
+//! Contains functions that initialize minus
+//!
+//! This module provides two main functions:-
+//! * The [`init_core`] function which is responsible for setting the initial state of the
+//! Pager, do enviroment checks and initializing various core functions on either async
+//! tasks or native threads depending on the feature set
+//!
+//! * The [`start_reactor`] function displays the displays the output and also polls
+//! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
+//! detected, it reacts to it accordingly.
 use crate::{
-    error::AlternateScreenPagingError,
-    input::InputEvent,
-    utils::{
-        draw, ev_handler,
-        term::{cleanup, setup},
-    },
-    Pager,
+    error::MinusError,
+    events::Event,
+    utils::{draw, ev_handler::handle_event, term::setup},
+    Pager, PagerState,
 };
 
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use async_mutex::Mutex;
-use crossterm::{cursor::MoveTo, event, execute};
+use crossbeam_channel::Receiver;
+#[cfg(all(feature = "async_output", feature = "static_output"))]
+use once_cell::sync::OnceCell;
+use std::io::stdout;
+use std::io::Stdout;
 #[cfg(feature = "search")]
-use std::convert::{TryFrom, TryInto};
-use std::io::{self, Write as _};
-#[cfg(any(feature = "tokio_lib", feature = "async_std_lib"))]
-use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::{
+    cell::RefCell,
+    sync::{Arc, Mutex},
+};
+#[cfg(feature = "async_output")]
+use {crate::input::reader::streaming, futures_lite::future};
+#[cfg(feature = "static_output")]
+use {
+    crate::{input::reader::polling, utils::write_lines},
+    crossterm::tty::IsTty,
+    std::thread,
+};
 
-// Runs the pager in dynamic mode for the `PagerMutex`.
-//
-// ## Errors
-//
-// Setting/cleaning up the terminal can fail and IO to/from the terminal can
-// fail.
-#[cfg(any(feature = "async_std_lib", feature = "tokio_lib"))]
-pub(crate) async fn dynamic_paging(
-    p: &Arc<Mutex<Pager>>,
-) -> std::result::Result<(), AlternateScreenPagingError> {
-    // Setup terminal, adjust line wraps and get rows
-    let mut out = io::stdout();
-    let guard = p.lock().await;
-    let run_no_overflow = guard.run_no_overflow;
-    drop(guard);
-    setup(&out, true, run_no_overflow)?;
-    // Search related variables
-    // A marker of which element of s_co we are currently at
-    #[cfg(feature = "search")]
-    let mut s_mark = 0;
-    // Whether to redraw the console
-    #[allow(unused_assignments)]
-    let mut redraw = true;
-    let mut last_line_count = 0;
-    let mut is_exitted = false;
-
-    loop {
-        if is_exitted {
-            return Ok(());
-        }
-        // Get the lock, clone it and immidiately drop the lock
-        let mut guard = p.lock().await;
-
-        // Display the text continously if last displayed line count is not same and
-        // all rows are not filled
-        let line_count = guard.num_lines();
-        let have_just_overflowed = (last_line_count < guard.rows) && (line_count >= guard.rows);
-        if have_just_overflowed && !run_no_overflow {
-            setup(&out, true, true)?;
-        }
-        if last_line_count != line_count && (line_count < guard.rows || have_just_overflowed)
-            || guard.message.1
-        {
-            draw(&mut out, &mut guard)?;
-            if guard.message.1 {
-                guard.message.1 = false;
-            }
-            last_line_count = line_count;
-        }
-
-        if guard.end_stream && !run_no_overflow && line_count <= guard.rows {
-            guard.exit();
-            return Ok(cleanup(out, &guard.exit_strategy, false)?);
-        }
-
-        drop(guard);
-        // Check for events
-        if event::poll(std::time::Duration::from_millis(10))
-            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
-        {
-            // Lock the value again
-            let mut lock = p.lock().await;
-
-            // Get the events
-            let input = lock.input_classifier.classify_input(
-                event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                lock.upper_mark,
-                #[cfg(feature = "search")]
-                lock.search_mode,
-                lock.line_numbers,
-                lock.message.0.is_some(),
-                lock.rows,
-            );
-            ev_handler::handle_input(
-                &input,
-                &mut lock,
-                &mut out,
-                &mut redraw,
-                #[cfg(feature = "search")]
-                &mut s_mark,
-                &mut is_exitted,
-            )?;
-            // If redraw is true, then redraw the screen
-            if redraw {
-                draw(&mut out, &mut lock)?;
-            }
-        }
-    }
+#[cfg(all(feature = "async_output", feature = "static_output"))]
+pub(crate) enum RunMode {
+    Static,
+    Async,
 }
 
-// Runs the pager in dynamic mode for the `Pager`.
-//
-// ## Errors
-//
-// Setting/cleaning up the terminal can fail and IO to/from the terminal can
-// fail.
-#[cfg(feature = "static_output")]
-pub(crate) fn static_paging(mut pager: Pager) -> Result<(), AlternateScreenPagingError> {
-    let mut out = io::stdout();
-    setup(&out, false, pager.run_no_overflow)?;
-    #[allow(unused_assignments)]
-    let mut redraw = true;
+#[cfg(all(feature = "async_output", feature = "static_output"))]
+pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 
+/// The main entry point of minus
+///
+/// This is called by both [`async_paging`](crate::async_paging) and
+/// [`page_all`](crate::page_all) functions.
+///
+/// It first receives all events present inside the [`Pager`]'s receiver
+/// and creates the initial state that to be stored inside the [`PagerState`]
+///
+/// Then it checks if the minus is running in static mode and does some checks:-
+/// * If standard output is not a terminal screen, that is if it is a file or block
+/// device, minus will write all the data at once to the stdout and quit
+///
+/// * If the size of the data is less than the available number of rows in the terminal
+/// then it displays everything on the main stdout screen at once and quits. This
+/// behaviour can be turned off if [`Pager::set_run_no_overflow(true)`] is called
+/// by the main application
+// Sorry... this behaviour would have been cool to have in async mode, just think about it!!! Many
+// implementations were proposed but none were perfect
+// It is because implementing this especially with line wrapping and terminal scrolling
+// is a a nightmare because terminals are really naughty and more when you have to fight with it
+// using your library... your only weapon
+// So we just don't take any more proposals about this. It is really frustating to
+// to throughly test each implementation and fix out all rough edges around it
+/// Next it initializes the runtime and calls [`start_reactor`] and a event reader which is
+/// selected based on the enabled feature set:-
+///
+/// * If both `static_output` and `async_output` features are selected
+///     * If running in static mode, a [polling] based event reader is spawned on a
+///     thread and the [`start_reactor`] is called directly
+///     * If running in async mode, a [streaming] based event reader and [`start_reactor`] are
+///     spawned in a `async_global_allocatior` task
+///
+/// * If only `static_output` feature is enabled, [polling] based event reader is spawned
+/// on a thread and the [`start_reactor`] is called directly
+/// * If only `async_output` feature is enabled, [streaming] based event reader and
+/// [`start_reactor`] are spawned in a `async_global_allocatior` task
+///
+/// # Errors
+///
+/// Setting/cleaning up the terminal can fail and IO to/from the terminal can
+/// fail.
+///
+/// [streaming]: crate::input::reader::streaming
+/// [polling]: crate::input::reader::polling
+#[cfg(any(feature = "async_output", feature = "static_output"))]
+#[allow(clippy::needless_pass_by_value)]
+pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
+    let mut out = stdout();
+    // Is the event reader running
     #[cfg(feature = "search")]
-    let mut s_mark: usize = 0;
-    let mut is_exitted = false;
+    let input_thread_running = Arc::new(AtomicBool::new(true));
+    #[allow(unused_mut)]
+    let mut ps = generate_initial_state(&mut pager.rx, &mut out)?;
 
-    draw(&mut out, &mut pager)?;
-
-    loop {
-        if is_exitted {
+    // Static mode checks
+    #[cfg(feature = "static_output")]
+    {
+        // If stdout is not a tty, write everyhting and quit
+        if !out.is_tty() {
+            write_lines(&mut out, &mut ps)?;
             return Ok(());
         }
-        // Check for events
-        if event::poll(std::time::Duration::from_millis(10))
-            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
-        {
-            // Get the event
-            let input = pager.input_classifier.classify_input(
-                event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?,
-                pager.upper_mark,
-                #[cfg(feature = "search")]
-                pager.search_mode,
-                pager.line_numbers,
-                pager.message.0.is_some(),
-                pager.rows,
-            );
-            // Handle the event
-            ev_handler::handle_input(
-                &input,
-                &mut pager,
-                &mut out,
-                &mut redraw,
-                #[cfg(feature = "search")]
-                &mut s_mark,
-                &mut is_exitted,
-            )?;
-
-            // If there is some input, or messages and redraw is true
-            // Redraw the screen
-            if (input.is_some() || pager.message.1) && redraw {
-                draw(&mut out, &mut pager)?;
-            }
+        // If number of lines of text is less than available wors, write everything and quit
+        // unless run_no_overflow is set to true
+        if ps.num_lines() <= ps.rows && ps.run_no_overflow {
+            write_lines(&mut out, &mut ps)?;
+            ps.exit();
+            return Ok(());
         }
     }
+
+    // Setup terminal, adjust line wraps and get rows
+    setup(&out)?;
+
+    let ps_mutex = Arc::new(Mutex::new(ps));
+
+    #[cfg(feature = "static_output")]
+    let start_static = || -> Result<(), MinusError> {
+        let evtx = pager.tx.clone();
+        let rx = pager.rx.clone();
+        let out = stdout();
+
+        let p1 = ps_mutex.clone();
+
+        #[cfg(feature = "search")]
+        let input_thread_running = input_thread_running.clone();
+        #[cfg(feature = "search")]
+        let input_thread_running2 = input_thread_running.clone();
+
+        thread::spawn(move || {
+            polling(
+                &evtx,
+                &p1,
+                #[cfg(feature = "search")]
+                &input_thread_running2,
+            )
+        });
+        start_reactor(
+            &rx,
+            &ps_mutex,
+            out,
+            #[cfg(feature = "search")]
+            &input_thread_running,
+        )?;
+        Ok(())
+    };
+
+    #[cfg(feature = "async_output")]
+    let start_async = || -> Result<(), MinusError> {
+        let evtx = pager.tx.clone();
+        let rx = pager.rx.clone();
+        let out = stdout();
+
+        let p1 = ps_mutex.clone();
+        let p2 = p1.clone();
+
+        #[cfg(feature = "search")]
+        let input_thread_running = input_thread_running.clone();
+        #[cfg(feature = "search")]
+        let input_thread_running2 = input_thread_running.clone();
+        let input_reader = async_global_executor::spawn(streaming(
+            evtx,
+            p2,
+            #[cfg(feature = "search")]
+            input_thread_running2,
+        ));
+        let reactor = async_global_executor::spawn_blocking(move || {
+            start_reactor(
+                &rx,
+                &p1,
+                out,
+                #[cfg(feature = "search")]
+                &input_thread_running,
+            )
+        });
+        let task = future::zip(input_reader, reactor);
+        let (res1, res2) = async_global_executor::block_on(task);
+        res1?;
+        res2?;
+        Ok(())
+    };
+
+    #[cfg(all(feature = "async_output", feature = "static_output"))]
+    {
+        if let Some(&RunMode::Static) = RUNMODE.get() {
+            start_static()?;
+        } else {
+            start_async()?;
+        }
+    }
+    #[cfg(all(feature = "async_output", not(feature = "static_output")))]
+    {
+        start_async()?;
+    }
+    #[cfg(all(feature = "static_output", not(feature = "async_output")))]
+    {
+        start_static()?;
+    }
+    Ok(())
+}
+
+/// Continously displays the output and reacts to events
+///
+/// This function displays the output continously while also checking for user inputs.
+///
+/// Whenever a event like a user input or instruction from the main application is detected
+/// it will call [`handle_event`] to take required action for the event.
+/// Then it will be do some checks if it is really necessory to redraw the screen
+/// and redraw if it event requires it to do so.
+///
+/// For example if all rows in a terminal aren't filled and a
+/// [`AppendData`](crate::events::Event::AppendData) event occurs, it is absolutely necessory
+/// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
+/// screen.
+#[cfg(any(feature = "async_output", feature = "static_output"))]
+fn start_reactor(
+    rx: &Receiver<Event>,
+    ps: &Arc<Mutex<PagerState>>,
+    mut out: Stdout,
+    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
+) -> Result<(), MinusError> {
+    // Is the terminal completely filled with text
+    #[cfg(feature = "async_output")]
+    let mut filled = false;
+    // Has the user quitted
+    let is_exitted: RefCell<bool> = RefCell::new(false);
+
+    {
+        let mut p = ps.lock().unwrap();
+        draw(&mut out, &mut p)?;
+    }
+    let out = RefCell::new(out);
+
+    #[cfg(feature = "async_output")]
+    let mut async_matcher = |ev| -> Result<(), MinusError> {
+        match ev {
+            Ok(ev) if ev.required_immidiate_screen_update() => {
+                let mut p = ps.lock().unwrap();
+                handle_event(
+                    ev,
+                    &mut *out.borrow_mut(),
+                    &mut p,
+                    &mut is_exitted.borrow_mut(),
+                    #[cfg(feature = "search")]
+                    input_thread_running,
+                )?;
+                draw(&mut *out.borrow_mut(), &mut p)?;
+            }
+            Ok(Event::AppendData(text)) => {
+                let mut p = ps.lock().unwrap();
+                handle_event(
+                    Event::AppendData(text),
+                    &mut *out.borrow_mut(),
+                    &mut p,
+                    &mut is_exitted.borrow_mut(),
+                    #[cfg(feature = "search")]
+                    input_thread_running,
+                )?;
+                if p.num_lines() > p.rows {
+                    // Check if the terminal just got filled
+                    // If so, fill any unfilled row towards the end of the screen
+                    if !filled || p.message.1 {
+                        draw(&mut *out.borrow_mut(), &mut p)?;
+                        filled = true;
+                        if p.message.1 {
+                            p.message.1 = false;
+                        }
+                    }
+                }
+                // Immidiately append data to the terminal until we haven't overflowed
+                if p.num_lines() < p.rows || p.message.1 {
+                    draw(&mut *out.borrow_mut(), &mut p)?;
+                    if p.message.1 {
+                        p.message.1 = false;
+                    }
+                }
+            }
+            Ok(ev) => {
+                let mut p = ps.lock().unwrap();
+                handle_event(
+                    ev,
+                    &mut *out.borrow_mut(),
+                    &mut p,
+                    &mut is_exitted.borrow_mut(),
+                    #[cfg(feature = "search")]
+                    input_thread_running,
+                )?;
+            }
+            Err(_) => {}
+        }
+        Ok(())
+    };
+
+    #[cfg(feature = "static_output")]
+    let static_matcher = |ev| -> Result<(), MinusError> {
+        if let Ok(Event::UserInput(inp)) = ev {
+            let mut p = ps.lock().unwrap();
+            handle_event(
+                Event::UserInput(inp),
+                &mut *out.borrow_mut(),
+                &mut p,
+                &mut is_exitted.borrow_mut(),
+                #[cfg(feature = "search")]
+                input_thread_running,
+            )?;
+            draw(&mut *out.borrow_mut(), &mut p)?;
+            Ok(())
+        } else {
+            Ok(())
+        }
+    };
+
+    loop {
+        if *is_exitted.borrow() {
+            break;
+        }
+        let ev = rx.try_recv();
+
+        #[cfg(all(feature = "async_output", feature = "static_output"))]
+        if let Some(&RunMode::Static) = RUNMODE.get() {
+            static_matcher(ev)?;
+        } else {
+            async_matcher(ev)?;
+        }
+
+        #[cfg(all(feature = "static_output", not(feature = "async_output")))]
+        static_matcher(ev)?;
+
+        #[cfg(all(feature = "async_output", not(feature = "static_output")))]
+        async_matcher(ev)?;
+    }
+    Ok(())
+}
+
+/// Generate the initial [`PagerState`]
+///
+/// This function creates a default [`PagerState`] and fetches all events present in the receiver
+/// to create the initial state. This is done before starting the pager so that we
+/// can make the optimizationss that are present in static pager mode.
+///
+/// # Errors
+///  This function will return an error if it could not create the default [`PagerState`]or fails
+///  to process the events
+#[cfg(any(feature = "async_output", feature = "static_output"))]
+fn generate_initial_state(
+    rx: &mut Receiver<Event>,
+    mut out: &mut Stdout,
+) -> Result<PagerState, MinusError> {
+    let mut ps = PagerState::new()?;
+    #[cfg(feature = "search")]
+    let input_thread_running = Arc::new(AtomicBool::new(true));
+    rx.try_iter().try_for_each(|ev| {
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &input_thread_running,
+        )
+    })?;
+    Ok(ps)
 }

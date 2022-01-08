@@ -1,6 +1,8 @@
+//! Provides functions related to searching
+
 #![allow(unused_imports)]
-use crate::error::AlternateScreenPagingError;
-use crate::Pager;
+use crate::error::MinusError;
+use crate::PagerState;
 use crossterm::{
     cursor::{self, MoveTo},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -19,17 +21,21 @@ pub enum SearchMode {
     Forward,
     /// Find matches before the current page
     Reverse,
-    /// Don;t know the current search mode
+    /// No search active
     Unknown,
 }
 
-/// Fetch the search query asynchronously
+/// Fetch the search query
+///
+/// The function will change the prompt to `/` for Forward search or `?` for Reverse search
+/// It will then store the query in a String and return it when `Return` key is pressed
+/// or return with a empty string if so match is found.
 #[cfg(feature = "search")]
 pub(crate) fn fetch_input(
     out: &mut impl std::io::Write,
     search_mode: SearchMode,
     rows: usize,
-) -> Result<String, AlternateScreenPagingError> {
+) -> Result<String, MinusError> {
     // Place the cursor at the beginning of very prompt line, clear
     // the prompt and show the cursor
     #[allow(clippy::cast_possible_truncation)]
@@ -48,10 +54,8 @@ pub(crate) fn fetch_input(
     out.flush()?;
     let mut string = String::new();
     loop {
-        if event::poll(Duration::from_millis(10))
-            .map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))?
-        {
-            match event::read().map_err(|e| AlternateScreenPagingError::HandleEvent(e.into()))? {
+        if event::poll(Duration::from_millis(10)).map_err(|e| MinusError::HandleEvent(e.into()))? {
+            match event::read().map_err(|e| MinusError::HandleEvent(e.into()))? {
                 // If Esc is pressed, cancel the search
                 Event::Key(KeyEvent {
                     code: KeyCode::Esc,
@@ -93,9 +97,13 @@ pub(crate) fn fetch_input(
     }
 }
 
-// Set `Pager.search_idx` to the line numbers at which search matches are found
+/// Set [`PagerState.search_idx`] to the line numbers at which search matches are found
+///
+/// The function will go through each line in [`PagerState::formatted_lines`] to check
+/// if there is a search match. If a match is found, the function will append the index of the
+/// string to [`PagerState::search_idx`]
 #[cfg(feature = "search")]
-pub(crate) fn set_match_indices(pager: &mut Pager) {
+pub(crate) fn set_match_indices(pager: &mut PagerState) {
     let pattern = match pager.search_term.as_ref() {
         Some(pat) => pat,
         None => return,
@@ -117,6 +125,7 @@ pub(crate) fn set_match_indices(pager: &mut Pager) {
         .collect();
 }
 
+/// Highlights the search match
 #[cfg(feature = "search")]
 pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
     use crossterm::style::Stylize;
@@ -128,19 +137,22 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String
         .to_string()
 }
 
-// Set variables to move to the next match
+/// Set [`PagerState::search_mark`] to move to the next match
+///
+/// This function will continue looping untill it finds a match that is after the
+/// [`PagerState::upper_mark`]
 #[cfg(feature = "search")]
-pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
-    // Loop until we find a match, that's below the upper_mark
+pub(crate) fn next_match(ps: &mut PagerState) {
+    // Loop until we find a match, that's after the upper_mark
     //
     // Get match at the given mark
-    while let Some(y) = pager.search_idx.get(*s_mark) {
+    while let Some(y) = ps.search_idx.get(ps.search_mark) {
         // If it's above upper_mark, continue for the next match
-        if *y < pager.upper_mark {
-            *s_mark += 1;
+        if *y < ps.upper_mark {
+            ps.search_mark += 1;
         } else {
             // If the condition is satisfied, set it and break
-            pager.upper_mark = *y as usize;
+            ps.upper_mark = *y as usize;
             break;
         }
     }
@@ -149,21 +161,20 @@ pub(crate) fn next_match(pager: &mut Pager, s_mark: &mut usize) {
 #[cfg(test)]
 mod tests {
     use super::{highlight_line_matches, next_match, set_match_indices};
-    use crate::Pager;
+    use crate::PagerState;
     use crossterm::style::Attribute;
     use regex::Regex;
 
     #[test]
     fn test_next_match() {
-        let mut pager = Pager::new().unwrap();
-        let mut s_mark = 0;
+        let mut pager = PagerState::new().unwrap();
+        pager.search_mark = 0;
         // A sample index for mocking actual search index matches
         pager.search_idx = vec![2, 10, 15, 17, 50];
         for i in &pager.search_idx.clone() {
-            next_match(&mut pager, &mut s_mark);
-            dbg!(pager.upper_mark);
+            next_match(&mut pager);
             assert_eq!(pager.upper_mark, *i as usize);
-            s_mark += 1;
+            pager.search_mark += 1;
         }
     }
 
@@ -185,10 +196,9 @@ eros.",
 
     #[test]
     fn test_set_match_indexes() {
-        let mut pager = Pager::new().unwrap();
+        let mut pager = PagerState::new().unwrap();
 
-        pager.set_text(
-            "\
+        pager.lines = "\
 Fusce suscipit, wisi nec facilisis facilisis, est dui fermentum leo, quis tempor ligula 
 erat quis odio.  Nunc porta vulputate tellus.  Nunc rutrum turpis sed pede.  Sed 
 bibendum.  Aliquam posuere.  Nunc aliquet, augue nec adipiscing interdum, lacus tellus 
@@ -196,8 +206,9 @@ malesuada massa, quis varius mi purus non odio.  Pellentesque condimentum, magna
 suscipit hendrerit, ipsum augue ornare nulla, non luctus diam neque sit amet urna.  
 Curabitur vulputate vestibulum lorem.  Fusce sagittis, libero non molestie mollis, magna 
 orci ultrices dolor, at vulputate neque nulla lacinia eros.  Sed id ligula quis est 
-convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien.",
-        );
+convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
+            .to_string();
+        pager.format_lines();
 
         pager.search_term = Some(Regex::new(r"\Wa\w+\W").unwrap());
         let res = vec![3, 7, 11];

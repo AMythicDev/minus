@@ -1,11 +1,12 @@
 //! Provides the [`InputClassifier`] trait, which can be used
 //! to customize the default keybindings of minus
+pub(crate) mod reader;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 #[cfg(feature = "search")]
 use crate::search::SearchMode;
-use crate::LineNumbers;
+use crate::{LineNumbers, PagerState};
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -15,11 +16,13 @@ pub enum InputEvent {
     Exit,
     /// The terminal was resized. Contains the new number of rows.
     UpdateTermArea(usize, usize),
-    /// `Up` or `Down` was pressed. Contains the new value for the upper mark.
-    /// Also sent by `g` or `G`, which behave like Vim: jump to top or bottom.
+    /// Sent by movement keys like `Up` `Down`, `PageUp`, 'PageDown', 'g', `G` etc. Contains the new value for the upper mark.
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
+    /// A number key has been pressed. This inner value is stored as a `char`.
+    /// The input loop will append this number to its `count` string variable
+    Number(char),
     /// Restore the original prompt
     RestorePrompt,
     /// `/`, Searching for certain pattern of text
@@ -45,7 +48,7 @@ pub enum InputEvent {
 ///
 /// # Example
 /// ```
-/// use minus::{input::{InputEvent, InputClassifier}, LineNumbers, Pager};
+/// use minus::{input::{InputEvent, InputClassifier}, LineNumbers, Pager, PagerState};
 #[cfg_attr(feature = "search", doc = "use minus::SearchMode;")]
 /// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
 ///
@@ -54,12 +57,7 @@ pub enum InputEvent {
 ///     fn classify_input(
 ///         &self,
 ///         ev: Event,
-///         upper_mark: usize,
-///         // This `search_mode` parameter is available, only if `search` feature is enabled
-#[cfg_attr(feature = "search", doc = "        search_mode: SearchMode,")]
-///         ln: LineNumbers,
-///         message: bool,
-///         rows: usize
+///         ps: &PagerState
 ///     ) -> Option<InputEvent> {
 ///             match ev {
 ///                 Event::Key(KeyEvent {
@@ -70,28 +68,20 @@ pub enum InputEvent {
 ///                     code: KeyCode::Char('j'),
 ///                     modifiers: KeyModifiers::NONE,
 ///                 }) => Some(InputEvent::UpdateUpperMark
-///                       (upper_mark.saturating_sub(1))),
+///                       (ps.upper_mark.saturating_sub(1))),
 ///                 _ => None
 ///         }
 ///     }
 /// }
 ///
-/// let mut pager = Pager::new().unwrap();
-/// pager.set_input_handler(
+/// let mut pager = Pager::new();
+/// pager.set_input_classifier(
 ///                 Box::new(CustomInputClassifier)
 ///             );
 /// ```
 #[allow(clippy::module_name_repetitions)]
 pub trait InputClassifier {
-    fn classify_input(
-        &self,
-        ev: Event,
-        upper_mark: usize,
-        #[cfg(feature = "search")] search_mode: SearchMode,
-        ln: LineNumbers,
-        message: bool,
-        rows: usize,
-    ) -> Option<InputEvent>;
+    fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
 }
 
 /// The default keybindings in `minus`. These can be overriden by
@@ -100,15 +90,7 @@ pub struct DefaultInputClassifier;
 
 impl InputClassifier for DefaultInputClassifier {
     #[allow(clippy::too_many_lines)]
-    fn classify_input(
-        &self,
-        ev: Event,
-        upper_mark: usize,
-        #[cfg(feature = "search")] search_mode: SearchMode,
-        ln: LineNumbers,
-        message: bool,
-        rows: usize,
-    ) -> Option<InputEvent> {
+    fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent> {
         #[allow(clippy::unnested_or_patterns)]
         match ev {
             // Scroll up by one.
@@ -116,7 +98,10 @@ impl InputClassifier for DefaultInputClassifier {
                 code,
                 modifiers: KeyModifiers::NONE,
             }) if code == KeyCode::Up || code == KeyCode::Char('k') => {
-                Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(1)))
+                let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+                Some(InputEvent::UpdateUpperMark(
+                    ps.upper_mark.saturating_sub(position),
+                ))
             }
 
             // Scroll down by one.
@@ -124,17 +109,30 @@ impl InputClassifier for DefaultInputClassifier {
                 code,
                 modifiers: KeyModifiers::NONE,
             }) if code == KeyCode::Down || code == KeyCode::Char('j') => {
-                Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1)))
+                let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+                Some(InputEvent::UpdateUpperMark(
+                    ps.upper_mark.saturating_add(position),
+                ))
             }
 
+            // For number keys
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: KeyModifiers::NONE,
+            }) if c.is_digit(10) => Some(InputEvent::Number(c)),
+
+            // Enter key
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if message {
+                if ps.message.1 {
                     Some(InputEvent::RestorePrompt)
                 } else {
-                    Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(1)))
+                    let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+                    Some(InputEvent::UpdateUpperMark(
+                        ps.upper_mark.saturating_add(position),
+                    ))
                 }
             }
 
@@ -143,9 +141,9 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('u'),
                 modifiers,
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
-                let half_screen = (rows / 2) as usize;
+                let half_screen = (ps.rows / 2) as usize;
                 Some(InputEvent::UpdateUpperMark(
-                    upper_mark.saturating_sub(half_screen),
+                    ps.upper_mark.saturating_sub(half_screen),
                 ))
             }
             // Scroll down by half screen height.
@@ -153,9 +151,9 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('d'),
                 modifiers,
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
-                let half_screen = (rows / 2) as usize;
+                let half_screen = (ps.rows / 2) as usize;
                 Some(InputEvent::UpdateUpperMark(
-                    upper_mark.saturating_add(half_screen),
+                    ps.upper_mark.saturating_add(half_screen),
                 ))
             }
 
@@ -163,11 +161,11 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 ..
-            }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_sub(5))),
+            }) => Some(InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))),
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollDown,
                 ..
-            }) => Some(InputEvent::UpdateUpperMark(upper_mark.saturating_add(5))),
+            }) => Some(InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))),
             // Go to top.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('g'),
@@ -185,20 +183,32 @@ impl InputClassifier for DefaultInputClassifier {
             | Event::Key(KeyEvent {
                 code: KeyCode::Char('G'),
                 modifiers: KeyModifiers::NONE,
-            }) => Some(InputEvent::UpdateUpperMark(usize::MAX)),
+            }) => {
+                let mut position = ps
+                    .prefix_num
+                    .parse::<usize>()
+                    .unwrap_or(usize::MAX)
+                    // Reduce 1 here, because line numbering starts from 1
+                    // while upper_mark starts from 0
+                    .saturating_sub(1);
+                if position == 0 {
+                    position = usize::MAX;
+                }
+                Some(InputEvent::UpdateUpperMark(position))
+            }
 
             // Page Up/Down
             Event::Key(KeyEvent {
                 code: KeyCode::PageUp,
                 modifiers: KeyModifiers::NONE,
             }) => Some(InputEvent::UpdateUpperMark(
-                upper_mark.saturating_sub(rows - 1),
+                ps.upper_mark.saturating_sub(ps.rows - 1),
             )),
             Event::Key(KeyEvent {
                 code: c,
                 modifiers: KeyModifiers::NONE,
             }) if c == KeyCode::PageDown || c == KeyCode::Char(' ') => Some(
-                InputEvent::UpdateUpperMark(upper_mark.saturating_add(rows - 1)),
+                InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(ps.rows - 1)),
             ),
 
             // Resize event from the terminal.
@@ -209,7 +219,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('l'),
                 modifiers: KeyModifiers::CONTROL,
-            }) => Some(InputEvent::UpdateLineNumber(!ln)),
+            }) => Some(InputEvent::UpdateLineNumber(!ps.line_numbers)),
             // Quit.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),
@@ -234,7 +244,7 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('n'),
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if search_mode == SearchMode::Reverse {
+                if ps.search_mode == SearchMode::Reverse {
                     Some(InputEvent::PrevMatch)
                 } else {
                     Some(InputEvent::NextMatch)
@@ -245,7 +255,7 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('p'),
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if search_mode == SearchMode::Reverse {
+                if ps.search_mode == SearchMode::Reverse {
                     Some(InputEvent::NextMatch)
                 } else {
                     Some(InputEvent::PrevMatch)

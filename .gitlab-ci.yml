@@ -40,10 +40,10 @@ tests:
 examples:
   stage: checks
   script:
-    - cargo check --example=dyn_tokio --features=tokio_lib
-    - cargo check --example=dyn_async_std --features=async_std_lib
+    - cargo check --example=dyn_tokio --features=async_output
+    - cargo check --example=dyn_async_std --features=async_output
     - cargo check --example=static --features=static_output
-    - cargo check --example=static_long --features=static_output
+    - cargo check --example=large_lines --features=static_output
 
 lint-stable:
   stage: checks

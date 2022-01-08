@@ -1,25 +1,22 @@
-use futures::join;
+use minus::error::MinusError;
 use std::time::Duration;
-use tokio::time::sleep;
+use tokio::{join, spawn, time::sleep};
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let output = minus::Pager::new().unwrap().finish();
+async fn main() -> Result<(), MinusError> {
+    let output = minus::Pager::new();
 
     let increment = async {
         for i in 0..=10_u32 {
-            let mut output = output.lock().await;
-            output.push_str(format!("{}\n", i));
-            drop(output);
+            output.push_str(&format!("{}\n", i))?;
             sleep(Duration::from_millis(100)).await;
         }
-        let mut output = output.lock().await;
-        output.end_data_stream();
-        output.send_message("No more output to come");
-        Result::<_, std::fmt::Error>::Ok(())
+        output.send_message("No more output to come")?;
+        Result::<_, MinusError>::Ok(())
     };
 
-    let (res1, res2) = join!(minus::tokio_updating(output.clone()), increment);
-    res1?;
+    let (res1, res2) = join!(spawn(minus::async_paging(output.clone())), increment);
+    res1.unwrap()?;
     res2?;
     Ok(())
 }

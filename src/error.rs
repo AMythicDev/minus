@@ -3,11 +3,7 @@
 //! Some types provided are just present there to avoid leaking
 //! upstream error types
 
-#[cfg(feature = "static_output")]
-#[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
-#[allow(clippy::module_name_repetitions)]
-#[allow(clippy::useless_attribute)]
-pub use crate::static_pager::PageAllError;
+use crate::events::Event;
 
 /// An operation on the terminal failed, for example resizing it.
 ///
@@ -77,7 +73,7 @@ pub enum CleanupError {
 /// Errors that can happen while running
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
-pub enum AlternateScreenPagingError {
+pub enum MinusError {
     #[error("Failed to initialize the terminal")]
     Setup(#[from] SetupError),
 
@@ -93,20 +89,26 @@ pub enum AlternateScreenPagingError {
     #[error("Failed to do an operation on the cursor")]
     Cursor(#[from] TermError),
 
+    #[error("Failed to send formatted data to the pager")]
+    FmtWriteError(#[from] std::fmt::Error),
+
+    #[error("Failed to send data to the receiver")]
+    Communication(#[from] crossbeam_channel::SendError<Event>),
+
     #[error(transparent)]
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
     SearchExpError(#[from] RegexError),
 
-    #[cfg(feature = "tokio_lib")]
+    #[cfg(feature = "tokio")]
     #[error(transparent)]
-    #[cfg_attr(docsrs, doc(cfg(feature = "tokio_lib")))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
     JoinError(#[from] tokio::task::JoinError),
 }
 
 // Just for  convinience helper which is useful in many places
 #[cfg(feature = "search")]
-impl From<regex::Error> for AlternateScreenPagingError {
+impl From<regex::Error> for MinusError {
     fn from(e: regex::Error) -> Self {
         Self::SearchExpError(RegexError::from(e))
     }

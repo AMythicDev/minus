@@ -1,58 +1,53 @@
-// Terminal functions
-// Contains functions for dealing with setup, cleanup
+//! Contains functions for dealing with setup, cleanup
 
 use crate::error::{CleanupError, SetupError};
-use crossterm::{cursor, event, execute, terminal};
+use crossterm::{cursor, execute, terminal, tty::IsTty};
 use std::io;
 
+/// Setup the terminal
+///
+/// It will
+/// - Switch the terminal's view to the [alternate screen]
+/// - Then enable [raw mode]
+/// - Clear the entire screen and hide the cursor.
+///
+/// # Errors
+/// The function will return with an error if `stdout` is not a terminal. It will qlso fail
+/// if it cannot executo commands on the terminal See [`SetupError`].
+///
+/// [alternate screen]: ../../../crossterm/terminal/index.html#alternate-screen
+/// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
-//
-// Setup the terminal and get the necessary informations.
-//
-// `dynamic` tells whether `minus` will do a dynamic paging or static paging.
-// When `dynamic` is set to true, `minus` wll exit with an error if the stdout is nt
-// a TTY.
-//
-// ## Errors
-//
-// Setting up the terminal can fail, see [`SetupError`](SetupError).
-pub(crate) fn setup(
-    stdout: &io::Stdout,
-    dynamic: bool,
-    setup_screen: bool,
-) -> std::result::Result<(), SetupError> {
+pub(crate) fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
 
-    if setup_screen {
-        // Check if the standard output is a TTY and not a file or something else but only in dynamic mode
-        if dynamic {
-            use crossterm::tty::IsTty;
+    if out.is_tty() {
+        Ok(())
+    } else {
+        Err(SetupError::InvalidTerminal)
+    }?;
 
-            if out.is_tty() {
-                Ok(())
-            } else {
-                Err(SetupError::InvalidTerminal)
-            }?;
-        }
-
-        execute!(out, terminal::EnterAlternateScreen)
-            .map_err(|e| SetupError::AlternateScreen(e.into()))?;
-        terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
-        execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
-    }
+    execute!(out, terminal::EnterAlternateScreen)
+        .map_err(|e| SetupError::AlternateScreen(e.into()))?;
+    terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
+    execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
     Ok(())
 }
 
-// Will try to clean up the terminal and set it back to its original state,
-// before the pager was setup and called.
-//
-// Use this function if you encounter problems with your application not
-// correctly setting back the terminal on errors.
-//
-// ## Errors
-//
-// Cleaning up the terminal can fail, see [`CleanupError`](CleanupError).
+/// Cleans up the terminal
+///
+/// The function will clean up the terminal and set it back to its original state,
+/// before the pager was setup and called.
+/// - First the cursor is displayed
+/// - [Raw mode] is disabled
+/// - Switch the terminal's view to the main screen
+///
+/// ## Errors
+/// The function will return with an error if it fails to do execute commands on the
+/// terminal. See [`CleanupError`]
+///
+/// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 pub(crate) fn cleanup(
     mut out: impl io::Write,
     es: &crate::ExitStrategy,
@@ -60,8 +55,6 @@ pub(crate) fn cleanup(
 ) -> std::result::Result<(), CleanupError> {
     if cleanup_screen {
         // Reverse order of setup.
-        execute!(out, event::DisableMouseCapture)
-            .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
         execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
         terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
         execute!(out, terminal::LeaveAlternateScreen)
