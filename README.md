@@ -11,7 +11,7 @@ The Github repo will be in sync with Gitlab and all issues and pull requests on 
 [![crates.io](https://img.shields.io/crates/v/minus?style=for-the-badge)](https://crates.io/crates/minus)
 [![ci](https://img.shields.io/github/workflow/status/arijit79/minus/ci?label=CI&style=for-the-badge)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
 [![docs.rs](https://img.shields.io/docsrs/minus?label=docs.rs&style=for-the-badge)](https://docs.rs/minus)
-[![chat](https://img.shields.io/badge/chat-on%20zulip-blue?style=for-the-badge)](https://minus.zulipchat.com/)
+[![Matrix](https://img.shields.io/matrix/minus:matrix.org?style=for-the-badge)](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
 [![Crates.io](https://img.shields.io/crates/l/minus?style=for-the-badge)](https://github.com/arijit79/minus#license)
 
 `minus` is a small terminal paging library for Rust. `minus` provides an intuitive API for easily embedding a pager in any terminal application. It does all the low level stuff for you like setting up the terminal on start, handling keyboard/mouse/terminal resize events etc.
@@ -212,4 +212,4 @@ Thank you to everyone here for giving there time and contribution to `minus`
 
 ## Get in touch
 We are open to discussion and thoughts om improving `minus`. Join us at
-[Zulip](https://minus.zulipchat.com)
+[Matri]](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
