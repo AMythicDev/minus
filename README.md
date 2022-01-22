@@ -212,4 +212,4 @@ Thank you to everyone here for giving there time and contribution to `minus`
 
 ## Get in touch
 We are open to discussion and thoughts om improving `minus`. Join us at
-[Matri]](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
+[Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
