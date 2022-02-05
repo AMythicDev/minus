@@ -27,9 +27,9 @@ jobs:
       - name: Build crate (Static Output)
         run: cargo build --verbose --features=static_output,search
       - name: Build crate (Tokio)
-        run: cargo build --verbose --features=tokio_lib,search
+        run: cargo build --verbose --features=async_output,search
       - name: Build crate (Async-std)
-        run: cargo build --verbose --features=async_std_lib,search
+        run: cargo build --verbose --features=async_output,search
 
   test:
     name: test
@@ -47,13 +47,9 @@ jobs:
     - name: Run Tests (Static Output)
       run: cargo test --verbose --features=static_output,search --lib
     - name: Build tests (Tokio)
-      run: cargo test --verbose --features=tokio_lib,search --no-run --lib
+      run: cargo test --verbose --features=async_output,search --no-run --lib
     - name: Run Tests (Tokio)
-      run: cargo test --verbose --features=tokio_lib,search --lib
-    - name: Build tests (Async-std)
-      run: cargo test --verbose --features=async_std_lib,search --no-run --lib
-    - name: Run Tests (Async-std)
-      run: cargo test --verbose --features=async_std_lib,search --lib
+      run: cargo test --verbose --features=async_output,search --lib
     - name: Build tests (Search-only)
       run: cargo test --verbose --features=search --no-run --lib
     - name: Run Tests (Search-only)
@@ -70,17 +66,15 @@ jobs:
       uses: actions/checkout@v2
     # No terminal available in CI, only check the examples.
     - name: Tokio
-      run: cargo check --example=dyn_tokio --features=tokio_lib
+      run: cargo check --example=dyn_tokio --features=async_output
     - name: Tokio Messages
-      run: cargo check --example=msg-tokio --features=tokio_lib
+      run: cargo check --example=msg-tokio --features=async_output
     - name: Async-std
-      run: cargo check --example=dyn_async_std --features=async_std_lib
+      run: cargo check --example=dyn_async_std --features=async_output
     - name: Static
       run: cargo check --example=static --features=static_output
-    - name: Static long
-      run: cargo check --example=static_long --features=static_output
     - name: Less-rs
-      run: cargo check --example=less-rs --features=async_std_lib
+      run: cargo check --example=less-rs --features=async_output
     - name: Color output
       run: cargo check --example=color-output --features=static_output
     - name: Large Lines
@@ -111,11 +105,11 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --features=async_std_lib,search --tests --examples
+          args: --features=async_output,search --tests --examples
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --features=tokio_lib,search --tests --examples
+          args: --features=async_output,search --tests --examples
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
