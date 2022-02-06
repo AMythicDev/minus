@@ -1,6 +1,6 @@
 [package]
 name = "minus"
-version = "5.0.0-alpha1"
+version = "5.0.0-alpha2"
 authors = ["Arijit Dey <arijid79@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"
@@ -27,6 +27,7 @@ once_cell = "1.9.0"
 [features]
 search = [ "regex" ]
 static_output = []
+threads_output = []
 async_output = [ "async-global-executor", "futures-lite", "crossterm/event-stream" ]
 
 [dev-dependencies]

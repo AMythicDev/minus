@@ -58,7 +58,7 @@ impl Debug for Event {
 }
 
 impl Event {
-    #[cfg(feature = "async_output")]
+    #[cfg(any(feature = "async_output", feature = "threads_output"))]
     pub(crate) fn required_immidiate_screen_update(&self) -> bool {
         matches!(
             self,

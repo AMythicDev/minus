@@ -6,7 +6,7 @@ use crossbeam_channel::{Sender, TrySendError};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "static_output")]
+#[cfg(any(feature = "static_output", feature = "threads_output"))]
 pub(crate) fn polling(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
