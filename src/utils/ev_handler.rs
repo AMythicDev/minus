@@ -131,6 +131,7 @@ pub(crate) fn handle_event(
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "search")]
     use std::sync::{atomic::AtomicBool, Arc};
 
     use crate::{events::Event, ExitStrategy, PagerState};
@@ -144,9 +145,18 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert_eq!(ps.formatted_lines, vec![TEST_STR.to_string()]);
     }
 
@@ -156,10 +166,27 @@ mod tests {
         let ev1 = Event::AppendData(format!("{}\n", TEST_STR));
         let ev2 = Event::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev1, &mut out, &mut ps, &mut false, &etr).unwrap();
-        handle_event(ev2, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev1,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
+        handle_event(
+            ev2,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert_eq!(
             ps.formatted_lines,
             vec![TEST_STR.to_string(), TEST_STR.to_string()]
@@ -171,9 +198,18 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert_eq!(ps.prompt, vec![TEST_STR.to_string()]);
     }
 
@@ -182,21 +218,40 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert_eq!(ps.message.0.unwrap(), vec![TEST_STR.to_string()]);
         assert!(ps.message.1);
     }
 
     #[test]
+    #[cfg(feature = "static_output")]
     fn set_run_no_overflow() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetRunNoOverflow(false);
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert!(!ps.run_no_overflow);
     }
 
@@ -205,9 +260,18 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetExitStrategy(ExitStrategy::PagerQuit);
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert_eq!(ps.exit_strategy, ExitStrategy::PagerQuit);
     }
 
@@ -216,9 +280,18 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::AddExitCallback(Box::new(|| println!("Hello World")));
         let mut out = Vec::new();
+        #[cfg(feature = "search")]
         let etr = Arc::new(AtomicBool::new(true));
 
-        handle_event(ev, &mut out, &mut ps, &mut false, &etr).unwrap();
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut false,
+            #[cfg(feature = "search")]
+            &etr,
+        )
+        .unwrap();
         assert_eq!(ps.exit_callbacks.len(), 1);
     }
 }

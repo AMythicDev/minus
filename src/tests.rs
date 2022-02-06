@@ -297,6 +297,7 @@ mod emit_events {
     }
 
     #[test]
+    #[cfg(feature = "static_output")]
     fn set_run_no_overflow() {
         let pager = Pager::new();
         pager.set_run_no_overflow(false).unwrap();
