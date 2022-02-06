@@ -1,11 +1,11 @@
 # Changelog
 This file documents all noteable changes made to this project
 
-## 5.0.0.alpha1 [2022-02-06]
+## v5.0.0 [Unreleased]
 ### Added
 * Added `async_output` feature to provide a unified featuee to enable asynchronous paging with any async runtime. Previously minus only supported [`tokio`] and [`async-std`].
-* Added `async_paging` function which can be used with any async runtime. This will provide a unified function for starting minus with any async runtime. This function is only available when `async_output` feature is enabled 
-* Added `thread_paging` function to enable paging using OS threads.
+* Added `async_paging` function which can be used with any async runtime. This will provide a unified function for starting minus with any async runtime. This function is only available when `async_output` feature is enabled.
+<!--* Added `thread_paging` function to enable paging using OS threads.-->
 * Added `async_global_executor` as a optional dependency when `async_output` feature is enabled.
 * Added `crossbeam_channels` as dependency.
 * Added `once_cell` as a dependency.
