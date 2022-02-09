@@ -1,6 +1,8 @@
 #![allow(dead_code)]
-use super::InputEvent;
-use crate::{events::Event, MinusError, PagerState};
+use super::events::Event;
+use crate::input::InputEvent;
+use crate::{error::MinusError, PagerState};
+
 use crossbeam_channel::{Sender, TrySendError};
 #[cfg(feature = "search")]
 use std::sync::atomic::{AtomicBool, Ordering};

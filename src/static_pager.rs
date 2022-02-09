@@ -1,8 +1,8 @@
 //! Contains function for displaying static data
 //!
 //! This module provides provides the [`page_all`] function to display static output via minus
-use crate::error::MinusError;
-use crate::{init, Pager};
+use crate::minus_core::init;
+use crate::{error::MinusError, Pager};
 
 /// Display static information to the screen
 ///

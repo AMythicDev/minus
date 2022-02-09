@@ -196,20 +196,17 @@
 // When no feature is active this crate is unusable but contains lots of
 // unused imports and dead code. To avoid useless warnings about this they
 // are allowed when no feature is active.
-mod events;
-use events::Event;
+
 #[cfg(feature = "async_output")]
 mod async_pager;
 pub mod error;
-mod init;
 pub mod input;
-#[cfg(feature = "search")]
-mod search;
+#[path = "core/mod.rs"]
+mod minus_core;
 #[cfg(feature = "static_output")]
 mod static_pager;
 #[cfg(feature = "threads_output")]
 mod threads_pager;
-mod utils;
 
 #[cfg(feature = "async_output")]
 pub use async_pager::async_paging;
@@ -222,8 +219,11 @@ use crossbeam_channel::{Receiver, Sender};
 use crossterm::{terminal, tty::IsTty};
 pub use error::MinusError;
 use error::TermError;
+use minus_core::events::Event;
 #[cfg(feature = "search")]
-pub use search::SearchMode;
+use minus_core::search;
+#[cfg(feature = "search")]
+pub use minus_core::search::SearchMode;
 use std::string::ToString;
 use std::{fmt, io::stdout};
 
@@ -818,8 +818,6 @@ impl std::ops::Not for LineNumbers {
         }
     }
 }
-
-
 
 impl fmt::Write for Pager {
     fn write_str(&mut self, s: &str) -> fmt::Result {

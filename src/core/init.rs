@@ -8,12 +8,8 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use crate::{
-    error::MinusError,
-    events::Event,
-    utils::{draw, ev_handler::handle_event, term::setup},
-    Pager, PagerState,
-};
+use super::{display::draw, ev_handler::handle_event, events::Event, term::setup};
+use crate::{error::MinusError, Pager, PagerState};
 
 use crossbeam_channel::Receiver;
 #[cfg(any(
@@ -30,14 +26,12 @@ use std::{
     cell::RefCell,
     sync::{Arc, Mutex},
 };
-#[cfg(any(feature = "static_output", feature = "threads_output"))]
-use {crate::input::reader::polling, std::thread};
-#[cfg(feature = "async_output")]
-use {crate::input::reader::streaming, futures_lite::future};
 #[cfg(feature = "static_output")]
-use {crate::utils::write_lines, crossterm::tty::IsTty};
-
-//#[cfg(all(feature = "async_output", feature = "static_output", feature = "threads_output"))]
+use {super::display::write_lines, crossterm::tty::IsTty};
+#[cfg(any(feature = "static_output", feature = "threads_output"))]
+use {super::reader::polling, std::thread};
+#[cfg(feature = "async_output")]
+use {super::reader::streaming, futures_lite::future};
 
 #[cfg(any(
     feature = "async_output",

@@ -1,11 +1,10 @@
 //! Provides the [`InputClassifier`] trait, which can be used
 //! to customize the default keybindings of minus
-pub(crate) mod reader;
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 #[cfg(feature = "search")]
-use crate::search::SearchMode;
+use crate::minus_core::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 
 /// Events handled by the `minus` pager.

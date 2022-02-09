@@ -1,11 +1,11 @@
 //! Provides the [`handle_event`] function
 use std::io::Write;
 
-use super::term::cleanup;
+use super::events::Event;
 #[cfg(feature = "search")]
-use crate::search;
-use crate::{error::MinusError, input::InputEvent, PagerState};
-use crate::{events::Event, wrap_str};
+use super::search;
+use super::term::cleanup;
+use crate::{error::MinusError, input::InputEvent, wrap_str, PagerState};
 #[cfg(feature = "search")]
 use std::sync::{
     atomic::{AtomicBool, Ordering},

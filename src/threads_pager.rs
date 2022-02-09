@@ -1,5 +1,5 @@
 use crate::error::MinusError;
-use crate::init;
+use crate::minus_core::init;
 use crate::Pager;
 
 /// Starts a asynchronously running pager

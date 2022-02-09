@@ -3,7 +3,7 @@
 //! Some types provided are just present there to avoid leaking
 //! upstream error types
 
-use crate::events::Event;
+use crate::minus_core::events::Event;
 
 /// An operation on the terminal failed, for example resizing it.
 ///
