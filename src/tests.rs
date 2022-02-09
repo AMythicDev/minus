@@ -1,6 +1,6 @@
 // Test the implementation of std::fmt::Write on Pager
 mod fmt_write {
-    use crate::{Event, Pager};
+    use crate::{minus_core::events::Event, Pager};
     use std::fmt::Write;
 
     #[test]
@@ -253,7 +253,7 @@ mod wrapping {
 
 mod emit_events {
     // Check functions emit correct events on functin calls
-    use crate::{events::Event, ExitStrategy, LineNumbers, Pager};
+    use crate::{minus_core::events::Event, ExitStrategy, LineNumbers, Pager};
 
     const TEST_STR: &str = "This is sample text";
     #[test]

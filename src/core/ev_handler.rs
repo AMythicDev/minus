@@ -134,7 +134,8 @@ mod tests {
     #[cfg(feature = "search")]
     use std::sync::{atomic::AtomicBool, Arc};
 
-    use crate::{events::Event, ExitStrategy, PagerState};
+    use super::super::events::Event;
+    use crate::{ExitStrategy, PagerState};
 
     use super::handle_event;
     const TEST_STR: &str = "This is some sample text";
