@@ -207,22 +207,26 @@ pub mod input;
 mod search;
 #[cfg(feature = "static_output")]
 mod static_pager;
+#[cfg(feature = "threads_output")]
+mod threads_pager;
 mod utils;
 
 #[cfg(feature = "async_output")]
 pub use async_pager::async_paging;
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
+#[cfg(feature = "threads_output")]
+pub use threads_pager::threads_paging;
+
+use crossbeam_channel::{Receiver, Sender};
 use crossterm::{terminal, tty::IsTty};
 pub use error::MinusError;
 use error::TermError;
 #[cfg(feature = "search")]
 pub use search::SearchMode;
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
 use std::string::ToString;
 use std::{fmt, io::stdout};
 pub use utils::LineNumbers;
-
-use crossbeam_channel::{Receiver, Sender};
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;

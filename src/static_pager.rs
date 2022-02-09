@@ -26,7 +26,6 @@ use crate::{init, Pager};
 #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
 #[allow(clippy::needless_pass_by_value)]
 pub fn page_all(pager: Pager) -> Result<(), MinusError> {
-    #[cfg(all(feature = "async_output", feature = "static_output"))]
     assert!(init::RUNMODE.set(init::RunMode::Static).is_ok(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
     init::init_core(pager)?;
     Ok(())

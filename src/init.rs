@@ -16,7 +16,11 @@ use crate::{
 };
 
 use crossbeam_channel::Receiver;
-#[cfg(all(feature = "async_output", feature = "static_output"))]
+#[cfg(any(
+    feature = "async_output",
+    feature = "static_output",
+    feature = "threads_output"
+))]
 use once_cell::sync::OnceCell;
 use std::io::stdout;
 use std::io::Stdout;
@@ -26,22 +30,34 @@ use std::{
     cell::RefCell,
     sync::{Arc, Mutex},
 };
+#[cfg(any(feature = "static_output", feature = "threads_output"))]
+use {crate::input::reader::polling, std::thread};
 #[cfg(feature = "async_output")]
 use {crate::input::reader::streaming, futures_lite::future};
 #[cfg(feature = "static_output")]
-use {
-    crate::{input::reader::polling, utils::write_lines},
-    crossterm::tty::IsTty,
-    std::thread,
-};
+use {crate::utils::write_lines, crossterm::tty::IsTty};
 
-#[cfg(all(feature = "async_output", feature = "static_output"))]
+//#[cfg(all(feature = "async_output", feature = "static_output", feature = "threads_output"))]
+
+#[cfg(any(
+    feature = "async_output",
+    feature = "static_output",
+    feature = "threads_output"
+))]
 pub(crate) enum RunMode {
+    #[cfg(feature = "static_output")]
     Static,
+    #[cfg(feature = "async_output")]
     Async,
+    #[cfg(feature = "threads_output")]
+    Thread,
 }
 
-#[cfg(all(feature = "async_output", feature = "static_output"))]
+#[cfg(any(
+    feature = "async_output",
+    feature = "static_output",
+    feature = "threads_output"
+))]
 pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 
 /// The main entry point of minus
@@ -88,7 +104,11 @@ pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 ///
 /// [streaming]: crate::input::reader::streaming
 /// [polling]: crate::input::reader::polling
-#[cfg(any(feature = "async_output", feature = "static_output"))]
+#[cfg(any(
+    feature = "async_output",
+    feature = "static_output",
+    feature = "threads_output"
+))]
 #[allow(clippy::needless_pass_by_value)]
 pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
@@ -120,8 +140,8 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
 
     let ps_mutex = Arc::new(Mutex::new(ps));
 
-    #[cfg(feature = "static_output")]
-    let start_static = || -> Result<(), MinusError> {
+    #[cfg(any(feature = "static_output", feature = "threads_output"))]
+    let start_no_async = || -> Result<(), MinusError> {
         let evtx = pager.tx.clone();
         let rx = pager.rx.clone();
         let out = stdout();
@@ -186,23 +206,16 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
         Ok(())
     };
 
-    #[cfg(all(feature = "async_output", feature = "static_output"))]
-    {
-        if let Some(&RunMode::Static) = RUNMODE.get() {
-            start_static()?;
-        } else {
-            start_async()?;
-        }
+    #[allow(clippy::match_same_arms)]
+    match RUNMODE.get() {
+        #[cfg(feature = "threads_output")]
+        Some(&RunMode::Thread) => start_no_async(),
+        #[cfg(feature = "static_output")]
+        Some(&RunMode::Static) => start_no_async(),
+        #[cfg(feature = "async_output")]
+        Some(&RunMode::Async) => start_async(),
+        None => panic!("RUNMODE not set"),
     }
-    #[cfg(all(feature = "async_output", not(feature = "static_output")))]
-    {
-        start_async()?;
-    }
-    #[cfg(all(feature = "static_output", not(feature = "async_output")))]
-    {
-        start_static()?;
-    }
-    Ok(())
 }
 
 /// Continously displays the output and reacts to events
@@ -218,7 +231,11 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
 /// [`AppendData`](crate::events::Event::AppendData) event occurs, it is absolutely necessory
 /// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
 /// screen.
-#[cfg(any(feature = "async_output", feature = "static_output"))]
+#[cfg(any(
+    feature = "async_output",
+    feature = "static_output",
+    feature = "threads_output"
+))]
 fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
@@ -226,7 +243,7 @@ fn start_reactor(
     #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     // Is the terminal completely filled with text
-    #[cfg(feature = "async_output")]
+    #[cfg(any(feature = "async_output", feature = "threads_output"))]
     let mut filled = false;
     // Has the user quitted
     let is_exitted: RefCell<bool> = RefCell::new(false);
@@ -237,13 +254,83 @@ fn start_reactor(
     }
     let out = RefCell::new(out);
 
-    #[cfg(feature = "async_output")]
-    let mut async_matcher = |ev| -> Result<(), MinusError> {
-        match ev {
-            Ok(ev) if ev.required_immidiate_screen_update() => {
+    #[cfg(any(feature = "async_output", feature = "threads_output"))]
+    let mut dynamic_matcher = || -> Result<(), MinusError> {
+        loop {
+            if *is_exitted.borrow() {
+                break;
+            }
+
+            match rx.try_recv() {
+                Ok(ev) if ev.required_immidiate_screen_update() => {
+                    let mut p = ps.lock().unwrap();
+                    handle_event(
+                        ev,
+                        &mut *out.borrow_mut(),
+                        &mut p,
+                        &mut is_exitted.borrow_mut(),
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                    draw(&mut *out.borrow_mut(), &mut p)?;
+                }
+                Ok(Event::AppendData(text)) => {
+                    let mut p = ps.lock().unwrap();
+                    handle_event(
+                        Event::AppendData(text),
+                        &mut *out.borrow_mut(),
+                        &mut p,
+                        &mut is_exitted.borrow_mut(),
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                    if p.num_lines() > p.rows {
+                        // Check if the terminal just got filled
+                        // If so, fill any unfilled row towards the end of the screen
+                        if !filled || p.message.1 {
+                            draw(&mut *out.borrow_mut(), &mut p)?;
+                            filled = true;
+                            if p.message.1 {
+                                p.message.1 = false;
+                            }
+                        }
+                    }
+                    // Immidiately append data to the terminal until we haven't overflowed
+                    if p.num_lines() < p.rows || p.message.1 {
+                        draw(&mut *out.borrow_mut(), &mut p)?;
+                        if p.message.1 {
+                            p.message.1 = false;
+                        }
+                    }
+                }
+                Ok(ev) => {
+                    let mut p = ps.lock().unwrap();
+                    handle_event(
+                        ev,
+                        &mut *out.borrow_mut(),
+                        &mut p,
+                        &mut is_exitted.borrow_mut(),
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                }
+                Err(_) => {}
+            }
+        }
+        Ok(())
+    };
+
+    #[cfg(feature = "static_output")]
+    let static_matcher = || -> Result<(), MinusError> {
+        loop {
+            if *is_exitted.borrow() {
+                break;
+            }
+
+            if let Ok(Event::UserInput(inp)) = rx.try_recv() {
                 let mut p = ps.lock().unwrap();
                 handle_event(
-                    ev,
+                    Event::UserInput(inp),
                     &mut *out.borrow_mut(),
                     &mut p,
                     &mut is_exitted.borrow_mut(),
@@ -252,88 +339,19 @@ fn start_reactor(
                 )?;
                 draw(&mut *out.borrow_mut(), &mut p)?;
             }
-            Ok(Event::AppendData(text)) => {
-                let mut p = ps.lock().unwrap();
-                handle_event(
-                    Event::AppendData(text),
-                    &mut *out.borrow_mut(),
-                    &mut p,
-                    &mut is_exitted.borrow_mut(),
-                    #[cfg(feature = "search")]
-                    input_thread_running,
-                )?;
-                if p.num_lines() > p.rows {
-                    // Check if the terminal just got filled
-                    // If so, fill any unfilled row towards the end of the screen
-                    if !filled || p.message.1 {
-                        draw(&mut *out.borrow_mut(), &mut p)?;
-                        filled = true;
-                        if p.message.1 {
-                            p.message.1 = false;
-                        }
-                    }
-                }
-                // Immidiately append data to the terminal until we haven't overflowed
-                if p.num_lines() < p.rows || p.message.1 {
-                    draw(&mut *out.borrow_mut(), &mut p)?;
-                    if p.message.1 {
-                        p.message.1 = false;
-                    }
-                }
-            }
-            Ok(ev) => {
-                let mut p = ps.lock().unwrap();
-                handle_event(
-                    ev,
-                    &mut *out.borrow_mut(),
-                    &mut p,
-                    &mut is_exitted.borrow_mut(),
-                    #[cfg(feature = "search")]
-                    input_thread_running,
-                )?;
-            }
-            Err(_) => {}
         }
         Ok(())
     };
 
-    #[cfg(feature = "static_output")]
-    let static_matcher = |ev| -> Result<(), MinusError> {
-        if let Ok(Event::UserInput(inp)) = ev {
-            let mut p = ps.lock().unwrap();
-            handle_event(
-                Event::UserInput(inp),
-                &mut *out.borrow_mut(),
-                &mut p,
-                &mut is_exitted.borrow_mut(),
-                #[cfg(feature = "search")]
-                input_thread_running,
-            )?;
-            draw(&mut *out.borrow_mut(), &mut p)?;
-            Ok(())
-        } else {
-            Ok(())
-        }
-    };
-
-    loop {
-        if *is_exitted.borrow() {
-            break;
-        }
-        let ev = rx.try_recv();
-
-        #[cfg(all(feature = "async_output", feature = "static_output"))]
-        if let Some(&RunMode::Static) = RUNMODE.get() {
-            static_matcher(ev)?;
-        } else {
-            async_matcher(ev)?;
-        }
-
-        #[cfg(all(feature = "static_output", not(feature = "async_output")))]
-        static_matcher(ev)?;
-
-        #[cfg(all(feature = "async_output", not(feature = "static_output")))]
-        async_matcher(ev)?;
+    #[allow(clippy::match_same_arms)]
+    match RUNMODE.get() {
+        #[cfg(feature = "async_output")]
+        Some(&RunMode::Async) => dynamic_matcher()?,
+        #[cfg(feature = "threads_output")]
+        Some(&RunMode::Thread) => dynamic_matcher()?,
+        #[cfg(feature = "static_output")]
+        Some(&RunMode::Static) => static_matcher()?,
+        None => panic!("RUNMODE not set"),
     }
     Ok(())
 }
@@ -347,7 +365,11 @@ fn start_reactor(
 /// # Errors
 ///  This function will return an error if it could not create the default [`PagerState`]or fails
 ///  to process the events
-#[cfg(any(feature = "async_output", feature = "static_output"))]
+#[cfg(any(
+    feature = "async_output",
+    feature = "static_output",
+    feature = "threads_output"
+))]
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
     mut out: &mut Stdout,
