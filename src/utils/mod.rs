@@ -96,51 +96,5 @@ pub(crate) fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Resul
     Ok(())
 }
 
-/// Enum indicating whether to display the line numbers or not.
-///
-/// Note that displaying line numbers may be less performant than not doing it.
-/// `minus` tries to do as quickly as possible but the numbers and padding
-/// still have to be computed.
-///
-/// This implements [`Not`](std::ops::Not) to allow turning on/off line numbers
-/// when they where not locked in by the binary displaying the text.
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum LineNumbers {
-    /// Enable line numbers permanently, cannot be turned off by user.
-    AlwaysOn,
-    /// Line numbers should be turned on, although users can turn it off
-    /// (i.e, set it to `Disabled`).
-    Enabled,
-    /// Line numbers should be turned off, although users can turn it on
-    /// (i.e, set it to `Enabled`).
-    Disabled,
-    /// Disable line numbers permanently, cannot be turned on by user.
-    AlwaysOff,
-}
-
-impl LineNumbers {
-    /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
-    /// the documentation for the variants to know if they are invertible or
-    /// not.
-    #[allow(dead_code)]
-    fn is_invertible(self) -> bool {
-        matches!(self, Self::Enabled | Self::Disabled)
-    }
-}
-
-impl std::ops::Not for LineNumbers {
-    type Output = Self;
-
-    fn not(self) -> Self::Output {
-        use LineNumbers::{Disabled, Enabled};
-
-        match self {
-            Enabled => Disabled,
-            Disabled => Enabled,
-            ln => ln,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests;

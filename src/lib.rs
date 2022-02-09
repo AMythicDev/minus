@@ -226,7 +226,6 @@ use error::TermError;
 pub use search::SearchMode;
 use std::string::ToString;
 use std::{fmt, io::stdout};
-pub use utils::LineNumbers;
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
@@ -773,6 +772,54 @@ pub enum ExitStrategy {
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,
 }
+
+/// Enum indicating whether to display the line numbers or not.
+///
+/// Note that displaying line numbers may be less performant than not doing it.
+/// `minus` tries to do as quickly as possible but the numbers and padding
+/// still have to be computed.
+///
+/// This implements [`Not`](std::ops::Not) to allow turning on/off line numbers
+/// when they where not locked in by the binary displaying the text.
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum LineNumbers {
+    /// Enable line numbers permanently, cannot be turned off by user.
+    AlwaysOn,
+    /// Line numbers should be turned on, although users can turn it off
+    /// (i.e, set it to `Disabled`).
+    Enabled,
+    /// Line numbers should be turned off, although users can turn it on
+    /// (i.e, set it to `Enabled`).
+    Disabled,
+    /// Disable line numbers permanently, cannot be turned on by user.
+    AlwaysOff,
+}
+
+impl LineNumbers {
+    /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
+    /// the documentation for the variants to know if they are invertible or
+    /// not.
+    #[allow(dead_code)]
+    fn is_invertible(self) -> bool {
+        matches!(self, Self::Enabled | Self::Disabled)
+    }
+}
+
+impl std::ops::Not for LineNumbers {
+    type Output = Self;
+
+    fn not(self) -> Self::Output {
+        use LineNumbers::{Disabled, Enabled};
+
+        match self {
+            Enabled => Disabled,
+            Disabled => Enabled,
+            ln => ln,
+        }
+    }
+}
+
+
 
 impl fmt::Write for Pager {
     fn write_str(&mut self, s: &str) -> fmt::Result {
