@@ -505,7 +505,7 @@ pub struct PagerState {
     /// Any message to display to the user at the prompt
     /// The first element contains the actual message, while the second element tells
     /// whether the message has changed since the last display.
-    message: (Option<Vec<String>>, bool),
+    message: Option<Vec<String>>,
     /// The upper bound of scrolling.
     ///
     /// This is useful for keeping track of the range of lines which are currently being displayed on
@@ -573,7 +573,7 @@ impl PagerState {
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
             exit_callbacks: Vec::new(),
-            message: (None, false),
+            message: None,
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
             #[cfg(feature = "search")]
@@ -664,8 +664,8 @@ impl PagerState {
             })
             .collect::<Vec<String>>();
 
-        if self.message.0.is_some() {
-            rewrap(self.message.0.as_mut().unwrap(), self.cols);
+        if self.message.is_some() {
+            rewrap(self.message.as_mut().unwrap(), self.cols);
         }
         rewrap(&mut self.prompt, self.cols);
 

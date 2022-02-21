@@ -38,8 +38,7 @@ pub(crate) fn handle_event(
         Event::UserInput(InputEvent::UpdateUpperMark(um)) => p.upper_mark = um,
         Event::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
-            p.message.0 = None;
-            p.message.1 = false;
+            p.message = None;
             p.format_lines();
         }
         Event::UserInput(InputEvent::UpdateTermArea(c, r)) => {
@@ -73,11 +72,10 @@ pub(crate) fn handle_event(
                     search::next_match(p);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
-                    p.message.0 = Some(crate::wrap_str(
+                    p.message = Some(crate::wrap_str(
                         "Invalid regular expression. Press Enter",
                         p.cols,
                     ));
-                    p.message.1 = true;
                 }
             }
             p.format_lines();
@@ -112,8 +110,7 @@ pub(crate) fn handle_event(
         Event::AppendData(text) => p.append_str(&text),
         Event::SetPrompt(prompt) => p.prompt = wrap_str(&prompt, p.cols),
         Event::SendMessage(message) => {
-            p.message.0 = Some(wrap_str(&message, p.cols));
-            p.message.1 = true;
+            p.message = Some(wrap_str(&message, p.cols));
         }
         Event::SetLineNumbers(ln) => {
             p.line_numbers = ln;

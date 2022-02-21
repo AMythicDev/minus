@@ -281,20 +281,14 @@ fn start_reactor(
                     if p.num_lines() > p.rows {
                         // Check if the terminal just got filled
                         // If so, fill any unfilled row towards the end of the screen
-                        if !filled || p.message.1 {
+                        if !filled {
                             draw(&mut *out.borrow_mut(), &mut p)?;
                             filled = true;
-                            if p.message.1 {
-                                p.message.1 = false;
-                            }
                         }
                     }
                     // Immidiately append data to the terminal until we haven't overflowed
-                    if p.num_lines() < p.rows || p.message.1 {
+                    if p.num_lines() < p.rows {
                         draw(&mut *out.borrow_mut(), &mut p)?;
-                        if p.message.1 {
-                            p.message.1 = false;
-                        }
                     }
                 }
                 Ok(ev) => {

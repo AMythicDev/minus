@@ -125,7 +125,7 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if ps.message.1 {
+                if ps.message.is_some() {
                     Some(InputEvent::RestorePrompt)
                 } else {
                     let position = ps.prefix_num.parse::<usize>().unwrap_or(1);

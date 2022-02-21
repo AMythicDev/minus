@@ -23,7 +23,6 @@ pub(crate) fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
     // If we have message, then show it or show the prompt text instead
     let prompt = pager
         .message
-        .0
         .as_ref()
         .map_or_else(|| pager.prompt.clone(), std::clone::Clone::clone);
     // Prompt
