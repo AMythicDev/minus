@@ -228,8 +228,7 @@ mod tests {
             &etr,
         )
         .unwrap();
-        assert_eq!(ps.message.0.unwrap(), vec![TEST_STR.to_string()]);
-        assert!(ps.message.1);
+        assert_eq!(ps.message.unwrap(), vec![TEST_STR.to_string()]);
     }
 
     #[test]

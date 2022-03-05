@@ -34,15 +34,15 @@ tokio = { version = "^1.0", features = ["rt", "macros", "rt-multi-thread", "time
 
 [[example]]
 name = "dyn_async_std"
-required-features = ["dynamic-output"]
+required-features = ["dynamic_output"]
 
 [[example]]
 name = "dyn_tokio"
-required-features = ["dynamic-output"]
+required-features = ["dynamic_output"]
 
 [[example]]
 name = "less-rs"
-required-features = ["dynamic-output"]
+required-features = ["dynamic_output"]
 
 [[example]]
 name = "static"
@@ -62,4 +62,4 @@ required-features = ["static_output"]
 
 [[example]]
 name = "msg-tokio"
-required-features = ["dynamic-output"]
+required-features = ["dynamic_output"]

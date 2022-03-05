@@ -163,7 +163,7 @@ fn test_kb_nav() {
 #[test]
 fn test_restore_prompt() {
     let mut pager = PagerState::new().unwrap();
-    pager.message.1 = true;
+    pager.message = Some(vec!["Prompt message".to_string()]);
     {
         // Enter key for one line down when no message on prompt
         let ev = Event::Key(KeyEvent {
