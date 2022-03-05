@@ -3,10 +3,7 @@ This file documents all noteable changes made to this project
 
 ## v5.0.0 [Unreleased]
 ### Added
-* Added `async_output` feature to provide a unified featuee to enable asynchronous paging with any async runtime. Previously minus only supported [`tokio`] and [`async-std`].
-* Added `async_paging` function which can be used with any async runtime. This will provide a unified function for starting minus with any async runtime. This function is only available when `async_output` feature is enabled.
-* Added `thread_paging` function to enable paging using OS threads.
-* Added `async_global_executor` as a optional dependency when `async_output` feature is enabled.
+* Added `dynamic_paging` function to enable paging using OS threads.
 * Added `crossbeam_channels` as dependency.
 * Added `once_cell` as a dependency.
 * Added feature to scroll through more than one line using the `j`, `k`, `Up`, `Down` or `Enter` keys by prefixing the key with a number. For example `10j` will take 10 lines down.
@@ -17,22 +14,22 @@ This file documents all noteable changes made to this project
 ### Changes
 * Use channels for communication between the main application and reading user input. Although internal data is stored inside a `PagerState`.
 * Renamed `AlternatePagingError` to `MinusError`.
-* Replaced `tokio_lib` and `async_std_lib` Cargo features with the unified `async_output` feature.
+* Replaced `tokio_lib` and `async_std_lib` Cargo features with the unified `dynamic_paging` feature.
 * `Pager::set_run_no_overflow(bool)` function is now only available in `static_output` mode.
 * Changed function signature of `InputClassifier::handle_input` to `handle_input(&self, ev: Event, ps: PagerState) -> Some(InputEvent)`.
 * Changed function signature of `Pager::new` to `new() -> Pager`. It previously used to return a `Result<Self, TermError>`.
 * Use threads even in static paging mode. Although mutating the `Pager`s data won't reflect any changes in static mode.
 * Replaced `tokio-no-overflow` example with `static-no-overflow` function. This is because the `Pager::run_no_overflow` function is only available in `static_output`feature.
 * All implemented functions on `Pager` except `Pager::new` will return a `Result<(), MinusError>`
-* Applications should spawn `async_paging` by themselves. For example on tokio, this would be
+* Applications should spawn `dynamic_paging` by themselves. For example on tokio, this would be
   ```rust
-      use tokio::{spawn, join}
+      use tokio::{task::spawn_blocking, join}
       use minus::{Pager, async_paging};
 
       let pager = Pager::new();
 
       join!(
-          spawn(async_paging(pager)
+          spawn_blocking(move || async_paging(pager)
           // ....
       );
    ```
@@ -43,7 +40,7 @@ This file documents all noteable changes made to this project
 * Renamed `Pager::set_input_handler` to `Pager::set_input_classifier`.
 
 ### Removed
-* Removed `tokio_updating`  and `async_std_updating` in favour of the unified `async_paging` function.
+* Removed `tokio_updating`  and `async_std_updating` in favour of the unified `dynamic_paging` function.
 * Removed `PagerMutex` type.
 * Removed `tokio`, `async-std` and `async-mutex` from dependencies.
 * Removed `run_no_overflow` behaviour in asynchronous paging.
