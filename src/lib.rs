@@ -197,23 +197,19 @@
 // unused imports and dead code. To avoid useless warnings about this they
 // are allowed when no feature is active.
 
-#[cfg(feature = "async_output")]
-mod async_pager;
+#[cfg(feature = "dynamic_output")]
+mod dynamic_pager;
 pub mod error;
 pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
 #[cfg(feature = "static_output")]
 mod static_pager;
-#[cfg(feature = "threads_output")]
-mod threads_pager;
 
-#[cfg(feature = "async_output")]
-pub use async_pager::async_paging;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
-#[cfg(feature = "threads_output")]
-pub use threads_pager::threads_paging;
+#[cfg(feature = "dynamic_output")]
+pub use dynamic_pager::dynamic_paging;
 
 use crossbeam_channel::{Receiver, Sender};
 use crossterm::{terminal, tty::IsTty};

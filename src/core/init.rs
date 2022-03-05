@@ -9,49 +9,33 @@
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
 use super::{display::draw, ev_handler::handle_event, events::Event, term::setup};
-use crate::{error::MinusError, Pager, PagerState};
+use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
-use crossbeam_channel::Receiver;
-#[cfg(any(
-    feature = "async_output",
-    feature = "static_output",
-    feature = "threads_output"
-))]
+use crossbeam_channel::{Receiver, Sender, TrySendError};
+use crossterm::event;
+#[cfg(any(feature = "static_output", feature = "dynamic_output"))]
 use once_cell::sync::OnceCell;
 use std::io::stdout;
 use std::io::Stdout;
 #[cfg(feature = "search")]
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread;
 use std::{
     cell::RefCell,
     sync::{Arc, Mutex},
 };
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
-#[cfg(any(feature = "static_output", feature = "threads_output"))]
-use {super::reader::polling, std::thread};
-#[cfg(feature = "async_output")]
-use {super::reader::streaming, futures_lite::future};
 
-#[cfg(any(
-    feature = "async_output",
-    feature = "static_output",
-    feature = "threads_output"
-))]
+#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 pub(crate) enum RunMode {
     #[cfg(feature = "static_output")]
     Static,
-    #[cfg(feature = "async_output")]
-    Async,
-    #[cfg(feature = "threads_output")]
-    Thread,
+    #[cfg(feature = "dynamic_output")]
+    Dynamic,
 }
 
-#[cfg(any(
-    feature = "async_output",
-    feature = "static_output",
-    feature = "threads_output"
-))]
+#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 
 /// The main entry point of minus
@@ -98,11 +82,7 @@ pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 ///
 /// [streaming]: crate::input::reader::streaming
 /// [polling]: crate::input::reader::polling
-#[cfg(any(
-    feature = "async_output",
-    feature = "static_output",
-    feature = "threads_output"
-))]
+#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 #[allow(clippy::needless_pass_by_value)]
 pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
@@ -134,82 +114,31 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
 
     let ps_mutex = Arc::new(Mutex::new(ps));
 
-    #[cfg(any(feature = "static_output", feature = "threads_output"))]
-    let start_no_async = || -> Result<(), MinusError> {
-        let evtx = pager.tx.clone();
-        let rx = pager.rx.clone();
-        let out = stdout();
+    let evtx = pager.tx.clone();
+    let rx = pager.rx.clone();
+    let out = stdout();
 
-        let p1 = ps_mutex.clone();
+    let p1 = ps_mutex.clone();
 
-        #[cfg(feature = "search")]
-        let input_thread_running = input_thread_running.clone();
-        #[cfg(feature = "search")]
-        let input_thread_running2 = input_thread_running.clone();
+    #[cfg(feature = "search")]
+    let input_thread_running2 = input_thread_running.clone();
 
-        thread::spawn(move || {
-            polling(
-                &evtx,
-                &p1,
-                #[cfg(feature = "search")]
-                &input_thread_running2,
-            )
-        });
-        start_reactor(
-            &rx,
-            &ps_mutex,
-            out,
+    thread::spawn(move || {
+        event_reader(
+            &evtx,
+            &p1,
             #[cfg(feature = "search")]
-            &input_thread_running,
-        )?;
-        Ok(())
-    };
-
-    #[cfg(feature = "async_output")]
-    let start_async = || -> Result<(), MinusError> {
-        let evtx = pager.tx.clone();
-        let rx = pager.rx.clone();
-        let out = stdout();
-
-        let p1 = ps_mutex.clone();
-        let p2 = p1.clone();
-
+            &input_thread_running2,
+        )
+    });
+    start_reactor(
+        &rx,
+        &ps_mutex,
+        out,
         #[cfg(feature = "search")]
-        let input_thread_running = input_thread_running.clone();
-        #[cfg(feature = "search")]
-        let input_thread_running2 = input_thread_running.clone();
-        let input_reader = async_global_executor::spawn(streaming(
-            evtx,
-            p2,
-            #[cfg(feature = "search")]
-            input_thread_running2,
-        ));
-        let reactor = async_global_executor::spawn_blocking(move || {
-            start_reactor(
-                &rx,
-                &p1,
-                out,
-                #[cfg(feature = "search")]
-                &input_thread_running,
-            )
-        });
-        let task = future::zip(input_reader, reactor);
-        let (res1, res2) = async_global_executor::block_on(task);
-        res1?;
-        res2?;
-        Ok(())
-    };
-
-    #[allow(clippy::match_same_arms)]
-    match RUNMODE.get() {
-        #[cfg(feature = "threads_output")]
-        Some(&RunMode::Thread) => start_no_async(),
-        #[cfg(feature = "static_output")]
-        Some(&RunMode::Static) => start_no_async(),
-        #[cfg(feature = "async_output")]
-        Some(&RunMode::Async) => start_async(),
-        None => panic!("RUNMODE not set"),
-    }
+        &input_thread_running,
+    )?;
+    Ok(())
 }
 
 /// Continously displays the output and reacts to events
@@ -225,11 +154,7 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
 /// [`AppendData`](crate::events::Event::AppendData) event occurs, it is absolutely necessory
 /// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
 /// screen.
-#[cfg(any(
-    feature = "async_output",
-    feature = "static_output",
-    feature = "threads_output"
-))]
+#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
@@ -237,7 +162,7 @@ fn start_reactor(
     #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     // Is the terminal completely filled with text
-    #[cfg(any(feature = "async_output", feature = "threads_output"))]
+    #[cfg(feature = "dynamic_output")]
     let mut filled = false;
     // Has the user quitted
     let is_exitted: RefCell<bool> = RefCell::new(false);
@@ -248,7 +173,7 @@ fn start_reactor(
     }
     let out = RefCell::new(out);
 
-    #[cfg(any(feature = "async_output", feature = "threads_output"))]
+    #[cfg(any(feature = "dynamic_output"))]
     let mut dynamic_matcher = || -> Result<(), MinusError> {
         loop {
             if *is_exitted.borrow() {
@@ -333,13 +258,11 @@ fn start_reactor(
 
     #[allow(clippy::match_same_arms)]
     match RUNMODE.get() {
-        #[cfg(feature = "async_output")]
-        Some(&RunMode::Async) => dynamic_matcher()?,
-        #[cfg(feature = "threads_output")]
-        Some(&RunMode::Thread) => dynamic_matcher()?,
+        #[cfg(feature = "dynamic_output")]
+        Some(&RunMode::Dynamic) => dynamic_matcher()?,
         #[cfg(feature = "static_output")]
         Some(&RunMode::Static) => static_matcher()?,
-        None => panic!("RUNMODE not set"),
+        None => panic!("Static variable RUNMODE not set")
     }
     Ok(())
 }
@@ -353,27 +276,56 @@ fn start_reactor(
 /// # Errors
 ///  This function will return an error if it could not create the default [`PagerState`]or fails
 ///  to process the events
-#[cfg(any(
-    feature = "async_output",
-    feature = "static_output",
-    feature = "threads_output"
-))]
+#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
     mut out: &mut Stdout,
 ) -> Result<PagerState, MinusError> {
     let mut ps = PagerState::new()?;
-    #[cfg(feature = "search")]
-    let input_thread_running = Arc::new(AtomicBool::new(true));
-    rx.try_iter().try_for_each(|ev| {
+    rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
         handle_event(
             ev,
             &mut out,
             &mut ps,
             &mut false,
             #[cfg(feature = "search")]
-            &input_thread_running,
+            &Arc::new(AtomicBool::new(true)),
         )
     })?;
     Ok(ps)
+}
+
+#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
+pub(crate) fn event_reader(
+    evtx: &Sender<Event>,
+    ps: &Arc<Mutex<PagerState>>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
+) -> Result<(), MinusError> {
+    loop {
+        #[cfg(feature = "search")]
+        if !input_thread_running.load(Ordering::SeqCst) {
+            continue;
+        }
+        if event::poll(std::time::Duration::from_millis(10))
+            .map_err(|e| MinusError::HandleEvent(e.into()))?
+        {
+            let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
+            let mut guard = ps.lock().unwrap();
+            // Get the events
+            let input = guard.input_classifier.classify_input(ev, &guard);
+            if let Some(iev) = input {
+                if let InputEvent::Number(n) = iev {
+                    guard.prefix_num.push(n);
+                    continue;
+                }
+                guard.prefix_num.clear();
+                if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Event::UserInput(iev)) {
+                    break;
+                }
+            } else {
+                guard.prefix_num.clear();
+            }
+        }
+    }
+    Result::<(), MinusError>::Ok(())
 }

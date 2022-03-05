@@ -1,4 +1,3 @@
-//! Provides the [`async_paging`] function
 use crate::error::MinusError;
 use crate::minus_core::init;
 use crate::Pager;
@@ -14,8 +13,7 @@ use crate::Pager;
 ///
 /// # Errors
 /// The function will return with an error if it encounters a error during paging.
-#[allow(clippy::unused_async)]
-pub async fn async_paging(pager: Pager) -> Result<(), MinusError> {
-    assert!(init::RUNMODE.set(init::RunMode::Async).is_ok(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
+pub fn dynamic_paging(pager: Pager) -> Result<(), MinusError> {
+    assert!(init::RUNMODE.set(init::RunMode::Dynamic).is_ok(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
     init::init_core(pager)
 }
