@@ -60,10 +60,10 @@
 //! ## [`tokio`]
 //!
 //! ```rust,no_run
-//! use minus::{async_paging, MinusError, Pager};
+//! use minus::{dynamic_paging, MinusError, Pager};
 //! use std::time::Duration;
 //! use std::fmt::Write;
-//! use tokio::{join, spawn, time::sleep};
+//! use tokio::{join, task::spawn_blocking, time::sleep};
 //!
 //! #[tokio::main]
 //! async fn main() -> Result<(), MinusError> {
@@ -78,9 +78,10 @@
 //!         }
 //!         Result::<_, MinusError>::Ok(())
 //!     };
-//!     // spawn(async_paging(...)) creates a tokio task and runs the async_paging
-//!     // inside it
-//!     let (res1, res2) = join!(spawn(async_paging(pager.clone())), increment);
+//!     // spawn_blocking(dynamic_paging(...)) creates a separate thread managed by the tokio
+//!     // runtime and runs the async_paging inside it
+//!     let pager = pager.clone();
+//!     let (res1, res2) = join!(spawn_blocking(move || dynamic_paging(pager)), increment);
 //!     // .unwrap() unwraps any error while creating the tokio task
 //!     //  The ? mark unpacks any error that might have occured while the
 //!     // pager is running
@@ -95,7 +96,7 @@
 //! ```rust,no_run
 //! use async_std::task::{sleep, spawn};
 //! use futures_lite::future;
-//! use minus::{async_paging, MinusError, Pager};
+//! use minus::{dynamic_paging, MinusError, Pager};
 //! use std::time::Duration;
 //!
 //! #[async_std::main]
@@ -110,7 +111,8 @@
 //!         Result::<_, MinusError>::Ok(())
 //!     };
 //!
-//!     let (res1, res2) = future::zip(spawn(async_paging(output.clone())), increment).await;
+//!     let output = output.clone();
+//!     let (res1, res2) = future::zip(spawn(async move { dynamic_paging(output) }), increment).await;
 //!     res1?;
 //!     res2?;
 //!     Ok(())
@@ -413,7 +415,7 @@ impl Pager {
     /// pager.set_run_no_overflow(true).expect("Failed to send data to the pager");
     /// ```
     #[cfg(feature = "static_output")]
-    #[cfg_attr(docsrs, feature = "static_output")]
+    #[cfg_attr(docsrs, cfg(feature = "static_output"))]
     pub fn set_run_no_overflow(&self, val: bool) -> Result<(), MinusError> {
         Ok(self.tx.send(Event::SetRunNoOverflow(val))?)
     }
@@ -522,7 +524,7 @@ pub struct PagerState {
     ///
     /// See [`SearchMode`] for available options
     #[cfg(feature = "search")]
-    #[cfg_attr(docsrs, feature = "search")]
+    #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_mode: SearchMode,
     /// Lines where searches have a match
     #[cfg(feature = "search")]
