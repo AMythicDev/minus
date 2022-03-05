@@ -1,6 +1,6 @@
 use minus::error::MinusError;
 use std::time::Duration;
-use tokio::{join, spawn, time::sleep};
+use tokio::{join, task::spawn_blocking, time::sleep};
 
 #[tokio::main]
 async fn main() -> Result<(), MinusError> {
@@ -15,7 +15,8 @@ async fn main() -> Result<(), MinusError> {
         Result::<_, MinusError>::Ok(())
     };
 
-    let (res1, res2) = join!(spawn(minus::async_paging(output.clone())), increment);
+    let output = output.clone();
+    let (res1, res2) = join!(spawn_blocking(move || minus::dynamic_paging(output)), increment);
     res1.unwrap()?;
     res2?;
     Ok(())
