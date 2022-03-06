@@ -245,10 +245,14 @@ pub(crate) fn next_match(ps: &mut PagerState) {
 
 #[cfg(test)]
 mod tests {
-    use super::{highlight_line_matches, next_match, set_match_indices};
+    use super::{highlight_line_matches, next_match, set_match_indices, INVERT, NORMAL};
     use crate::PagerState;
     use crossterm::style::Attribute;
     use regex::Regex;
+
+    // generic escape code
+    const ESC: &str = "\x1b[34m";
+    const NONE: &str = "\x1b[0m";
 
     #[test]
     fn test_next_match() {
@@ -299,5 +303,93 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
         let res = vec![3, 7, 11];
         set_match_indices(&mut pager);
         assert_eq!(pager.search_idx, res);
+    }
+
+    #[test]
+    pub fn no_match() {
+        let orig = "no match";
+        let res = highlight_line_matches(orig, &Regex::new("test").unwrap());
+        assert_eq!(res, orig.to_string());
+    }
+
+    #[test]
+    pub fn single_match_no_esc() {
+        let res = highlight_line_matches("this is a test", &Regex::new(" a ").unwrap());
+        assert_eq!(res, format!("this is{} a {}test", *INVERT, *NORMAL));
+    }
+
+    #[test]
+    pub fn multi_match_no_esc() {
+        let res = highlight_line_matches("test another test", &Regex::new("test").unwrap());
+        assert_eq!(
+            res,
+            format!("{i}test{n} another {i}test{n}", i = *INVERT, n = *NORMAL)
+        );
+    }
+
+    #[test]
+    pub fn esc_outside_match() {
+        let res = highlight_line_matches(
+            &format!("{}color{} and test", ESC, NONE),
+            &Regex::new("test").unwrap(),
+        );
+        assert_eq!(
+            res,
+            format!("{}color{} and {}test{}", ESC, NONE, *INVERT, *NORMAL)
+        );
+    }
+
+    #[test]
+    pub fn esc_end_in_match() {
+        let orig = format!("this {}is a te{}st", ESC, NONE);
+        let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
+        assert_eq!(res, format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL));
+    }
+
+    #[test]
+    pub fn esc_start_in_match() {
+        let orig = format!("this is a te{}st again{}", ESC, NONE);
+        let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
+        assert_eq!(
+            res,
+            format!("this is a {}test{} again{}", *INVERT, *NORMAL, NONE)
+        );
+    }
+
+    #[test]
+    pub fn esc_around_match() {
+        let orig = format!("this is {}a test again{}", ESC, NONE);
+        let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
+        assert_eq!(
+            res,
+            format!("this is {}a {}test{} again{}", ESC, *INVERT, *NORMAL, NONE)
+        );
+    }
+
+    #[test]
+    pub fn esc_within_match() {
+        let orig = format!("this is a t{}es{}t again", ESC, NONE);
+        let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
+        assert_eq!(res, format!("this is a {}test{} again", *INVERT, *NORMAL));
+    }
+
+    #[test]
+    pub fn multi_escape_match() {
+        let orig = format!(
+            "this {e}is a te{n}st again {e}yeah{n} test",
+            e = ESC,
+            n = NONE
+        );
+        let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
+        assert_eq!(
+            res,
+            format!(
+                "this {e}is a {i}test{n} again {e}yeah{nn} {i}test{n}",
+                e = ESC,
+                i = *INVERT,
+                n = *NORMAL,
+                nn = NONE
+            )
+        );
     }
 }
