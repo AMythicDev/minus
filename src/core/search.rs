@@ -9,20 +9,19 @@ use crossterm::{
     style::Attribute,
     terminal::{Clear, ClearType},
 };
-use std::{convert::TryFrom, time::Duration};
-use once_cell::unsync::Lazy;
+use once_cell::sync::Lazy;
 use regex::Regex;
+use std::{convert::TryFrom, time::Duration};
 
 const INVERT: &str = "\x1b[0;7m";
 const NORMAL: &str = "\x1b[27m";
 
-const ANSI_REGEX: Lazy<Regex> = Lazy::new(||
-   Regex::new(
-		"[\\u001b\\u009b]\\[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]"
-	).unwrap()
-);
+static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
+    Regex::new("[\\u001b\\u009b]\\[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]")
+        .unwrap()
+});
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 #[allow(clippy::module_name_repetitions)]
 /// Defines modes in which the search can run
@@ -33,6 +32,18 @@ pub enum SearchMode {
     Reverse,
     /// No search active
     Unknown,
+}
+
+impl Default for SearchMode {
+    fn default() -> Self {
+        Self::Unknown
+    }
+}
+
+impl PartialEq for SearchMode {
+    fn eq(&self, other: &Self) -> bool {
+        core::mem::discriminant(self) == core::mem::discriminant(other)
+    }
 }
 
 /// Fetch the search query
@@ -153,7 +164,7 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String
     //   .0 == the start index in the STRIPPED string
     //   .1 == the escape sequence itself
     let escapes = ANSI_REGEX
-        .find_iter(&line)
+        .find_iter(line)
         .map(|escape| {
             let start = escape.start();
             let as_str = escape.as_str();
@@ -167,8 +178,7 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String
     // the invert attributes will be placed
     let matches = query
         .find_iter(&stripped_str)
-        .map(|c| [c.start(), c.end()])
-        .flatten()
+        .flat_map(|c| [c.start(), c.end()])
         .collect::<Vec<_>>();
 
     // Highlight all the instances of the search term in the stripped string
