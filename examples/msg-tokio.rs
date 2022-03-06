@@ -16,7 +16,10 @@ async fn main() -> Result<(), MinusError> {
     };
 
     let output = output.clone();
-    let (res1, res2) = join!(spawn_blocking(move || minus::dynamic_paging(output)), increment);
+    let (res1, res2) = join!(
+        spawn_blocking(move || minus::dynamic_paging(output)),
+        increment
+    );
     res1.unwrap()?;
     res2?;
     Ok(())

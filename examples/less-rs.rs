@@ -25,7 +25,8 @@ async fn read_file(name: String, pager: minus::Pager) -> Result<(), Box<dyn std:
     };
 
     let pager = pager.clone();
-    let (res1, res2) = future::zip(spawn(async move { minus::dynamic_paging(pager) }), changes).await;
+    let (res1, res2) =
+        future::zip(spawn(async move { minus::dynamic_paging(pager) }), changes).await;
     res1?;
     res2?;
     Ok(())

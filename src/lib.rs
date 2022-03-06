@@ -209,10 +209,10 @@ mod minus_core;
 #[cfg(feature = "static_output")]
 mod static_pager;
 
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
 #[cfg(feature = "dynamic_output")]
 pub use dynamic_pager::dynamic_paging;
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
 
 use crossbeam_channel::{Receiver, Sender};
 use crossterm::{terminal, tty::IsTty};

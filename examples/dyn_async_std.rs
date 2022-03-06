@@ -16,11 +16,7 @@ async fn main() -> Result<(), MinusError> {
     };
 
     let output = output.clone();
-    let (res1, res2) = future::zip(
-        spawn(async move { dynamic_paging(output) }),
-        increment,
-    )
-    .await;
+    let (res1, res2) = future::zip(spawn(async move { dynamic_paging(output) }), increment).await;
     res1?;
     res2?;
     Ok(())

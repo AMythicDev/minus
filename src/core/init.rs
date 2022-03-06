@@ -262,7 +262,7 @@ fn start_reactor(
         Some(&RunMode::Dynamic) => dynamic_matcher()?,
         #[cfg(feature = "static_output")]
         Some(&RunMode::Static) => static_matcher()?,
-        None => panic!("Static variable RUNMODE not set")
+        None => panic!("Static variable RUNMODE not set"),
     }
     Ok(())
 }
