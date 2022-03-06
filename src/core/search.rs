@@ -10,10 +10,20 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 use std::{convert::TryFrom, time::Duration};
+use once_cell::unsync::Lazy;
+use regex::Regex;
+
+const INVERT: &str = "\x1b[0;7m";
+const NORMAL: &str = "\x1b[27m";
+
+const ANSI_REGEX: Lazy<Regex> = Lazy::new(||
+   Regex::new(
+		"[\\u001b\\u009b]\\[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]"
+	).unwrap()
+);
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
-#[cfg(feature = "search")]
 #[allow(clippy::module_name_repetitions)]
 /// Defines modes in which the search can run
 pub enum SearchMode {
@@ -102,7 +112,6 @@ pub(crate) fn fetch_input(
 /// The function will go through each line in [`PagerState::formatted_lines`] to check
 /// if there is a search match. If a match is found, the function will append the index of the
 /// string to [`PagerState::search_idx`]
-#[cfg(feature = "search")]
 pub(crate) fn set_match_indices(pager: &mut PagerState) {
     let pattern = match pager.search_term.as_ref() {
         Some(pat) => pat,
@@ -126,15 +135,82 @@ pub(crate) fn set_match_indices(pager: &mut PagerState) {
 }
 
 /// Highlights the search match
-#[cfg(feature = "search")]
 pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
-    use crossterm::style::Stylize;
+    // Remove all ansi escapes so we can look through it as if it had none
+    let stripped_str = ANSI_REGEX.replace_all(line, "");
 
-    query
-        .replace_all(line, |caps: &regex::Captures| {
-            format!("{}{}{}", Attribute::Reverse, &caps[0], Attribute::NoReverse)
+    // if it doesn't match, don't even try. Just return.
+    if !query.is_match(&stripped_str) {
+        return line.to_string();
+    }
+
+    // sum_width is used to calculate the total width of the ansi escapes
+    // up to the point in the original string where it is being used
+    let mut sum_width = 0;
+
+    // find all ansi escapes in the original string, and map them
+    // to a Vec<(usize, &str)> where
+    //   .0 == the start index in the STRIPPED string
+    //   .1 == the escape sequence itself
+    let escapes = ANSI_REGEX
+        .find_iter(&line)
+        .map(|escape| {
+            let start = escape.start();
+            let as_str = escape.as_str();
+            let ret = (start - sum_width, as_str);
+            sum_width += as_str.len();
+            ret
         })
-        .to_string()
+        .collect::<Vec<_>>();
+
+    // The matches of the term you're looking for, so that you can easily determine where
+    // the invert attributes will be placed
+    let matches = query
+        .find_iter(&stripped_str)
+        .map(|c| [c.start(), c.end()])
+        .flatten()
+        .collect::<Vec<_>>();
+
+    // Highlight all the instances of the search term in the stripped string
+    // by inverting their background/foreground colors
+    let mut inverted = query
+        .replace_all(&stripped_str, |caps: &regex::Captures| {
+            format!("{}{}{}", INVERT, &caps[0], NORMAL)
+        })
+        .to_string();
+
+    // inserted_escs_len == the total length of the ascii escapes which have been re-inserted
+    // into the stripped string at the point where it is being checked.
+    let mut inserted_escs_len = 0;
+    for esc in escapes {
+        // Find how many invert|normal markers appear before this escape
+        let match_count = matches.iter().take_while(|m| **m <= esc.0).count();
+
+        if match_count % 2 == 1 {
+            // if == 1, then it's either at the same spot as the start of an invert, or in the
+            // middle of an invert. Either way we don't want to place it in.
+            continue;
+        }
+
+        // find the number of invert strings and number of uninvert strings that have been
+        // inserted up to this point in the string
+        let num_invert = match_count / 2;
+        let num_normal = match_count - num_invert;
+
+        // calculate the index which this escape should be re-inserted at by adding
+        // its position in the stripped string to the total length of the ansi escapes
+        // (both highlighting and the ones from the original string).
+        let pos =
+            esc.0 + inserted_escs_len + (num_invert * INVERT.len()) + (num_normal * NORMAL.len());
+
+        // insert the escape back in
+        inverted.insert_str(pos, esc.1);
+
+        // increment the length of the escapes inserted back in
+        inserted_escs_len += esc.1.len();
+    }
+
+    inverted
 }
 
 /// Set [`PagerState::search_mark`] to move to the next match
