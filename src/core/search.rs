@@ -13,9 +13,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{convert::TryFrom, time::Duration};
 
-const INVERT: &str = "\x1b[0;7m";
-const NORMAL: &str = "\x1b[27m";
-
+static INVERT: Lazy<String> = Lazy::new(|| Attribute::Reverse.to_string());
+static NORMAL: Lazy<String> = Lazy::new(|| Attribute::NoReverse.to_string());
 static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new("[\\u001b\\u009b]\\[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]")
         .unwrap()
@@ -185,7 +184,7 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String
     // by inverting their background/foreground colors
     let mut inverted = query
         .replace_all(&stripped_str, |caps: &regex::Captures| {
-            format!("{}{}{}", INVERT, &caps[0], NORMAL)
+            format!("{}{}{}", *INVERT, &caps[0], *NORMAL)
         })
         .to_string();
 
