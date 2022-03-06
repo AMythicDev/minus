@@ -48,7 +48,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 * If you only want a pager to display static data, enable the `static_output` feature
 
-* If you want a pager to display dynamic data and be configurable at runtime, enable the `async_output` feature
+* If you want a pager to display dynamic data and be configurable at runtime, enable the `dynamic_output` feature
 
 * If you want search support inside the pager, you need to enable the `search` feature
 
@@ -57,7 +57,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 version = "5.0.0-alpha2"
 features = [
     # Enable features you want. For example
-    "async_output",
+    "dynamic_output",
     "search"
 ]
 ```
@@ -69,10 +69,10 @@ All example are available in the `examples` directory and you can run them using
 ### [`tokio`]:
 
 ```rust
-use minus::{async_paging, MinusError, Pager};
+use minus::{dynamic_paging, MinusError, Pager};
 use std::time::Duration;
 use std::fmt::Write;
-use tokio::{join, spawn, time::sleep};
+use tokio::{join, task::spawn_blocking, time::sleep};
 
 #[tokio::main]
 async fn main() -> Result<(), MinusError> {
@@ -87,9 +87,10 @@ async fn main() -> Result<(), MinusError> {
         }
         Result::<_, MinusError>::Ok(())
     };
-    // spawn(async_paging(...)) creates a tokio task and runs the async_paging
-    // inside it
-    let (res1, res2) = join!(spawn(async_paging(pager.clone())), increment);
+    // spawn_blocking(dynamic_paging(...)) creates a separate thread managed by the tokio
+    // runtime and runs the async_paging inside it
+    let pager = pager.clone();
+    let (res1, res2) = join!(spawn_blocking(move || dynamic_paging(pager)), increment);
     // .unwrap() unwraps any error while creating the tokio task
     //  The ? mark unpacks any error that might have occured while the
     // pager is running
@@ -102,9 +103,10 @@ async fn main() -> Result<(), MinusError> {
 ### [`async-std`]:
 
 ```rust
+
 use async_std::task::{sleep, spawn};
 use futures_lite::future;
-use minus::{async_paging, MinusError, Pager};
+use minus::{dynamic_paging, MinusError, Pager};
 use std::time::Duration;
 
 #[async_std::main]
@@ -119,7 +121,8 @@ async fn main() -> Result<(), MinusError> {
         Result::<_, MinusError>::Ok(())
     };
 
-    let (res1, res2) = future::zip(spawn(async_paging(output.clone())), increment).await;
+    let output = output.clone();
+    let (res1, res2) = future::zip(spawn(async move { dynamic_paging(output) }), increment).await;
     res1?;
     res2?;
     Ok(())
