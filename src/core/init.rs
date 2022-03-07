@@ -8,15 +8,14 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{display::draw, ev_handler::handle_event, events::Event, term::setup};
+use super::{display::draw, ev_handler::handle_event, events::Event, term};
 use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
 #[cfg(any(feature = "static_output", feature = "dynamic_output"))]
 use once_cell::sync::OnceCell;
-use std::io::stdout;
-use std::io::Stdout;
+use std::io::{stdout, Stdout};
 #[cfg(feature = "search")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
@@ -110,7 +109,7 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
     }
 
     // Setup terminal, adjust line wraps and get rows
-    setup(&out)?;
+    term::setup(&out)?;
 
     let ps_mutex = Arc::new(Mutex::new(ps));
 
@@ -161,9 +160,6 @@ fn start_reactor(
     mut out: Stdout,
     #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
-    // Is the terminal completely filled with text
-    #[cfg(feature = "dynamic_output")]
-    let mut filled = false;
     // Has the user quitted
     let is_exitted: RefCell<bool> = RefCell::new(false);
 
@@ -174,7 +170,8 @@ fn start_reactor(
     let out = RefCell::new(out);
 
     #[cfg(any(feature = "dynamic_output"))]
-    let mut dynamic_matcher = || -> Result<(), MinusError> {
+    let dynamic_matcher = || -> Result<(), MinusError> {
+        use std::{convert::TryInto, io::Write};
         loop {
             if *is_exitted.borrow() {
                 break;
@@ -195,26 +192,17 @@ fn start_reactor(
                 }
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
-                    handle_event(
-                        Event::AppendData(text),
-                        &mut *out.borrow_mut(),
-                        &mut p,
-                        &mut is_exitted.borrow_mut(),
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                    if p.num_lines() > p.rows {
-                        // Check if the terminal just got filled
-                        // If so, fill any unfilled row towards the end of the screen
-                        if !filled {
-                            draw(&mut *out.borrow_mut(), &mut p)?;
-                            filled = true;
-                        }
-                    }
-                    // Immidiately append data to the terminal until we haven't overflowed
-                    if p.num_lines() < p.rows {
-                        draw(&mut *out.borrow_mut(), &mut p)?;
-                    }
+                    let mut fmt_text = p.make_append_str(&text);
+
+                    let mut out = out.borrow_mut();
+                    term::move_cursor(&mut *out, 0, p.num_lines().try_into().unwrap(), false)?;
+                    let available_rows = p
+                        .rows
+                        .saturating_sub(p.num_lines().saturating_add(fmt_text.len()));
+                    let num_appendable = fmt_text.len().min(available_rows);
+                    write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
+                    out.flush()?;
+                    p.formatted_lines.append(&mut fmt_text);
                 }
                 Ok(ev) => {
                     let mut p = ps.lock().unwrap();

@@ -691,6 +691,11 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) {
+        let mut fmt_line = self.make_append_str(text);
+        self.formatted_lines.append(&mut fmt_line);
+    }
+
+    pub(crate) fn make_append_str(&mut self, text: &str) -> Vec<String> {
         // if the text we have saved currently ends with a newline,
         // we want the formatted_text vector to append the line instead of
         // trying to add it to the last item
@@ -732,7 +737,7 @@ impl PagerState {
         };
 
         // format the lines we want to format
-        let mut to_append = to_format
+        to_format
             .lines()
             .enumerate()
             .flat_map(|(idx, line)| {
@@ -746,10 +751,7 @@ impl PagerState {
                     idx + to_skip.saturating_sub(1),
                 )
             })
-            .collect::<Vec<String>>();
-
-        // append the new vector to the formatted lines
-        self.formatted_lines.append(&mut to_append);
+            .collect::<Vec<String>>()
     }
 }
 
