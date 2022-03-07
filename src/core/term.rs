@@ -1,7 +1,7 @@
 //! Contains functions for dealing with setup, cleanup
 
-use crate::error::{CleanupError, SetupError};
-use crossterm::{cursor, execute, terminal, tty::IsTty};
+use crate::error::{CleanupError, MinusError, SetupError};
+use crossterm::{cursor, execute, queue, terminal, tty::IsTty};
 use std::io;
 
 /// Setup the terminal
@@ -66,4 +66,20 @@ pub(crate) fn cleanup(
     } else {
         Ok(())
     }
+}
+
+/// Moves the terminal cursor to given x, y coordinates
+///
+/// The `flush` parameter will immidiately flush the buffer if it is set to `true`
+pub(crate) fn move_cursor(
+    out: &mut impl io::Write,
+    x: u16,
+    y: u16,
+    flush: bool,
+) -> Result<(), MinusError> {
+    queue!(out, cursor::MoveTo(x, y))?;
+    if flush {
+        out.flush()?;
+    }
+    Ok(())
 }

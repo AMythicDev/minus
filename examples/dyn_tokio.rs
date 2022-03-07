@@ -5,10 +5,10 @@ use tokio::{join, task::spawn_blocking, time::sleep};
 
 #[tokio::main]
 async fn main() -> Result<(), MinusError> {
-    let output = minus::Pager::new();
+    let mut output = minus::Pager::new();
+    let output2 = output.clone();
 
     let increment = async {
-        let mut output = output.clone();
         for i in 0..=100_u32 {
             writeln!(output, "{}", i)?;
             sleep(Duration::from_millis(100)).await;
@@ -16,9 +16,8 @@ async fn main() -> Result<(), MinusError> {
         Result::<_, MinusError>::Ok(())
     };
 
-    let output = output.clone();
     let (res1, res2) = join!(
-        spawn_blocking(move || minus::dynamic_paging(output)),
+        spawn_blocking(move || minus::dynamic_paging(output2)),
         increment
     );
     res1.unwrap()?;

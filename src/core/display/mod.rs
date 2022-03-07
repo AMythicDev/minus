@@ -17,7 +17,10 @@ use crate::{MinusError, PagerState};
 ///     - If there is one, it will display it at the prompt site
 ///     - If there isn't one, it will display the prompt in place of it
 pub(crate) fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
-    write!(out, "{}{}", Clear(ClearType::All), MoveTo(0, 0))?;
+    use crossterm::queue;
+
+    super::term::move_cursor(out, 0, 0, false)?;
+    queue!(out, Clear(ClearType::All))?;
 
     write_lines(out, pager)?;
     // If we have message, then show it or show the prompt text instead
@@ -84,7 +87,7 @@ pub(crate) fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Resul
 
     // Join the lines and display them at once
     // This is because, writing to console is slow
-    writeln!(out, "\r{}", displayed_lines)?;
+    write!(out, "\r{}", displayed_lines)?;
     Ok(())
 }
 
