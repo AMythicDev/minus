@@ -194,15 +194,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
 
 minus would never have been this without the :heart: from these kind people
 
-* @rezural
-* @poliorcetics
-* @danieleades
-* @mark-a
-* @mkatychev
-* @tomstoneham
-* @Hardy7cc
-* @tomstoneham
-* @iandwelker
+<a href="https://github.com/arijit79/minus/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=arijit79/minus" />
+</a>
 
 ## Get in touch
 
