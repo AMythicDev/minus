@@ -578,7 +578,7 @@ impl PagerState {
             #[cfg(feature = "search")]
             search_term: None,
             #[cfg(feature = "search")]
-            search_mode: SearchMode::Unknown,
+            search_mode: SearchMode::default(),
             #[cfg(feature = "search")]
             search_idx: Vec::new(),
             #[cfg(feature = "search")]
