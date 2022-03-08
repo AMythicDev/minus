@@ -66,6 +66,32 @@ features = [
 
 All example are available in the `examples` directory and you can run them using `cargo`.
 
+### [`Threads`]:
+
+``` rust
+use minus::{dynamic_paging, MinusError, Pager};
+use std::{
+    fmt::Write, 
+    thread::{spawn, sleep}, 
+    time::Duration
+};
+
+fn main() -> Result<(), MinusError> {
+    // Initialize the pager
+    let mut pager = Pager::new();
+    // Run the pager in a separate thread
+    let pager2 = pager.clone();
+    let pager_thread = spawn(move || dynamic_paging(pager2));
+    
+    for i in 0..=100_u32 {
+        writeln!(pager, "{}", i);
+        sleep(Duration::from_millis(100));
+    }
+    pager_thread.join();
+    Ok(())
+}
+```
+
 ### [`tokio`]:
 
 ```rust
