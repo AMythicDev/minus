@@ -18,7 +18,7 @@ use std::sync::{
 /// - Mutating fields of [`PagerState`]
 /// - Handle cleanup and exits
 /// - Call search related functions
-pub(crate) fn handle_event(
+pub fn handle_event(
     ev: Event,
     mut out: &mut impl Write,
     p: &mut PagerState,

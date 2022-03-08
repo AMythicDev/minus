@@ -1,7 +1,7 @@
-pub(crate) mod display;
-pub(crate) mod ev_handler;
-pub(crate) mod events;
-pub(crate) mod init;
+mod display;
+mod ev_handler;
+pub mod events;
+pub mod init;
 #[cfg(feature = "search")]
-pub(crate) mod search;
-pub(crate) mod term;
+pub mod search;
+pub mod term;

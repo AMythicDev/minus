@@ -19,7 +19,7 @@ use std::io;
 /// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
-pub(crate) fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> {
+pub fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> {
     let mut out = stdout.lock();
 
     if out.is_tty() {
@@ -48,7 +48,7 @@ pub(crate) fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> 
 /// terminal. See [`CleanupError`]
 ///
 /// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
-pub(crate) fn cleanup(
+pub fn cleanup(
     mut out: impl io::Write,
     es: &crate::ExitStrategy,
     cleanup_screen: bool,
@@ -71,7 +71,7 @@ pub(crate) fn cleanup(
 /// Moves the terminal cursor to given x, y coordinates
 ///
 /// The `flush` parameter will immidiately flush the buffer if it is set to `true`
-pub(crate) fn move_cursor(
+pub fn move_cursor(
     out: &mut impl io::Write,
     x: u16,
     y: u16,

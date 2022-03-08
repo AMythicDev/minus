@@ -16,7 +16,7 @@ use crate::{MinusError, PagerState};
 /// Then it wil check if there is any message to display.
 ///     - If there is one, it will display it at the prompt site
 ///     - If there isn't one, it will display the prompt in place of it
-pub(crate) fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
+pub fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
     use crossterm::queue;
 
     super::term::move_cursor(out, 0, 0, false)?;
@@ -29,12 +29,12 @@ pub(crate) fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
         .as_ref()
         .map_or_else(|| pager.prompt.clone(), std::clone::Clone::clone);
     // Prompt
-    display_prompt(out, prompt.first().unwrap(), pager.rows.try_into().unwrap())?;
+    write_prompt(out, prompt.first().unwrap(), pager.rows.try_into().unwrap())?;
 
     out.flush().map_err(MinusError::Draw)
 }
 
-pub(crate) fn display_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
+pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
     write!(
         out,
         "{mv}\r{rev}{prompt}{reset}",
@@ -61,7 +61,7 @@ pub(crate) fn display_prompt(out: &mut impl Write, text: &str, rows: u16) -> Res
 /// mode](../../crossterm/terminal/index.html#raw-mode). A "\n" takes the cursor directly below the
 /// current line without taking it to the very begging, which is column 0.
 /// Hence we use an additional "\r" to take the cursor to the very first column of the line.
-pub(crate) fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
+pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
     let line_count = pager.num_lines();
 
     // Reduce one row for prompt/messages

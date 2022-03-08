@@ -27,7 +27,7 @@ use std::{
 use {super::display::write_lines, crossterm::tty::IsTty};
 
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
-pub(crate) enum RunMode {
+pub enum RunMode {
     #[cfg(feature = "static_output")]
     Static,
     #[cfg(feature = "dynamic_output")]
@@ -35,7 +35,7 @@ pub(crate) enum RunMode {
 }
 
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
-pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
+pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 
 /// The main entry point of minus
 ///
@@ -82,8 +82,8 @@ pub(crate) static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 /// [streaming]: crate::input::reader::streaming
 /// [polling]: crate::input::reader::polling
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
-#[allow(clippy::needless_pass_by_value)]
-pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
+#[allow(clippy::module_name_repetitions)]
+pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
     // Is the event reader running
     #[cfg(feature = "search")]
@@ -154,6 +154,7 @@ pub(crate) fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError>
 /// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
 /// screen.
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
+#[allow(clippy::too_many_lines)]
 fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
@@ -179,6 +180,7 @@ fn start_reactor(
 
             let event = rx.try_recv();
 
+            #[allow(clippy::unnested_or_patterns)]
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
                     let mut p = ps.lock().unwrap();
@@ -194,7 +196,7 @@ fn start_reactor(
                 }
                 Ok(Event::SetPrompt(ref text)) | Ok(Event::SendMessage(ref text)) => {
                     let mut p = ps.lock().unwrap();
-                    let fmt_text = crate::wrap_str(&text, p.cols);
+                    let fmt_text = crate::wrap_str(text, p.cols);
                     let mut out = out.borrow_mut();
                     if let Ok(Event::SetPrompt(_)) = event {
                         p.prompt = fmt_text.clone();
@@ -202,7 +204,7 @@ fn start_reactor(
                         p.message = Some(fmt_text.clone());
                     }
                     term::move_cursor(&mut *out, 0, p.rows.try_into().unwrap(), false)?;
-                    super::display::display_prompt(&mut *out, fmt_text.first().unwrap(), p.rows.try_into().unwrap())?;
+                    super::display::write_prompt(&mut *out, fmt_text.first().unwrap(), p.rows.try_into().unwrap())?;
                 }
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
@@ -281,7 +283,6 @@ fn start_reactor(
 ///  This function will return an error if it could not create the default [`PagerState`]or fails
 ///  to process the events
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
-#[inline(always)]
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
     mut out: &mut Stdout,
@@ -301,7 +302,7 @@ fn generate_initial_state(
 }
 
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
-pub(crate) fn event_reader(
+fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
     #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,

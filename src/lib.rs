@@ -6,6 +6,7 @@
 )]
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
 #![allow(clippy::doc_markdown)]
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
 
@@ -801,7 +802,7 @@ impl LineNumbers {
     /// the documentation for the variants to know if they are invertible or
     /// not.
     #[allow(dead_code)]
-    fn is_invertible(self) -> bool {
+    const fn is_invertible(self) -> bool {
         matches!(self, Self::Enabled | Self::Disabled)
     }
 }

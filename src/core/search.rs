@@ -51,7 +51,7 @@ impl PartialEq for SearchMode {
 /// It will then store the query in a String and return it when `Return` key is pressed
 /// or return with a empty string if so match is found.
 #[cfg(feature = "search")]
-pub(crate) fn fetch_input(
+pub fn fetch_input(
     out: &mut impl std::io::Write,
     search_mode: SearchMode,
     rows: usize,
@@ -122,7 +122,7 @@ pub(crate) fn fetch_input(
 /// The function will go through each line in [`PagerState::formatted_lines`] to check
 /// if there is a search match. If a match is found, the function will append the index of the
 /// string to [`PagerState::search_idx`]
-pub(crate) fn set_match_indices(pager: &mut PagerState) {
+pub fn set_match_indices(pager: &mut PagerState) {
     let pattern = match pager.search_term.as_ref() {
         Some(pat) => pat,
         None => return,
@@ -145,7 +145,7 @@ pub(crate) fn set_match_indices(pager: &mut PagerState) {
 }
 
 /// Highlights the search match
-pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
+pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
     // Remove all ansi escapes so we can look through it as if it had none
     let stripped_str = ANSI_REGEX.replace_all(line, "");
 
@@ -227,7 +227,7 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> String
 /// This function will continue looping untill it finds a match that is after the
 /// [`PagerState::upper_mark`]
 #[cfg(feature = "search")]
-pub(crate) fn next_match(ps: &mut PagerState) {
+pub fn next_match(ps: &mut PagerState) {
     // Loop until we find a match, that's after the upper_mark
     //
     // Get match at the given mark
@@ -306,20 +306,20 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     }
 
     #[test]
-    pub fn no_match() {
+    fn no_match() {
         let orig = "no match";
         let res = highlight_line_matches(orig, &Regex::new("test").unwrap());
         assert_eq!(res, orig.to_string());
     }
 
     #[test]
-    pub fn single_match_no_esc() {
+    fn single_match_no_esc() {
         let res = highlight_line_matches("this is a test", &Regex::new(" a ").unwrap());
         assert_eq!(res, format!("this is{} a {}test", *INVERT, *NORMAL));
     }
 
     #[test]
-    pub fn multi_match_no_esc() {
+    fn multi_match_no_esc() {
         let res = highlight_line_matches("test another test", &Regex::new("test").unwrap());
         assert_eq!(
             res,
@@ -328,7 +328,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     }
 
     #[test]
-    pub fn esc_outside_match() {
+    fn esc_outside_match() {
         let res = highlight_line_matches(
             &format!("{}color{} and test", ESC, NONE),
             &Regex::new("test").unwrap(),
@@ -340,14 +340,14 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     }
 
     #[test]
-    pub fn esc_end_in_match() {
+    fn esc_end_in_match() {
         let orig = format!("this {}is a te{}st", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(res, format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL));
     }
 
     #[test]
-    pub fn esc_start_in_match() {
+    fn esc_start_in_match() {
         let orig = format!("this is a te{}st again{}", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
@@ -357,7 +357,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     }
 
     #[test]
-    pub fn esc_around_match() {
+    fn esc_around_match() {
         let orig = format!("this is {}a test again{}", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
@@ -367,14 +367,14 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     }
 
     #[test]
-    pub fn esc_within_match() {
+    fn esc_within_match() {
         let orig = format!("this is a t{}es{}t again", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(res, format!("this is a {}test{} again", *INVERT, *NORMAL));
     }
 
     #[test]
-    pub fn multi_escape_match() {
+    fn multi_escape_match() {
         let orig = format!(
             "this {e}is a te{n}st again {e}yeah{n} test",
             e = ESC,
