@@ -4,7 +4,7 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 
-use std::{convert::TryFrom, io::Write};
+use std::{convert::TryInto, io::Write};
 
 use crate::{MinusError, PagerState};
 
@@ -29,18 +29,21 @@ pub(crate) fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
         .as_ref()
         .map_or_else(|| pager.prompt.clone(), std::clone::Clone::clone);
     // Prompt
-    {
-        write!(
-            out,
-            "{mv}\r{rev}{prompt}{reset}",
-            mv = MoveTo(0, u16::try_from(pager.rows).unwrap()),
-            rev = Attribute::Reverse,
-            prompt = prompt.first().unwrap(),
-            reset = Attribute::Reset,
-        )?;
-    }
+    display_prompt(out, prompt.first().unwrap(), pager.rows.try_into().unwrap())?;
 
     out.flush().map_err(MinusError::Draw)
+}
+
+pub(crate) fn display_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
+    write!(
+        out,
+        "{mv}\r{rev}{prompt}{reset}",
+        mv = MoveTo(0, rows),
+        rev = Attribute::Reverse,
+        prompt = text,
+        reset = Attribute::Reset,
+    )?;
+    Ok(())
 }
 
 /// Write the lines to the terminal

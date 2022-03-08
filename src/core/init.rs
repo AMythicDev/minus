@@ -177,7 +177,9 @@ fn start_reactor(
                 break;
             }
 
-            match rx.try_recv() {
+            let event = rx.try_recv();
+
+            match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
                     let mut p = ps.lock().unwrap();
                     handle_event(
@@ -189,6 +191,18 @@ fn start_reactor(
                         input_thread_running,
                     )?;
                     draw(&mut *out.borrow_mut(), &mut p)?;
+                }
+                Ok(Event::SetPrompt(ref text)) | Ok(Event::SendMessage(ref text)) => {
+                    let mut p = ps.lock().unwrap();
+                    let fmt_text = crate::wrap_str(&text, p.cols);
+                    let mut out = out.borrow_mut();
+                    if let Ok(Event::SetPrompt(_)) = event {
+                        p.prompt = fmt_text.clone();
+                    } else {
+                        p.message = Some(fmt_text.clone());
+                    }
+                    term::move_cursor(&mut *out, 0, p.rows.try_into().unwrap(), false)?;
+                    super::display::display_prompt(&mut *out, fmt_text.first().unwrap(), p.rows.try_into().unwrap())?;
                 }
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
@@ -267,6 +281,7 @@ fn start_reactor(
 ///  This function will return an error if it could not create the default [`PagerState`]or fails
 ///  to process the events
 #[cfg(any(feature = "dynamic_output", feature = "static_output",))]
+#[inline(always)]
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
     mut out: &mut Stdout,
