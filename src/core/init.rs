@@ -194,14 +194,16 @@ fn start_reactor(
                     let mut p = ps.lock().unwrap();
                     let mut fmt_text = p.make_append_str(&text);
 
-                    let mut out = out.borrow_mut();
-                    term::move_cursor(&mut *out, 0, p.num_lines().try_into().unwrap(), false)?;
-                    let available_rows = p
-                        .rows
-                        .saturating_sub(p.num_lines().saturating_add(fmt_text.len()));
-                    let num_appendable = fmt_text.len().min(available_rows);
-                    write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
-                    out.flush()?;
+                    if p.num_lines() < p.rows {
+                        let mut out = out.borrow_mut();
+                        term::move_cursor(&mut *out, 0, p.num_lines().try_into().unwrap(), false)?;
+                        let available_rows = p
+                            .rows
+                            .saturating_sub(p.num_lines().saturating_add(fmt_text.len()));
+                        let num_appendable = fmt_text.len().min(available_rows);
+                        write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
+                        out.flush()?;
+                    }
                     p.formatted_lines.append(&mut fmt_text);
                 }
                 Ok(ev) => {
