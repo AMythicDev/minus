@@ -13,7 +13,6 @@ use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
-#[cfg(any(feature = "static_output", feature = "dynamic_output"))]
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
 #[cfg(feature = "search")]
@@ -26,7 +25,6 @@ use std::{
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
-#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 pub enum RunMode {
     #[cfg(feature = "static_output")]
     Static,
@@ -34,7 +32,6 @@ pub enum RunMode {
     Dynamic,
 }
 
-#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 
 /// The main entry point of minus
@@ -60,28 +57,15 @@ pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 // using your library... your only weapon
 // So we just don't take any more proposals about this. It is really frustating to
 // to throughly test each implementation and fix out all rough edges around it
-/// Next it initializes the runtime and calls [`start_reactor`] and a event reader which is
+/// Next it initializes the runtime and calls [`start_reactor`] and a [`event reader`]` which is
 /// selected based on the enabled feature set:-
-///
-/// * If both `static_output` and `async_output` features are selected
-///     * If running in static mode, a [polling] based event reader is spawned on a
-///     thread and the [`start_reactor`] is called directly
-///     * If running in async mode, a [streaming] based event reader and [`start_reactor`] are
-///     spawned in a `async_global_allocatior` task
-///
-/// * If only `static_output` feature is enabled, [polling] based event reader is spawned
-/// on a thread and the [`start_reactor`] is called directly
-/// * If only `async_output` feature is enabled, [streaming] based event reader and
-/// [`start_reactor`] are spawned in a `async_global_allocatior` task
 ///
 /// # Errors
 ///
 /// Setting/cleaning up the terminal can fail and IO to/from the terminal can
 /// fail.
 ///
-/// [streaming]: crate::input::reader::streaming
-/// [polling]: crate::input::reader::polling
-#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
+/// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
 pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
@@ -153,7 +137,6 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 /// [`AppendData`](crate::events::Event::AppendData) event occurs, it is absolutely necessory
 /// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
 /// screen.
-#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 #[allow(clippy::too_many_lines)]
 fn start_reactor(
     rx: &Receiver<Event>,
@@ -298,7 +281,6 @@ fn start_reactor(
 /// # Errors
 ///  This function will return an error if it could not create the default [`PagerState`]or fails
 ///  to process the events
-#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
     mut out: &mut Stdout,
@@ -317,7 +299,6 @@ fn generate_initial_state(
     Ok(ps)
 }
 
-#[cfg(any(feature = "dynamic_output", feature = "static_output",))]
 fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,

@@ -6,7 +6,7 @@ use crate::{
     ExitStrategy, LineNumbers,
 };
 
-/// Different forms of events that can be encountered while the pager is running
+/// Different events that can be encountered while the pager is running
 pub enum Event {
     AppendData(String),
     SetData(String),
