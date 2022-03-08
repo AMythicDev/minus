@@ -68,7 +68,7 @@ All example are available in the `examples` directory and you can run them using
 
 ### [`Threads`]:
 
-``` rust
+```rust,no_run
 use minus::{dynamic_paging, MinusError, Pager};
 use std::{
     fmt::Write, 
@@ -94,7 +94,7 @@ fn main() -> Result<(), MinusError> {
 
 ### [`tokio`]:
 
-```rust
+```rust,no_run
 use minus::{dynamic_paging, MinusError, Pager};
 use std::time::Duration;
 use std::fmt::Write;
@@ -128,8 +128,7 @@ async fn main() -> Result<(), MinusError> {
 
 ### [`async-std`]:
 
-```rust
-
+```rust,no_run
 use async_std::task::{sleep, spawn};
 use futures_lite::future;
 use minus::{dynamic_paging, MinusError, Pager};
