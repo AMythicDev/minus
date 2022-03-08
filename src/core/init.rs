@@ -25,6 +25,7 @@ use std::{
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
+#[derive(PartialEq)]
 pub enum RunMode {
     #[cfg(feature = "static_output")]
     Static,
@@ -77,7 +78,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 
     // Static mode checks
     #[cfg(feature = "static_output")]
-    {
+    if RUNMODE.get() == Some(&RunMode::Static) {
         // If stdout is not a tty, write everyhting and quit
         if !out.is_tty() {
             write_lines(&mut out, &mut ps)?;
