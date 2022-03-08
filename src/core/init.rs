@@ -204,22 +204,38 @@ fn start_reactor(
                         p.message = Some(fmt_text.clone());
                     }
                     term::move_cursor(&mut *out, 0, p.rows.try_into().unwrap(), false)?;
-                    super::display::write_prompt(&mut *out, fmt_text.first().unwrap(), p.rows.try_into().unwrap())?;
+                    super::display::write_prompt(
+                        &mut *out,
+                        fmt_text.first().unwrap(),
+                        p.rows.try_into().unwrap(),
+                    )?;
                 }
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
+                    // Make the string that nneds to be appended
                     let mut fmt_text = p.make_append_str(&text);
 
                     if p.num_lines() < p.rows {
                         let mut out = out.borrow_mut();
+                        // Move the cursor to the very next line after the last displayed line
                         term::move_cursor(&mut *out, 0, p.num_lines().try_into().unwrap(), false)?;
-                        let available_rows = p
-                            .rows
-                            .saturating_sub(p.num_lines().saturating_add(fmt_text.len()));
+                        // available_rows -> Rows that are still unfilled
+                        //      rows - number of lines displayed -1 (for prompt)
+                        // For example if 20 rows are in total in a terminal
+                        // and 10 rows are already occupied, then this will be equal to 9
+                        let available_rows = p.rows.saturating_sub(p.num_lines().saturating_add(1));
+                        // Minimum amount of text that an be appended
+                        // If available_rows is less, than this will be available rows else it will be
+                        // the length of the formatted text
+                        //
+                        // If number of rows in terminal is 23 with 20 rows filled and another 5 lines are given
+                        // This woll be equal to 3 as available rows will be 3
+                        // If in the above example only 2 lines are needed to be added, this will be equal to 2
                         let num_appendable = fmt_text.len().min(available_rows);
                         write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
                         out.flush()?;
                     }
+                    // Append the formatted string to PagerState::formatted_lines vec
                     p.formatted_lines.append(&mut fmt_text);
                 }
                 Ok(ev) => {
