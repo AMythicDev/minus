@@ -417,7 +417,7 @@ impl Pager {
     /// pager.set_run_no_overflow(true).expect("Failed to send data to the pager");
     /// ```
     #[cfg(feature = "static_output")]
-    #[cfg_attr(docsrs, cfg(feature = "static_output"))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
     pub fn set_run_no_overflow(&self, val: bool) -> Result<(), MinusError> {
         Ok(self.tx.send(Event::SetRunNoOverflow(val))?)
     }
