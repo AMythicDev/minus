@@ -202,3 +202,5 @@ We are open to discussion and thoughts om improving `minus`. Join us at [Matrix]
 [`tokio`]: https://crates.io/crates/tokio
 
 [`async-std`]: https://crates.io/crates/async-std
+
+[`Threads`]: std::thread
