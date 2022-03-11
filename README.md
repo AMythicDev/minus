@@ -203,4 +203,4 @@ We are open to discussion and thoughts om improving `minus`. Join us at [Matrix]
 
 [`async-std`]: https://crates.io/crates/async-std
 
-[`Threads`]: std::thread
+[`Threads`]: https://doc.rust-lang.org/std/thread/index.html
