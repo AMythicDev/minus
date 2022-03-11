@@ -8,33 +8,31 @@
 //requests. Libraries like anyhow and thiserror are generally prefered and minus
 //also uses thiserror
 
-use async_std::io::prelude::*;
-use async_std::task::spawn;
-use futures_lite::future;
 use std::env::args;
+use std::io::{BufReader, Read};
+use std::fs::File;
+use std::thread;
 
 // async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {
-async fn read_file(name: String, pager: minus::Pager) -> Result<(), Box<dyn std::error::Error>> {
-    let file = async_std::fs::File::open(name).await?;
-    let changes = async {
+fn read_file(name: String, pager: minus::Pager) -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::open(name)?;
+    let changes = || {
         let mut buff = String::new();
-        let mut buf_reader = async_std::io::BufReader::new(file);
-        buf_reader.read_to_string(&mut buff).await?;
+        let mut buf_reader = BufReader::new(file);
+        buf_reader.read_to_string(&mut buff)?;
         pager.push_str(&buff)?;
         Result::<(), Box<dyn std::error::Error>>::Ok(())
     };
 
     let pager = pager.clone();
-    let (res1, res2) =
-        future::zip(spawn(async move { minus::dynamic_paging(pager) }), changes).await;
-    res1?;
+    let res1 = thread::spawn(|| minus::dynamic_paging(pager));
+    let res2 = changes();
+    res1.join().unwrap()?;
     res2?;
     Ok(())
 }
 
-#[async_std::main]
-// async fn main() {
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get the file name from the command line
     // Typically, you want to use something like clap here, but we are not doing it
     // here to make the example simple
@@ -50,5 +48,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the configuration
     let output = minus::Pager::new();
     output.set_prompt(&filename)?;
-    read_file(filename, output).await
+    read_file(filename, output)
 }
