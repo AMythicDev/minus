@@ -9,8 +9,8 @@
 //also uses thiserror
 
 use std::env::args;
-use std::io::{BufReader, Read};
 use std::fs::File;
+use std::io::{BufReader, Read};
 use std::thread;
 
 // async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {

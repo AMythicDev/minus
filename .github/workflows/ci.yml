@@ -28,8 +28,6 @@ jobs:
         run: cargo build --verbose --features=static_output,search
       - name: Build crate (Tokio)
         run: cargo build --verbose --features=dynamic_output,search
-      - name: Build crate (Async-std)
-        run: cargo build --verbose --features=dynamic_output,search
 
   test:
     name: test
