@@ -67,8 +67,6 @@ jobs:
       run: cargo check --example=dyn_tokio --features=dynamic_output
     - name: Tokio Messages
       run: cargo check --example=msg-tokio --features=dynamic_output
-    - name: Async-std
-      run: cargo check --example=dyn_async_std --features=dynamic_output
     - name: Static
       run: cargo check --example=static --features=static_output
     - name: Less-rs
