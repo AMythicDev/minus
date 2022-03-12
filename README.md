@@ -20,7 +20,7 @@ minus is an asynchronous terminal paging library written in Rust.
 
 A pager is a program that lets you view and scroll through large amounts of text using a keyboard in a TTY where no mouse support is available.
 
-Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager. For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty much non-existent.
+Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager. For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
 
 Examples of some popular pager include `more` and its successor `less`.
 
@@ -30,17 +30,18 @@ First, traditional pagers like `more` or `less` weren't made for integrating int
 
 Applications leveraged these pagers by calling them as external programs and passing the data through the standard input. This method worked for Unix and other Unix-like OSs like Linux and MacOS because they already came with any of these pagers installed  But it wasn't this easy on Windows, it required shipping the pager binary along with the applications. Since these programs were originally designed for Unix and Unix-like OSs, distributing these binaries meant shipping an entire environment like MinGW or Cygwin so that these can run properly on Windows.
 
- Recently, some libraries have emerged to solve this issue. They are compiled along with your application and give you a single to distribute. The problem with this is most of them require you to feed the entire data to the pager before the pager can run, this meant that there will be no output on the terminal until the entire data isn't loaded by the application and passed on to the pager.
+Recently, some libraries have emerged to solve this issue. They are compiled along with your application and give you a single binary to distribute. The problem with them is that they require you to feed the entire data to the pager before the pager can run, this meant that there will be no output on the terminal until the entire data isn't loaded by the application and passed on to the pager.
 
-These could cause long delays before output if the data comes from a very large file or is being downloaded from the internet.
+These could cause long delays before output to the terminal if the data comes from a very large file or is being downloaded from the internet.
 
 ## Enter minus
 
 As above described, minus is an asynchronous terminal paging library for Rust. It allows not just data but also configuration to be fed into itself while it is running.
 
-minus achieves this by using Rust's amazing concurrency support and no data race conditions which are guaranteed by Rust
+minus achieves this by leveraging Rust's amazing concurrency support and no data race guarantees
 
-With minus, you can initialize a pager with any async runtime of your choice or even no runtime, if you want just native threads.
+minus can be used with any async runtime like [`tokio`], [`async_std`] or [`threads`] if you prefer that.
+If you want to display only static data, you don't even need to depend on any of the above
 
 ## Usage
 
