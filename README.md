@@ -55,7 +55,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 ```toml
 [dependencies.minus]
-version = "5.0.0-alpha4"
+version = "5.0.0"
 features = [
     # Enable features you want. For example
     "dynamic_output",
@@ -88,7 +88,7 @@ fn main() -> Result<(), MinusError> {
         writeln!(pager, "{}", i);
         sleep(Duration::from_millis(100));
     }
-    pager_thread.join();
+    pager_thread.join().unwrap()?;
     Ok(())
 }
 ```
@@ -156,27 +156,27 @@ pass the limit.
 
 Here is the list of default key/mouse actions handled by `minus`.  End-applications can change these bindings to better suit their needs.
 
-| Action            | Description                                        |
-| ----------------- | -------------------------------------------------- |
-| Ctrl+C/q          | Quit the pager                                     |
-| Arrow Up/k        | Scroll up by one line                              |
-| Arrow Down/j      | Scroll down by one line                            |
-| Page Up           | Scroll up by entire page                           |
-| Page Down         | Scroll down by entire page                         |
-| Enter             | Scroll down by one line or clear prompt messages   |
-| Space             | Scroll down by one page                            |
-| Ctrl+U/u          | Scroll up by half a screen                         |
-| Ctrl+D/d          | Scroll down by half a screen                       |
-| g                 | Go to the very top of the output                   |
-| G                 | Go to the very bottom of the output                |
-| Mouse scroll Up   | Scroll up by 5 lines                               |
-| Mouse scroll Down | Scroll down by 5 lines                             |
-| Ctrl+L            | Toggle line numbers if not forced enabled/disabled |
-| /                 | Start forward search                               |
-| ?                 | Start backward search                              |
-| Esc               | Cancel search input                                |
-| n                 | Go to the next search match                        |
-| p                 | Go to the next previous match                      |
+| Action            | Description                                                      |
+|-------------------|------------------------------------------------------------------|
+| Ctrl+C/q          | Quit the pager                                                   |
+| <n>Arrow Up/k     | Scroll up by n number of line(s). If n is omitted it will be 1   |
+| <n>Arrow Down/j   | Scroll down by n number of line(s). If n is omitted it will be 1 |
+| Page Up           | Scroll up by entire page                                         |
+| Page Down         | Scroll down by entire page                                       |
+| <n>Enter          | Scroll down by n number of line(s), if n is omitted it will be 1. If there are prompt messages, this will clear them  or clear prompt messages |
+| Space             | Scroll down by one page                                          |
+| Ctrl+U/u          | Scroll up by half a screen                                       |
+| Ctrl+D/d          | Scroll down by half a screen                                     |
+| g                 | Go to the very top of the output                                 |
+| <n>G              | Go to the very bottom of the output                              |
+| Mouse scroll Up   | Scroll up by 5 lines                                             |
+| Mouse scroll Down | Scroll down by 5 lines                                           |
+| Ctrl+L            | Toggle line numbers if not forced enabled/disabled               |
+| /                 | Start forward search                                             |
+| ?                 | Start backward search                                            |
+| Esc               | Cancel search input                                              |
+| n                 | Go to the next search match                                      |
+| p                 | Go to the next previous match                                    |
 
 ## License
 

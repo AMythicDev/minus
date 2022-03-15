@@ -3,7 +3,7 @@
 // unused imports and dead code. To avoid useless warnings about this they
 // are allowed when no feature is active.
 #![cfg_attr(
-    not(any(feature = "async_output", feature = "static_output")),
+    not(any(feature = "dynamic_output", feature = "static_output")),
     allow(unused_imports),
     allow(dead_code)
 )]
@@ -67,21 +67,46 @@
 //! # Usage
 //! Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
 //! * If you only want a pager to display static data, enable the `static_output` feature
-//! * If you want a pager to display dynamic data and be configurable at runtime, enable the `async_output` feature
+//! * If you want a pager to display dynamic data and be configurable at runtime, enable the `dynamic_output`
+//! feature
 //! * If you want search support inside the pager, you need to enable the `search` feature
 //! ```toml
 //! [dependencies.minus]
 //! version = "^5.0"
 //! features = [
 //!    # Enable features you want. For example
-//!    "async_output",
+//!    "dynamic_output",
 //!    "search"
 //! ]
 //! ```
 //!
 //! # Examples
 //!
-//! All example are available in the `examples` directory and you can run them using `cargo`.
+//! ## [`Threads`]:
+//!
+//! ```rust,no_run
+//! use minus::{dynamic_paging, MinusError, Pager};
+//! use std::{
+//!     fmt::Write,
+//!     thread::{spawn, sleep},
+//!     time::Duration
+//! };
+//!
+//! fn main() -> Result<(), MinusError> {
+//!     // Initialize the pager
+//!     let mut pager = Pager::new();
+//!     // Run the pager in a separate thread
+//!     let pager2 = pager.clone();
+//!     let pager_thread = spawn(move || dynamic_paging(pager2));
+//!
+//!     for i in 0..=100_u32 {
+//!         writeln!(pager, "{}", i);
+//!         sleep(Duration::from_millis(100));
+//!     }
+//!     pager_thread.join().unwrap()?;
+//!     Ok(())
+//! }
+//! ```
 //!
 //! ## [`tokio`]
 //!
@@ -146,27 +171,27 @@
 //! Here is the list of default key/mouse actions handled by `minus`.
 //! End-applications can change these bindings to better suit their needs.
 //!
-//! | Action            | Description                                        |
-//! | ----------------- | -------------------------------------------------- |
-//! | Ctrl+C/q          | Quit the pager                                     |
-//! | Arrow Up/k        | Scroll up by one line                              |
-//! | Arrow Down/j      | Scroll down by one line                            |
-//! | Page Up           | Scroll up by entire page                           |
-//! | Page Down         | Scroll down by entire page                         |
-//! | Enter             | Scroll down by one line or clear prompt messages   |
-//! | Space             | Scroll down by one page                            |
-//! | Ctrl+U/u          | Scroll up by half a screen                         |
-//! | Ctrl+D/d          | Scroll down by half a screen                       |
-//! | g                 | Go to the very top of the output                   |
-//! | G                 | Go to the very bottom of the output                |
-//! | Mouse scroll Up   | Scroll up by 5 lines                               |
-//! | Mouse scroll Down | Scroll down by 5 lines                             |
-//! | Ctrl+L            | Toggle line numbers if not forced enabled/disabled |
-//! | /                 | Start forward search                               |
-//! | ?                 | Start backward search                              |
-//! | Esc               | Cancel search input                                |
-//! | n                 | Go to the next search match                        |
-//! | p                 | Go to the next previous match                      |
+//! | Action            | Description                                                              |
+//! |-------------------|--------------------------------------------------------------------------|
+//! | Ctrl+C/q          | Quit the pager                                                           |
+//! | <n>Arrow Up/k     | Scroll up by n number of line(s). If n is omitted it will be 1           |
+//! | <n>Arrow Down/j   | Scroll down by n number of line(s). If n is omitted it will be 1         |
+//! | Page Up           | Scroll up by entire page                                                 |
+//! | Page Down         | Scroll down by entire page                                               |
+//! | <n>Enter          | Clear prompt messages otherwise same as `k`                              |
+//! | Space             | Scroll down by one page                                                  |
+//! | Ctrl+U/u          | Scroll up by half a screen                                               |
+//! | Ctrl+D/d          | Scroll down by half a screen                                             |
+//! | g                 | Go to the very top of the output                                         |
+//! | <n>G              | Go to the nth line of the output, if n is omitted, go to the very bottom |
+//! | Mouse scroll Up   | Scroll up by 5 lines                                                     |
+//! | Mouse scroll Down | Scroll down by 5 lines                                                   |
+//! | Ctrl+L            | Toggle line numbers if not forced enabled/disabled                       |
+//! | /                 | Start forward search                                                     |
+//! | ?                 | Start backward search                                                    |
+//! | Esc               | Cancel search input                                                      |
+//! | n                 | Go to the next search match                                              |
+//! | p                 | Go to the next previous match                                            |
 //!
 //! [`tokio`]: https://docs.rs/tokio
 //! [`async-std`]: https://docs.rs/async-std

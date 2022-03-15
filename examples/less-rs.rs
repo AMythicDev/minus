@@ -1,7 +1,6 @@
 // This is an example of a pager that uses minus and reads data from a file and pages
 // it. It is similar to less, but in Rust. Hence the name `less-rs`
-// This example uses async-std runtime, though you can use tokio, or even blocking code
-// just make sure to enable the proper feature
+// This example uses OS threads,
 
 // This example uses a lot of `.expect()` and does not properly handle them. If
 // someone is interested to add proper error handling, you are free to file pull
@@ -13,7 +12,6 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::thread;
 
-// async fn read_file(name: String, pager: minus::PagerMutex) -> Result<(), std::io::Error> {
 fn read_file(name: String, pager: minus::Pager) -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open(name)?;
     let changes = || {

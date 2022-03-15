@@ -1,51 +1,91 @@
 # Changelog
-This file documents all noteable changes made to this project
+This file documents all notable changes made to this project
 
-## v5.0.0 [Unreleased]
-### Added
-* Added `dynamic_paging` function to enable paging using OS threads.
-* Added `crossbeam_channels` as dependency.
-* Added `once_cell` as a dependency.
-* Added feature to scroll through more than one line using the `j`, `k`, `Up`, `Down` or `Enter` keys by prefixing the key with a number. For example `10j` will take 10 lines down.
-* Added feature to jump to specific line by prefixing `G` with a number. For example `15G` will take you to the 15th line of the data.
-* Added `input::reader` module with both sync and async functions to read user input.
-* Added a `PagerState` struct to store and share internal data. It is made public, along with some of its fields so that it can be used to implement `InputClassifer` trait 
+## v5.0.0 [2022-03-15]
+* Added `dynamic_paging` function to enable asynchronous paging.
 
-### Changes
-* Use channels for communication between the main application and reading user input. Although internal data is stored inside a `PagerState`.
+  This is the unification of the previous `tokio_lib` and `async_std_lib` features.
+  minus no longer depends on `tokio` or `async_std` directly and requires end-application to
+  bring in these libs as dependency. **This makes minus completely runtime agnostic**
+  
+* minus can now be called from a OS thread using 
+  [`threads`](https://doc.rust-lang.org/std/thread/index.html). 
+  See example in [README](./README.md#threads)
+  
+* Applications should call `dynamic_paging` on s separate non-blocking thread like 
+  [`tokio::task::spawn_blocking()`](https://docs.rs/tokio/latest/tokio/task/fn.spawn_blocking.html)
+  or [`threads`](https://doc.rust-lang.org/std/thread/index.html).
+
+* Use channels for communication
+  
+  * This allows minus to exactly know when data is changed and do various optimizations on it's
+  * Added [`crossbeam_channels`](https://crates.io/crates/crossbeam_channels) as dependency.
+
+* Store the current run mode as static value
+
+  * The `RUNMODE` static item tells minus whether it is running in static mode or asynchonous mode
+  * Added `once_cell` as a dependency to store the above value in static scope.
+  
+* Added feature to scroll through more than one line
+  * Prefixing any of the movement keys with a number will move the screen up or down to that many lines. 
+    For example `10j` will take the view 10 lines down.
+  * Similarly jump to specific line by prefixing `G` with a number. For example `15G` will take you to the 
+    15th line of the data.
+    
+* Searching through text with lots of ansi sequence inside it will no longer break the search
+  Previously this case would cause the search matcher to not match it and move to the next one
+  (#57)
+    
+* Added a `PagerState` struct to store and share internal data. It is made public, along with some of its
+fields so that it can be used to implement `InputClassifer` trait for applications that want to modify the
+default keybindings
+
 * Renamed `AlternatePagingError` to `MinusError`.
-* Replaced `tokio_lib` and `async_std_lib` Cargo features with the unified `dynamic_paging` feature.
+  This was to shorten the number of letters one needs to type
+
 * `Pager::set_run_no_overflow(bool)` function is now only available in `static_output` mode.
+  In dynamic mode, this was more of a wasted feature as it didn't solve the issue that it should have done
+  and was a burden to maintain it.
+
 * Changed function signature of `InputClassifier::handle_input` to `handle_input(&self, ev: Event, ps: PagerState) -> Some(InputEvent)`.
-* Changed function signature of `Pager::new` to `new() -> Pager`. It previously used to return a `Result<Self, TermError>`.
-* Use threads even in static paging mode. Although mutating the `Pager`s data won't reflect any changes in static mode.
-* Replaced `tokio-no-overflow` example with `static-no-overflow` function. This is because the `Pager::run_no_overflow` function is only available in `static_output`feature.
+  The `handle_input()` function cared about a lot of things and passing everything as a parameter
+  was really tedious. This also caused a breaking change whenever a new parameter was added
+
+* Changed function signature of `Pager::new` to `new() -> Pager`. It previously used to return a        
+  `Result<Pager, TermError>`.
+
+* Use threads even in static paging mode. Although mutating the `Pager`s data won't reflect any changes in  
+  static mode.
+  
+* Replaced `tokio-no-overflow` example with `static-no-overflow` function. This is because the 
+  `Pager::run_no_overflow` function is only available in `static_output`feature.
+  
 * All implemented functions on `Pager` except `Pager::new` will return a `Result<(), MinusError>`
+  because the communication with the pager may fail if the pager has quit early on.
+  
 * Applications should spawn `dynamic_paging` by themselves. For example on tokio, this would be
   ```rust
       use tokio::{task::spawn_blocking, join}
-      use minus::{Pager, async_paging};
+      use minus::{Pager, dynamic_paging};
 
       let pager = Pager::new();
 
       join!(
-          spawn_blocking(move || async_paging(pager)
+          spawn_blocking(move || dynamic_paging(pager)
           // ....
       );
    ```
 
-     This change has been introduced to make minus async runtime agnostic
-* Renamed `dynamic_paging` function to `init_core`.
-* `page_all` now internally calls `init_core` to start the pager.
 * Renamed `Pager::set_input_handler` to `Pager::set_input_classifier`.
-
-### Removed
 * Removed `tokio_updating`  and `async_std_updating` in favour of the unified `dynamic_paging` function.
 * Removed `PagerMutex` type.
 * Removed `tokio`, `async-std` and `async-mutex` from dependencies.
-* Removed `run_no_overflow` behaviour in asynchronous paging.
 * Removed `Pager::finish` function.
 * Removed `Pager::end_data_stream` function.
+  
+  This was only required for running in dynamic mode with run no overflow on. With deprecation of this 
+  feature we no longer need this function
+  
 * Removed `static_long` example.
 * Removed `PageAllError` from `static_pager` and `errors` modules.
 

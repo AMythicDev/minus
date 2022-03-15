@@ -191,7 +191,7 @@ mod pager_append_str {
 }
 
 // Test exit callbacks function
-#[cfg(feature = "async_output")]
+#[cfg(feature = "dynamic_output")]
 #[test]
 fn exit_callback() {
     use crate::PagerState;
