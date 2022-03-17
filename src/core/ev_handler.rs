@@ -65,9 +65,12 @@ pub fn handle_event(
                 let regex = regex::Regex::new(&string);
                 if let Ok(r) = regex {
                     p.search_term = Some(r);
-                    // Prepare a index where search matches are found
-                    // and set it to pager.search_idx
-                    search::set_match_indices(p);
+
+                    // For some reason, the pager won't automatically move to the next match
+                    // unless we format lines here. that also, though, finds the search indices
+                    // for us, so we don't need to manually call that
+                    p.format_lines();
+
                     // Move to
                     search::next_match(p);
                 } else {
@@ -76,9 +79,10 @@ pub fn handle_event(
                         "Invalid regular expression. Press Enter",
                         p.cols,
                     ));
+
+                    p.format_lines();
                 }
             }
-            p.format_lines();
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::NextMatch) if p.search_term.is_some() => {
