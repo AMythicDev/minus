@@ -162,7 +162,7 @@ fn start_reactor(
                 break;
             }
 
-            let event = rx.try_recv();
+            let event = rx.recv();
 
             #[allow(clippy::unnested_or_patterns)]
             match event {
@@ -246,7 +246,7 @@ fn start_reactor(
                 break;
             }
 
-            if let Ok(Event::UserInput(inp)) = rx.try_recv() {
+            if let Ok(Event::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock().unwrap();
                 handle_event(
                     Event::UserInput(inp),
