@@ -618,6 +618,8 @@ impl PagerState {
         line_numbers: bool,
         len_line_number: usize,
         idx: usize,
+        #[cfg(feature = "search")]
+        search_idx: &mut Vec<usize>,
     ) -> Vec<String> {
         if line_numbers {
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
@@ -627,7 +629,11 @@ impl PagerState {
                     #[cfg(feature = "search")]
                     if let Some(st) = self.search_term.as_ref() {
                         // highlight the lines with matching search terms
-                        row = search::highlight_line_matches(&row, st);
+                        let (hrow, is_match) = search::highlight_line_matches(&row, st);
+                        if is_match {
+                            search_idx.push(idx);
+                        }
+                        row = hrow;
                     }
 
                     if cfg!(not(test)) {
@@ -652,7 +658,7 @@ impl PagerState {
         } else {
             #[cfg(feature = "search")]
             if let Some(st) = self.search_term.as_ref() {
-                return wrap_str(&search::highlight_line_matches(line, st), self.cols);
+                return wrap_str(&search::highlight_line_matches(line, st).0, self.cols);
             }
 
             wrap_str(line, self.cols)
@@ -663,6 +669,9 @@ impl PagerState {
         let line_count = self.lines.lines().count();
 
         let len_line_number = line_count.to_string().len();
+
+        #[cfg(feature = "search")]
+        let mut search_idx = Vec::new();
 
         self.formatted_lines = self
             .lines
@@ -677,17 +686,21 @@ impl PagerState {
                     ),
                     len_line_number,
                     idx,
+                    #[cfg(feature = "search")]
+                    &mut search_idx,
                 )
             })
             .collect::<Vec<String>>();
+
+        #[cfg(feature = "search")]
+        {
+            self.search_idx = search_idx;
+        }
 
         if self.message.is_some() {
             rewrap(self.message.as_mut().unwrap(), self.cols);
         }
         rewrap(&mut self.prompt, self.cols);
-
-        #[cfg(feature = "search")]
-        search::set_match_indices(self);
     }
 
     /// Returns all the text within the bounds, after flattening
@@ -754,6 +767,8 @@ impl PagerState {
             (to_fmt, self.lines.lines().count().saturating_sub(1))
         };
 
+        #[cfg(feature = "search")]
+        let mut append_search_idx = Vec::new();
         // format the lines we want to format
         to_format
             .lines()
@@ -767,6 +782,8 @@ impl PagerState {
                     ),
                     len_line_number,
                     idx + to_skip.saturating_sub(1),
+                    #[cfg(feature = "search")]
+                    &mut append_search_idx
                 )
             })
             .collect::<Vec<String>>()

@@ -145,13 +145,16 @@ pub fn set_match_indices(pager: &mut PagerState) {
 }
 
 /// Highlights the search match
-pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
+///
+/// The first return value returns the line that has all the search matches highlighted
+/// The second tells whether a search match was actually found
+pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool) {
     // Remove all ansi escapes so we can look through it as if it had none
     let stripped_str = ANSI_REGEX.replace_all(line, "");
 
     // if it doesn't match, don't even try. Just return.
     if !query.is_match(&stripped_str) {
-        return line.to_string();
+        return (line.to_string(), false);
     }
 
     // sum_width is used to calculate the total width of the ansi escapes
@@ -219,14 +222,13 @@ pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
         inserted_escs_len += esc.1.len();
     }
 
-    inverted
+    (inverted, true)
 }
 
 /// Set [`PagerState::search_mark`] to move to the next match
 ///
 /// This function will continue looping untill it finds a match that is after the
 /// [`PagerState::upper_mark`]
-#[cfg(feature = "search")]
 pub fn next_match(ps: &mut PagerState) {
     // Loop until we find a match, that's after the upper_mark
     //

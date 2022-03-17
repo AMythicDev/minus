@@ -66,12 +66,10 @@ pub fn handle_event(
                 if let Ok(r) = regex {
                     p.search_term = Some(r);
 
-                    // For some reason, the pager won't automatically move to the next match
-                    // unless we format lines here. that also, though, finds the search indices
-                    // for us, so we don't need to manually call that
+                    // Format the lines, this will automatically generate the PagerState.search_idx
                     p.format_lines();
 
-                    // Move to
+                    // Move to next search match after the current upper_mark
                     search::next_match(p);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
