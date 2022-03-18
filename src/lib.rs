@@ -510,6 +510,10 @@ pub struct PagerState {
     formatted_lines: Vec<String>,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
+    /// Unterminated lines
+    /// Keeps track of the number of lines at the last of [PagerState::formatted_lines] which are
+    /// not terminated by a newline
+    unterminated: usize,
     /// The prompt displayed at the bottom wrapped to available terminal width
     prompt: Vec<String>,
     /// The input classifier to be called when a input is detected
@@ -586,6 +590,7 @@ impl PagerState {
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
+            unterminated: 0,
             prompt: wrap_str("minus", cols),
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
@@ -618,8 +623,7 @@ impl PagerState {
         line_numbers: bool,
         len_line_number: usize,
         idx: usize,
-        #[cfg(feature = "search")]
-        search_idx: &mut Vec<usize>,
+        #[cfg(feature = "search")] search_idx: &mut Vec<usize>,
     ) -> Vec<String> {
         if line_numbers {
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
@@ -722,11 +726,20 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) {
-        let mut fmt_line = self.make_append_str(text);
-        self.formatted_lines.append(&mut fmt_line);
+        let (mut fmt_line, num_unterminated) = self.make_append_str(text);
+
+        if num_unterminated != 0 {
+            self.unterminated = num_unterminated;
+            self.formatted_lines.append(&mut fmt_line);
+        } else if num_unterminated == 0 && self.unterminated != 0 {
+            self.formatted_lines =
+                self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
+            self.formatted_lines.append(&mut fmt_line);
+            self.unterminated = 0;
+        }
     }
 
-    pub(crate) fn make_append_str(&mut self, text: &str) -> Vec<String> {
+    pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
         // if the text we have saved currently ends with a newline,
         // we want the formatted_text vector to append the line instead of
         // trying to add it to the last item
@@ -743,9 +756,11 @@ impl PagerState {
         // push the text to lines
         self.lines.push_str(text);
 
+        let line_count = self.lines.lines().count();
+
         // And get how many lines of text will be shown (not how many rows, how many wrapped
         // lines), and get its string length
-        let len_line_number = self.lines.lines().count().to_string().len();
+        let len_line_number = line_count.to_string().len();
 
         // if we want a newline, just format the new text and append it.
         // if we don't, format the text with the last line currently formatted
@@ -753,24 +768,19 @@ impl PagerState {
         //
         // also get the line number to start at when formatting
         let (to_format, to_skip) = if newline {
-            (text.to_owned(), self.lines.lines().count())
+            (text.to_owned(), line_count)
         } else {
             // add the trailing whitespace in here, since it isn't preserved when wrapping the
             // lines, and thus won't appear on the last element in self.formatted_lines
-            let to_fmt = format!(
-                "{}{}{}",
-                self.formatted_lines.pop().unwrap_or_default(),
-                ending_whitespace,
-                text
-            );
+            let to_fmt = self.lines.lines().last().unwrap_or_default().to_string();
 
-            (to_fmt, self.lines.lines().count().saturating_sub(1))
+            (to_fmt, self.lines.lines().count())
         };
 
         #[cfg(feature = "search")]
         let mut append_search_idx = Vec::new();
         // format the lines we want to format
-        to_format
+        let formatted_text = to_format
             .lines()
             .enumerate()
             .flat_map(|(idx, line)| {
@@ -783,10 +793,19 @@ impl PagerState {
                     len_line_number,
                     idx + to_skip.saturating_sub(1),
                     #[cfg(feature = "search")]
-                    &mut append_search_idx
+                    &mut append_search_idx,
                 )
             })
-            .collect::<Vec<String>>()
+            .collect::<Vec<String>>();
+        let fmt_text_len = formatted_text.len();
+        (
+            formatted_text,
+            if self.lines.ends_with("\n") {
+                0
+            } else {
+                fmt_text_len
+            },
+        )
     }
 }
 
@@ -879,3 +898,45 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
 
 #[cfg(test)]
 mod tests;
+
+#[test]
+fn test_make_append_str() {
+    let mut ps = PagerState::new().unwrap();
+    ps.rows = 10;
+    ps.cols = 80;
+    ps.line_numbers = LineNumbers::AlwaysOn;
+
+    for i in 1..=10 {
+        println!("##################################################");
+        let (mut x, y) = ps.make_append_str(&i.to_string());
+        dbg!(&x, y);
+
+        if y != 0 {
+            ps.unterminated = y;
+            ps.formatted_lines.append(&mut x);
+        } else if y == 0 && ps.unterminated != 0 {
+            ps.formatted_lines =
+                ps.formatted_lines[0..ps.formatted_lines.len() - ps.unterminated].to_vec();
+            ps.formatted_lines.append(&mut x);
+            ps.unterminated = 0;
+        }
+        dbg!(&ps.formatted_lines);
+
+        println!("==================================================");
+
+        let (mut x, y) = ps.make_append_str("\n");
+        dbg!(&x, y);
+
+        if y != 0 {
+            ps.unterminated = y;
+            ps.formatted_lines.append(&mut x);
+        } else if y == 0 && ps.unterminated != 0 {
+            ps.formatted_lines =
+                ps.formatted_lines[0..ps.formatted_lines.len() - ps.unterminated].to_vec();
+            ps.formatted_lines.append(&mut x);
+            ps.unterminated = 0;
+        }
+        dbg!(&ps.formatted_lines);
+    }
+    panic!()
+}

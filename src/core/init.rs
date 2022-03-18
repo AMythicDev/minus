@@ -197,12 +197,20 @@ fn start_reactor(
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
                     // Make the string that nneds to be appended
-                    let mut fmt_text = p.make_append_str(&text);
+                    let (mut fmt_text, num_unterminated) = p.make_append_str(&text);
 
                     if p.num_lines() < p.rows {
                         let mut out = out.borrow_mut();
                         // Move the cursor to the very next line after the last displayed line
-                        term::move_cursor(&mut *out, 0, p.num_lines().try_into().unwrap(), false)?;
+                        term::move_cursor(
+                            &mut *out,
+                            0,
+                            p.num_lines()
+                                .saturating_sub(p.unterminated)
+                                .try_into()
+                                .unwrap(),
+                            false,
+                        )?;
                         // available_rows -> Rows that are still unfilled
                         //      rows - number of lines displayed -1 (for prompt)
                         // For example if 20 rows are in total in a terminal
@@ -216,11 +224,25 @@ fn start_reactor(
                         // This woll be equal to 3 as available rows will be 3
                         // If in the above example only 2 lines are needed to be added, this will be equal to 2
                         let num_appendable = fmt_text.len().min(available_rows);
-                        write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
+                        fmt_text
+                            .iter()
+                            .take(num_appendable)
+                            .try_for_each(|row| -> Result<(), MinusError> {
+                                    write!(out, "{}", row)?;
+                                Ok(())
+                            })?;
                         out.flush()?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec
-                    p.formatted_lines.append(&mut fmt_text);
+                    if num_unterminated != 0 {
+                        p.unterminated = num_unterminated;
+                        p.formatted_lines.append(&mut fmt_text);
+                    } else if num_unterminated == 0 && p.unterminated != 0 {
+                        p.formatted_lines =
+                            p.formatted_lines[0..p.formatted_lines.len() - p.unterminated].to_vec();
+                        p.formatted_lines.append(&mut fmt_text);
+                        p.unterminated = 0;
+                    }
                 }
                 Ok(ev) => {
                     let mut p = ps.lock().unwrap();
