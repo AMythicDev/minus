@@ -220,6 +220,8 @@ pub fn next_match(ps: &mut PagerState) {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::{highlight_line_matches, next_match, INVERT, NORMAL};
     use crate::PagerState;
     use crossterm::style::Attribute;
@@ -234,7 +236,7 @@ mod tests {
         let mut pager = PagerState::new().unwrap();
         pager.search_mark = 0;
         // A sample index for mocking actual search index matches
-        pager.search_idx = vec![2, 10, 15, 17, 50];
+        pager.search_idx = BTreeSet::from([2, 10, 15, 17, 50]);
         for i in &pager.search_idx.clone() {
             next_match(&mut pager);
             assert_eq!(pager.upper_mark, *i as usize);

@@ -241,8 +241,10 @@ use minus_core::events::Event;
 use minus_core::search;
 #[cfg(feature = "search")]
 pub use minus_core::search::SearchMode;
+#[cfg(feature = "search")]
+use std::collections::BTreeSet;
 use std::string::ToString;
-use std::{fmt, io::stdout, collections::BTreeSet};
+use std::{fmt, io::stdout};
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
@@ -664,18 +666,21 @@ impl PagerState {
                 .iter()
                 .map(|row| {
                     #[cfg(feature = "search")]
-                    if let Some(st) = self.search_term.as_ref() {
-                        // highlight the lines with matching search terms
-                        let (hrow, is_match) = search::highlight_line_matches(&row, st);
-                        if is_match {
-                            search_idx.insert(idx);
-                        }
-                        hrow
-                    } else {
-                        row.to_string()
+                    {
+                        self.search_term.as_ref().map_or_else(
+                            || row.to_string(),
+                            |st| {
+                                // highlight the lines with matching search terms
+                                let (hrow, is_match) = search::highlight_line_matches(row, st);
+                                if is_match {
+                                    search_idx.insert(idx);
+                                }
+                                hrow
+                            },
+                        )
                     }
                     #[cfg(not(feature = "search"))]
-                    row
+                    row.to_string()
                 })
                 .collect::<Vec<String>>()
         }
@@ -792,15 +797,16 @@ impl PagerState {
                 )
             })
             .collect::<Vec<String>>();
-        append_search_idx.iter().for_each(|idx| {
-            if !self.search_idx.contains(idx) {
-                self.search_idx.insert(*idx);
+        #[cfg(feature = "search")]
+        for idx in append_search_idx {
+            if !self.search_idx.contains(&idx) {
+                self.search_idx.insert(idx);
             }
-        });
+        }
         let fmt_text_len = formatted_text.len();
         (
             formatted_text,
-            if self.lines.ends_with("\n") {
+            if self.lines.ends_with('\n') {
                 0
             } else {
                 fmt_text_len
