@@ -726,32 +726,15 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) {
-        let (mut fmt_line, num_unterminated) = self.make_append_str(text);
-
-        if num_unterminated != 0 {
-            self.unterminated = num_unterminated;
-            self.formatted_lines.append(&mut fmt_line);
-        } else if num_unterminated == 0 && self.unterminated != 0 {
-            self.formatted_lines =
-                self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
-            self.formatted_lines.append(&mut fmt_line);
-            self.unterminated = 0;
-        }
+        let (fmt_line, num_unterminated) = self.make_append_str(text);
+        self.append_str_on_unterminated(fmt_line, num_unterminated);
     }
 
     pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
         // if the text we have saved currently ends with a newline,
         // we want the formatted_text vector to append the line instead of
         // trying to add it to the last item
-        let newline = self.lines.ends_with('\n');
-
-        // find the number of trailing whitespace characters currently on self.lines
-        let ending_whitespace = self
-            .lines
-            .chars()
-            .rev()
-            .take_while(|c| c.is_whitespace() && *c != '\n')
-            .collect::<String>();
+        let newline = self.lines.ends_with('\n') || self.lines.is_empty();
 
         // push the text to lines
         self.lines.push_str(text);
@@ -806,6 +789,22 @@ impl PagerState {
                 fmt_text_len
             },
         )
+    }
+
+    pub fn append_str_on_unterminated(&mut self, mut fmt_line: Vec<String>, num_unterminated: usize)  {
+        if num_unterminated != 0 {
+            self.formatted_lines =
+                self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
+            self.unterminated = num_unterminated;
+            self.formatted_lines.append(&mut fmt_line);
+        } else if num_unterminated == 0 {
+            if self.unterminated != 0 {
+                self.formatted_lines =
+                    self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
+            }
+            self.formatted_lines.append(&mut fmt_line);
+            self.unterminated = 0;
+        }
     }
 }
 
@@ -898,45 +897,3 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
 
 #[cfg(test)]
 mod tests;
-
-#[test]
-fn test_make_append_str() {
-    let mut ps = PagerState::new().unwrap();
-    ps.rows = 10;
-    ps.cols = 80;
-    ps.line_numbers = LineNumbers::AlwaysOn;
-
-    for i in 1..=10 {
-        println!("##################################################");
-        let (mut x, y) = ps.make_append_str(&i.to_string());
-        dbg!(&x, y);
-
-        if y != 0 {
-            ps.unterminated = y;
-            ps.formatted_lines.append(&mut x);
-        } else if y == 0 && ps.unterminated != 0 {
-            ps.formatted_lines =
-                ps.formatted_lines[0..ps.formatted_lines.len() - ps.unterminated].to_vec();
-            ps.formatted_lines.append(&mut x);
-            ps.unterminated = 0;
-        }
-        dbg!(&ps.formatted_lines);
-
-        println!("==================================================");
-
-        let (mut x, y) = ps.make_append_str("\n");
-        dbg!(&x, y);
-
-        if y != 0 {
-            ps.unterminated = y;
-            ps.formatted_lines.append(&mut x);
-        } else if y == 0 && ps.unterminated != 0 {
-            ps.formatted_lines =
-                ps.formatted_lines[0..ps.formatted_lines.len() - ps.unterminated].to_vec();
-            ps.formatted_lines.append(&mut x);
-            ps.unterminated = 0;
-        }
-        dbg!(&ps.formatted_lines);
-    }
-    panic!()
-}

@@ -197,7 +197,7 @@ fn start_reactor(
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
                     // Make the string that nneds to be appended
-                    let (mut fmt_text, num_unterminated) = p.make_append_str(&text);
+                    let (fmt_text, num_unterminated) = p.make_append_str(&text);
 
                     if p.num_lines() < p.rows {
                         let mut out = out.borrow_mut();
@@ -234,15 +234,7 @@ fn start_reactor(
                         out.flush()?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec
-                    if num_unterminated != 0 {
-                        p.unterminated = num_unterminated;
-                        p.formatted_lines.append(&mut fmt_text);
-                    } else if num_unterminated == 0 && p.unterminated != 0 {
-                        p.formatted_lines =
-                            p.formatted_lines[0..p.formatted_lines.len() - p.unterminated].to_vec();
-                        p.formatted_lines.append(&mut fmt_text);
-                        p.unterminated = 0;
-                    }
+                    p.append_str_on_unterminated(fmt_text, num_unterminated);
                 }
                 Ok(ev) => {
                     let mut p = ps.lock().unwrap();
