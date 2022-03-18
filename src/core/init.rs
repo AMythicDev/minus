@@ -224,13 +224,7 @@ fn start_reactor(
                         // This woll be equal to 3 as available rows will be 3
                         // If in the above example only 2 lines are needed to be added, this will be equal to 2
                         let num_appendable = fmt_text.len().min(available_rows);
-                        fmt_text
-                            .iter()
-                            .take(num_appendable)
-                            .try_for_each(|row| -> Result<(), MinusError> {
-                                    write!(out, "{}", row)?;
-                                Ok(())
-                            })?;
+                        write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
                         out.flush()?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec

@@ -242,7 +242,7 @@ use minus_core::search;
 #[cfg(feature = "search")]
 pub use minus_core::search::SearchMode;
 use std::string::ToString;
-use std::{fmt, io::stdout};
+use std::{fmt, io::stdout, collections::BTreeSet};
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
@@ -551,7 +551,7 @@ pub struct PagerState {
     pub search_mode: SearchMode,
     /// Lines where searches have a match
     #[cfg(feature = "search")]
-    search_idx: Vec<usize>,
+    search_idx: BTreeSet<usize>,
     /// Index of search item currently in focus
     /// It should be 0 even when no search is in action
     #[cfg(feature = "search")]
@@ -603,7 +603,7 @@ impl PagerState {
             #[cfg(feature = "search")]
             search_mode: SearchMode::default(),
             #[cfg(feature = "search")]
-            search_idx: Vec::with_capacity(u16::MAX.into()),
+            search_idx: BTreeSet::new(),
             #[cfg(feature = "search")]
             search_mark: 0,
             // Just to be safe in tests, keep at 1x1 size
@@ -623,7 +623,7 @@ impl PagerState {
         line_numbers: bool,
         len_line_number: usize,
         idx: usize,
-        #[cfg(feature = "search")] search_idx: &mut Vec<usize>,
+        #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
     ) -> Vec<String> {
         if line_numbers {
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
@@ -635,7 +635,7 @@ impl PagerState {
                         // highlight the lines with matching search terms
                         let (hrow, is_match) = search::highlight_line_matches(&row, st);
                         if is_match {
-                            search_idx.push(idx);
+                            search_idx.insert(idx);
                         }
                         row = hrow;
                     }
@@ -660,12 +660,24 @@ impl PagerState {
                 })
                 .collect::<Vec<String>>()
         } else {
-            #[cfg(feature = "search")]
-            if let Some(st) = self.search_term.as_ref() {
-                return wrap_str(&search::highlight_line_matches(line, st).0, self.cols);
-            }
-
             wrap_str(line, self.cols)
+                .iter()
+                .map(|row| {
+                    #[cfg(feature = "search")]
+                    if let Some(st) = self.search_term.as_ref() {
+                        // highlight the lines with matching search terms
+                        let (hrow, is_match) = search::highlight_line_matches(&row, st);
+                        if is_match {
+                            search_idx.insert(idx);
+                        }
+                        hrow
+                    } else {
+                        row.to_string()
+                    }
+                    #[cfg(not(feature = "search"))]
+                    row
+                })
+                .collect::<Vec<String>>()
         }
     }
 
@@ -675,7 +687,7 @@ impl PagerState {
         let len_line_number = line_count.to_string().len();
 
         #[cfg(feature = "search")]
-        let mut search_idx = Vec::new();
+        let mut search_idx = BTreeSet::new();
 
         self.formatted_lines = self
             .lines
@@ -698,7 +710,7 @@ impl PagerState {
 
         #[cfg(feature = "search")]
         {
-            self.search_idx = search_idx;
+            self.search_idx.append(&mut search_idx);
         }
 
         if self.message.is_some() {
@@ -761,7 +773,7 @@ impl PagerState {
         };
 
         #[cfg(feature = "search")]
-        let mut append_search_idx = Vec::new();
+        let mut append_search_idx = BTreeSet::new();
         // format the lines we want to format
         let formatted_text = to_format
             .lines()
@@ -780,6 +792,11 @@ impl PagerState {
                 )
             })
             .collect::<Vec<String>>();
+        append_search_idx.iter().for_each(|idx| {
+            if !self.search_idx.contains(idx) {
+                self.search_idx.insert(*idx);
+            }
+        });
         let fmt_text_len = formatted_text.len();
         (
             formatted_text,
@@ -791,7 +808,11 @@ impl PagerState {
         )
     }
 
-    pub fn append_str_on_unterminated(&mut self, mut fmt_line: Vec<String>, num_unterminated: usize)  {
+    pub fn append_str_on_unterminated(
+        &mut self,
+        mut fmt_line: Vec<String>,
+        num_unterminated: usize,
+    ) {
         if num_unterminated != 0 {
             self.formatted_lines =
                 self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
@@ -799,8 +820,9 @@ impl PagerState {
             self.formatted_lines.append(&mut fmt_line);
         } else if num_unterminated == 0 {
             if self.unterminated != 0 {
-                self.formatted_lines =
-                    self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
+                self.formatted_lines = self.formatted_lines
+                    [0..self.formatted_lines.len() - self.unterminated]
+                    .to_vec();
             }
             self.formatted_lines.append(&mut fmt_line);
             self.unterminated = 0;

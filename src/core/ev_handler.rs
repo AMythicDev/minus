@@ -103,7 +103,7 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceeding index
             p.search_mark = p.search_mark.saturating_sub(1);
-            let y = p.search_idx[p.search_mark];
+            let y = *p.search_idx.iter().nth(p.search_mark).unwrap();
             // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
             if y < p.upper_mark {
                 p.upper_mark = y;

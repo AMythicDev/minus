@@ -206,7 +206,7 @@ pub fn next_match(ps: &mut PagerState) {
     // Loop until we find a match, that's after the upper_mark
     //
     // Get match at the given mark
-    while let Some(y) = ps.search_idx.get(ps.search_mark) {
+    while let Some(y) = ps.search_idx.iter().nth(ps.search_mark) {
         // If it's above upper_mark, continue for the next match
         if *y < ps.upper_mark {
             ps.search_mark += 1;
@@ -220,7 +220,7 @@ pub fn next_match(ps: &mut PagerState) {
 
 #[cfg(test)]
 mod tests {
-    use super::{highlight_line_matches, next_match,  INVERT, NORMAL};
+    use super::{highlight_line_matches, next_match, INVERT, NORMAL};
     use crate::PagerState;
     use crossterm::style::Attribute;
     use regex::Regex;
@@ -296,7 +296,10 @@ eros.",
     fn esc_end_in_match() {
         let orig = format!("this {}is a te{}st", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
-        assert_eq!(res.0, format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL));
+        assert_eq!(
+            res.0,
+            format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL)
+        );
     }
 
     #[test]
