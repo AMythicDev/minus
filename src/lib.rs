@@ -552,6 +552,7 @@ pub struct PagerState {
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_mode: SearchMode,
     /// Lines where searches have a match
+    /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
     #[cfg(feature = "search")]
     search_idx: BTreeSet<usize>,
     /// Index of search item currently in focus
@@ -619,6 +620,14 @@ impl PagerState {
         self.formatted_lines.len()
     }
 
+    /// Formats the given `line`
+    ///
+    /// - `line_numbers` tells whether to format the line with line numbers.
+    /// - `len_line_number` is the length of the number of lines in [`PagerState::lines`] as in a string.
+    ///     For example, this will be 2 if number of lines in [`PagerState::lines`] is 50 and 3 if
+    ///     number of lines in [`PagerState::lines`] is 500. This is used for calculating the padding
+    ///     of each displayed line.
+    /// - `idx` is the psition index where the line is placed in [`PagerState::lines`].
     pub(crate) fn formatted_line(
         &self,
         line: &str,
@@ -628,13 +637,21 @@ impl PagerState {
         #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
     ) -> Vec<String> {
         if line_numbers {
+            // Padding is the space that the actual line text will be shifted to accomodate for
+            // in line numbers. This is equal to:-
+            // 1 for initial space + len_line_number + 1 for `.` sign and + 1 for the followup space
+            //
+            // We reduce this from the number of available columns as this space cannot be used for
+            // actual line display when wrapping the lines
+            let padding = len_line_number + 3;
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            wrap_str(line, self.cols.saturating_sub(len_line_number + 3))
+            wrap_str(line, self.cols.saturating_sub(padding))
                 .into_iter()
                 .map(|mut row| {
                     #[cfg(feature = "search")]
                     if let Some(st) = self.search_term.as_ref() {
                         // highlight the lines with matching search terms
+                        // If a match is found, add this line's index to PagerState::search_idx
                         let (hrow, is_match) = search::highlight_line_matches(&row, st);
                         if is_match {
                             search_idx.insert(idx);
@@ -652,6 +669,8 @@ impl PagerState {
                             row = row
                         )
                     } else {
+                        // In tests, we don't care about ANSI sequences for cool looking line numbers
+                        // hence we don't include them in tests. It just makes testing more difficult
                         format!(
                             " {number: >len$}. {row}",
                             number = idx + 1,
@@ -671,6 +690,7 @@ impl PagerState {
                             || row.to_string(),
                             |st| {
                                 // highlight the lines with matching search terms
+                                // If a match is found, add this line's index to PagerState::search_idx
                                 let (hrow, is_match) = search::highlight_line_matches(row, st);
                                 if is_match {
                                     search_idx.insert(idx);
@@ -687,10 +707,15 @@ impl PagerState {
     }
 
     pub(crate) fn format_lines(&mut self) {
+        // Keep it for the record and don't call it unless it is really necessory as this is kinda
+        // expensive
         let line_count = self.lines.lines().count();
 
+        // Calculate len_line_number. This will be 2 if line_count if 50 and 3 if line_count is 100.
         let len_line_number = line_count.to_string().len();
 
+        // Search idx, this will get filled by the self.formatted_line function
+        // we will later set this to self.search_idx
         #[cfg(feature = "search")]
         let mut search_idx = BTreeSet::new();
 
@@ -718,6 +743,7 @@ impl PagerState {
             self.search_idx.append(&mut search_idx);
         }
 
+        // Wrap any message if present and also the prompt
         if self.message.is_some() {
             rewrap(self.message.as_mut().unwrap(), self.cols);
         }
@@ -747,11 +773,25 @@ impl PagerState {
         self.append_str_on_unterminated(fmt_line, num_unterminated);
     }
 
+    /// Makes the text that will be displayed and appended it to [`self.formatted_lines`]
+    ///
+    /// - The first output value is the actual text rows that needs to be appended. This is wrapped
+    ///     based on the available columns
+    /// - The second value is the number of rows that should be truncated from [`self.formatted_lines`]
+    ///     before appending this line. This will be 0 if the given `text` is to be appended to
+    ///     [`self.formatted_lines`] but will be `>0` if the given text is actually part of the
+    ///     last appended line. This function determines this by checking whether self.lines ends with
+    ///     `\n` after appending the text
     pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
-        // if the text we have saved currently ends with a newline,
+        // if the text we have saved currently in self.lines ends with a newline or is empty,
         // we want the formatted_text vector to append the line instead of
-        // trying to add it to the last item
-        let newline = self.lines.ends_with('\n') || self.lines.is_empty();
+        // trying to add it to the last item.
+        //
+        // In minus the \n acts as a marker that a line has been terminated and no changes are going
+        // to be made to it again. It may or may not be present at the end of the last line of self.lines
+        // If it is, we know that no changes are going to be made to it. In case it isn't, minus believes
+        // that the incoming text is part of the last line and hence here need to check that.
+        let append = self.lines.ends_with('\n') || self.lines.is_empty();
 
         // push the text to lines
         self.lines.push_str(text);
@@ -762,21 +802,18 @@ impl PagerState {
         // lines), and get its string length
         let len_line_number = line_count.to_string().len();
 
-        // if we want a newline, just format the new text and append it.
-        // if we don't, format the text with the last line currently formatted
-        // since it will be appended to that
-        //
-        // also get the line number to start at when formatting
-        let (to_format, to_skip) = if newline {
+        // If append is true, we take the text for formatting
+        // else we take the last line of self.lines for formatting. This is because we nned to
+        // format the entire line rathar than just this part
+        let (to_format, to_skip) = if append {
             (text.to_owned(), line_count)
         } else {
-            // add the trailing whitespace in here, since it isn't preserved when wrapping the
-            // lines, and thus won't appear on the last element in self.formatted_lines
             let to_fmt = self.lines.lines().last().unwrap_or_default().to_string();
-
             (to_fmt, self.lines.lines().count())
         };
 
+        // This will get filled if there is an ongoing search. We just need to append it to
+        // self.search_idx at the end
         #[cfg(feature = "search")]
         let mut append_search_idx = BTreeSet::new();
         // format the lines we want to format
@@ -798,12 +835,9 @@ impl PagerState {
             })
             .collect::<Vec<String>>();
         #[cfg(feature = "search")]
-        for idx in append_search_idx {
-            if !self.search_idx.contains(&idx) {
-                self.search_idx.insert(idx);
-            }
-        }
+        self.search_idx.append(&mut append_search_idx);
         let fmt_text_len = formatted_text.len();
+
         (
             formatted_text,
             if self.lines.ends_with('\n') {
@@ -812,27 +846,24 @@ impl PagerState {
                 fmt_text_len
             },
         )
+
     }
 
-    pub fn append_str_on_unterminated(
+    /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
+    /// [`self.formatted_lines`]
+    ///
+    /// `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
+    /// that should be truncated from [`self.formatted_lines`] to update the last line
+    pub(crate) fn append_str_on_unterminated(
         &mut self,
         mut fmt_line: Vec<String>,
         num_unterminated: usize,
     ) {
-        if num_unterminated != 0 {
-            self.formatted_lines =
-                self.formatted_lines[0..self.formatted_lines.len() - self.unterminated].to_vec();
-            self.unterminated = num_unterminated;
-            self.formatted_lines.append(&mut fmt_line);
-        } else if num_unterminated == 0 {
-            if self.unterminated != 0 {
-                self.formatted_lines = self.formatted_lines
-                    [0..self.formatted_lines.len() - self.unterminated]
-                    .to_vec();
-            }
-            self.formatted_lines.append(&mut fmt_line);
-            self.unterminated = 0;
+        if num_unterminated != 0 || (num_unterminated == 0 && self.unterminated != 0) {
+            self.formatted_lines.truncate(self.formatted_lines.len() - self.unterminated);
         }
+        self.formatted_lines.append(&mut fmt_line);
+        self.unterminated = num_unterminated;
     }
 }
 
