@@ -310,7 +310,7 @@ fn event_reader(
         if !input_thread_running.load(Ordering::SeqCst) {
             continue;
         }
-        if event::poll(std::time::Duration::from_millis(10))
+        if event::poll(std::time::Duration::from_millis(100))
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
