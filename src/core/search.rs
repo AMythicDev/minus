@@ -218,6 +218,7 @@ pub fn next_match(ps: &mut PagerState) {
     }
 }
 
+#[allow(clippy::trivial_regex)]
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;

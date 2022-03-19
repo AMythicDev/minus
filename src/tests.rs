@@ -103,6 +103,38 @@ mod pager_append_str {
     }
 
     #[test]
+    fn appendstr_with_newlines() {
+        const LINES: [&str; 3] = [
+            "this is a normal line with no newline",
+            "this is an appended line with a newline\n",
+            "and this is a third line"
+        ];
+
+        let mut ps = PagerState::new().unwrap();
+        // For the purpose of testing wrapping while appending strs
+        ps.cols = 15;
+
+        for line in LINES {
+            ps.append_str(line);
+        }
+
+        assert_eq!(
+            ps.formatted_lines,
+            vec![
+                "this is a",
+                "normal line",
+                "with no",
+                "newlinethis is",
+                "an appended",
+                "line with a",
+                "newline",
+                "and this is a",
+                "third line"
+            ]
+        );
+    }
+
+    #[test]
     fn incremental_append() {
         const LINES: [&str; 4] = [
             "this is a line",

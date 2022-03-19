@@ -627,13 +627,16 @@ impl PagerState {
     ///     For example, this will be 2 if number of lines in [`PagerState::lines`] is 50 and 3 if
     ///     number of lines in [`PagerState::lines`] is 500. This is used for calculating the padding
     ///     of each displayed line.
-    /// - `idx` is the psition index where the line is placed in [`PagerState::lines`].
+    /// - `idx` is the position index where the line is placed in [`PagerState::lines`].
+    /// - `formatted_idx` is the position index where the line will be placed in the resulting
+    ///    [`PagerState::formatted_lines`]
     pub(crate) fn formatted_line(
         &self,
         line: &str,
         line_numbers: bool,
         len_line_number: usize,
         idx: usize,
+        #[cfg(feature = "search")] formatted_idx: usize,
         #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
     ) -> Vec<String> {
         if line_numbers {
@@ -645,16 +648,18 @@ impl PagerState {
             // actual line display when wrapping the lines
             let padding = len_line_number + 3;
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+            #[cfg_attr(not(feature = "search"), allow(unused_variables))]
             wrap_str(line, self.cols.saturating_sub(padding))
                 .into_iter()
-                .map(|mut row| {
+                .enumerate()
+                .map(|(wrap_idx, mut row)| {
                     #[cfg(feature = "search")]
                     if let Some(st) = self.search_term.as_ref() {
                         // highlight the lines with matching search terms
                         // If a match is found, add this line's index to PagerState::search_idx
                         let (hrow, is_match) = search::highlight_line_matches(&row, st);
                         if is_match {
-                            search_idx.insert(idx);
+                            search_idx.insert(formatted_idx + wrap_idx);
                         }
                         row = hrow;
                     }
@@ -681,9 +686,11 @@ impl PagerState {
                 })
                 .collect::<Vec<String>>()
         } else {
+            #[cfg_attr(not(feature = "search"), allow(unused_variables))]
             wrap_str(line, self.cols)
                 .iter()
-                .map(|row| {
+                .enumerate()
+                .map(|(wrap_idx, row)| {
                     #[cfg(feature = "search")]
                     {
                         self.search_term.as_ref().map_or_else(
@@ -693,7 +700,7 @@ impl PagerState {
                                 // If a match is found, add this line's index to PagerState::search_idx
                                 let (hrow, is_match) = search::highlight_line_matches(row, st);
                                 if is_match {
-                                    search_idx.insert(idx);
+                                    search_idx.insert(formatted_idx + wrap_idx);
                                 }
                                 hrow
                             },
@@ -718,13 +725,14 @@ impl PagerState {
         // we will later set this to self.search_idx
         #[cfg(feature = "search")]
         let mut search_idx = BTreeSet::new();
+        let mut formatted_idx = 0;
 
         self.formatted_lines = self
             .lines
             .lines()
             .enumerate()
             .flat_map(|(idx, line)| {
-                self.formatted_line(
+                let new_line = self.formatted_line(
                     line,
                     matches!(
                         self.line_numbers,
@@ -733,14 +741,18 @@ impl PagerState {
                     len_line_number,
                     idx,
                     #[cfg(feature = "search")]
+                    formatted_idx,
+                    #[cfg(feature = "search")]
                     &mut search_idx,
-                )
+                );
+                formatted_idx += new_line.len();
+                new_line
             })
             .collect::<Vec<String>>();
 
         #[cfg(feature = "search")]
         {
-            self.search_idx.append(&mut search_idx);
+            self.search_idx = search_idx;
         }
 
         // Wrap any message if present and also the prompt
@@ -796,21 +808,21 @@ impl PagerState {
         // push the text to lines
         self.lines.push_str(text);
 
-        let line_count = self.lines.lines().count();
+        let to_skip = self.lines.lines().count();
 
         // And get how many lines of text will be shown (not how many rows, how many wrapped
         // lines), and get its string length
-        let len_line_number = line_count.to_string().len();
+        let len_line_number = to_skip.to_string().len();
 
         // If append is true, we take the text for formatting
         // else we take the last line of self.lines for formatting. This is because we nned to
         // format the entire line rathar than just this part
-        let (to_format, to_skip) = if append {
-            (text.to_owned(), line_count)
+        let to_format = if append {
+            text.to_owned()
         } else {
-            let to_fmt = self.lines.lines().last().unwrap_or_default().to_string();
-            (to_fmt, self.lines.lines().count())
+            self.lines.lines().last().unwrap_or_default().to_string()
         };
+
 
         // This will get filled if there is an ongoing search. We just need to append it to
         // self.search_idx at the end
@@ -829,6 +841,12 @@ impl PagerState {
                     ),
                     len_line_number,
                     idx + to_skip.saturating_sub(1),
+                    #[cfg(feature = "search")]
+                    if append {
+                        self.formatted_lines.len()
+                    } else {
+                        self.formatted_lines.len().saturating_sub(1)
+                    },
                     #[cfg(feature = "search")]
                     &mut append_search_idx,
                 )
