@@ -823,7 +823,6 @@ impl PagerState {
             self.lines.lines().last().unwrap_or_default().to_string()
         };
 
-
         // This will get filled if there is an ongoing search. We just need to append it to
         // self.search_idx at the end
         #[cfg(feature = "search")]

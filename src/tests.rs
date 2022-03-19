@@ -107,7 +107,7 @@ mod pager_append_str {
         const LINES: [&str; 3] = [
             "this is a normal line with no newline",
             "this is an appended line with a newline\n",
-            "and this is a third line"
+            "and this is a third line",
         ];
 
         let mut ps = PagerState::new().unwrap();
