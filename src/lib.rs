@@ -846,7 +846,6 @@ impl PagerState {
                 fmt_text_len
             },
         )
-
     }
 
     /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
@@ -859,8 +858,9 @@ impl PagerState {
         mut fmt_line: Vec<String>,
         num_unterminated: usize,
     ) {
-        if num_unterminated != 0 || (num_unterminated == 0 && self.unterminated != 0) {
-            self.formatted_lines.truncate(self.formatted_lines.len() - self.unterminated);
+        if num_unterminated != 0 || self.unterminated != 0 {
+            self.formatted_lines
+                .truncate(self.formatted_lines.len() - self.unterminated);
         }
         self.formatted_lines.append(&mut fmt_line);
         self.unterminated = num_unterminated;
