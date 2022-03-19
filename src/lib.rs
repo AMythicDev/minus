@@ -582,14 +582,14 @@ impl PagerState {
         };
 
         Ok(Self {
-            lines: String::new(),
-            formatted_lines: Vec::new(),
+            lines: String::with_capacity(u16::MAX.into()),
+            formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             prompt: wrap_str("minus", cols),
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
-            exit_callbacks: Vec::new(),
+            exit_callbacks: Vec::with_capacity(5),
             message: None,
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
@@ -598,7 +598,7 @@ impl PagerState {
             #[cfg(feature = "search")]
             search_mode: SearchMode::default(),
             #[cfg(feature = "search")]
-            search_idx: Vec::new(),
+            search_idx: Vec::with_capacity(u16::MAX.into()),
             #[cfg(feature = "search")]
             search_mark: 0,
             // Just to be safe in tests, keep at 1x1 size
