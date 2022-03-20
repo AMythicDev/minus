@@ -15,8 +15,8 @@ use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
-use std::thread;
 use std::sync::{Arc, Mutex};
+use std::thread;
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
