@@ -65,10 +65,11 @@ pub fn handle_event(
                 let regex = regex::Regex::new(&string);
                 if let Ok(r) = regex {
                     p.search_term = Some(r);
-                    // Prepare a index where search matches are found
-                    // and set it to pager.search_idx
-                    search::set_match_indices(p);
-                    // Move to
+
+                    // Format the lines, this will automatically generate the PagerState.search_idx
+                    p.format_lines();
+
+                    // Move to next search match after the current upper_mark
                     search::next_match(p);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
@@ -76,9 +77,10 @@ pub fn handle_event(
                         "Invalid regular expression. Press Enter",
                         p.cols,
                     ));
+
+                    p.format_lines();
                 }
             }
-            p.format_lines();
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::NextMatch) if p.search_term.is_some() => {
@@ -101,7 +103,7 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceeding index
             p.search_mark = p.search_mark.saturating_sub(1);
-            let y = p.search_idx[p.search_mark];
+            let y = *p.search_idx.iter().nth(p.search_mark).unwrap();
             // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
             if y < p.upper_mark {
                 p.upper_mark = y;

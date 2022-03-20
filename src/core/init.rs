@@ -197,12 +197,20 @@ fn start_reactor(
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
                     // Make the string that nneds to be appended
-                    let mut fmt_text = p.make_append_str(&text);
+                    let (fmt_text, num_unterminated) = p.make_append_str(&text);
 
                     if p.num_lines() < p.rows {
                         let mut out = out.borrow_mut();
                         // Move the cursor to the very next line after the last displayed line
-                        term::move_cursor(&mut *out, 0, p.num_lines().try_into().unwrap(), false)?;
+                        term::move_cursor(
+                            &mut *out,
+                            0,
+                            p.num_lines()
+                                .saturating_sub(p.unterminated)
+                                .try_into()
+                                .unwrap(),
+                            false,
+                        )?;
                         // available_rows -> Rows that are still unfilled
                         //      rows - number of lines displayed -1 (for prompt)
                         // For example if 20 rows are in total in a terminal
@@ -220,7 +228,7 @@ fn start_reactor(
                         out.flush()?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec
-                    p.formatted_lines.append(&mut fmt_text);
+                    p.append_str_on_unterminated(fmt_text, num_unterminated);
                 }
                 Ok(ev) => {
                     let mut p = ps.lock().unwrap();

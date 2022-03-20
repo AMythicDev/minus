@@ -117,41 +117,17 @@ pub fn fetch_input(
     }
 }
 
-/// Set [`PagerState.search_idx`] to the line numbers at which search matches are found
-///
-/// The function will go through each line in [`PagerState::formatted_lines`] to check
-/// if there is a search match. If a match is found, the function will append the index of the
-/// string to [`PagerState::search_idx`]
-pub fn set_match_indices(pager: &mut PagerState) {
-    let pattern = match pager.search_term.as_ref() {
-        Some(pat) => pat,
-        None => return,
-    };
-
-    // Get all the lines in wrapping, check if they have a match
-    // and put their line numbers if they do
-    pager.search_idx = pager
-        .formatted_lines
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, line)| {
-            if pattern.is_match(line) {
-                Some(idx)
-            } else {
-                None
-            }
-        })
-        .collect();
-}
-
 /// Highlights the search match
-pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
+///
+/// The first return value returns the line that has all the search matches highlighted
+/// The second tells whether a search match was actually found
+pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool) {
     // Remove all ansi escapes so we can look through it as if it had none
     let stripped_str = ANSI_REGEX.replace_all(line, "");
 
     // if it doesn't match, don't even try. Just return.
     if !query.is_match(&stripped_str) {
-        return line.to_string();
+        return (line.to_string(), false);
     }
 
     // sum_width is used to calculate the total width of the ansi escapes
@@ -219,19 +195,18 @@ pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> String {
         inserted_escs_len += esc.1.len();
     }
 
-    inverted
+    (inverted, true)
 }
 
 /// Set [`PagerState::search_mark`] to move to the next match
 ///
 /// This function will continue looping untill it finds a match that is after the
 /// [`PagerState::upper_mark`]
-#[cfg(feature = "search")]
 pub fn next_match(ps: &mut PagerState) {
     // Loop until we find a match, that's after the upper_mark
     //
     // Get match at the given mark
-    while let Some(y) = ps.search_idx.get(ps.search_mark) {
+    while let Some(y) = ps.search_idx.iter().nth(ps.search_mark) {
         // If it's above upper_mark, continue for the next match
         if *y < ps.upper_mark {
             ps.search_mark += 1;
@@ -243,9 +218,12 @@ pub fn next_match(ps: &mut PagerState) {
     }
 }
 
+#[allow(clippy::trivial_regex)]
 #[cfg(test)]
 mod tests {
-    use super::{highlight_line_matches, next_match, set_match_indices, INVERT, NORMAL};
+    use std::collections::BTreeSet;
+
+    use super::{highlight_line_matches, next_match, INVERT, NORMAL};
     use crate::PagerState;
     use crossterm::style::Attribute;
     use regex::Regex;
@@ -259,7 +237,7 @@ mod tests {
         let mut pager = PagerState::new().unwrap();
         pager.search_mark = 0;
         // A sample index for mocking actual search index matches
-        pager.search_idx = vec![2, 10, 15, 17, 50];
+        pager.search_idx = BTreeSet::from([2, 10, 15, 17, 50]);
         for i in &pager.search_idx.clone() {
             next_match(&mut pager);
             assert_eq!(pager.upper_mark, *i as usize);
@@ -280,49 +258,27 @@ eros.",
             noinverse = Attribute::NoReverse
         );
 
-        assert_eq!(highlight_line_matches(&line, &pat), result);
-    }
-
-    #[test]
-    fn test_set_match_indexes() {
-        let mut pager = PagerState::new().unwrap();
-
-        pager.lines = "\
-Fusce suscipit, wisi nec facilisis facilisis, est dui fermentum leo, quis tempor ligula 
-erat quis odio.  Nunc porta vulputate tellus.  Nunc rutrum turpis sed pede.  Sed 
-bibendum.  Aliquam posuere.  Nunc aliquet, augue nec adipiscing interdum, lacus tellus 
-malesuada massa, quis varius mi purus non odio.  Pellentesque condimentum, magna ut 
-suscipit hendrerit, ipsum augue ornare nulla, non luctus diam neque sit amet urna.  
-Curabitur vulputate vestibulum lorem.  Fusce sagittis, libero non molestie mollis, magna 
-orci ultrices dolor, at vulputate neque nulla lacinia eros.  Sed id ligula quis est 
-convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
-            .to_string();
-        pager.format_lines();
-
-        pager.search_term = Some(Regex::new(r"\Wa\w+\W").unwrap());
-        let res = vec![3, 7, 11];
-        set_match_indices(&mut pager);
-        assert_eq!(pager.search_idx, res);
+        assert_eq!(highlight_line_matches(&line, &pat).0, result);
     }
 
     #[test]
     fn no_match() {
         let orig = "no match";
         let res = highlight_line_matches(orig, &Regex::new("test").unwrap());
-        assert_eq!(res, orig.to_string());
+        assert_eq!(res.0, orig.to_string());
     }
 
     #[test]
     fn single_match_no_esc() {
         let res = highlight_line_matches("this is a test", &Regex::new(" a ").unwrap());
-        assert_eq!(res, format!("this is{} a {}test", *INVERT, *NORMAL));
+        assert_eq!(res.0, format!("this is{} a {}test", *INVERT, *NORMAL));
     }
 
     #[test]
     fn multi_match_no_esc() {
         let res = highlight_line_matches("test another test", &Regex::new("test").unwrap());
         assert_eq!(
-            res,
+            res.0,
             format!("{i}test{n} another {i}test{n}", i = *INVERT, n = *NORMAL)
         );
     }
@@ -334,7 +290,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
             &Regex::new("test").unwrap(),
         );
         assert_eq!(
-            res,
+            res.0,
             format!("{}color{} and {}test{}", ESC, NONE, *INVERT, *NORMAL)
         );
     }
@@ -343,7 +299,10 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     fn esc_end_in_match() {
         let orig = format!("this {}is a te{}st", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
-        assert_eq!(res, format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL));
+        assert_eq!(
+            res.0,
+            format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL)
+        );
     }
 
     #[test]
@@ -351,7 +310,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
         let orig = format!("this is a te{}st again{}", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
-            res,
+            res.0,
             format!("this is a {}test{} again{}", *INVERT, *NORMAL, NONE)
         );
     }
@@ -361,7 +320,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
         let orig = format!("this is {}a test again{}", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
-            res,
+            res.0,
             format!("this is {}a {}test{} again{}", ESC, *INVERT, *NORMAL, NONE)
         );
     }
@@ -370,7 +329,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
     fn esc_within_match() {
         let orig = format!("this is a t{}es{}t again", ESC, NONE);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
-        assert_eq!(res, format!("this is a {}test{} again", *INVERT, *NORMAL));
+        assert_eq!(res.0, format!("this is a {}test{} again", *INVERT, *NORMAL));
     }
 
     #[test]
@@ -382,7 +341,7 @@ convallis tempor.  Curabitur lacinia pulvinar nibh.  Nam a sapien."
         );
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
-            res,
+            res.0,
             format!(
                 "this {e}is a {i}test{n} again {e}yeah{nn} {i}test{n}",
                 e = ESC,
