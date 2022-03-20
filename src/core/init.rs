@@ -218,10 +218,10 @@ fn start_reactor(
                         // If in the above example only 2 lines are needed to be added, this will be equal to 2
                         let num_appendable = fmt_text.len().min(available_rows);
                         write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
+                        out_lock.flush()?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec
                     p.append_str_on_unterminated(fmt_text, num_unterminated);
-                    out_lock.flush()?;
                 }
                 Ok(ev) => {
                     let mut p = ps.lock().unwrap();
