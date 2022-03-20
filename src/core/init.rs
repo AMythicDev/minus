@@ -18,10 +18,7 @@ use std::io::{stdout, Stdout};
 #[cfg(feature = "search")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
-use std::{
-    cell::RefCell,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
@@ -118,7 +115,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     start_reactor(
         &rx,
         &ps_mutex,
-        out,
+        &out,
         #[cfg(feature = "search")]
         &input_thread_running,
     )?;
@@ -142,23 +139,23 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
-    mut out: Stdout,
+    out: &Stdout,
     #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     // Has the user quitted
-    let is_exitted: RefCell<bool> = RefCell::new(false);
+    let mut is_exitted: bool = false;
+    let mut out_lock = out.lock();
 
-    {
-        let mut p = ps.lock().unwrap();
-        draw(&mut out, &mut p)?;
+    if let Ok(mut p) = ps.lock() {
+        draw(&mut out_lock, &mut p)?;
     }
-    let out = RefCell::new(out);
 
-    #[cfg(any(feature = "dynamic_output"))]
-    let dynamic_matcher = || -> Result<(), MinusError> {
-        use std::{convert::TryInto, io::Write};
-        loop {
-            if *is_exitted.borrow() {
+    #[allow(clippy::match_same_arms)]
+    match RUNMODE.get() {
+        #[cfg(feature = "dynamic_output")]
+        Some(&RunMode::Dynamic) => loop {
+            use std::{convert::TryInto, io::Write};
+            if is_exitted {
                 break;
             }
 
@@ -170,26 +167,25 @@ fn start_reactor(
                     let mut p = ps.lock().unwrap();
                     handle_event(
                         ev,
-                        &mut *out.borrow_mut(),
+                        &mut out_lock,
                         &mut p,
-                        &mut is_exitted.borrow_mut(),
+                        &mut is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    draw(&mut *out.borrow_mut(), &mut p)?;
+                    draw(&mut out_lock, &mut p)?;
                 }
                 Ok(Event::SetPrompt(ref text)) | Ok(Event::SendMessage(ref text)) => {
                     let mut p = ps.lock().unwrap();
                     let fmt_text = crate::wrap_str(text, p.cols);
-                    let mut out = out.borrow_mut();
                     if let Ok(Event::SetPrompt(_)) = event {
                         p.prompt = fmt_text.clone();
                     } else {
                         p.message = Some(fmt_text.clone());
                     }
-                    term::move_cursor(&mut *out, 0, p.rows.try_into().unwrap(), false)?;
+                    term::move_cursor(&mut out_lock, 0, p.rows.try_into().unwrap(), false)?;
                     super::display::write_prompt(
-                        &mut *out,
+                        &mut out_lock,
                         fmt_text.first().unwrap(),
                         p.rows.try_into().unwrap(),
                     )?;
@@ -200,10 +196,9 @@ fn start_reactor(
                     let (fmt_text, num_unterminated) = p.make_append_str(&text);
 
                     if p.num_lines() < p.rows {
-                        let mut out = out.borrow_mut();
                         // Move the cursor to the very next line after the last displayed line
                         term::move_cursor(
-                            &mut *out,
+                            &mut out_lock,
                             0,
                             p.num_lines()
                                 .saturating_sub(p.unterminated)
@@ -224,33 +219,29 @@ fn start_reactor(
                         // This woll be equal to 3 as available rows will be 3
                         // If in the above example only 2 lines are needed to be added, this will be equal to 2
                         let num_appendable = fmt_text.len().min(available_rows);
-                        write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
-                        out.flush()?;
+                        write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec
                     p.append_str_on_unterminated(fmt_text, num_unterminated);
+                    out_lock.flush()?;
                 }
                 Ok(ev) => {
                     let mut p = ps.lock().unwrap();
                     handle_event(
                         ev,
-                        &mut *out.borrow_mut(),
+                        &mut out_lock,
                         &mut p,
-                        &mut is_exitted.borrow_mut(),
+                        &mut is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
                 }
                 Err(_) => {}
             }
-        }
-        Ok(())
-    };
-
-    #[cfg(feature = "static_output")]
-    let static_matcher = || -> Result<(), MinusError> {
-        loop {
-            if *is_exitted.borrow() {
+        },
+        #[cfg(feature = "static_output")]
+        Some(&RunMode::Static) => loop {
+            if is_exitted {
                 break;
             }
 
@@ -258,24 +249,15 @@ fn start_reactor(
                 let mut p = ps.lock().unwrap();
                 handle_event(
                     Event::UserInput(inp),
-                    &mut *out.borrow_mut(),
+                    &mut out_lock,
                     &mut p,
-                    &mut is_exitted.borrow_mut(),
+                    &mut is_exitted,
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
-                draw(&mut *out.borrow_mut(), &mut p)?;
+                draw(&mut out_lock, &mut p)?;
             }
-        }
-        Ok(())
-    };
-
-    #[allow(clippy::match_same_arms)]
-    match RUNMODE.get() {
-        #[cfg(feature = "dynamic_output")]
-        Some(&RunMode::Dynamic) => dynamic_matcher()?,
-        #[cfg(feature = "static_output")]
-        Some(&RunMode::Static) => static_matcher()?,
+        },
         None => panic!("Static variable RUNMODE not set"),
     }
     Ok(())
