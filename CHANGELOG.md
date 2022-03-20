@@ -1,6 +1,16 @@
 # Changelog
 This file documents all notable changes made to this project
 
+## v5.0.1 [2022-03-20]
+* Fixed extremely high CPU usage while running caused due to calling `Receiver::try_recv()` rather than
+  `Receiver::recv()`(#60)
+* Fixed another performace bug which was due to calling `event::poll` every 10ms. The poll duration
+  was increased to 100ms without any loss of responsiveness (9f7dace34)
+* Changed initialization of some fields in `PagerState` tp preallocate memory for them. This reduces
+  the number of allocations that need to be made when the pager just starts.
+* Bring back and improve the `Justfile`
+* Fix bugs related to duplicate line numbering and wrong search lines to be matched (#62)
+
 ## v5.0.0 [2022-03-15]
 * Added `dynamic_paging` function to enable asynchronous paging.
 
