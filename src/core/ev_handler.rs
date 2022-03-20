@@ -7,10 +7,7 @@ use super::search;
 use super::term::cleanup;
 use crate::{error::MinusError, input::InputEvent, wrap_str, PagerState};
 #[cfg(feature = "search")]
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 /// Respond based on the type of event
 ///
@@ -56,7 +53,7 @@ pub fn handle_event(
             p.search_mode = m;
             // Pause the main user input thread from running
             let ilock = event_thread_running.lock().unwrap();
-//            event_thread_running.swap(false, Ordering::SeqCst);
+            //            event_thread_running.swap(false, Ordering::SeqCst);
             // Get the query
             let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
             // Continue the user input thread
