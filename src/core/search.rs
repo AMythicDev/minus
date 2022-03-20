@@ -74,7 +74,7 @@ pub fn fetch_input(
     out.flush()?;
     let mut string = String::new();
     loop {
-        if event::poll(Duration::from_millis(10)).map_err(|e| MinusError::HandleEvent(e.into()))? {
+        if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             match event::read().map_err(|e| MinusError::HandleEvent(e.into()))? {
                 // If Esc is pressed, cancel the search
                 Event::Key(KeyEvent {

@@ -72,7 +72,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
     // Is the event reader running
     #[cfg(feature = "search")]
-    let input_thread_running = Arc::new(AtomicBool::new(true));
+    let input_thread_running = Arc::new(Mutex::new(()));
     #[allow(unused_mut)]
     let mut ps = generate_initial_state(&mut pager.rx, &mut out)?;
 
@@ -143,7 +143,7 @@ fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
     mut out: Stdout,
-    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
 ) -> Result<(), MinusError> {
     // Has the user quitted
     let is_exitted: RefCell<bool> = RefCell::new(false);
@@ -302,7 +302,7 @@ fn generate_initial_state(
             &mut ps,
             &mut false,
             #[cfg(feature = "search")]
-            &Arc::new(AtomicBool::new(true)),
+            &Arc::new(Mutex::new(())),
         )
     })?;
     Ok(ps)
@@ -311,13 +311,14 @@ fn generate_initial_state(
 fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
-    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
 ) -> Result<(), MinusError> {
     loop {
         #[cfg(feature = "search")]
-        if !input_thread_running.load(Ordering::SeqCst) {
-            continue;
-        }
+        let ilock = input_thread_running.lock().unwrap();
+        #[cfg(feature = "search")]
+        drop(ilock);
+
         if event::poll(std::time::Duration::from_millis(100))
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {

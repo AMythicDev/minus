@@ -8,8 +8,8 @@ use super::term::cleanup;
 use crate::{error::MinusError, input::InputEvent, wrap_str, PagerState};
 #[cfg(feature = "search")]
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    Mutex,
 };
 
 /// Respond based on the type of event
@@ -23,7 +23,7 @@ pub fn handle_event(
     mut out: &mut impl Write,
     p: &mut PagerState,
     is_exitted: &mut bool,
-    #[cfg(feature = "search")] event_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] event_thread_running: &Arc<Mutex<()>>,
 ) -> Result<(), MinusError> {
     match ev {
         Event::SetData(text) => {
@@ -55,11 +55,12 @@ pub fn handle_event(
         Event::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
             // Pause the main user input thread from running
-            event_thread_running.swap(false, Ordering::SeqCst);
+            let ilock = event_thread_running.lock().unwrap();
+//            event_thread_running.swap(false, Ordering::SeqCst);
             // Get the query
             let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
             // Continue the user input thread
-            event_thread_running.swap(true, Ordering::SeqCst);
+            drop(ilock);
 
             if !string.is_empty() {
                 let regex = regex::Regex::new(&string);
