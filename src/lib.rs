@@ -756,8 +756,8 @@ impl PagerState {
         }
 
         // Wrap any message if present and also the prompt
-        if self.message.is_some() {
-            rewrap(self.message.as_mut().unwrap(), self.cols);
+        if let Some(msg) = &self.message {
+            self.message = Some(wrap_str(&msg.join(""), self.cols));
         }
         rewrap(&mut self.prompt, self.cols);
     }
