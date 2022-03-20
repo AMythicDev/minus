@@ -814,32 +814,77 @@ impl PagerState {
         // lines), and get its string length
         let len_line_number = to_skip.to_string().len();
 
-        // If append is true, we take the text for formatting
-        // else we take the last line of self.lines for formatting. This is because we nned to
-        // format the entire line rathar than just this part
-        let to_format = if append {
-            text.to_owned()
-        } else {
-            self.lines.lines().last().unwrap_or_default().to_string()
-        };
-
         // This will get filled if there is an ongoing search. We just need to append it to
         // self.search_idx at the end
         #[cfg(feature = "search")]
         let mut append_search_idx = BTreeSet::new();
-        // format the lines we want to format
-        let formatted_text = to_format
-            .lines()
-            .enumerate()
-            .flat_map(|(idx, line)| {
-                self.formatted_line(
-                    line,
+        // If append is true, we take only the text for formatting
+        // else we also take the last line of self.lines for formatting. This is because we nned to
+        // format the entire line rathar than just this part
+        let (formatted_lines, unterminated) = if append {
+            let to_format = text.to_owned();
+            if text.ends_with('\n') {
+                (
+                    to_format
+                        .lines()
+                        .enumerate()
+                        .flat_map(|(idx, line)| {
+                            self.formatted_line(
+                                line,
+                                matches!(
+                                    self.line_numbers,
+                                    LineNumbers::AlwaysOn | LineNumbers::Enabled
+                                ),
+                                len_line_number,
+                                idx + to_skip.saturating_sub(1),
+                                #[cfg(feature = "search")]
+                                if append {
+                                    self.formatted_lines.len()
+                                } else {
+                                    self.formatted_lines.len().saturating_sub(1)
+                                },
+                                #[cfg(feature = "search")]
+                                &mut append_search_idx,
+                            )
+                        })
+                        .collect::<Vec<String>>(),
+                    0,
+                )
+            } else {
+                let to_format_len = to_format.lines().count();
+                let mut formatted_lines = to_format
+                    .lines()
+                    .take(to_format_len.saturating_sub(1))
+                    .enumerate()
+                    .flat_map(|(idx, line)| {
+                        self.formatted_line(
+                            line,
+                            matches!(
+                                self.line_numbers,
+                                LineNumbers::AlwaysOn | LineNumbers::Enabled
+                            ),
+                            len_line_number,
+                            idx + to_skip.saturating_sub(1),
+                            #[cfg(feature = "search")]
+                            if append {
+                                self.formatted_lines.len()
+                            } else {
+                                self.formatted_lines.len().saturating_sub(1)
+                            },
+                            #[cfg(feature = "search")]
+                            &mut append_search_idx,
+                        )
+                    })
+                    .collect::<Vec<String>>();
+
+                let mut last_fmt_line = self.formatted_line(
+                    to_format.lines().last().unwrap(),
                     matches!(
                         self.line_numbers,
                         LineNumbers::AlwaysOn | LineNumbers::Enabled
                     ),
                     len_line_number,
-                    idx + to_skip.saturating_sub(1),
+                    to_format_len + to_skip.saturating_sub(1),
                     #[cfg(feature = "search")]
                     if append {
                         self.formatted_lines.len()
@@ -848,21 +893,48 @@ impl PagerState {
                     },
                     #[cfg(feature = "search")]
                     &mut append_search_idx,
-                )
-            })
-            .collect::<Vec<String>>();
-        #[cfg(feature = "search")]
-        self.search_idx.append(&mut append_search_idx);
-        let fmt_text_len = formatted_text.len();
-
-        (
-            formatted_text,
-            if self.lines.ends_with('\n') {
+                );
+                let last_fmt_line_len = last_fmt_line.len();
+                formatted_lines.append(&mut last_fmt_line);
+                (formatted_lines, last_fmt_line_len)
+            }
+        } else {
+            let to_format = self.lines.lines().last().unwrap_or_default().to_string();
+            // First format all the lines except the last one of the given text
+            let formatted_lines = to_format
+                .lines()
+                .enumerate()
+                .flat_map(|(idx, line)| {
+                    self.formatted_line(
+                        line,
+                        matches!(
+                            self.line_numbers,
+                            LineNumbers::AlwaysOn | LineNumbers::Enabled
+                        ),
+                        len_line_number,
+                        idx + to_skip.saturating_sub(1),
+                        #[cfg(feature = "search")]
+                        if append {
+                            self.formatted_lines.len()
+                        } else {
+                            self.formatted_lines.len().saturating_sub(1)
+                        },
+                        #[cfg(feature = "search")]
+                        &mut append_search_idx,
+                    )
+                })
+                .collect::<Vec<String>>();
+            let unterminated = if self.lines.ends_with('\n') {
                 0
             } else {
-                fmt_text_len
-            },
-        )
+                formatted_lines.len()
+            };
+            (formatted_lines, unterminated)
+        };
+
+        #[cfg(feature = "search")]
+        self.search_idx.append(&mut append_search_idx);
+        (formatted_lines, unterminated)
     }
 
     /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
