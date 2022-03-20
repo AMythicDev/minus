@@ -129,7 +129,7 @@ pub fn handle_event(
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "search")]
-    use std::sync::{atomic::AtomicBool, Arc};
+    use std::sync::{Arc, Mutex};
 
     use super::super::events::Event;
     use crate::{ExitStrategy, PagerState};
@@ -144,7 +144,7 @@ mod tests {
         let ev = Event::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -165,7 +165,7 @@ mod tests {
         let ev2 = Event::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev1,
@@ -197,7 +197,7 @@ mod tests {
         let ev = Event::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -217,7 +217,7 @@ mod tests {
         let ev = Event::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -238,7 +238,7 @@ mod tests {
         let ev = Event::SetRunNoOverflow(false);
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -258,7 +258,7 @@ mod tests {
         let ev = Event::SetExitStrategy(ExitStrategy::PagerQuit);
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -278,7 +278,7 @@ mod tests {
         let ev = Event::AddExitCallback(Box::new(|| println!("Hello World")));
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,

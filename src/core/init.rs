@@ -15,8 +15,6 @@ use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
-#[cfg(feature = "search")]
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::{
     cell::RefCell,
