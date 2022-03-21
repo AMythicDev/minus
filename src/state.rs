@@ -1,10 +1,12 @@
 use crate::{
-    error::TermError, input, minus_core::search, rewrap, wrap_str, ExitStrategy, LineNumbers,
-    SearchMode,
+    error::TermError, input, rewrap, wrap_str, ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
+use std::io::stdout;
 #[cfg(feature = "search")]
-use std::{collections::BTreeSet, io::stdout};
+use std::{collections::BTreeSet};
+#[cfg(feature = "search")]
+use crate::minus_core::search::{self, SearchMode};
 
 /// Holds all information and configuration about the pager during
 /// its un time.
@@ -143,12 +145,13 @@ impl PagerState {
     pub(crate) fn formatted_line(
         &self,
         line: &str,
-        line_numbers: bool,
         len_line_number: usize,
         idx: usize,
         #[cfg(feature = "search")] formatted_idx: usize,
         #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
     ) -> Vec<String> {
+        let line_numbers = matches!(self.line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
+
         if line_numbers {
             // Padding is the space that the actual line text will be shifted to accomodate for
             // in line numbers. This is equal to:-
@@ -244,10 +247,6 @@ impl PagerState {
             .flat_map(|(idx, line)| {
                 let new_line = self.formatted_line(
                     line,
-                    matches!(
-                        self.line_numbers,
-                        LineNumbers::AlwaysOn | LineNumbers::Enabled
-                    ),
                     len_line_number,
                     idx,
                     #[cfg(feature = "search")]
@@ -343,10 +342,6 @@ impl PagerState {
                         .flat_map(|(idx, line)| {
                             self.formatted_line(
                                 line,
-                                matches!(
-                                    self.line_numbers,
-                                    LineNumbers::AlwaysOn | LineNumbers::Enabled
-                                ),
                                 len_line_number,
                                 idx + to_skip.saturating_sub(1),
                                 #[cfg(feature = "search")]
@@ -371,10 +366,6 @@ impl PagerState {
                     .flat_map(|(idx, line)| {
                         self.formatted_line(
                             line,
-                            matches!(
-                                self.line_numbers,
-                                LineNumbers::AlwaysOn | LineNumbers::Enabled
-                            ),
                             len_line_number,
                             idx + to_skip.saturating_sub(1),
                             #[cfg(feature = "search")]
@@ -391,10 +382,6 @@ impl PagerState {
 
                 let mut last_fmt_line = self.formatted_line(
                     to_format.lines().last().unwrap(),
-                    matches!(
-                        self.line_numbers,
-                        LineNumbers::AlwaysOn | LineNumbers::Enabled
-                    ),
                     len_line_number,
                     to_format_len + to_skip.saturating_sub(1),
                     #[cfg(feature = "search")]
@@ -419,10 +406,6 @@ impl PagerState {
                 .flat_map(|(idx, line)| {
                     self.formatted_line(
                         line,
-                        matches!(
-                            self.line_numbers,
-                            LineNumbers::AlwaysOn | LineNumbers::Enabled
-                        ),
                         len_line_number,
                         idx + to_skip.saturating_sub(1),
                         #[cfg(feature = "search")]
