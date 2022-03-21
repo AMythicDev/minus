@@ -6,7 +6,7 @@ use crossterm::{
 
 use std::{convert::TryInto, io::Write};
 
-use crate::{MinusError, PagerState};
+use crate::{error::MinusError, PagerState};
 
 /// Draws the scrren
 ///
