@@ -365,3 +365,135 @@ mod emit_events {
         assert_eq!(Event::AddExitCallback(func), pager.rx.try_recv().unwrap());
     }
 }
+
+mod unterminated {
+    use crate::PagerState;
+
+    #[test]
+    fn test_single_no_endline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) = ps.make_append_str("This is a line");
+        assert_eq!(1, unterm);
+    }
+
+    #[test]
+    fn test_single_endline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) = ps.make_append_str("This is a line\n");
+        assert_eq!(0, unterm);
+    }
+
+    #[test]
+    fn test_single_multi_newline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) =
+            ps.make_append_str("This is a line\nThis is another line\nThis is third line");
+        assert_eq!(1, unterm);
+    }
+
+    #[test]
+    fn test_single_multi_endline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) = ps.make_append_str("This is a line\nThis is another line\n");
+        assert_eq!(0, unterm);
+    }
+
+    #[test]
+    fn test_single_line_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str("This is a quite lengthy lint");
+        assert_eq!(2, unterm);
+    }
+
+    #[test]
+    fn test_single_mid_newline_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str(
+            "This is a quite lengthy lint\nIt has three lines\nThis is
+third line",
+        );
+        assert_eq!(1, unterm);
+    }
+
+    #[test]
+    fn test_single_endline_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str(
+            "This is a quite lengthy lint\nIt has three lines\nThis is
+third line\n",
+        );
+        assert_eq!(0, unterm);
+    }
+
+    #[test]
+    fn test_multi_no_endline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) = ps.make_append_str("This is a line");
+        assert_eq!(1, unterm);
+        let (_, unterm) = ps.make_append_str("This is another line");
+        assert_eq!(1, unterm);
+    }
+
+    #[test]
+    fn test_multi_endline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) = ps.make_append_str("This is a line ");
+        assert_eq!(1, unterm);
+        let (_, unterm) = ps.make_append_str("This is another line\n");
+        assert_eq!(0, unterm);
+    }
+
+    #[test]
+    fn test_multi_multiple_newline() {
+        let mut ps = PagerState::new().unwrap();
+        let (_, unterm) = ps.make_append_str("This is a line\n");
+        assert_eq!(0, unterm);
+        let (_, unterm) = ps.make_append_str("This is another line\n");
+        assert_eq!(0, unterm);
+    }
+
+    #[test]
+    fn test_multi_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str("This is a line. This is second line");
+        assert_eq!(2, unterm);
+        let (_, unterm) = ps.make_append_str("This is another line\n");
+        assert_eq!(0, unterm);
+    }
+
+    #[test]
+    fn test_multi_wrapping_continued() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str("This is a line. This is second line. ");
+        assert_eq!(2, unterm);
+        let (_, unterm) = ps.make_append_str("This is the third line");
+        assert_eq!(3, unterm);
+    }
+
+    #[test]
+    fn test_multi_wrapping_last_continued() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str("This is a line.\nThis is second line. ");
+        assert_eq!(1, unterm);
+        let (_, unterm) = ps.make_append_str("This is the third line");
+        assert_eq!(3, unterm);
+    }
+
+    #[test]
+    fn test_multi_wrapping_additive() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let (_, unterm) = ps.make_append_str("This is a line.");
+        assert_eq!(1, unterm);
+        let (_, unterm) = ps.make_append_str("This is second line. ");
+        assert_eq!(2, unterm);
+        let (_, unterm) = ps.make_append_str("This is third line");
+        assert_eq!(3, unterm);
+    }
+}

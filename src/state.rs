@@ -1,12 +1,10 @@
-use crate::{
-    error::TermError, input, rewrap, wrap_str, ExitStrategy, LineNumbers,
-};
-use crossterm::{terminal, tty::IsTty};
-use std::io::stdout;
-#[cfg(feature = "search")]
-use std::{collections::BTreeSet};
 #[cfg(feature = "search")]
 use crate::minus_core::search::{self, SearchMode};
+use crate::{error::TermError, input, rewrap, wrap_str, ExitStrategy, LineNumbers};
+use crossterm::{terminal, tty::IsTty};
+#[cfg(feature = "search")]
+use std::collections::BTreeSet;
+use std::io::stdout;
 
 /// Holds all information and configuration about the pager during
 /// its un time.
@@ -150,7 +148,10 @@ impl PagerState {
         #[cfg(feature = "search")] formatted_idx: usize,
         #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
     ) -> Vec<String> {
-        let line_numbers = matches!(self.line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
+        let line_numbers = matches!(
+            self.line_numbers,
+            LineNumbers::Enabled | LineNumbers::AlwaysOn
+        );
 
         if line_numbers {
             // Padding is the space that the actual line text will be shifted to accomodate for
