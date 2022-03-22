@@ -238,6 +238,7 @@ pub use static_pager::page_all;
 pub use minus_core::search::SearchMode;
 use std::string::ToString;
 
+pub use error::MinusError;
 pub use pager::Pager;
 pub use state::PagerState;
 
