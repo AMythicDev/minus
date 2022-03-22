@@ -240,6 +240,7 @@ use std::string::ToString;
 
 pub use pager::Pager;
 pub use state::PagerState;
+pub use error::MinusError;
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
