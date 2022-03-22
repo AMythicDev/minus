@@ -15,6 +15,7 @@ use std::io::stdout;
 ///
 /// Various fields are made public so that their values can be accessed while implementing the
 /// trait.
+#[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
     /// The text the pager has been told to be displayed
     pub(crate) lines: String,
@@ -304,7 +305,6 @@ impl PagerState {
     ///     [`self.formatted_lines`] but will be `>0` if the given text is actually part of the
     ///     last appended line. This function determines this by checking whether self.lines ends with
     ///     `\n` after appending the text
-    // TODO: Refactor this function
     pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
         // if the text we have saved currently in self.lines ends with a newline or is empty,
         // we want the formatted_text vector to append the line instead of
@@ -315,50 +315,31 @@ impl PagerState {
         // If it is, we know that no changes are going to be made to it. In case it isn't, minus believes
         // that the incoming text is part of the last line and hence here need to check that.
         let append = self.lines.ends_with('\n') || self.lines.is_empty();
-
         // push the text to lines
         self.lines.push_str(text);
-
-        let to_skip = self.lines.lines().count();
-
         // And get how many lines of text will be shown (not how many rows, how many wrapped
         // lines), and get its string length
+        let to_skip = self.lines.lines().count();
         let len_line_number = to_skip.to_string().len();
-
         // This will get filled if there is an ongoing search. We just need to append it to
         // self.search_idx at the end
         #[cfg(feature = "search")]
         let mut append_search_idx = BTreeSet::new();
-        // If append is true, we take only the text for formatting
+
+        // If append is true, we take only the given text for formatting
         // else we also take the last line of self.lines for formatting. This is because we nned to
         // format the entire line rathar than just this part
-        let (formatted_lines, unterminated) = if append {
-            // TODO: Add some help comments here
-            let to_format = text.to_owned();
-            if text.ends_with('\n') {
-                (
-                    to_format
-                        .lines()
-                        .enumerate()
-                        .flat_map(|(idx, line)| {
-                            self.formatted_line(
-                                line,
-                                len_line_number,
-                                idx + to_skip.saturating_sub(1),
-                                #[cfg(feature = "search")]
-                                if append {
-                                    self.formatted_lines.len()
-                                } else {
-                                    self.formatted_lines.len().saturating_sub(1)
-                                },
-                                #[cfg(feature = "search")]
-                                &mut append_search_idx,
-                            )
-                        })
-                        .collect::<Vec<String>>(),
-                    0,
-                )
-            } else {
+        let to_format = if append {
+            text.to_owned()
+        } else {
+            self.lines.lines().last().unwrap().to_string()
+        };
+        let (formatted_lines, unterminated) =
+            // NOTE: This is a special case where if the to be formatted text has newlines in between
+            // but not at the end
+            // First we format all the lines execpt the last one and then format the very last line.
+            // This is to ensure that we only calculate unterminated for the last line
+            if !self.lines.ends_with('\n') && self.lines.contains('\n') {
                 let to_format_len = to_format.lines().count();
                 let mut formatted_lines = to_format
                     .lines()
@@ -397,36 +378,33 @@ impl PagerState {
                 let last_fmt_line_len = last_fmt_line.len();
                 formatted_lines.append(&mut last_fmt_line);
                 (formatted_lines, last_fmt_line_len)
-            }
-        } else {
-            let to_format = self.lines.lines().last().unwrap_or_default().to_string();
-            // First format all the lines except the last one of the given text
-            let formatted_lines = to_format
-                .lines()
-                .enumerate()
-                .flat_map(|(idx, line)| {
-                    self.formatted_line(
-                        line,
-                        len_line_number,
-                        idx + to_skip.saturating_sub(1),
-                        #[cfg(feature = "search")]
-                        if append {
-                            self.formatted_lines.len()
-                        } else {
-                            self.formatted_lines.len().saturating_sub(1)
-                        },
-                        #[cfg(feature = "search")]
-                        &mut append_search_idx,
-                    )
-                })
-                .collect::<Vec<String>>();
-            let unterminated = if self.lines.ends_with('\n') {
-                0
             } else {
-                formatted_lines.len()
+                let formatted_lines = to_format
+                    .lines()
+                    .enumerate()
+                    .flat_map(|(idx, line)| {
+                        self.formatted_line(
+                            line,
+                            len_line_number,
+                            idx + to_skip.saturating_sub(1),
+                            #[cfg(feature = "search")]
+                            if append {
+                                self.formatted_lines.len()
+                            } else {
+                                self.formatted_lines.len().saturating_sub(1)
+                            },
+                            #[cfg(feature = "search")]
+                            &mut append_search_idx,
+                        )
+                    })
+                    .collect::<Vec<String>>();
+                let unterminated = if self.lines.ends_with('\n') {
+                    0
+                } else {
+                    formatted_lines.len()
+                };
+                (formatted_lines, unterminated)
             };
-            (formatted_lines, unterminated)
-        };
 
         #[cfg(feature = "search")]
         self.search_idx.append(&mut append_search_idx);
