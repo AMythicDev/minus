@@ -229,7 +229,6 @@ pub fn handle_event(
             p.format_lines();
             display::draw_full(&mut out, p)?;
         }
-
         Command::AppendData(text) => {
             let prev_unterminated = p.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
@@ -274,6 +273,10 @@ pub fn handle_event(
             display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
         }
         Command::SetExitStrategy(es) => p.exit_strategy = es,
+        Command::LineWrapping(lw) => {
+            p.line_wrapping = lw;
+            p.format_lines();
+        }
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]

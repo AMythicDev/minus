@@ -85,6 +85,7 @@
 
 pub(crate) mod definitions;
 pub(crate) mod event_wrapper;
+
 pub use crossterm::event as crossterm_event;
 
 #[cfg(feature = "search")]
@@ -111,6 +112,7 @@ pub enum InputEvent {
     Number(char),
     /// Restore the original prompt
     RestorePrompt,
+    HorizontalScroll(bool),
     /// Tells the event hadler to not do anything for this event
     ///
     /// This is extremely useful when you want to execute arbitrary code on events without
@@ -257,6 +259,11 @@ where
     map.add_mouse_events(&["scroll:down"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
     });
+
+    map.add_key_events(&["c-s-h"], |_, ps| {
+        InputEvent::HorizontalScroll(!ps.line_wrapping)
+    });
+    // TODO: Add keybindings for left right scrolling
 
     map.add_resize_event(|ev, _| {
         let Event::Resize(cols, rows) = ev else {
@@ -451,6 +458,38 @@ impl InputClassifier for DefaultInputClassifier {
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => Some(InputEvent::Exit),
+
+            // Horizontal scrolling
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('h'),
+                modifiers,
+                ..
+            }) if modifiers == KeyModifiers::CONTROL.intersection(KeyModifiers::SHIFT) => {
+                Some(InputEvent::HorizontalScroll(!ps.line_wrapping))
+            }
+
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('h'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Left,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => Some(InputEvent::UpdateLeftMark(ps.left_mark.saturating_sub(1))),
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('l'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Right,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => Some(InputEvent::UpdateLeftMark(ps.left_mark.saturating_add(1))),
+
+            // Search
             #[cfg(feature = "search")]
             Event::Key(KeyEvent {
                 code: KeyCode::Char('/'),
