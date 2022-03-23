@@ -243,7 +243,7 @@ pub fn write_text_checked(
     term::move_cursor(out, 0, 0, false)?;
     term::clear_entire_screen(out, false)?;
 
-    write_lines(out, display_lines, Some("\r"))
+    write_raw_lines(out, display_lines, Some("\r"))
 }
 
 pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
@@ -266,8 +266,37 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
     let display_lines: &[String] = ps
         .screen
         .get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
+    write_lines(out, display_lines, ps.cols, !ps.line_wrapping, ps.left_mark)
+}
 
-    write_lines(out, display_lines, Some("\r"))
+pub fn write_lines(
+    out: &mut impl Write,
+    lines: &[String],
+    cols: usize,
+    horizontal_scroll: bool,
+    left_mark: usize,
+) -> crate::Result {
+    if horizontal_scroll {
+        let rightmost = lines.iter().max().unwrap().len();
+        let range = (left_mark, rightmost);
+        write_lines_in_horizontal_scroll(out, lines, cols, range)
+    } else {
+        write_raw_lines(out, lines, Some("\r"))
+    }
+}
+
+pub fn write_lines_in_horizontal_scroll(
+    out: &mut impl Write,
+    lines: &[String],
+    cols: usize,
+    range: (usize, usize),
+) -> crate::Result {
+    // let mut line_output = String::with_capacity(range.1);
+    let (start, end) = range;
+    for line in lines {
+        writeln!(out, "\r{}", &line[start..cols.min(line.len())])?;
+    }
+    Ok(())
 }
 
 /// Write lines to the the output
@@ -276,7 +305,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
 /// `initial` tells any extra text to be inserted before each line. For functions that use this
 /// function over terminals, this should be set to `\r` to avoid broken display.
 /// The `\r` resets the cursor to the start of the line.
-pub fn write_lines(
+pub fn write_raw_lines(
     out: &mut impl Write,
     lines: &[String],
     initial: Option<&str>,

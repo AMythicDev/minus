@@ -48,6 +48,7 @@ pub fn handle_event(
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
+        Command::UserInput(InputEvent::UpdateLeftMark(lm)) => p.left_mark = lm,
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;

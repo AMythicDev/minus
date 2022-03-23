@@ -107,6 +107,8 @@ pub enum InputEvent {
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
+    /// `Right`, `Left`, `h` or `l` was pressed
+    UpdateLeftMark(usize),
     /// A number key has been pressed. This inner value is stored as a `char`.
     /// The input loop will append this number to its `count` string variable
     Number(char),
@@ -447,6 +449,7 @@ impl InputClassifier for DefaultInputClassifier {
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => Some(InputEvent::UpdateLineNumber(!ps.line_numbers)),
+
             // Quit.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),

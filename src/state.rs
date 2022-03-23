@@ -404,6 +404,7 @@ impl PagerState {
             lines_count: old_lc,
             prev_unterminated: self.unterminated,
             cols: self.cols,
+            line_wrapping: self.line_wrapping,
             #[cfg(feature = "search")]
             search_term: &self.search_state.search_term,
         };
