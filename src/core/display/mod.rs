@@ -6,7 +6,7 @@ use crossterm::{
 
 use std::{convert::TryInto, io::Write};
 
-use crate::{MinusError, PagerState};
+use crate::{error::MinusError, PagerState};
 
 /// Draws the scrren
 ///
@@ -43,7 +43,7 @@ pub fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusErr
 
         let search_len = search_text.len();
         let prompt_str = if search_len + first_prompt.len() > pager.cols.saturating_sub(1) {
-            &first_prompt[..pager.cols - search_len]
+            &first_prompt[..pager.cols - search_len - 1]
         } else {
             first_prompt
         };

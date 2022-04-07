@@ -7,10 +7,7 @@ use super::search;
 use super::term::cleanup;
 use crate::{error::MinusError, input::InputEvent, wrap_str, PagerState};
 #[cfg(feature = "search")]
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::{Arc, Mutex};
 
 /// Respond based on the type of event
 ///
@@ -23,7 +20,7 @@ pub fn handle_event(
     mut out: &mut impl Write,
     p: &mut PagerState,
     is_exitted: &mut bool,
-    #[cfg(feature = "search")] event_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] event_thread_running: &Arc<Mutex<()>>,
 ) -> Result<(), MinusError> {
     match ev {
         Event::SetData(text) => {
@@ -55,11 +52,12 @@ pub fn handle_event(
         Event::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
             // Pause the main user input thread from running
-            event_thread_running.swap(false, Ordering::SeqCst);
+            let ilock = event_thread_running.lock().unwrap();
+            //            event_thread_running.swap(false, Ordering::SeqCst);
             // Get the query
             let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
             // Continue the user input thread
-            event_thread_running.swap(true, Ordering::SeqCst);
+            drop(ilock);
 
             if !string.is_empty() {
                 let regex = regex::Regex::new(&string);
@@ -68,6 +66,10 @@ pub fn handle_event(
 
                     // Format the lines, this will automatically generate the PagerState.search_idx
                     p.format_lines();
+
+                    // Reset search mark so it won't be out of bounds if we have
+                    // less matches in this search than last time
+                    p.search_mark = 0;
 
                     // Move to next search match after the current upper_mark
                     search::next_match(p);
@@ -103,10 +105,11 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceeding index
             p.search_mark = p.search_mark.saturating_sub(1);
-            let y = *p.search_idx.iter().nth(p.search_mark).unwrap();
-            // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
-            if y < p.upper_mark {
-                p.upper_mark = y;
+            if let Some(y) = p.search_idx.iter().nth(p.search_mark) {
+                // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
+                if *y < p.upper_mark {
+                    p.upper_mark = *y;
+                }
             }
         }
         Event::AppendData(text) => p.append_str(&text),
@@ -131,7 +134,7 @@ pub fn handle_event(
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "search")]
-    use std::sync::{atomic::AtomicBool, Arc};
+    use std::sync::{Arc, Mutex};
 
     use super::super::events::Event;
     use crate::{ExitStrategy, PagerState};
@@ -146,7 +149,7 @@ mod tests {
         let ev = Event::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -167,7 +170,7 @@ mod tests {
         let ev2 = Event::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev1,
@@ -199,7 +202,7 @@ mod tests {
         let ev = Event::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -219,7 +222,7 @@ mod tests {
         let ev = Event::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -240,7 +243,7 @@ mod tests {
         let ev = Event::SetRunNoOverflow(false);
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -260,7 +263,7 @@ mod tests {
         let ev = Event::SetExitStrategy(ExitStrategy::PagerQuit);
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
@@ -280,7 +283,7 @@ mod tests {
         let ev = Event::AddExitCallback(Box::new(|| println!("Hello World")));
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
+        let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,

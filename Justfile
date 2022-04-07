@@ -22,7 +22,6 @@ examples:
  cargo check --example=dyn_tokio --features=dynamic_output
  cargo check --example=msg-tokio --features=dynamic_output
  cargo check --example=static --features=static_output
- cargo check --example=static_long --features=static_output,search
  cargo check --example=less-rs --features=dynamic_output,search
 
 lint:
@@ -34,3 +33,6 @@ lint:
  cargo clippy --features "static_output,search" --tests --examples
  cargo clippy --features "static_output,dynamic_output" --tests --examples
  cargo clippy --all-features --tests --examples
+
+verify-all: check-fmt build tests examples lint
+ @echo "Ready to go"
