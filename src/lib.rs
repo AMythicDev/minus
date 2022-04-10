@@ -310,7 +310,6 @@ impl std::ops::Not for LineNumbers {
     }
 }
 
-
 /// Wrap a line of string into a `Vec<String>` based on the number of columns
 pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
     textwrap::wrap(line, cols)
