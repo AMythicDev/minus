@@ -215,6 +215,8 @@ pub fn next_match(ps: &mut PagerState) {
     if let Some(idx) = ps.search_idx.iter().nth(ps.search_mark) {
         ps.upper_mark = *idx;
     }
+
+    ps.format_prompt();
 }
 
 #[allow(clippy::trivial_regex)]

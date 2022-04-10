@@ -23,45 +23,10 @@ pub fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusErr
     queue!(out, Clear(ClearType::All))?;
 
     write_lines(out, pager)?;
-    // If we have message, then show it or show the prompt text instead
-    let prompt = pager
-        .message
-        .as_ref()
-        .map_or_else(|| pager.prompt.clone(), std::clone::Clone::clone);
 
-    let first_prompt = prompt.first().ok_or(MinusError::MissingSome)?;
     let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
 
-    #[cfg(feature = "search")]
-    if pager.search_idx.is_empty() {
-        write_prompt(out, first_prompt, pager_rows)?;
-    } else {
-        //let search_text = format!("{}/{}", pager.search_mark + 1, pager.search_idx.len());
-        let mut search_text = (pager.search_mark + 1).to_string();
-        search_text.push('/');
-        search_text.push_str(&pager.search_idx.len().to_string());
-
-        let search_len = search_text.len();
-        let prompt_str = if search_len + first_prompt.len() > pager.cols.saturating_sub(1) {
-            &first_prompt[..pager.cols - search_len - 1]
-        } else {
-            first_prompt
-        };
-
-        // use String::with_capacity here since this is called a lot and
-        // we want to make sure it's as fast as possible
-        let mut final_prompt = String::with_capacity(prompt_str.len() + 1 + search_text.len());
-        final_prompt.push_str(prompt_str);
-        final_prompt.push(' ');
-        final_prompt.push_str(&search_text);
-
-        write_prompt(out, &final_prompt, pager_rows)?;
-    }
-
-
-    // Prompt
-    #[cfg(not(feature = "search"))]
-    write_prompt(out, first_prompt, pager_rows)?;
+    write_prompt(out, &pager.displayed_prompt, pager_rows)?;
 
     out.flush().map_err(MinusError::Draw)
 }

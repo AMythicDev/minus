@@ -5,7 +5,7 @@ use super::events::Event;
 #[cfg(feature = "search")]
 use super::search;
 use super::term::cleanup;
-use crate::{error::MinusError, input::InputEvent, wrap_str, PagerState};
+use crate::{error::MinusError, input::InputEvent, PagerState};
 #[cfg(feature = "search")]
 use std::sync::{Arc, Mutex};
 
@@ -75,11 +75,7 @@ pub fn handle_event(
                     search::next_match(p);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
-                    p.message = Some(crate::wrap_str(
-                        "Invalid regular expression. Press Enter",
-                        p.cols,
-                    ));
-
+                    p.message = Some("Invalid regular expression. Press Enter".to_owned());
                     p.format_lines();
                 }
             }
@@ -109,13 +105,18 @@ pub fn handle_event(
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
                     p.upper_mark = *y;
+                    p.format_prompt();
                 }
             }
         }
         Event::AppendData(text) => p.append_str(&text),
-        Event::SetPrompt(prompt) => p.prompt = wrap_str(&prompt, p.cols),
+        Event::SetPrompt(prompt) => {
+            p.prompt = prompt;
+            p.format_lines();
+        },
         Event::SendMessage(message) => {
-            p.message = Some(wrap_str(&message, p.cols));
+            p.message = Some(message);
+            p.format_lines();
         }
         Event::SetLineNumbers(ln) => {
             p.line_numbers = ln;
@@ -213,7 +214,7 @@ mod tests {
             &etr,
         )
         .unwrap();
-        assert_eq!(ps.prompt, vec![TEST_STR.to_string()]);
+        assert_eq!(ps.prompt, TEST_STR.to_string());
     }
 
     #[test]
@@ -233,7 +234,7 @@ mod tests {
             &etr,
         )
         .unwrap();
-        assert_eq!(ps.message.unwrap(), vec![TEST_STR.to_string()]);
+        assert_eq!(ps.message.unwrap(), TEST_STR.to_string());
     }
 
     #[test]

@@ -259,28 +259,6 @@ mod wrapping {
             (result[0].len(), result[1].len(), result[2].len()),
         );
     }
-
-    #[test]
-    fn rewrap() {
-        let test = {
-            let mut line = String::with_capacity(200);
-            for _ in 1..=200 {
-                line.push('#');
-            }
-            line
-        };
-
-        let mut line = crate::wrap_str(&test, 80);
-
-        assert_eq!(line.len(), 3);
-        assert_eq!((80, 80, 40), (line[0].len(), line[1].len(), line[2].len()),);
-
-        crate::rewrap(&mut line, 100);
-
-        assert_eq!(line.len(), 3);
-        // No change, since it's already in a good optimal state
-        assert_eq!((80, 80, 40), (line[0].len(), line[1].len(), line[2].len()));
-    }
 }
 
 mod emit_events {

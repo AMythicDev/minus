@@ -400,6 +400,7 @@ fn draw_help_message() {
     let mut pager = PagerState::new().unwrap();
     pager.lines = lines.to_string();
     pager.line_numbers = LineNumbers::AlwaysOff;
+    pager.format_prompt();
 
     draw(&mut out, &mut pager).expect("Should have written");
 
