@@ -95,9 +95,6 @@ pub enum MinusError {
     #[error("Failed to send data to the receiver")]
     Communication(#[from] crossbeam_channel::SendError<Event>),
 
-    #[error("Option was None when Some was expected")]
-    MissingSome,
-
     #[error("Failed to convert between some primitives")]
     Conversion,
 
