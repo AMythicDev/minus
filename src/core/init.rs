@@ -180,10 +180,11 @@ fn start_reactor(
                     } else {
                         p.message = Some(text.to_string());
                     }
+                    p.format_prompt();
                     term::move_cursor(&mut out_lock, 0, p.rows.try_into().unwrap(), false)?;
                     super::display::write_prompt(
                         &mut out_lock,
-                        crate::wrap_str(text, p.cols).first().unwrap(),
+                        &p.displayed_prompt,
                         p.rows.try_into().unwrap(),
                     )?;
                 }

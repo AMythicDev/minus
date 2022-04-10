@@ -36,7 +36,7 @@ pub fn handle_event(
         Event::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
-            p.format_lines();
+            p.format_prompt();
         }
         Event::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
@@ -107,11 +107,11 @@ pub fn handle_event(
         Event::AppendData(text) => p.append_str(&text),
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
-            p.format_lines();
+            p.format_prompt();
         },
         Event::SendMessage(message) => {
             p.message = Some(message);
-            p.format_lines();
+            p.format_prompt();
         }
         Event::SetLineNumbers(ln) => {
             p.line_numbers = ln;
