@@ -274,12 +274,12 @@ impl PagerState {
         self.format_prompt();
     }
 
-    /// Reformat the inputted prompt to how it should be displayed 
+    /// Reformat the inputted prompt to how it should be displayed
     pub(crate) fn format_prompt(&mut self) {
         const SEARCH_BG: &str = "\x1b[34m";
         const INPUT_BG: &str = "\x1b[33m";
 
-        // Allocate the string. Add extra space in case for the 
+        // Allocate the string. Add extra space in case for the
         // ANSI escape things if we do have characters typed and search showing
         let mut format_string = String::with_capacity(self.cols + (SEARCH_BG.len() * 2) + 4);
 
@@ -304,9 +304,7 @@ impl PagerState {
         }
 
         // And lastly, the string that contains the prompt or msg
-        let prompt_str = self.message
-            .as_ref()
-            .unwrap_or(&self.prompt);
+        let prompt_str = self.message.as_ref().unwrap_or(&self.prompt);
 
         #[cfg(feature = "search")]
         let search_len = search_str.len();
@@ -316,7 +314,9 @@ impl PagerState {
         // Calculate how much extra padding in the middle we need between
         // the prompt/message and the indicators on the right
         let prefix_len = prefix_str.len();
-        let extra_space = self.cols.saturating_sub(search_len + prefix_len + prompt_str.len());
+        let extra_space = self
+            .cols
+            .saturating_sub(search_len + prefix_len + prompt_str.len());
         let dsp_prompt: &str = if extra_space == 0 {
             &prompt_str[..self.cols - search_len - prefix_len]
         } else {

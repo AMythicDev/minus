@@ -108,7 +108,7 @@ pub fn handle_event(
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
             p.format_prompt();
-        },
+        }
         Event::SendMessage(message) => {
             p.message = Some(message);
             p.format_prompt();
