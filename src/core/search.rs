@@ -203,18 +203,17 @@ pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool
 /// This function will continue looping untill it finds a match that is after the
 /// [`PagerState::upper_mark`]
 pub fn next_match(ps: &mut PagerState) {
-    // Loop until we find a match, that's after the upper_mark
-    //
-    // Get match at the given mark
-    while let Some(y) = ps.search_idx.iter().nth(ps.search_mark) {
-        // If it's above upper_mark, continue for the next match
-        if *y < ps.upper_mark {
-            ps.search_mark += 1;
-        } else {
-            // If the condition is satisfied, set it and break
-            ps.upper_mark = *y as usize;
-            break;
-        }
+    // Find the first match that's after the upper_mark, then set the mark to that match.
+    // If we can't find one, just set it to the last match
+    if let Some(nearest_idx) = ps.search_idx.iter().position(|i| *i > ps.upper_mark) {
+        ps.search_mark = nearest_idx;
+    } else {
+        ps.search_mark = ps.search_idx.len().saturating_sub(1);
+    }
+
+    // And set the upper_mark to that match so that we scroll to it
+    if let Some(idx) = ps.search_idx.iter().nth(ps.search_mark) {
+        ps.upper_mark = *idx;
     }
 }
 
