@@ -175,16 +175,16 @@ fn start_reactor(
                 }
                 Ok(Event::SetPrompt(ref text)) | Ok(Event::SendMessage(ref text)) => {
                     let mut p = ps.lock().unwrap();
-                    let fmt_text = crate::wrap_str(text, p.cols);
                     if let Ok(Event::SetPrompt(_)) = event {
-                        p.prompt = fmt_text.clone();
+                        p.prompt = text.to_string();
                     } else {
-                        p.message = Some(fmt_text.clone());
+                        p.message = Some(text.to_string());
                     }
+                    p.format_prompt();
                     term::move_cursor(&mut out_lock, 0, p.rows.try_into().unwrap(), false)?;
                     super::display::write_prompt(
                         &mut out_lock,
-                        fmt_text.first().unwrap(),
+                        &p.displayed_prompt,
                         p.rows.try_into().unwrap(),
                     )?;
                 }
@@ -309,14 +309,17 @@ fn event_reader(
             if let Some(iev) = input {
                 if let InputEvent::Number(n) = iev {
                     guard.prefix_num.push(n);
-                    continue;
+                    guard.format_prompt();
+                } else if !guard.prefix_num.is_empty() {
+                    guard.prefix_num.clear();
+                    guard.format_prompt();
                 }
-                guard.prefix_num.clear();
                 if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Event::UserInput(iev)) {
                     break;
                 }
-            } else {
+            } else if !guard.prefix_num.is_empty() {
                 guard.prefix_num.clear();
+                guard.format_prompt();
             }
         }
     }

@@ -23,13 +23,10 @@ pub fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusErr
     queue!(out, Clear(ClearType::All))?;
 
     write_lines(out, pager)?;
-    // If we have message, then show it or show the prompt text instead
-    let prompt = pager
-        .message
-        .as_ref()
-        .map_or_else(|| pager.prompt.clone(), std::clone::Clone::clone);
-    // Prompt
-    write_prompt(out, prompt.first().unwrap(), pager.rows.try_into().unwrap())?;
+
+    let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
+
+    write_prompt(out, &pager.displayed_prompt, pager_rows)?;
 
     out.flush().map_err(MinusError::Draw)
 }

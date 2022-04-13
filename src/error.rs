@@ -95,6 +95,9 @@ pub enum MinusError {
     #[error("Failed to send data to the receiver")]
     Communication(#[from] crossbeam_channel::SendError<Event>),
 
+    #[error("Failed to convert between some primitives")]
+    Conversion,
+
     #[error(transparent)]
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, doc(cfg(feature = "search")))]

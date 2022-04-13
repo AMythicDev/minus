@@ -1,6 +1,6 @@
 #[cfg(feature = "search")]
 use crate::minus_core::search::{self, SearchMode};
-use crate::{error::TermError, input, rewrap, wrap_str, ExitStrategy, LineNumbers};
+use crate::{error::TermError, input, wrap_str, ExitStrategy, LineNumbers};
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
@@ -28,7 +28,7 @@ pub struct PagerState {
     /// not terminated by a newline
     pub(crate) unterminated: usize,
     /// The prompt displayed at the bottom wrapped to available terminal width
-    pub(crate) prompt: Vec<String>,
+    pub(crate) prompt: String,
     /// The input classifier to be called when a input is detected
     pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
     /// Functions to run when the pager quits
@@ -39,7 +39,11 @@ pub struct PagerState {
     /// Any message to display to the user at the prompt
     /// The first element contains the actual message, while the second element tells
     /// whether the message has changed since the last display.
-    pub(crate) message: Option<Vec<String>>,
+    pub(crate) message: Option<String>,
+    /// The prompt that should be displayed to the user, formatted with the
+    /// current search index and number of matches (if the search feature is enabled),
+    /// and the current numbers inputted to scroll
+    pub(crate) displayed_prompt: String,
     /// The upper bound of scrolling.
     ///
     /// This is useful for keeping track of the range of lines which are currently being displayed on
@@ -105,11 +109,12 @@ impl PagerState {
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             unterminated: 0,
-            prompt: wrap_str("minus", cols),
+            prompt: "minus".to_owned(),
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
+            displayed_prompt: String::new(),
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
             #[cfg(feature = "search")]
@@ -266,11 +271,76 @@ impl PagerState {
             self.search_idx = search_idx;
         }
 
-        // Wrap any message if present and also the prompt
-        if self.message.is_some() {
-            rewrap(self.message.as_mut().unwrap(), self.cols);
+        self.format_prompt();
+    }
+
+    /// Reformat the inputted prompt to how it should be displayed
+    pub(crate) fn format_prompt(&mut self) {
+        const SEARCH_BG: &str = "\x1b[34m";
+        const INPUT_BG: &str = "\x1b[33m";
+
+        // Allocate the string. Add extra space in case for the
+        // ANSI escape things if we do have characters typed and search showing
+        let mut format_string = String::with_capacity(self.cols + (SEARCH_BG.len() * 2) + 4);
+
+        // Get the string that will contain the search index/match indicator
+        #[cfg(feature = "search")]
+        let mut search_str = String::new();
+        #[cfg(feature = "search")]
+        if !self.search_idx.is_empty() {
+            search_str.push(' ');
+            search_str.push_str(&(self.search_mark + 1).to_string());
+            search_str.push('/');
+            search_str.push_str(&self.search_idx.len().to_string());
+            search_str.push(' ');
         }
-        rewrap(&mut self.prompt, self.cols);
+
+        // And get the string that will contain the prefix_num
+        let mut prefix_str = String::new();
+        if !self.prefix_num.is_empty() {
+            prefix_str.push(' ');
+            prefix_str.push_str(&self.prefix_num);
+            prefix_str.push(' ');
+        }
+
+        // And lastly, the string that contains the prompt or msg
+        let prompt_str = self.message.as_ref().unwrap_or(&self.prompt);
+
+        #[cfg(feature = "search")]
+        let search_len = search_str.len();
+        #[cfg(not(feature = "search"))]
+        let search_len = 0;
+
+        // Calculate how much extra padding in the middle we need between
+        // the prompt/message and the indicators on the right
+        let prefix_len = prefix_str.len();
+        let extra_space = self
+            .cols
+            .saturating_sub(search_len + prefix_len + prompt_str.len());
+        let dsp_prompt: &str = if extra_space == 0 {
+            &prompt_str[..self.cols - search_len - prefix_len]
+        } else {
+            prompt_str
+        };
+
+        // push the prompt/msg
+        format_string.push_str(dsp_prompt);
+        format_string.push_str(&" ".repeat(extra_space));
+
+        // add the prefix_num if it exists
+        if prefix_len > 0 {
+            format_string.push_str(INPUT_BG);
+            format_string.push_str(&prefix_str);
+        }
+
+        // and add the search indicator stuff if it exists
+        #[cfg(feature = "search")]
+        if search_len > 0 {
+            format_string.push_str(SEARCH_BG);
+            format_string.push_str(&search_str);
+        }
+
+        self.displayed_prompt = format_string;
     }
 
     /// Returns all the text within the bounds, after flattening
