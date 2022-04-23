@@ -164,7 +164,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollDown,
                 ..
-            }) => {  Some(InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))) },
+            }) => Some(InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))),
             // Go to top.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('g'),
