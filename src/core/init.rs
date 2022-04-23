@@ -209,7 +209,6 @@ fn start_reactor(
                                 .unwrap(),
                             false,
                         )?;
-                        execute!(out_lock, Clear(ClearType::CurrentLine))?;
                         // available_rows -> Rows that are still unfilled
                         //      rows - number of lines displayed -1 (for prompt)
                         // For example if 20 rows are in total in a terminal
@@ -227,6 +226,9 @@ fn start_reactor(
                         // This woll be equal to 3 as available rows will be 3
                         // If in the above example only 2 lines are needed to be added, this will be equal to 2
                         let num_appendable = fmt_text.len().min(available_rows);
+                        if num_appendable >= 1 {
+                            execute!(out_lock, Clear(ClearType::CurrentLine))?;
+                        }
                         write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
                         out_lock.flush()?;
                     }
