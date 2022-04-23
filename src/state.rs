@@ -169,7 +169,7 @@ impl PagerState {
             //
             // We reduce this from the number of available columns as this space cannot be used for
             // actual line display when wrapping the lines
-            let padding = len_line_number + 3;
+            let padding = len_line_number + usize::from(LineNumbers::EXTRA_PADDING);
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
             #[cfg_attr(not(feature = "search"), allow(unused_variables))]
             wrap_str(line, self.cols.saturating_sub(padding))
@@ -192,7 +192,7 @@ impl PagerState {
                             " {bold}{number: >len$}.{reset} {row}",
                             bold = crossterm::style::Attribute::Bold,
                             number = idx + 1,
-                            len = len_line_number,
+                            len = padding,
                             reset = crossterm::style::Attribute::Reset,
                             row = row
                         )
@@ -202,7 +202,7 @@ impl PagerState {
                         format!(
                             " {number: >len$}. {row}",
                             number = idx + 1,
-                            len = len_line_number,
+                            len = padding,
                             row = row
                         )
                     }

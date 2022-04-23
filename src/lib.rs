@@ -196,28 +196,6 @@
 //! [`tokio`]: https://docs.rs/tokio
 //! [`async-std`]: https://docs.rs/async-std
 
-// ############################
-// The Wrapping Model
-// ############################
-// When text is given to minus, it contains lines with lie breaks called logical
-// lines. But only a certain amount of this text can be displayed on a single line
-// of the terminal. This line, which makes up for one single line on the terminal
-// is called a screen line.
-//
-// When a text is given to minus, it breaks each logical line into a `Vec<String>`.
-// Each element is one screen line that is perfectly wrapped to the available
-// number of columns in the terminal.
-// Then all of the logical lines are stored inside a wrapper container. As a result,
-// you get a `Vec<Vec<String>>`
-//
-// In case of prompt text and message, which are allowed to occupy only a single
-// line on the terminal, and hence, must contain only one logical line are
-// stored in a `Vec<String>`
-//
-// If the terminal size is updated, we go through each logical line, join all it's
-// screen lines and wrap it again to the new configuration.
-// ###################################################################################
-
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
 pub mod error;
@@ -287,6 +265,8 @@ pub enum LineNumbers {
 }
 
 impl LineNumbers {
+    const EXTRA_PADDING: u8 = 5;
+
     /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
     /// the documentation for the variants to know if they are invertible or
     /// not.
