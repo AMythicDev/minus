@@ -376,21 +376,21 @@ impl PagerState {
     ///     last appended line. This function determines this by checking whether self.lines ends with
     ///     `\n` after appending the text
     pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
-        // if the text we have saved currently in self.lines ends with a newline or is empty,
-        // we want the formatted_text vector to append the line instead of
-        // trying to add it to the last item.
-        //
-        // In minus the \n acts as a marker that a line has been terminated and no changes are going
-        // to be made to it again. It may or may not be present at the end of the last line of self.lines
-        // If it is, we know that no changes are going to be made to it. In case it isn't, minus believes
-        // that the incoming text is part of the last line and hence here need to check that.
         let append = self.lines.ends_with('\n') || self.lines.is_empty();
+
+        let to_format = if !append {
+            self.lines.lines().last().unwrap_or_else(|| "").to_string() + text
+        } else {
+            text.to_string()
+        };
+
+        let to_skip = self.lines.lines().count();
         // push the text to lines
         self.lines.push_str(text);
         // And get how many lines of text will be shown (not how many rows, how many wrapped
         // lines), and get its string length
-        let to_skip = self.lines.lines().count();
-        let len_line_number = to_skip.to_string().len();
+        let line_number = self.lines.lines().count();
+        let len_line_number = line_number.to_string().len();
         // This will get filled if there is an ongoing search. We just need to append it to
         // self.search_idx at the end
         #[cfg(feature = "search")]
@@ -399,86 +399,84 @@ impl PagerState {
         // If append is true, we take only the given text for formatting
         // else we also take the last line of self.lines for formatting. This is because we nned to
         // format the entire line rathar than just this part
-        let to_format = if append {
-            text.to_owned()
-        } else {
-            self.lines.lines().last().unwrap().to_string()
-        };
-        let (formatted_lines, unterminated) =
-            // NOTE: This is a special case where if the to be formatted text has newlines in between
-            // but not at the end
-            // First we format all the lines execpt the last one and then format the very last line.
-            // This is to ensure that we only calculate unterminated for the last line
-            if !self.lines.ends_with('\n') && self.lines.contains('\n') {
-                let to_format_len = to_format.lines().count();
-                let mut formatted_lines = to_format
-                    .lines()
-                    .take(to_format_len.saturating_sub(1))
-                    .enumerate()
-                    .flat_map(|(idx, line)| {
-                        self.formatted_line(
-                            line,
-                            len_line_number,
-                            idx + to_skip.saturating_sub(1),
-                            #[cfg(feature = "search")]
-                            if append {
-                                self.formatted_lines.len()
-                            } else {
-                                self.formatted_lines.len().saturating_sub(1)
-                            },
-                            #[cfg(feature = "search")]
-                            &mut append_search_idx,
-                        )
-                    })
-                    .collect::<Vec<String>>();
+        let to_format_len = to_format.lines().count();
+        let lines = to_format
+            .lines()
+            .enumerate()
+            .map(|(idx, s)| (idx, s.to_string()))
+            .collect::<Vec<(usize, String)>>();
 
-                let mut last_fmt_line = self.formatted_line(
-                    to_format.lines().last().unwrap(),
+        let mut fmtl = Vec::with_capacity(256);
+
+        // First line
+        let mut first_line = self.formatted_line(
+            // TODO: Remove unwrap from here
+            &lines.first().unwrap().1,
+            len_line_number,
+            to_skip.saturating_sub(1),
+            #[cfg(feature = "search")]
+            if append {
+                self.formatted_lines.len()
+            } else {
+                self.formatted_lines.len().saturating_sub(1)
+            },
+            #[cfg(feature = "search")]
+            &mut append_search_idx,
+        );
+
+        // Format the last line, only if first line and last line are different. We can check this
+        // by seeing whether to_format_len is greater than 1
+        let last_line = if !to_format.ends_with('\n') && to_format_len > 1 {
+            Some(self.formatted_line(
+                &lines.last().unwrap().1,
+                len_line_number,
+                to_format_len + to_skip.saturating_sub(1),
+                #[cfg(feature = "search")]
+                self.formatted_lines.len(),
+                #[cfg(feature = "search")]
+                &mut append_search_idx,
+            ))
+        } else {
+            None
+        };
+
+        // Format all other lines except the first and last line
+        let mut mid_lines = lines
+            .iter()
+            .skip(1)
+            .take(lines.len().saturating_sub(2))
+            .flat_map(|(idx, line)| {
+                self.formatted_line(
+                    line,
                     len_line_number,
-                    to_format_len + to_skip.saturating_sub(1),
+                    idx + to_skip.saturating_sub(1),
                     #[cfg(feature = "search")]
-                    if append {
-                        self.formatted_lines.len()
-                    } else {
-                        self.formatted_lines.len().saturating_sub(1)
-                    },
+                    self.formatted_lines.len(),
                     #[cfg(feature = "search")]
                     &mut append_search_idx,
-                );
-                let last_fmt_line_len = last_fmt_line.len();
-                formatted_lines.append(&mut last_fmt_line);
-                (formatted_lines, last_fmt_line_len)
+                )
+            })
+            .collect::<Vec<String>>();
+
+        let unterminated = if !self.lines.ends_with('\n') {
+            if to_format_len > 1 {
+                last_line.as_ref().unwrap().len()
             } else {
-                let formatted_lines = to_format
-                    .lines()
-                    .enumerate()
-                    .flat_map(|(idx, line)| {
-                        self.formatted_line(
-                            line,
-                            len_line_number,
-                            idx + to_skip.saturating_sub(1),
-                            #[cfg(feature = "search")]
-                            if append {
-                                self.formatted_lines.len()
-                            } else {
-                                self.formatted_lines.len().saturating_sub(1)
-                            },
-                            #[cfg(feature = "search")]
-                            &mut append_search_idx,
-                        )
-                    })
-                    .collect::<Vec<String>>();
-                let unterminated = if self.lines.ends_with('\n') {
-                    0
-                } else {
-                    formatted_lines.len()
-                };
-                (formatted_lines, unterminated)
-            };
+                first_line.len()
+            }
+        } else {
+            0
+        };
+
+        fmtl.append(&mut first_line);
+        fmtl.append(&mut mid_lines);
+        if let Some(mut ll) = last_line {
+            fmtl.append(&mut ll)
+        }
 
         #[cfg(feature = "search")]
         self.search_idx.append(&mut append_search_idx);
-        (formatted_lines, unterminated)
+        (fmtl, unterminated)
     }
 
     /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of

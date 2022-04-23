@@ -12,7 +12,10 @@ use super::{display::draw, ev_handler::handle_event, events::Event, term};
 use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
-use crossterm::event;
+use crossterm::{
+    event, execute,
+    terminal::{Clear, ClearType},
+};
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
 use std::sync::{Arc, Mutex};
@@ -204,11 +207,16 @@ fn start_reactor(
                                 .unwrap(),
                             false,
                         )?;
+                        execute!(out_lock, Clear(ClearType::CurrentLine))?;
                         // available_rows -> Rows that are still unfilled
                         //      rows - number of lines displayed -1 (for prompt)
                         // For example if 20 rows are in total in a terminal
                         // and 10 rows are already occupied, then this will be equal to 9
-                        let available_rows = p.rows.saturating_sub(p.num_lines().saturating_add(1));
+                        let available_rows = p.rows.saturating_sub(
+                            p.num_lines()
+                                .saturating_sub(p.unterminated)
+                                .saturating_add(1),
+                        );
                         // Minimum amount of text that an be appended
                         // If available_rows is less, than this will be available rows else it will be
                         // the length of the formatted text
