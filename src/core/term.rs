@@ -1,7 +1,7 @@
 //! Contains functions for dealing with setup, cleanup
 
 use crate::error::{CleanupError, MinusError, SetupError};
-use crossterm::{cursor, execute, queue, terminal, tty::IsTty};
+use crossterm::{cursor, execute, event, queue, terminal, tty::IsTty};
 use std::io;
 
 /// Setup the terminal
@@ -31,6 +31,7 @@ pub fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> {
     execute!(out, terminal::EnterAlternateScreen)
         .map_err(|e| SetupError::AlternateScreen(e.into()))?;
     terminal::enable_raw_mode().map_err(|e| SetupError::RawMode(e.into()))?;
+    execute!(out, event::EnableMouseCapture).map_err(|e| SetupError::EnableMouseCapture(e.into()))?;
     execute!(out, cursor::Hide).map_err(|e| SetupError::HideCursor(e.into()))?;
     Ok(())
 }
@@ -57,6 +58,7 @@ pub fn cleanup(
         // Reverse order of setup.
         execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
         terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
+        execute!(out, event::DisableMouseCapture).map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
         execute!(out, terminal::LeaveAlternateScreen)
             .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
     }
