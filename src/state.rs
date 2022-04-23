@@ -103,7 +103,7 @@ impl PagerState {
             rows = 1;
         };
 
-        Ok(Self {
+        let mut ret_pager = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
@@ -129,7 +129,10 @@ impl PagerState {
             cols,
             rows,
             prefix_num: String::new(),
-        })
+        };
+
+        ret_pager.format_prompt();
+        Ok(ret_pager)
     }
 
     pub(crate) fn num_lines(&self) -> usize {
