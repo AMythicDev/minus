@@ -378,10 +378,10 @@ impl PagerState {
     pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
         let append = self.lines.ends_with('\n') || self.lines.is_empty();
 
-        let to_format = if !append {
-            self.lines.lines().last().unwrap_or_else(|| "").to_string() + text
-        } else {
+        let to_format = if append {
             text.to_string()
+        } else {
+            self.lines.lines().last().unwrap_or("").to_string() + text
         };
 
         let to_skip = self.lines.lines().count();
@@ -426,7 +426,7 @@ impl PagerState {
 
         // Format the last line, only if first line and last line are different. We can check this
         // by seeing whether to_format_len is greater than 1
-        let last_line = if !to_format.ends_with('\n') && to_format_len > 1 {
+        let last_line = if to_format_len > 1 {
             Some(self.formatted_line(
                 &lines.last().unwrap().1,
                 len_line_number,
@@ -458,20 +458,18 @@ impl PagerState {
             })
             .collect::<Vec<String>>();
 
-        let unterminated = if !self.lines.ends_with('\n') {
-            if to_format_len > 1 {
-                last_line.as_ref().unwrap().len()
-            } else {
-                first_line.len()
-            }
-        } else {
+        let unterminated = if self.lines.ends_with('\n') {
             0
+        } else if to_format_len > 1 {
+            last_line.as_ref().unwrap().len()
+        } else {
+            first_line.len()
         };
 
         fmtl.append(&mut first_line);
         fmtl.append(&mut mid_lines);
         if let Some(mut ll) = last_line {
-            fmtl.append(&mut ll)
+            fmtl.append(&mut ll);
         }
 
         #[cfg(feature = "search")]

@@ -12,10 +12,9 @@ use super::{display::draw, ev_handler::handle_event, events::Event, term};
 use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
-use crossterm::{
-    event, execute,
-    terminal::{Clear, ClearType},
-};
+use crossterm::event;
+#[cfg(feature = "dynamic_output")]
+use crossterm::{terminal::{Clear, ClearType}, execute};
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
 use std::sync::{Arc, Mutex};
