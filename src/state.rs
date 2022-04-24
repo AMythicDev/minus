@@ -103,7 +103,7 @@ impl PagerState {
             rows = 1;
         };
 
-        let mut ret_pager = Self {
+        let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
@@ -131,8 +131,8 @@ impl PagerState {
             prefix_num: String::new(),
         };
 
-        ret_pager.format_prompt();
-        Ok(ret_pager)
+        state.format_prompt();
+        Ok(state)
     }
 
     pub(crate) fn num_lines(&self) -> usize {
@@ -170,44 +170,69 @@ impl PagerState {
             // We reduce this from the number of available columns as this space cannot be used for
             // actual line display when wrapping the lines
             let padding = len_line_number + usize::from(LineNumbers::EXTRA_PADDING);
+            let wrapped_lines = wrap_str(line, self.cols.saturating_sub(padding));
+            let mut formatted_rows = Vec::with_capacity(256);
+
+            let first_line = {
+                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+                let mut row = wrapped_lines.first().unwrap().to_string();
+
+                #[cfg(feature = "search")]
+                if let Some(st) = self.search_term.as_ref() {
+                    // highlight the lines with matching search terms
+                    // If a match is found, add this line's index to PagerState::search_idx
+                    let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
+                    if is_match {
+                        search_idx.insert(formatted_idx + 1);
+                    }
+                    row = highlighted_row;
+                }
+
+                if cfg!(not(test)) {
+                    format!(
+                        " {bold}{number: >len$}.{reset} {row}",
+                        bold = crossterm::style::Attribute::Bold,
+                        number = idx + 1,
+                        len = padding,
+                        reset = crossterm::style::Attribute::Reset,
+                        row = row
+                    )
+                } else {
+                    // In tests, we don't care about ANSI sequences for cool looking line numbers
+                    // hence we don't include them in tests. It just makes testing more difficult
+                    format!(
+                        " {number: >len$}. {row}",
+                        number = idx + 1,
+                        len = padding,
+                        row = row
+                    )
+                }
+            };
+
+            formatted_rows.push(first_line);
+
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
             #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-            wrap_str(line, self.cols.saturating_sub(padding))
+            let mut lines_left = wrapped_lines
                 .into_iter()
                 .enumerate()
+                .skip(1)
                 .map(|(wrap_idx, mut row)| {
                     #[cfg(feature = "search")]
                     if let Some(st) = self.search_term.as_ref() {
                         // highlight the lines with matching search terms
                         // If a match is found, add this line's index to PagerState::search_idx
-                        let (hrow, is_match) = search::highlight_line_matches(&row, st);
+                        let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
                         if is_match {
                             search_idx.insert(formatted_idx + wrap_idx);
                         }
-                        row = hrow;
+                        row = highlighted_row;
                     }
-
-                    if cfg!(not(test)) {
-                        format!(
-                            " {bold}{number: >len$}.{reset} {row}",
-                            bold = crossterm::style::Attribute::Bold,
-                            number = idx + 1,
-                            len = padding,
-                            reset = crossterm::style::Attribute::Reset,
-                            row = row
-                        )
-                    } else {
-                        // In tests, we don't care about ANSI sequences for cool looking line numbers
-                        // hence we don't include them in tests. It just makes testing more difficult
-                        format!(
-                            " {number: >len$}. {row}",
-                            number = idx + 1,
-                            len = padding,
-                            row = row
-                        )
-                    }
+                    format!(" {row: >len$}", len = padding + 7, row = row)
                 })
-                .collect::<Vec<String>>()
+                .collect::<Vec<String>>();
+            formatted_rows.append(&mut lines_left);
+            formatted_rows
         } else {
             #[cfg_attr(not(feature = "search"), allow(unused_variables))]
             wrap_str(line, self.cols)
