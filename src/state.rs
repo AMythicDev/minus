@@ -169,7 +169,7 @@ impl PagerState {
             //
             // We reduce this from the number of available columns as this space cannot be used for
             // actual line display when wrapping the lines
-            let padding = len_line_number + usize::from(LineNumbers::EXTRA_PADDING);
+            let padding = len_line_number + LineNumbers::EXTRA_PADDING;
             let wrapped_lines = wrap_str(line, self.cols.saturating_sub(padding + 2));
             let mut formatted_rows = Vec::with_capacity(256);
 
