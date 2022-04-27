@@ -183,7 +183,7 @@ impl PagerState {
                     // If a match is found, add this line's index to PagerState::search_idx
                     let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
                     if is_match {
-                        search_idx.insert(formatted_idx + 1);
+                        search_idx.insert(formatted_idx);
                     }
                     row = highlighted_row;
                 }
@@ -224,7 +224,7 @@ impl PagerState {
                         // If a match is found, add this line's index to PagerState::search_idx
                         let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
                         if is_match {
-                            search_idx.insert(formatted_idx + wrap_idx + 1);
+                            search_idx.insert(formatted_idx + wrap_idx);
                         }
                         row = highlighted_row;
                     }
