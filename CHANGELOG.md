@@ -1,6 +1,22 @@
 # Changelog
 This file documents all notable changes made to this project
 
+## v5.1.0 [2022-04-25]
+### Changed
+- Line Numbers are displayed only on the first wrapped row of each line.
+
+  This decreases the clutter on the line number column especially on text which span multiple lines.
+  
+- Line Numbers are now padded by about 5 spaces. This makes the line numbers not get tightly packed with the left edge of the terminal.
+
+### Fixed
+- Fixed bug when appending complex sets of text, a wrong value of `unterminated` got calculated which 
+  caused junk text to appended to the `PagerState::formatted_lines` and also to be displayed on the terminal.
+
+- Fixed mouse scroll wheel not scrolling through the screen.
+
+   This occured because a of a previous patch which removed the line that enabled the mouse events to be captured.
+
 ## v5.0.1 [2022-03-20]
 * Fixed extremely high CPU usage while running caused due to calling `Receiver::try_recv()` rather than
   `Receiver::recv()`(#60)
