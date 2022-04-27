@@ -1,7 +1,7 @@
 # Changelog
 This file documents all notable changes made to this project
 
-## v5.1.0 [2022-04-25]
+## v5.0.2 [2022-04-25]
 ### Changed
 - Line Numbers are displayed only on the first wrapped row of each line.
 
