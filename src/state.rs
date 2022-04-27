@@ -224,7 +224,7 @@ impl PagerState {
                         // If a match is found, add this line's index to PagerState::search_idx
                         let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
                         if is_match {
-                            search_idx.insert(formatted_idx + wrap_idx);
+                            search_idx.insert(formatted_idx + wrap_idx + 1);
                         }
                         row = highlighted_row;
                     }
@@ -266,7 +266,7 @@ impl PagerState {
         // expensive
         let line_count = self.lines.lines().count();
 
-        // Calculate len_line_number. This will be 2 if line_count if 50 and 3 if line_count is 100.
+        // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
         let len_line_number = line_count.to_string().len();
 
         // Search idx, this will get filled by the self.formatted_line function
