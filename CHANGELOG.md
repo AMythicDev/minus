@@ -1,7 +1,19 @@
 # Changelog
 This file documents all notable changes made to this project
 
+## v5.0.3 [2022-05-3]
+### Fixed
+* Fix line numbers not wrapping properly in some cases of wrapping.
+* Fix search bug where the highlighted line is off by one
+
+### Docs
+* The README now displays the optional number prefix before all movement keys
+
 ## v5.0.2 [2022-04-27]
+### Added
+* The prompt line now shows the number of search matches found and the current search match number which
+  is in focus
+
 ### Changed
 - Line Numbers are displayed only on the first wrapped row of each line.
 
@@ -16,6 +28,10 @@ This file documents all notable changes made to this project
 - Fixed mouse scroll wheel not scrolling through the screen.
 
    This occured because a of a previous patch which removed the line that enabled the mouse events to be captured.
+ 
+* Fix panic when the search term gets changed
+
+  This occured due to the `search_idx` not being repopulated when a new search is activated.
 
 ## v5.0.1 [2022-03-20]
 * Fixed extremely high CPU usage while running caused due to calling `Receiver::try_recv()` rather than
