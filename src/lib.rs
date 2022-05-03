@@ -265,7 +265,7 @@ pub enum LineNumbers {
 }
 
 impl LineNumbers {
-    const EXTRA_PADDING: u8 = 5;
+    const EXTRA_PADDING: usize = 5;
 
     /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
     /// the documentation for the variants to know if they are invertible or

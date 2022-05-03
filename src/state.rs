@@ -169,8 +169,8 @@ impl PagerState {
             //
             // We reduce this from the number of available columns as this space cannot be used for
             // actual line display when wrapping the lines
-            let padding = len_line_number + usize::from(LineNumbers::EXTRA_PADDING);
-            let wrapped_lines = wrap_str(line, self.cols.saturating_sub(padding));
+            let padding = len_line_number + LineNumbers::EXTRA_PADDING;
+            let wrapped_lines = wrap_str(line, self.cols.saturating_sub(padding + 2));
             let mut formatted_rows = Vec::with_capacity(256);
 
             let first_line = {
@@ -190,7 +190,7 @@ impl PagerState {
 
                 if cfg!(not(test)) {
                     format!(
-                        " {bold}{number: >len$}.{reset} {row}",
+                        "{bold}{number: >len$}.{reset} {row}",
                         bold = crossterm::style::Attribute::Bold,
                         number = idx + 1,
                         len = padding,
@@ -201,7 +201,7 @@ impl PagerState {
                     // In tests, we don't care about ANSI sequences for cool looking line numbers
                     // hence we don't include them in tests. It just makes testing more difficult
                     format!(
-                        " {number: >len$}. {row}",
+                        "{number: >len$}. {row}",
                         number = idx + 1,
                         len = padding,
                         row = row
@@ -228,7 +228,7 @@ impl PagerState {
                         }
                         row = highlighted_row;
                     }
-                    format!(" {row: >len$}", len = padding + 7, row = row)
+                    " ".repeat(padding + 2) + &row
                 })
                 .collect::<Vec<String>>();
             formatted_rows.append(&mut lines_left);
