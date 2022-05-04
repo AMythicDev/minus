@@ -1,11 +1,84 @@
-//! Provides the [`InputClassifier`] trait, which can be used
-//! to customize the default keybindings of minus
+//! Working with user input
+//!
+//! This module provides various items for wroking with user input from the terminal.
+//!
+//! minus already has a sensible set of default key/mouse bindings so most people do not need to care about this module.
+//! But if you want to add or remove certain key bindings then you need to rely on this module..
+//!
+//! There are two ways to define inputs in minus
+//!
+//! # Newer (Recommended) Method
+//! This method uses a much improved and ergonomic API for defining the input events. It allows you to add/delete/update
+//! inputs without needing to copy the entire default template into the main application's codebase.
+//! You also don't need to specifically bring in [`crossterm`] as a dependency for working with this.
+//!
+//! ## Example:
+//! ```
+//! use minus::{input::{InputEvent, HashedEventRegister}, Pager};
+//!
+//! let pager = Pager::new();
+//! let mut input_register = HashedEventRegister::default();
+//!
+//! input_register.add_key_events(&["down"], |_, ps| {
+//!     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(1))
+//! });
+//!
+//! input_register.add_key_events(&["q", "c-c"], |_, _| InputEvent::Exit);
+//!
+//! pager.set_input_classifier(Box::new(input_register));
+//! ```
+//!
+//! # Legacy method
+//! This method relies heavily on the [`InputClassifier`] trait and the end-applications needs to bring in the underlying
+//! [`crossterm`] crate to define the inputs.
+//! Also there is no such option to add/remove/update a set of events. You need to manually copy the
+//! [default definitions](DefaultInputClassifier) and make the required modifications youself in this method.
+//!
+//! ## Example
+//! ```
+//! use minus::{input::{InputEvent, InputClassifier}, Pager, PagerState};
+//! use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
+//!
+//! struct CustomInputClassifier;
+//! impl InputClassifier for CustomInputClassifier {
+//!     fn classify_input(
+//!         &self,
+//!         ev: Event,
+//!         ps: &PagerState
+//!     ) -> Option<InputEvent> {
+//!             match ev {
+//!                 Event::Key(KeyEvent {
+//!                     code: KeyCode::Up,
+//!                     modifiers: KeyModifiers::NONE,
+//!                 })
+//!                 | Event::Key(KeyEvent {
+//!                     code: KeyCode::Char('j'),
+//!                     modifiers: KeyModifiers::NONE,
+//!                 }) => Some(InputEvent::UpdateUpperMark
+//!                       (ps.upper_mark.saturating_sub(1))),
+//!                 _ => None
+//!         }
+//!     }
+//! }
+//!
+//! let mut pager = Pager::new();
+//! pager.set_input_classifier(
+//!                 Box::new(CustomInputClassifier)
+//!             );
+//! ```
+//!
+//! At the heart of this module is the [`InputEvent`] enum and [`InputClassifier`] trait.
+//! The [`InputEvent`] enum defies the various events which minus can properly respond to
 
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+pub(crate) mod definitions;
+pub(crate) mod event_wrapper;
+
+pub use event_wrapper::HashedEventRegister;
 
 #[cfg(feature = "search")]
 use crate::minus_core::search::SearchMode;
 use crate::{LineNumbers, PagerState};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -24,6 +97,7 @@ pub enum InputEvent {
     Number(char),
     /// Restore the original prompt
     RestorePrompt,
+    Ignore,
     /// `/`, Searching for certain pattern of text
     #[cfg(feature = "search")]
     Search(SearchMode),
@@ -41,56 +115,19 @@ pub enum InputEvent {
     MoveToPrevMatch(usize),
 }
 
-/// Define custom keybindings
+/// Classifies the input and returns the appropriate [`InputEvent`]
 ///
-/// This trait can help define custom keybindings in case
-/// the downsteam applications aren't satisfied with the
-/// defaults
+/// If you are using the newer method for input definition, you don't need to take care of this.
 ///
-/// **Please do note that, in order to match the keybindings,
-/// you need to directly work with the underlying [`crossterm`]
-/// crate**
-///
-/// # Example
-/// ```
-/// use minus::{input::{InputEvent, InputClassifier}, LineNumbers, Pager, PagerState};
-#[cfg_attr(feature = "search", doc = "use minus::SearchMode;")]
-/// use crossterm::event::{Event, KeyEvent, KeyCode, KeyModifiers};
-///
-/// struct CustomInputClassifier;
-/// impl InputClassifier for CustomInputClassifier {
-///     fn classify_input(
-///         &self,
-///         ev: Event,
-///         ps: &PagerState
-///     ) -> Option<InputEvent> {
-///             match ev {
-///                 Event::Key(KeyEvent {
-///                     code: KeyCode::Up,
-///                     modifiers: KeyModifiers::NONE,
-///                 })
-///                 | Event::Key(KeyEvent {
-///                     code: KeyCode::Char('j'),
-///                     modifiers: KeyModifiers::NONE,
-///                 }) => Some(InputEvent::UpdateUpperMark
-///                       (ps.upper_mark.saturating_sub(1))),
-///                 _ => None
-///         }
-///     }
-/// }
-///
-/// let mut pager = Pager::new();
-/// pager.set_input_classifier(
-///                 Box::new(CustomInputClassifier)
-///             );
-/// ```
+/// If you are using the old method, see the sources of [`DefaultInputClassifier`] on how to inplement this trait.
 #[allow(clippy::module_name_repetitions)]
 pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
 }
 
-/// The default keybindings in `minus`. These can be overriden by
-/// making a custom input handler struct and implementing the [`InputClassifier`] trait
+/// The default set of input definitions
+///
+/// **This is kept only for legacy purposes and may not be well updated with all the latest changes**
 pub struct DefaultInputClassifier;
 
 impl InputClassifier for DefaultInputClassifier {
