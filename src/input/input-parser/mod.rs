@@ -37,11 +37,21 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
 });
 
 pub fn parse_key_event(mut text: &str) -> KeyEvent {
-    assert!(text.chars().all(|c| c.is_ascii()), "Non ascii sequence found in input sequence");
+    assert!(
+        text.chars().all(|c| c.is_ascii()),
+        "Non ascii sequence found in input sequence"
+    );
     text = text.trim();
-    assert!(text.chars().any(|c| !c.is_whitespace()), "Whitespace character found in input sequence");
+    assert!(
+        text.chars().any(|c| !c.is_whitespace()),
+        "Whitespace character found in input sequence"
+    );
 
     let (modifier_half, code_half) = text.split_at(text.rfind('-').unwrap_or(0));
+    let mut code_half = code_half.to_string();
+    if code_half.chars().nth(0) == Some('-') {
+        code_half.remove(0);
+    }
     let keymodifiers = parse_key_modifiers(&modifier_half);
     let keycode = parse_code(&code_half);
 
@@ -55,7 +65,10 @@ pub fn parse_code(text: &str) -> KeyCode {
     if text.len() == 1 {
         KeyCode::Char(text.chars().nth(0).unwrap())
     } else {
-        SPECIAL_KEYS.get(text).unwrap_or_else(|| panic!("Invalid special key '{}' given", text)).to_owned()
+        SPECIAL_KEYS
+            .get(text)
+            .unwrap_or_else(|| panic!("Invalid special key '{}' given", text))
+            .to_owned()
     }
 }
 
@@ -99,10 +112,7 @@ mod key_modifier_tests {
 
     #[test]
     fn test_control() {
-        assert_eq!(
-            parse_key_modifiers("c-c"),
-            KeyModifiers::CONTROL
-        );
+        assert_eq!(parse_key_modifiers("c-c"), KeyModifiers::CONTROL);
     }
 
     #[test]
@@ -116,16 +126,151 @@ mod key_modifier_tests {
 
     #[test]
     fn test_all() {
-        assert_eq!(
-            parse_key_modifiers("c-m-s-a"),
-            KeyModifiers::all()
-        );
+        assert_eq!(parse_key_modifiers("c-m-s-a"), KeyModifiers::all());
     }
 }
 
 #[cfg(test)]
 #[test]
 fn test_parse_key_event() {
-    assert_eq!(parse_key_event("up"), KeyEvent { code: KeyCode::Up, modifiers: KeyModifiers::NONE });
-    assert_eq!(parse_key_event("k"), KeyEvent { code: KeyCode::Char('k'), modifiers: KeyModifiers::NONE });
+    assert_eq!(
+        parse_key_event("up"),
+        KeyEvent {
+            code: KeyCode::Up,
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("k"),
+        KeyEvent {
+            code: KeyCode::Char('k'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("j"),
+        KeyEvent {
+            code: KeyCode::Char('j'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("down"),
+        KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("down"),
+        KeyEvent {
+            code: KeyCode::Down,
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("enter"),
+        KeyEvent {
+            code: KeyCode::Enter,
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("c-u"),
+        KeyEvent {
+            code: KeyCode::Char('u'),
+            modifiers: KeyModifiers::CONTROL
+        }
+    );
+    assert_eq!(
+        parse_key_event("c-d"),
+        KeyEvent {
+            code: KeyCode::Char('d'),
+            modifiers: KeyModifiers::CONTROL
+        }
+    );
+    assert_eq!(
+        parse_key_event("g"),
+        KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("s-g"),
+        KeyEvent {
+            code: KeyCode::Char('g'),
+            modifiers: KeyModifiers::SHIFT
+        }
+    );
+    assert_eq!(
+        parse_key_event("G"),
+        KeyEvent {
+            code: KeyCode::Char('G'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("pageup"),
+        KeyEvent {
+            code: KeyCode::PageUp,
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("pagedown"),
+        KeyEvent {
+            code: KeyCode::PageDown,
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("c-l"),
+        KeyEvent {
+            code: KeyCode::Char('l'),
+            modifiers: KeyModifiers::CONTROL
+        }
+    );
+    assert_eq!(
+        parse_key_event("q"),
+        KeyEvent {
+            code: KeyCode::Char('q'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("c-c"),
+        KeyEvent {
+            code: KeyCode::Char('c'),
+            modifiers: KeyModifiers::CONTROL
+        }
+    );
+    assert_eq!(
+        parse_key_event("/"),
+        KeyEvent {
+            code: KeyCode::Char('/'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("?"),
+        KeyEvent {
+            code: KeyCode::Char('?'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("n"),
+        KeyEvent {
+            code: KeyCode::Char('n'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
+    assert_eq!(
+        parse_key_event("p"),
+        KeyEvent {
+            code: KeyCode::Char('p'),
+            modifiers: KeyModifiers::NONE
+        }
+    );
 }
