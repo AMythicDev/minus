@@ -33,8 +33,40 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
     map.insert("f10", KeyCode::F(10));
     map.insert("f11", KeyCode::F(11));
     map.insert("f12", KeyCode::F(12));
+    map.insert("dash", KeyCode::Char('-'));
+
     map
 });
+
+static MODIFIERS: Lazy<HashMap<char, KeyModifiers>> = Lazy::new(|| {
+    let mut map = HashMap::new();
+    map.insert('m', KeyModifiers::ALT);
+    map.insert('c', KeyModifiers::CONTROL);
+    map.insert('s', KeyModifiers::SHIFT);
+
+    map
+});
+
+#[derive(Debug, PartialEq)]
+enum Token {
+    Separator, // -
+    SingleChar(char),
+    MultipleChar(String),
+}
+
+struct KeySeq {
+    code: Option<KeyCode>,
+    modifiers: KeyModifiers,
+}
+
+impl Default for KeySeq {
+    fn default() -> Self {
+        Self {
+            code: None,
+            modifiers: KeyModifiers::NONE,
+        }
+    }
+}
 
 pub fn parse_key_event(mut text: &str) -> KeyEvent {
     assert!(
@@ -47,86 +79,95 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
         "Whitespace character found in input sequence"
     );
 
-    let (modifier_half, code_half) = text.split_at(text.rfind('-').unwrap_or(0));
-    let mut code_half = code_half.to_string();
-    if code_half.chars().nth(0) == Some('-') {
-        code_half.remove(0);
-    }
-    let keymodifiers = parse_key_modifiers(&modifier_half);
-    let keycode = parse_code(&code_half);
+    let mut token_list = Vec::with_capacity(text.len());
 
-    KeyEvent {
-        modifiers: keymodifiers,
-        code: keycode,
-    }
-}
+    let mut chars_peek = text.chars().peekable();
 
-pub fn parse_code(text: &str) -> KeyCode {
-    if text.len() == 1 {
-        KeyCode::Char(text.chars().nth(0).unwrap())
-    } else {
-        SPECIAL_KEYS
-            .get(text)
-            .unwrap_or_else(|| panic!("Invalid special key '{}' given", text))
-            .to_owned()
-    }
-}
+    let mut s = String::with_capacity(5);
 
-fn parse_key_modifiers(c: &str) -> KeyModifiers {
-    const MODIFIERS: [char; 3] = ['m', 'c', 's'];
-
-    let mut keymodifiers = KeyModifiers::empty();
-
-    let chars = c.chars();
-
-    let mut chars_peek = chars.peekable();
-
-    while let Some(m) = chars_peek.peek() {
-        if !MODIFIERS.contains(m) && *m != '-' {
-            break;
-        } else if *m == '-' {
-            chars_peek.next();
-        } else if MODIFIERS.contains(m) {
-            match m {
-                'm' => keymodifiers.insert(KeyModifiers::ALT),
-                'c' => keymodifiers.insert(KeyModifiers::CONTROL),
-                's' => keymodifiers.insert(KeyModifiers::SHIFT),
-                _ => {}
-            }
-            chars_peek.next();
+    let flush_s = |s: &mut String, token_list: &mut Vec<Token>| {
+        if s.len() == 1 {
+            token_list.push(Token::SingleChar(s.chars().next().unwrap()))
+        } else if s.len() > 1 {
+            token_list.push(Token::MultipleChar(s.clone()))
         }
+        s.clear();
+    };
+
+    while let Some(chr) = chars_peek.peek() {
+        match chr {
+            '-' => {
+                flush_s(&mut s, &mut token_list);
+                token_list.push(Token::Separator)
+            }
+            c => {
+                s.push(*c);
+            }
+        }
+        chars_peek.next();
     }
-    keymodifiers
+    flush_s(&mut s, &mut token_list);
+
+    KeySeq::new(token_list)
 }
 
-#[cfg(test)]
-mod key_modifier_tests {
-    use crossterm::event::KeyModifiers;
+impl KeySeq {
+    fn new(token_list: Vec<Token>) -> KeyEvent {
+        let mut ks = KeySeq::default();
 
-    use crate::input::input_parser::parse_key_modifiers;
+        let mut token_iter = token_list.iter().peekable();
 
-    #[test]
-    fn test_none() {
-        assert_eq!(parse_key_modifiers("a"), KeyModifiers::empty());
-    }
-
-    #[test]
-    fn test_control() {
-        assert_eq!(parse_key_modifiers("c-c"), KeyModifiers::CONTROL);
-    }
-
-    #[test]
-    fn test_control_alt() {
-        assert_eq!(
-            parse_key_modifiers("c-m-c"),
-            KeyModifiers::from_bits(KeyModifiers::CONTROL.bits() | KeyModifiers::ALT.bits())
-                .unwrap()
-        );
-    }
-
-    #[test]
-    fn test_all() {
-        assert_eq!(parse_key_modifiers("c-m-s-a"), KeyModifiers::all());
+        while let Some(token) = token_iter.peek() {
+            match token {
+                Token::Separator => {
+                    token_iter.next();
+                    if token_iter.peek() == Some(&&Token::Separator) {
+                        panic!("Multiple - separators found consecutively");
+                    }
+                }
+                Token::SingleChar(c) => {
+                    token_iter.next();
+                    if let Some(m) = MODIFIERS.get(c) {
+                        if token_iter.next() == Some(&Token::Separator) {
+                            assert!(
+                                !ks.modifiers.contains(*m),
+                                "Multiple instances of same modifier given"
+                            );
+                            ks.modifiers.insert(*m);
+                        } else if ks.code.is_none() {
+                            ks.code = Some(KeyCode::Char(*c))
+                        } else {
+                            panic!("Invalid key input sequence given")
+                        }
+                    } else if ks.code.is_none() {
+                        ks.code = Some(KeyCode::Char(*c))
+                    } else {
+                        panic!("Invalid key input sequence given")
+                    }
+                }
+                Token::MultipleChar(c) => {
+                    let c = c.to_ascii_lowercase().to_string();
+                    if let Some(key) = SPECIAL_KEYS.get(c.as_str()) {
+                        if ks.code.is_none() {
+                            ks.code = Some(*key);
+                        } else {
+                            panic!("Invalid key input sequence given")
+                        }
+                    } else {
+                        panic!("Invalid key input sequence given")
+                    }
+                    token_iter.next();
+                }
+            }
+        }
+        KeyEvent {
+            code: if let Some(kc) = ks.code {
+                kc
+            } else {
+                KeyCode::Null
+            },
+            modifiers: ks.modifiers,
+        }
     }
 }
 
