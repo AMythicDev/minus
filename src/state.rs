@@ -103,13 +103,23 @@ impl PagerState {
             rows = 1;
         };
 
+        let prompt = std::env::current_exe()
+            .unwrap_or_else(|_| std::path::PathBuf::from("minus"))
+            .file_name()
+            .map_or_else(
+                || std::ffi::OsString::from("minus"),
+                std::ffi::OsStr::to_os_string,
+            )
+            .into_string()
+            .unwrap_or_else(|_| String::from("minus"));
+
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             unterminated: 0,
-            prompt: "minus".to_owned(),
+            prompt,
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::new(input::DefaultInputClassifier {}),
             exit_callbacks: Vec::with_capacity(5),
