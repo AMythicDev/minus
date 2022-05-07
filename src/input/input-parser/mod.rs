@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -86,10 +88,10 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
     let mut s = String::with_capacity(5);
 
     let flush_s = |s: &mut String, token_list: &mut Vec<Token>| {
-        if s.len() == 1 {
-            token_list.push(Token::SingleChar(s.chars().next().unwrap()))
-        } else if s.len() > 1 {
-            token_list.push(Token::MultipleChar(s.clone()))
+        match s.len() {
+            1 => token_list.push(Token::SingleChar(s.chars().next().unwrap())),
+            2.. => token_list.push(Token::MultipleChar(s.clone())),
+            _ => {}
         }
         s.clear();
     };
@@ -98,7 +100,7 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
         match chr {
             '-' => {
                 flush_s(&mut s, &mut token_list);
-                token_list.push(Token::Separator)
+                token_list.push(Token::Separator);
             }
             c => {
                 s.push(*c);
@@ -108,12 +110,12 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
     }
     flush_s(&mut s, &mut token_list);
 
-    KeySeq::new(token_list)
+    KeySeq::gen_keyevent_from_tokenlist(&token_list)
 }
 
 impl KeySeq {
-    fn new(token_list: Vec<Token>) -> KeyEvent {
-        let mut ks = KeySeq::default();
+    fn gen_keyevent_from_tokenlist(token_list: &[Token]) -> KeyEvent {
+        let mut ks = Self::default();
 
         let mut token_iter = token_list.iter().peekable();
 
@@ -135,37 +137,34 @@ impl KeySeq {
                             );
                             ks.modifiers.insert(*m);
                         } else if ks.code.is_none() {
-                            ks.code = Some(KeyCode::Char(*c))
+                            ks.code = Some(KeyCode::Char(*c));
                         } else {
-                            panic!("Invalid key input sequence given")
+                            panic!("Invalid key input sequence given");
                         }
                     } else if ks.code.is_none() {
-                        ks.code = Some(KeyCode::Char(*c))
+                        ks.code = Some(KeyCode::Char(*c));
                     } else {
-                        panic!("Invalid key input sequence given")
+                        panic!("Invalid key input sequence given");
                     }
                 }
                 Token::MultipleChar(c) => {
                     let c = c.to_ascii_lowercase().to_string();
-                    if let Some(key) = SPECIAL_KEYS.get(c.as_str()) {
-                        if ks.code.is_none() {
-                            ks.code = Some(*key);
-                        } else {
-                            panic!("Invalid key input sequence given")
-                        }
-                    } else {
-                        panic!("Invalid key input sequence given")
-                    }
+                    SPECIAL_KEYS.get(c.as_str()).map_or_else(
+                        || panic!("Invalid key input sequence given"),
+                        |key| {
+                            if ks.code.is_none() {
+                                ks.code = Some(*key);
+                            } else {
+                                panic!("Invalid key input sequence given");
+                            }
+                        },
+                    );
                     token_iter.next();
                 }
             }
         }
         KeyEvent {
-            code: if let Some(kc) = ks.code {
-                kc
-            } else {
-                KeyCode::Null
-            },
+            code: ks.code.unwrap_or(KeyCode::Null),
             modifiers: ks.modifiers,
         }
     }
