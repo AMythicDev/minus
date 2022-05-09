@@ -80,6 +80,7 @@ pub use event_wrapper::HashedEventRegister;
 use crate::minus_core::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use std::collections::hash_map::RandomState;
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -124,6 +125,26 @@ pub enum InputEvent {
 #[allow(clippy::module_name_repetitions)]
 pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
+}
+
+pub enum BindType {
+    Key,
+    Mouse,
+    Resize
+}
+
+fn generate_default_bindings<'a>() -> HashedEventRegister<RandomState> {
+    let mut map = HashedEventRegister::default();
+    map.insert_all(
+        &BindType::Key,
+        &["up", "k"],
+        |_ev: Event, ps: &PagerState| {
+            let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+            InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(position))
+        },
+    );
+
+    map
 }
 
 /// The default set of input definitions
