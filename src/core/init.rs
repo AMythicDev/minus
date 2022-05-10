@@ -21,7 +21,6 @@ use crossterm::{
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
 use std::sync::{Arc, Mutex};
-use std::thread;
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
@@ -107,21 +106,30 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     #[cfg(feature = "search")]
     let input_thread_running2 = input_thread_running.clone();
 
-    thread::spawn(move || {
-        event_reader(
-            &evtx,
-            &p1,
-            #[cfg(feature = "search")]
-            &input_thread_running2,
-        )
-    });
-    start_reactor(
-        &rx,
-        &ps_mutex,
-        &out,
-        #[cfg(feature = "search")]
-        &input_thread_running,
-    )?;
+    let (r1, r2) =
+        crossbeam_utils::thread::scope(|s| -> (Result<(), MinusError>, Result<(), MinusError>) {
+            let t1 = s.spawn(|_| {
+                event_reader(
+                    &evtx,
+                    &p1,
+                    #[cfg(feature = "search")]
+                    &input_thread_running2,
+                )
+            });
+            let t2 = s.spawn(|_| {
+                start_reactor(
+                    &rx,
+                    &ps_mutex,
+                    &out,
+                    #[cfg(feature = "search")]
+                    &input_thread_running,
+                )
+            });
+            let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
+            (r1, r2)
+        })
+        .unwrap();
+    (r1?, r2?);
     Ok(())
 }
 
