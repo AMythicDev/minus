@@ -21,7 +21,6 @@ use crossterm::{
 use once_cell::sync::OnceCell;
 use std::io::{stdout, Stdout};
 use std::sync::{Arc, Mutex};
-use std::thread;
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
@@ -107,21 +106,31 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     #[cfg(feature = "search")]
     let input_thread_running2 = input_thread_running.clone();
 
-    thread::spawn(move || {
-        event_reader(
-            &evtx,
-            &p1,
-            #[cfg(feature = "search")]
-            &input_thread_running2,
-        )
-    });
-    start_reactor(
-        &rx,
-        &ps_mutex,
-        &out,
-        #[cfg(feature = "search")]
-        &input_thread_running,
-    )?;
+    let (r1, r2) =
+        crossbeam_utils::thread::scope(|s| -> (Result<(), MinusError>, Result<(), MinusError>) {
+            let t1 = s.spawn(|_| {
+                event_reader(
+                    &evtx,
+                    &p1,
+                    #[cfg(feature = "search")]
+                    &input_thread_running2,
+                )
+            });
+            let t2 = s.spawn(|_| {
+                start_reactor(
+                    &rx,
+                    &ps_mutex,
+                    &out,
+                    #[cfg(feature = "search")]
+                    &input_thread_running,
+                )
+            });
+            let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
+            (r1, r2)
+        })
+        .unwrap();
+    r1?;
+    r2?;
     Ok(())
 }
 
@@ -164,6 +173,10 @@ fn start_reactor(
 
             let event = rx.recv();
 
+            let p = ps.lock().unwrap();
+            let rows: u16 = p.rows.try_into().unwrap();
+            let num_lines = p.num_lines();
+
             #[allow(clippy::unnested_or_patterns)]
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
@@ -186,12 +199,8 @@ fn start_reactor(
                         p.message = Some(text.to_string());
                     }
                     p.format_prompt();
-                    term::move_cursor(&mut out_lock, 0, p.rows.try_into().unwrap(), false)?;
-                    super::display::write_prompt(
-                        &mut out_lock,
-                        &p.displayed_prompt,
-                        p.rows.try_into().unwrap(),
-                    )?;
+                    term::move_cursor(&mut out_lock, 0, rows, false)?;
+                    super::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
                 }
                 Ok(Event::AppendData(text)) => {
                     let mut p = ps.lock().unwrap();
@@ -203,10 +212,7 @@ fn start_reactor(
                         term::move_cursor(
                             &mut out_lock,
                             0,
-                            p.num_lines()
-                                .saturating_sub(p.unterminated)
-                                .try_into()
-                                .unwrap(),
+                            num_lines.saturating_sub(p.unterminated).try_into().unwrap(),
                             false,
                         )?;
                         // available_rows -> Rows that are still unfilled

@@ -118,7 +118,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char(c),
                 modifiers: KeyModifiers::NONE,
-            }) if c.is_digit(10) => Some(InputEvent::Number(c)),
+            }) if c.is_ascii_digit() => Some(InputEvent::Number(c)),
 
             // Enter key
             Event::Key(KeyEvent {
