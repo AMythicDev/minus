@@ -170,12 +170,12 @@ fn start_reactor(
             if is_exitted {
                 break;
             }
-
             let event = rx.recv();
 
             let p = ps.lock().unwrap();
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
+            drop(p);
 
             #[allow(clippy::unnested_or_patterns)]
             match event {
