@@ -36,6 +36,7 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
     map.insert("f11", KeyCode::F(11));
     map.insert("f12", KeyCode::F(12));
     map.insert("dash", KeyCode::Char('-'));
+    map.insert("space", KeyCode::Char(' '));
 
     map
 });
