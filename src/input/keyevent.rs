@@ -74,12 +74,14 @@ impl Default for KeySeq {
 pub fn parse_key_event(mut text: &str) -> KeyEvent {
     assert!(
         text.chars().all(|c| c.is_ascii()),
-        "Non ascii sequence found in input sequence"
+        "'{}': Non ascii sequence found in input sequence",
+        text
     );
     text = text.trim();
     assert!(
         text.chars().any(|c| !c.is_whitespace()),
-        "Whitespace character found in input sequence"
+        "'{}': Whitespace character found in input sequence",
+        text
     );
 
     let mut token_list = Vec::with_capacity(text.len());
@@ -111,11 +113,11 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
     }
     flush_s(&mut s, &mut token_list);
 
-    KeySeq::gen_keyevent_from_tokenlist(&token_list)
+    KeySeq::gen_keyevent_from_tokenlist(&token_list, text)
 }
 
 impl KeySeq {
-    fn gen_keyevent_from_tokenlist(token_list: &[Token]) -> KeyEvent {
+    fn gen_keyevent_from_tokenlist(token_list: &[Token], text: &str) -> KeyEvent {
         let mut ks = Self::default();
 
         let mut token_iter = token_list.iter().peekable();
@@ -125,7 +127,7 @@ impl KeySeq {
                 Token::Separator => {
                     token_iter.next();
                     if token_iter.peek() == Some(&&Token::Separator) {
-                        panic!("Multiple - separators found consecutively");
+                        panic!("'{}': Multiple - separators found consecutively", text);
                     }
                 }
                 Token::SingleChar(c) => {
@@ -134,29 +136,30 @@ impl KeySeq {
                         if token_iter.next() == Some(&Token::Separator) {
                             assert!(
                                 !ks.modifiers.contains(*m),
-                                "Multiple instances of same modifier given"
+                                "'{}': Multiple instances of same modifier given",
+                                text
                             );
                             ks.modifiers.insert(*m);
                         } else if ks.code.is_none() {
                             ks.code = Some(KeyCode::Char(*c));
                         } else {
-                            panic!("Invalid key input sequence given");
+                            panic!("'{}' Invalid key input sequence given", text);
                         }
                     } else if ks.code.is_none() {
                         ks.code = Some(KeyCode::Char(*c));
                     } else {
-                        panic!("Invalid key input sequence given");
+                        panic!("'{}': Invalid key input sequence given", text);
                     }
                 }
                 Token::MultipleChar(c) => {
                     let c = c.to_ascii_lowercase().to_string();
                     SPECIAL_KEYS.get(c.as_str()).map_or_else(
-                        || panic!("Invalid key input sequence given"),
+                        || panic!("'{}': Invalid key input sequence given", text),
                         |key| {
                             if ks.code.is_none() {
                                 ks.code = Some(*key);
                             } else {
-                                panic!("Invalid key input sequence given");
+                                panic!("'{}': Invalid key input sequence given", text);
                             }
                         },
                     );
