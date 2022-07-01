@@ -155,21 +155,22 @@ pass the limit.
 
 ## Standard actions
 
-Here is the list of default key/mouse actions handled by `minus`.  End-applications can change these bindings to better suit their needs.
+Here is the list of default key/mouse actions handled by `minus`.
+**A `[n] key` means that you can preceed the key by a integer**. 
 
 | Action            | Description                                                      |
 |-------------------|------------------------------------------------------------------|
 | Ctrl+C/q          | Quit the pager                                                   |
-| [n] Arrow Up/k    | Scroll up by n number of line(s). If n is omitted it will be 1   |
-| [n] Arrow Down/j  | Scroll down by n number of line(s). If n is omitted it will be 1 |
+| [n] Arrow Up/k    | Scroll up by n number of line(s). If n is omitted, scroll up by 1 line |
+| [n] Arrow Down/j  | Scroll down by n number of line(s). If n is omitted, scroll down by 1 line |
 | Page Up           | Scroll up by entire page                                         |
 | Page Down         | Scroll down by entire page                                       |
-| [n] Enter         | Scroll down by n number of line(s), if n is omitted it will be 1. If there are prompt messages, this will clear them  or clear prompt messages |
+| [n] Enter         | Scroll down by n number of line(s). If n is omitted, scroll by 1 line. If there are prompt messages, this will clear them |
 | Space             | Scroll down by one page                                          |
 | Ctrl+U/u          | Scroll up by half a screen                                       |
 | Ctrl+D/d          | Scroll down by half a screen                                     |
 | g                 | Go to the very top of the output                                 |
-| [n] G             | Go to the very bottom of the output                              |
+| [n] G             | Go to the very bottom of the output. If n is present, goes to that line |
 | Mouse scroll Up   | Scroll up by 5 lines                                             |
 | Mouse scroll Down | Scroll down by 5 lines                                           |
 | Ctrl+L            | Toggle line numbers if not forced enabled/disabled               |
@@ -178,6 +179,8 @@ Here is the list of default key/mouse actions handled by `minus`.  End-applicati
 | Esc               | Cancel search input                                              |
 | n                 | Go to the next search match                                      |
 | p                 | Go to the next previous match                                    |
+
+End-applications are free to change these bindings to better suit their needs.
 
 ## License
 
