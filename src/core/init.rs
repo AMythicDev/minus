@@ -99,16 +99,17 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     term::setup(&out)?;
 
     {
-        panic::set_hook(Box::new(|pinfo| {
-            let panic_hook = panic::take_hook();
+        let panic_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |pinfo| {
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will cause UB.
             drop(term::cleanup(
                 stdout(),
-                &crate::ExitStrategy::ProcessQuit,
+                &crate::ExitStrategy::PagerQuit,
                 true,
             ));
             panic_hook(pinfo);
+            std::process::exit(1);
         }));
     }
 
