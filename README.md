@@ -41,7 +41,7 @@ As above described, minus is an asynchronous terminal paging library for Rust. I
 
 minus achieves this by leveraging Rust's amazing concurrency support and no data race guarantees
 
-minus can be used with any async runtime like [`tokio`], [`async_std`] or [`threads`] if you prefer that.
+minus can be used with any async runtime like [`tokio`], [`async-std`] or native [`threads`] if you prefer that.
 If you want to display only static data, you don't even need to depend on any of the above
 
 ## Usage
