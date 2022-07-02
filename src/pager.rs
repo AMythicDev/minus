@@ -12,7 +12,7 @@ use std::fmt;
 ///
 /// The receiver part of the channel is continously polled by the pager for events. Depending
 /// on the type of event that occurs, the pager will either redraw the screen or update
-/// the [`PagerState`]
+/// the [PagerState](crate::state::PagerState)
 #[derive(Clone)]
 pub struct Pager {
     pub(crate) tx: Sender<Event>,
@@ -197,7 +197,7 @@ impl Pager {
     /// Set a custom input classifer function.
     ///
     /// When the pager encounters a user input, it calls the input classifer with
-    /// the event and [`PagerState`] as parameters.
+    /// the event and [PagerState](crate::state::PagerState) as parameters.
     ///
     /// A input classifier is a type implementing the [`InputClassifier`](input::InputClassifier)
     /// trait. It only has one required function, [`InputClassifier::classify_input`](input::InputClassifier::classify_input)

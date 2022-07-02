@@ -54,7 +54,7 @@
 //!
 //! minus achieves this by leveraging Rust's amazing concurrency support and no data race guarantees
 //!
-//! minus can be used with any async runtime like [`tokio`], [`async_std`] or [`threads`] if
+//! minus can be used with any async runtime like [`tokio`], [`async-std`] or native [`threads`] if
 //! you prefer that.
 //! If you want to display only static data, you don't even need to depend on any of the above
 //! ## What is a Pager?
@@ -62,7 +62,9 @@
 //! A pager is a program that lets you view and scroll through large amounts of text using a keyboard
 //! in a TTY where no mouse support is available.
 //!
-//! Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager. For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
+//! Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager.
+//! For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty
+//! much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
 //!
 //! # Usage
 //! Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
@@ -82,7 +84,7 @@
 //!
 //! # Examples
 //!
-//! ## [`Threads`]:
+//! ## Threads
 //!
 //! ```rust,no_run
 //! use minus::{dynamic_paging, MinusError, Pager};
@@ -108,7 +110,7 @@
 //! }
 //! ```
 //!
-//! ## [`tokio`]
+//! ## tokio
 //!
 //! ```rust,no_run
 //! use minus::{dynamic_paging, MinusError, Pager};
@@ -142,7 +144,7 @@
 //! }
 //! ```
 //!
-//! ## Static output:
+//! ## Static output
 //! ```rust,no_run
 //! use std::fmt::Write;
 //! use minus::{MinusError, Pager, page_all};
@@ -169,32 +171,36 @@
 //! ## Standard actions
 //!
 //! Here is the list of default key/mouse actions handled by `minus`.
-//! End-applications can change these bindings to better suit their needs.
 //!
-//! | Action            | Description                                                              |
-//! |-------------------|--------------------------------------------------------------------------|
-//! | Ctrl+C/q          | Quit the pager                                                           |
-//! | <n>Arrow Up/k     | Scroll up by n number of line(s). If n is omitted it will be 1           |
-//! | <n>Arrow Down/j   | Scroll down by n number of line(s). If n is omitted it will be 1         |
-//! | Page Up           | Scroll up by entire page                                                 |
-//! | Page Down         | Scroll down by entire page                                               |
-//! | <n>Enter          | Clear prompt messages otherwise same as `k`                              |
-//! | Space             | Scroll down by one page                                                  |
-//! | Ctrl+U/u          | Scroll up by half a screen                                               |
-//! | Ctrl+D/d          | Scroll down by half a screen                                             |
-//! | g                 | Go to the very top of the output                                         |
-//! | <n>G              | Go to the nth line of the output, if n is omitted, go to the very bottom |
-//! | Mouse scroll Up   | Scroll up by 5 lines                                                     |
-//! | Mouse scroll Down | Scroll down by 5 lines                                                   |
-//! | Ctrl+L            | Toggle line numbers if not forced enabled/disabled                       |
-//! | /                 | Start forward search                                                     |
-//! | ?                 | Start backward search                                                    |
-//! | Esc               | Cancel search input                                                      |
-//! | n                 | Go to the next search match                                              |
-//! | p                 | Go to the next previous match                                            |
+//! **A `[n] key` means that you can preceed the key by a integer**.
+//!
+//! | Action            | Description                                                                                                               |
+//! |-------------------|---------------------------------------------------------------------------------------------------------------------------|
+//! | Ctrl+C/q          | Quit the pager                                                                                                            |
+//! | \[n\] Arrow Up/k    | Scroll up by n number of line(s). If n is omitted, scroll up by 1 line                                                    |
+//! | \[n\] Arrow Down/j  | Scroll down by n number of line(s). If n is omitted, scroll down by 1 line                                                |
+//! | Page Up           | Scroll up by entire page                                                                                                  |
+//! | Page Down         | Scroll down by entire page                                                                                                |
+//! | \[n\] Enter         | Scroll down by n number of line(s). If n is omitted, scroll by 1 line. If there are prompt messages, this will clear them |
+//! | Space             | Scroll down by one page                                                                                                   |
+//! | Ctrl+U/u          | Scroll up by half a screen                                                                                                |
+//! | Ctrl+D/d          | Scroll down by half a screen                                                                                              |
+//! | g                 | Go to the very top of the output                                                                                          |
+//! | \[n\] G             | Go to the very bottom of the output. If n is present, goes to that line                                                   |
+//! | Mouse scroll Up   | Scroll up by 5 lines                                                                                                      |
+//! | Mouse scroll Down | Scroll down by 5 lines                                                                                                    |
+//! | Ctrl+L            | Toggle line numbers if not forced enabled/disabled                                                                        |
+//! | /                 | Start forward search                                                                                                      |
+//! | ?                 | Start backward search                                                                                                     |
+//! | Esc               | Cancel search input                                                                                                       |
+//! | n                 | Go to the next search match                                                                                               |
+//! | p                 | Go to the next previous match                                                                                             |
+//!
+//! End-applications are free to change these bindings to better suit their needs.
 //!
 //! [`tokio`]: https://docs.rs/tokio
 //! [`async-std`]: https://docs.rs/async-std
+//! [`Threads`]: std::thread
 
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
@@ -250,7 +256,7 @@ pub enum ExitStrategy {
 ///
 /// This implements [`Not`](std::ops::Not) to allow turning on/off line numbers
 /// when they where not locked in by the binary displaying the text.
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum LineNumbers {
     /// Enable line numbers permanently, cannot be turned off by user.
     AlwaysOn,

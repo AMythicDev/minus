@@ -39,7 +39,7 @@ pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 
 /// The main entry point of minus
 ///
-/// This is called by both [`async_paging`](crate::async_paging) and
+/// This is called by both [`dynamic_paging`](crate::dynamic_paging) and
 /// [`page_all`](crate::page_all) functions.
 ///
 /// It first receives all events present inside the [`Pager`]'s receiver
@@ -161,7 +161,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 /// and redraw if it event requires it to do so.
 ///
 /// For example if all rows in a terminal aren't filled and a
-/// [`AppendData`](crate::events::Event::AppendData) event occurs, it is absolutely necessory
+/// [`AppendData`](super::events::Event::AppendData) event occurs, it is absolutely necessory
 /// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
 /// screen.
 #[allow(clippy::too_many_lines)]
