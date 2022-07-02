@@ -109,7 +109,6 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
                 true,
             ));
             panic_hook(pinfo);
-            std::process::exit(1);
         }));
     }
 
@@ -339,7 +338,11 @@ fn event_reader(
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
-            let mut guard = ps.lock().unwrap();
+            let guard = ps.lock();
+            if guard.is_err() {
+                break;
+            }
+            let mut guard = guard.unwrap();
             // Get the events
             let input = guard.input_classifier.classify_input(ev, &guard);
             if let Some(iev) = input {
