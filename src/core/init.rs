@@ -19,8 +19,11 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 use once_cell::sync::OnceCell;
-use std::io::{stdout, Stdout};
-use std::sync::{Arc, Mutex};
+use std::{
+    io::{stdout, Stdout},
+    panic,
+    sync::{Arc, Mutex},
+};
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
@@ -94,6 +97,20 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 
     // Setup terminal, adjust line wraps and get rows
     term::setup(&out)?;
+
+    {
+        let panic_hook = panic::take_hook();
+        panic::set_hook(Box::new(move |pinfo| {
+            // While silently ignoring error is considered a bad practice, we are forced to do it here
+            // as we cannot use the ? and panicking here will cause UB.
+            drop(term::cleanup(
+                stdout(),
+                &crate::ExitStrategy::PagerQuit,
+                true,
+            ));
+            panic_hook(pinfo);
+        }));
+    }
 
     let ps_mutex = Arc::new(Mutex::new(ps));
 
@@ -321,7 +338,11 @@ fn event_reader(
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
-            let mut guard = ps.lock().unwrap();
+            let guard = ps.lock();
+            if guard.is_err() {
+                break;
+            }
+            let mut guard = guard.unwrap();
             // Get the events
             let input = guard.input_classifier.classify_input(ev, &guard);
             if let Some(iev) = input {
