@@ -109,6 +109,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
                 true,
             ));
             panic_hook(pinfo);
+            std::process::exit(1);
         }));
     }
 
@@ -142,16 +143,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
                     &input_thread_running,
                 )
             });
-            let (tr1, tr2) = (t1.join(), t2.join());
-
-            let (mut r1, mut r2) = (Ok(()), Ok(()));
-
-            if let Err(e) = tr1 {
-                r1 = Err(crate::error::MinusError::Panic(e));
-            }
-            if let Err(e) = tr2 {
-                r2 = Err(crate::error::MinusError::Panic(e));
-            }
+            let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
             (r1, r2)
         })
         .unwrap();
@@ -347,12 +339,7 @@ fn event_reader(
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
-            let guard = ps.lock();
-            if guard.is_err() {
-                break;
-            }
-            let mut guard = guard.unwrap();
-
+            let mut guard = ps.lock().unwrap();
             // Get the events
             let input = guard.input_classifier.classify_input(ev, &guard);
             if let Some(iev) = input {

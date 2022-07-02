@@ -103,8 +103,10 @@ pub enum MinusError {
     #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
     SearchExpError(#[from] RegexError),
 
-    #[error("Minus panicked")]
-    Panic(Box<dyn std::any::Any + Send>),
+    #[cfg(feature = "tokio")]
+    #[error(transparent)]
+    #[cfg_attr(docsrs, doc(cfg(feature = "tokio")))]
+    JoinError(#[from] tokio::task::JoinError),
 }
 
 // Just for  convinience helper which is useful in many places
