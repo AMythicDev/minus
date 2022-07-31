@@ -56,7 +56,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 ```toml
 [dependencies.minus]
-version = "5.0.3"
+version = "5.0.4"
 features = [
     # Enable features you want. For example
     "dynamic_output",
@@ -149,9 +149,7 @@ fn main() -> Result<(), MinusError> {
 ```
 
 If there are more rows in the terminal than the number of lines in the given
-data, `minus` will simply print the data and quit. This only works in static
-paging since asynchronous paging could still receive more data that makes it 
-pass the limit.
+data, `minus` will simply print the data and quit. Do note that this behaviour only happens in static paging as it is assumed that text data will not change.
 
 ## Standard actions
 
