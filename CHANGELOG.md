@@ -1,6 +1,19 @@
 # Changelog
 This file documents all notable changes made to this project
 
+## v5.0.4 [2022-07-31]
+### Added
+* Added dependency on [crossbeam-utils](https://crates.io/crates/crossbeam-utils). 
+  This allows us to use scoped threads feature provided by it.
+
+### Changed
+* A custom panic hook has been injected to display panic messages more clearly when a panic happens (#77)
+* minus now displays the name of the binary in the prompt rather than the just the text `minus`
+
+### Docs
+* Improved the crate level documentation including fix for not displaying the optional
+  `[n]` prefix for movement keys
+
 ## v5.0.3 [2022-05-3]
 ### Fixed
 * Fix line numbers not wrapping properly in some cases of wrapping.
