@@ -1,10 +1,9 @@
 //! Provides the [`handle_event`] function
-use std::io::Write;
+use std::{io::Write, sync::atomic::AtomicBool};
 
 use super::events::Event;
 #[cfg(feature = "search")]
 use super::search;
-use super::term::cleanup;
 use crate::{error::MinusError, input::InputEvent, PagerState};
 #[cfg(feature = "search")]
 use std::sync::{Arc, Mutex};
@@ -19,7 +18,7 @@ pub fn handle_event(
     ev: Event,
     mut out: &mut impl Write,
     p: &mut PagerState,
-    is_exitted: &mut bool,
+    is_exitted: &Arc<AtomicBool>,
     #[cfg(feature = "search")] event_thread_running: &Arc<Mutex<()>>,
 ) -> Result<(), MinusError> {
     match ev {
@@ -29,8 +28,7 @@ pub fn handle_event(
         }
         Event::UserInput(InputEvent::Exit) => {
             p.exit();
-            *is_exitted = true;
-            cleanup(&mut out, &p.exit_strategy, true)?;
+            is_exitted.store(true, std::sync::atomic::Ordering::SeqCst);
         }
         Event::UserInput(InputEvent::UpdateUpperMark(um)) => p.upper_mark = um,
         Event::UserInput(InputEvent::RestorePrompt) => {

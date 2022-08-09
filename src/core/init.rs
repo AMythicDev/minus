@@ -22,7 +22,10 @@ use once_cell::sync::OnceCell;
 use std::{
     io::{stdout, Stdout},
     panic,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
@@ -125,21 +128,27 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 
     let (r1, r2) =
         crossbeam_utils::thread::scope(|s| -> (Result<(), MinusError>, Result<(), MinusError>) {
-            let t1 = s.spawn(|_| {
+            // Has the user quitted
+            let is_exitted = Arc::new(AtomicBool::new(false));
+            let is_exitted2 = is_exitted.clone();
+
+            let t1 = s.spawn(move |_| {
                 event_reader(
                     &evtx,
                     &p1,
                     #[cfg(feature = "search")]
                     &input_thread_running2,
+                    is_exitted2,
                 )
             });
-            let t2 = s.spawn(|_| {
+            let t2 = s.spawn(move |_| {
                 start_reactor(
                     &rx,
                     &ps_mutex,
                     &out,
                     #[cfg(feature = "search")]
                     &input_thread_running,
+                    is_exitted,
                 )
             });
             let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
@@ -170,9 +179,8 @@ fn start_reactor(
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
     #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
+    is_exitted: Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
-    // Has the user quitted
-    let mut is_exitted: bool = false;
     let mut out_lock = out.lock();
 
     if let Ok(mut p) = ps.lock() {
@@ -184,7 +192,7 @@ fn start_reactor(
         #[cfg(feature = "dynamic_output")]
         Some(&RunMode::Dynamic) => loop {
             use std::{convert::TryInto, io::Write};
-            if is_exitted {
+            if is_exitted.load(Ordering::SeqCst) {
                 break;
             }
             let event = rx.recv();
@@ -202,7 +210,7 @@ fn start_reactor(
                         ev,
                         &mut out_lock,
                         &mut p,
-                        &mut is_exitted,
+                        &is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
@@ -264,7 +272,7 @@ fn start_reactor(
                         ev,
                         &mut out_lock,
                         &mut p,
-                        &mut is_exitted,
+                        &is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
@@ -274,7 +282,9 @@ fn start_reactor(
         },
         #[cfg(feature = "static_output")]
         Some(&RunMode::Static) => loop {
-            if is_exitted {
+            if is_exitted.load(Ordering::SeqCst) {
+                let p = ps.lock().unwrap();
+                term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
                 break;
             }
 
@@ -284,7 +294,7 @@ fn start_reactor(
                     Event::UserInput(inp),
                     &mut out_lock,
                     &mut p,
-                    &mut is_exitted,
+                    &is_exitted,
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
@@ -315,7 +325,7 @@ fn generate_initial_state(
             ev,
             &mut out,
             &mut ps,
-            &mut false,
+            &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &Arc::new(Mutex::new(())),
         )
@@ -327,8 +337,13 @@ fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
     #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
+    is_exitted: Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     loop {
+        if is_exitted.load(Ordering::SeqCst) {
+            break;
+        }
+
         #[cfg(feature = "search")]
         let ilock = input_thread_running.lock().unwrap();
         #[cfg(feature = "search")]
