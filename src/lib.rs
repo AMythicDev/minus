@@ -230,7 +230,7 @@ pub use state::PagerState;
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
 /// Behaviour that happens when the pager is exitted
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Eq)]
 pub enum ExitStrategy {
     /// Kill the entire application immediately.
     ///

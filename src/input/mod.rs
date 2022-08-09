@@ -8,7 +8,7 @@ use crate::minus_core::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 
 /// Events handled by the `minus` pager.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
 pub enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.

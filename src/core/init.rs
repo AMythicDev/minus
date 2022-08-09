@@ -30,7 +30,7 @@ use std::{
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum RunMode {
     #[cfg(feature = "static_output")]
     Static,
@@ -74,12 +74,18 @@ pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
 pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
+    #[allow(unused_mut)]
     let mut out = stdout();
     // Is the event reader running
     #[cfg(feature = "search")]
     let input_thread_running = Arc::new(Mutex::new(()));
+
     #[allow(unused_mut)]
-    let mut ps = generate_initial_state(&mut pager.rx, &mut out)?;
+    let mut ps = generate_initial_state(
+        &mut pager.rx,
+        #[cfg(feature = "search")]
+        &mut out,
+    )?;
 
     // Static mode checks
     #[cfg(feature = "static_output")]
@@ -138,7 +144,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
                     &p1,
                     #[cfg(feature = "search")]
                     &input_thread_running2,
-                    is_exitted2,
+                    &is_exitted2,
                 )
             });
             let t2 = s.spawn(move |_| {
@@ -148,7 +154,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
                     &out,
                     #[cfg(feature = "search")]
                     &input_thread_running,
-                    is_exitted,
+                    &is_exitted,
                 )
             });
             let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
@@ -179,7 +185,7 @@ fn start_reactor(
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
     #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
-    is_exitted: Arc<AtomicBool>,
+    is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
@@ -208,9 +214,10 @@ fn start_reactor(
                     let mut p = ps.lock().unwrap();
                     handle_event(
                         ev,
+                        #[cfg(feature = "search")]
                         &mut out_lock,
                         &mut p,
-                        &is_exitted,
+                        is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
@@ -270,9 +277,10 @@ fn start_reactor(
                     let mut p = ps.lock().unwrap();
                     handle_event(
                         ev,
+                        #[cfg(feature = "search")]
                         &mut out_lock,
                         &mut p,
-                        &is_exitted,
+                        is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
@@ -292,9 +300,10 @@ fn start_reactor(
                 let mut p = ps.lock().unwrap();
                 handle_event(
                     Event::UserInput(inp),
+                    #[cfg(feature = "search")]
                     &mut out_lock,
                     &mut p,
-                    &is_exitted,
+                    is_exitted,
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
@@ -317,12 +326,13 @@ fn start_reactor(
 ///  to process the events
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
-    mut out: &mut Stdout,
+    #[cfg(feature = "search")] mut out: &mut Stdout,
 ) -> Result<PagerState, MinusError> {
     let mut ps = PagerState::new()?;
     rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
         handle_event(
             ev,
+            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -337,7 +347,7 @@ fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
     #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
-    is_exitted: Arc<AtomicBool>,
+    is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     loop {
         if is_exitted.load(Ordering::SeqCst) {
