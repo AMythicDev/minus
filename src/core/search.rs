@@ -20,7 +20,7 @@ static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
         .unwrap()
 });
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Eq)]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 #[allow(clippy::module_name_repetitions)]
 /// Defines modes in which the search can run
