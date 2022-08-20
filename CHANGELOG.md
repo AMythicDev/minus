@@ -1,6 +1,10 @@
 # Changelog
 This file documents all notable changes made to this project
 
+## v5.0.5 [2022-08-20]
+## Fixed
+* Fixed regression in quitting in v5.0.4 and cleanup issues in from v5.0.0 (#79)
+
 ## v5.0.4 [2022-07-31]
 ### Added
 * Added dependency on [crossbeam-utils](https://crates.io/crates/crossbeam-utils). 
