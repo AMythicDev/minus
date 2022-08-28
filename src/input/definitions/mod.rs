@@ -1,10 +1,14 @@
 pub mod keydefs;
+<<<<<<< HEAD
 pub mod mousedefs;
+=======
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
 
 use crossterm::event::KeyModifiers;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
+<<<<<<< HEAD
 fn parse_tokens(mut text: &str) -> Vec<Token> {
     assert!(
         text.chars().all(|c| c.is_ascii()),
@@ -50,6 +54,8 @@ fn parse_tokens(mut text: &str) -> Vec<Token> {
     token_list
 }
 
+=======
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
 pub static MODIFIERS: Lazy<HashMap<char, KeyModifiers>> = Lazy::new(|| {
     let mut map = HashMap::new();
     map.insert('m', KeyModifiers::ALT);
@@ -58,6 +64,7 @@ pub static MODIFIERS: Lazy<HashMap<char, KeyModifiers>> = Lazy::new(|| {
 
     map
 });
+<<<<<<< HEAD
 
 #[derive(Debug, PartialEq)]
 enum Token {
@@ -65,3 +72,5 @@ enum Token {
     SingleChar(char),
     MultipleChar(String),
 }
+=======
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)

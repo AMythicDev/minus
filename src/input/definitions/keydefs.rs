@@ -1,6 +1,10 @@
 #![allow(dead_code)]
 
+<<<<<<< HEAD
 use super::{Token, MODIFIERS};
+=======
+use super::MODIFIERS;
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
 use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -42,6 +46,16 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
     map
 });
 
+<<<<<<< HEAD
+=======
+#[derive(Debug, PartialEq)]
+enum Token {
+    Separator, // -
+    SingleChar(char),
+    MultipleChar(String),
+}
+
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
 struct KeySeq {
     code: Option<KeyCode>,
     modifiers: KeyModifiers,
@@ -56,8 +70,52 @@ impl Default for KeySeq {
     }
 }
 
+<<<<<<< HEAD
 pub fn parse_key_event(text: &str) -> KeyEvent {
     let token_list = super::parse_tokens(text);
+=======
+pub fn parse_key_event(mut text: &str) -> KeyEvent {
+    assert!(
+        text.chars().all(|c| c.is_ascii()),
+        "'{}': Non ascii sequence found in input sequence",
+        text
+    );
+    text = text.trim();
+    assert!(
+        text.chars().any(|c| !c.is_whitespace()),
+        "'{}': Whitespace character found in input sequence",
+        text
+    );
+
+    let mut token_list = Vec::with_capacity(text.len());
+
+    let mut chars_peek = text.chars().peekable();
+
+    let mut s = String::with_capacity(5);
+
+    let flush_s = |s: &mut String, token_list: &mut Vec<Token>| {
+        match s.len() {
+            1 => token_list.push(Token::SingleChar(s.chars().next().unwrap())),
+            2.. => token_list.push(Token::MultipleChar(s.clone())),
+            _ => {}
+        }
+        s.clear();
+    };
+
+    while let Some(chr) = chars_peek.peek() {
+        match chr {
+            '-' => {
+                flush_s(&mut s, &mut token_list);
+                token_list.push(Token::Separator);
+            }
+            c => {
+                s.push(*c);
+            }
+        }
+        chars_peek.next();
+    }
+    flush_s(&mut s, &mut token_list);
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
 
     KeySeq::gen_keyevent_from_tokenlist(&token_list, text)
 }
@@ -72,11 +130,17 @@ impl KeySeq {
             match token {
                 Token::Separator => {
                     token_iter.next();
+<<<<<<< HEAD
                     assert!(
                         !(token_iter.peek() == Some(&&Token::Separator)),
                         "'{}': Multiple separators found consecutively",
                         text
                     );
+=======
+                    if token_iter.peek() == Some(&&Token::Separator) {
+                        panic!("'{}': Multiple - separators found consecutively", text);
+                    }
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
                 }
                 Token::SingleChar(c) => {
                     token_iter.next();
@@ -124,7 +188,10 @@ impl KeySeq {
 
 #[cfg(test)]
 #[test]
+<<<<<<< HEAD
 #[allow(clippy::too_many_lines)]
+=======
+>>>>>>> 3757de7 (input: Add definitions mod for better organization)
 fn test_parse_key_event() {
     assert_eq!(
         parse_key_event("up"),
