@@ -147,7 +147,6 @@ impl Hash for EventWrapper {
             Self::ExactMatchEvent(v) => {
                 v.hash(state);
             }
-            Self::WildEvent => {}
         }
     }
 }
