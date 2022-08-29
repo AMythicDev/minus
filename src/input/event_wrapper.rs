@@ -1,9 +1,12 @@
+<<<<<<< HEAD
 //! Provides the [`HashedEventRegister`] and related items
 //!
 //! This module holds the [`HashedEventRegister`] which is a [`HashMap`] that stores events and their associated
 //! callbacks. When the user does an action on the terminal, the event is scanned and matched against this register.
 //! If their is a match related to that event, the associated callback is called
 
+=======
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
 use super::{InputClassifier, InputEvent};
 use crate::PagerState;
 use crossterm::event::{Event, MouseEvent};
@@ -12,6 +15,7 @@ use std::{
     sync::Arc,
 };
 
+<<<<<<< HEAD
 /// A convinient type for the return type of [`HashedInputRegister::get`]
 type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Sync>;
 
@@ -93,6 +97,13 @@ enum EventWrapper {
     /// The event has an exact description on the basis of terms of [`crossterm`]
     ExactMatchEvent(Event),
     /// The event has no exact description and any event that dosen't match in the [`HashedInputRegister] matches to it
+=======
+type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Sync>;
+
+#[derive(Copy, Clone, Eq)]
+enum EventWrapper {
+    ExactMatchEvent(Event),
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
     WildEvent,
 }
 
@@ -110,6 +121,7 @@ impl From<&Event> for EventWrapper {
 
 impl PartialEq for EventWrapper {
     fn eq(&self, other: &Self) -> bool {
+<<<<<<< HEAD
         match (self, other) {
             (
                 Self::ExactMatchEvent(Event::Mouse(MouseEvent {
@@ -128,6 +140,25 @@ impl PartialEq for EventWrapper {
             | (Self::WildEvent, Self::WildEvent) => true,
             (Self::ExactMatchEvent(ev), Self::ExactMatchEvent(o_ev)) => ev == o_ev,
             _ => false,
+=======
+        if let Self::ExactMatchEvent(Event::Mouse(MouseEvent {
+            kind, modifiers, ..
+        })) = self
+        {
+            let (o_kind, o_modifiers) = if let Self::ExactMatchEvent(Event::Mouse(MouseEvent {
+                kind: o_kind,
+                modifiers: o_modifiers,
+                ..
+            })) = other
+            {
+                (o_kind, o_modifiers)
+            } else {
+                unreachable!()
+            };
+            kind == o_kind && modifiers == o_modifiers
+        } else {
+            self == other
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
         }
     }
 }
@@ -143,23 +174,39 @@ impl Hash for EventWrapper {
                 kind.hash(state);
                 modifiers.hash(state);
             }
+<<<<<<< HEAD
             Self::WildEvent | Self::ExactMatchEvent(Event::Resize(..)) => {}
             Self::ExactMatchEvent(v) => {
                 v.hash(state);
             }
+=======
+            Self::ExactMatchEvent(v) => {
+                v.hash(state);
+            }
+            Self::WildEvent => {}
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
         }
     }
 }
 
+<<<<<<< HEAD
+=======
+pub struct HashedEventRegister<S>(HashMap<EventWrapper, EventReturnType, S>);
+
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
 impl<S> HashedEventRegister<S>
 where
     S: BuildHasher,
 {
+<<<<<<< HEAD
     /// Create a new HashedEventRegister with the Hasher `s`
+=======
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
     fn new(s: S) -> Self {
         Self(HashMap::with_hasher(s))
     }
 
+<<<<<<< HEAD
     /// Adds a callback to handle all events that failed to match
     ///
     /// Sometimes there are bunch of keys having equal importance that should have the same callback, for instance
@@ -180,11 +227,50 @@ where
     ///
     /// This returns a Some(&EventReturnType) from which the callback can be unwrapped.
     fn get(&self, k: &Event) -> Option<&EventReturnType> {
+=======
+    pub fn insert(
+        &mut self,
+        btype: &BindType,
+        k: &str,
+        v: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    ) {
+        let v = Arc::new(v);
+        self.insert_rc(btype, k, v);
+    }
+
+    pub fn insert_wild_event_matcher(
+        &mut self,
+        v: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    ) {
+        self.0.insert(EventWrapper::WildEvent, Arc::new(v));
+    }
+
+    fn insert_rc(
+        &mut self,
+        btype: &BindType,
+        k: &str,
+        v: Arc<impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static>,
+    ) {
+        match btype {
+            BindType::Key => {
+                self.0.insert(
+                    Event::Key(super::definitions::keydefs::parse_key_event(k)).into(),
+                    v,
+                );
+            }
+            BindType::Mouse => todo!(),
+            BindType::Resize => todo!(),
+        }
+    }
+
+    pub fn get(&self, k: &Event) -> Option<&EventReturnType> {
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
         self.0
             .get(&k.into())
             .map_or_else(|| self.0.get(&EventWrapper::WildEvent), |k| Some(k))
     }
 
+<<<<<<< HEAD
     /// Adds a callback for handling resize events
     ///
     /// # Example
@@ -313,6 +399,17 @@ where
         for k in keys {
             self.0
                 .remove(&Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into());
+=======
+    pub fn insert_all(
+        &mut self,
+        btype: &BindType,
+        keys: &[&str],
+        v: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    ) {
+        let v = Arc::new(v);
+        for k in keys {
+            self.insert_rc(btype, k, v.clone());
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
         }
     }
 }
@@ -331,3 +428,12 @@ where
         self.get(&ev).map(|c| c(ev, ps))
     }
 }
+<<<<<<< HEAD
+=======
+
+pub enum BindType {
+    Key,
+    Mouse,
+    Resize,
+}
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)

@@ -1,10 +1,14 @@
 #![allow(dead_code)]
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 use super::{Token, MODIFIERS};
 =======
 use super::MODIFIERS;
 >>>>>>> 3757de7 (input: Add definitions mod for better organization)
+=======
+use super::{Token, MODIFIERS};
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
 use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -47,6 +51,7 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
 });
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 #[derive(Debug, PartialEq)]
 enum Token {
@@ -56,6 +61,8 @@ enum Token {
 }
 
 >>>>>>> 3757de7 (input: Add definitions mod for better organization)
+=======
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
 struct KeySeq {
     code: Option<KeyCode>,
     modifiers: KeyModifiers,
@@ -75,6 +82,7 @@ pub fn parse_key_event(text: &str) -> KeyEvent {
     let token_list = super::parse_tokens(text);
 =======
 pub fn parse_key_event(mut text: &str) -> KeyEvent {
+<<<<<<< HEAD
     assert!(
         text.chars().all(|c| c.is_ascii()),
         "'{}': Non ascii sequence found in input sequence",
@@ -116,6 +124,9 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
     }
     flush_s(&mut s, &mut token_list);
 >>>>>>> 3757de7 (input: Add definitions mod for better organization)
+=======
+    let token_list = super::parse_tokens(text);
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
 
     KeySeq::gen_keyevent_from_tokenlist(&token_list, text)
 }

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 use std::collections::HashMap;
 
 use super::{Token, MODIFIERS};
@@ -187,4 +188,12 @@ mod tests {
             }
         );
     }
+=======
+use super::Token;
+use crossterm::event::MouseEvent;
+
+fn parse_mouse_event(mut text: &str) {
+    super::parse_tokens(text);
+    todo!();
+>>>>>>> 056f2d9 (input/definitions: Refactor the code)
 }
