@@ -1,8 +1,12 @@
 pub mod keydefs;
 <<<<<<< HEAD
+<<<<<<< HEAD
 pub mod mousedefs;
 =======
 >>>>>>> 3757de7 (input: Add definitions mod for better organization)
+=======
+pub mod mousedefs;
+>>>>>>> e1c66ac (input: Fix clippy lints)
 
 use crossterm::event::KeyModifiers;
 use once_cell::sync::Lazy;

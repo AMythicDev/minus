@@ -131,16 +131,22 @@ impl KeySeq {
                 Token::Separator => {
                     token_iter.next();
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> e1c66ac (input: Fix clippy lints)
                     assert!(
                         !(token_iter.peek() == Some(&&Token::Separator)),
                         "'{}': Multiple separators found consecutively",
                         text
                     );
+<<<<<<< HEAD
 =======
                     if token_iter.peek() == Some(&&Token::Separator) {
                         panic!("'{}': Multiple - separators found consecutively", text);
                     }
 >>>>>>> 3757de7 (input: Add definitions mod for better organization)
+=======
+>>>>>>> e1c66ac (input: Fix clippy lints)
                 }
                 Token::SingleChar(c) => {
                     token_iter.next();
