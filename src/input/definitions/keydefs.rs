@@ -1,14 +1,6 @@
 #![allow(dead_code)]
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 use super::{Token, MODIFIERS};
-=======
-use super::MODIFIERS;
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
-use super::{Token, MODIFIERS};
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
 use std::collections::HashMap;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -50,9 +42,6 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
     map
 });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
 #[derive(Debug, PartialEq)]
 enum Token {
     Separator, // -
@@ -60,9 +49,6 @@ enum Token {
     MultipleChar(String),
 }
 
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
 struct KeySeq {
     code: Option<KeyCode>,
     modifiers: KeyModifiers,
@@ -77,12 +63,7 @@ impl Default for KeySeq {
     }
 }
 
-<<<<<<< HEAD
-pub fn parse_key_event(text: &str) -> KeyEvent {
-    let token_list = super::parse_tokens(text);
-=======
 pub fn parse_key_event(mut text: &str) -> KeyEvent {
-<<<<<<< HEAD
     assert!(
         text.chars().all(|c| c.is_ascii()),
         "'{}': Non ascii sequence found in input sequence",
@@ -123,10 +104,7 @@ pub fn parse_key_event(mut text: &str) -> KeyEvent {
         chars_peek.next();
     }
     flush_s(&mut s, &mut token_list);
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
     let token_list = super::parse_tokens(text);
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
 
     KeySeq::gen_keyevent_from_tokenlist(&token_list, text)
 }
@@ -141,23 +119,14 @@ impl KeySeq {
             match token {
                 Token::Separator => {
                     token_iter.next();
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> e1c66ac (input: Fix clippy lints)
                     assert!(
                         !(token_iter.peek() == Some(&&Token::Separator)),
                         "'{}': Multiple separators found consecutively",
                         text
                     );
-<<<<<<< HEAD
-=======
                     if token_iter.peek() == Some(&&Token::Separator) {
                         panic!("'{}': Multiple - separators found consecutively", text);
                     }
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
->>>>>>> e1c66ac (input: Fix clippy lints)
                 }
                 Token::SingleChar(c) => {
                     token_iter.next();
@@ -205,10 +174,7 @@ impl KeySeq {
 
 #[cfg(test)]
 #[test]
-<<<<<<< HEAD
 #[allow(clippy::too_many_lines)]
-=======
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
 fn test_parse_key_event() {
     assert_eq!(
         parse_key_event("up"),

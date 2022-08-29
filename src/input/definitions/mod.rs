@@ -1,21 +1,10 @@
 pub mod keydefs;
-<<<<<<< HEAD
-<<<<<<< HEAD
 pub mod mousedefs;
-=======
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
-pub mod mousedefs;
->>>>>>> e1c66ac (input: Fix clippy lints)
 
 use crossterm::event::KeyModifiers;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
 fn parse_tokens(mut text: &str) -> Vec<Token> {
     assert!(
         text.chars().all(|c| c.is_ascii()),
@@ -61,11 +50,6 @@ fn parse_tokens(mut text: &str) -> Vec<Token> {
     token_list
 }
 
-<<<<<<< HEAD
-=======
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
 pub static MODIFIERS: Lazy<HashMap<char, KeyModifiers>> = Lazy::new(|| {
     let mut map = HashMap::new();
     map.insert('m', KeyModifiers::ALT);
@@ -74,10 +58,6 @@ pub static MODIFIERS: Lazy<HashMap<char, KeyModifiers>> = Lazy::new(|| {
 
     map
 });
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
 
 #[derive(Debug, PartialEq)]
 enum Token {
@@ -85,8 +65,4 @@ enum Token {
     SingleChar(char),
     MultipleChar(String),
 }
-<<<<<<< HEAD
-=======
->>>>>>> 3757de7 (input: Add definitions mod for better organization)
-=======
->>>>>>> 056f2d9 (input/definitions: Refactor the code)
+

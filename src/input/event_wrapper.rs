@@ -258,7 +258,12 @@ where
                     v,
                 );
             }
-            BindType::Mouse => todo!(),
+            BindType::Mouse => {
+                self.0.insert(
+                    Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into(),
+                    v,
+                );
+            }
             BindType::Resize => todo!(),
         }
     }
