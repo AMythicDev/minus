@@ -24,6 +24,7 @@ fn test_kb_nav() {
             code: KeyCode::Down,
             modifiers: KeyModifiers::NONE,
         });
+
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(pager.upper_mark + 1)),
             handle_input(ev, &pager)
@@ -299,7 +300,15 @@ fn test_misc_events() {
             code: KeyCode::Char('a'),
             modifiers: KeyModifiers::NONE,
         });
-        assert_eq!(None, handle_input(ev, &pager));
+        assert_eq!(Some(InputEvent::Ignore), handle_input(ev, &pager));
+    }
+
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('5'),
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(Some(InputEvent::Number('5')), handle_input(ev, &pager));
     }
 }
 

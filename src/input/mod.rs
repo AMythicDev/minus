@@ -81,6 +81,8 @@ use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 use std::collections::hash_map::RandomState;
 
+pub use event_wrapper::HashedEventRegister;
+
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
@@ -126,24 +128,107 @@ pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
 }
 
-pub enum BindType {
-    Key,
-    Mouse,
-    Resize
-}
+pub fn generate_default_bindingss<S>(map: &mut HashedEventRegister<S>)
+where
+    S: std::hash::BuildHasher,
+{
+    map.add_key_events(&["q", "c-c"], |_, _| InputEvent::Exit);
 
-fn generate_default_bindings<'a>() -> HashedEventRegister<RandomState> {
-    let mut map = HashedEventRegister::default();
-    map.insert_all(
-        &BindType::Key,
-        &["up", "k"],
-        |_ev: Event, ps: &PagerState| {
+    map.add_key_events(&["up", "k"], |_, ps| {
+        let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(position))
+    });
+    map.add_key_events(&["down", "j"], |_, ps| {
+        let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
+    });
+    map.add_key_event("enter", |_, ps| {
+        if ps.message.is_some() {
+            InputEvent::RestorePrompt
+        } else {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
-            InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(position))
-        },
-    );
+            InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
+        }
+    });
+    map.add_key_events(&["u", "c-u"], |_, ps| {
+        let half_screen = (ps.rows / 2) as usize;
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(half_screen))
+    });
+    map.add_key_events(&["d", "c-d"], |_, ps| {
+        let half_screen = (ps.rows / 2) as usize;
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(half_screen))
+    });
+    map.add_key_event("g", |_, _| InputEvent::UpdateUpperMark(0));
 
-    map
+    map.add_key_events(&["s-g", "s-G", "G"], |_, ps| {
+        let mut position = ps
+            .prefix_num
+            .parse::<usize>()
+            .unwrap_or(usize::MAX)
+            // Reduce 1 here, because line numbering starts from 1
+            // while upper_mark starts from 0
+            .saturating_sub(1);
+        if position == 0 {
+            position = usize::MAX;
+        }
+        InputEvent::UpdateUpperMark(position)
+    });
+    map.add_key_event("pageup", |_, ps| {
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(ps.rows - 1))
+    });
+    map.add_key_events(&["pagedown", "space"], |_, ps| {
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(ps.rows - 1))
+    });
+    map.add_key_event("c-l", |_, ps| {
+        InputEvent::UpdateLineNumber(!ps.line_numbers)
+    });
+    #[cfg(feature = "search")]
+    {
+        map.add_key_event("/", |_, _| InputEvent::Search(SearchMode::Forward));
+        map.add_key_event("?", |_, _| InputEvent::Search(SearchMode::Reverse));
+        map.add_key_event("n", |_, ps| {
+            if ps.search_mode == SearchMode::Forward {
+                InputEvent::NextMatch
+            } else if ps.search_mode == SearchMode::Reverse {
+                InputEvent::PrevMatch
+            } else {
+                InputEvent::Ignore
+            }
+        });
+        map.add_key_event("p", |_, ps| {
+            if ps.search_mode == SearchMode::Forward {
+                InputEvent::PrevMatch
+            } else if ps.search_mode == SearchMode::Reverse {
+                InputEvent::NextMatch
+            } else {
+                InputEvent::Ignore
+            }
+        });
+    }
+
+    map.add_mouse_event("scrollup", |_, ps| {
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
+    });
+    map.add_mouse_event("scrolldown", |_, ps| {
+        InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
+    });
+
+    map.add_resize_event(|ev, _| {
+        let (cols, rows) = if let Event::Resize(cols, rows) = ev {
+            (cols, rows)
+        } else {
+            unreachable!();
+        };
+        InputEvent::UpdateTermArea(cols as usize, rows as usize)
+    });
+
+    map.insert_wild_event_matcher(|ev, _| {
+        if let Event::Key(KeyEvent {code : KeyCode::Char(c), modifiers: KeyModifiers::NONE }) = ev && c.is_ascii_digit() {
+            InputEvent::Number(c)
+        } else {
+            InputEvent::Ignore
+        }
+    });
 }
 
 /// The default set of input definitions
