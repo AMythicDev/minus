@@ -2,8 +2,8 @@
 use crate::minus_core::search::{self, SearchMode};
 use crate::{
     error::{MinusError, TermError},
-    input,
     minus_core::utils::text::AppendStyle,
+    input::{self, HashedEventRegister},
     wrap_str, ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
@@ -127,6 +127,9 @@ impl PagerState {
             .into_string()
             .unwrap_or_else(|_| String::from("minus"));
 
+        let mut event_register = HashedEventRegister::default();
+        input::generate_default_bindingss(&mut event_register);
+
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
@@ -135,7 +138,7 @@ impl PagerState {
             unterminated: 0,
             prompt,
             exit_strategy: ExitStrategy::ProcessQuit,
-            input_classifier: Box::new(input::DefaultInputClassifier {}),
+            input_classifier: Box::new(event_register),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
             displayed_prompt: String::new(),
