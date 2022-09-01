@@ -75,7 +75,7 @@ pub fn handle_event(
                     p.search_mark = 0;
 
                     // Move to next search match after the current upper_mark
-                    search::next_match(p);
+                    search::next_nth_match(p, 1);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
                     p.message = Some("Invalid regular expression. Press Enter".to_owned());
@@ -84,20 +84,18 @@ pub fn handle_event(
             }
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::NextMatch) if p.search_term.is_some() => {
-            // If s_mark is less than the length of pager.search_idx
-            // and it is not page where the last match is present
-            // then increment the s_mark
-            if p.search_mark < p.search_idx.len().saturating_sub(1)
-                && p.upper_mark + p.rows < p.num_lines()
-            {
-                p.search_mark += 1;
-            }
+        Event::UserInput(InputEvent::NextMatch)
+        | Event::UserInput(InputEvent::MoveToNextMatch(1))
+            if p.search_term.is_some() =>
+        {
             // Go to the next match
-            search::next_match(p);
+            search::next_nth_match(p, 1);
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::PrevMatch) if p.search_term.is_some() => {
+        Event::UserInput(InputEvent::PrevMatch)
+        | Event::UserInput(InputEvent::MoveToPrevMatch(1))
+            if p.search_term.is_some() =>
+        {
             // If no matches, return immediately
             if p.search_idx.is_empty() {
                 return Ok(());
@@ -112,6 +110,28 @@ pub fn handle_event(
                 }
             }
         }
+        #[cfg(feature = "search")]
+        Event::UserInput(InputEvent::MoveToNextMatch(n)) if p.search_term.is_some() => {
+            // Go to the next match
+            search::next_nth_match(p, n.saturating_sub(1));
+        }
+        #[cfg(feature = "search")]
+        Event::UserInput(InputEvent::MoveToPrevMatch(n)) if p.search_term.is_some() => {
+            // If no matches, return immediately
+            if p.search_idx.is_empty() {
+                return Ok(());
+            }
+            // Decrement the s_mark and get the preceeding index
+            p.search_mark = p.search_mark.saturating_sub(n);
+            if let Some(y) = p.search_idx.iter().nth(p.search_mark) {
+                // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
+                if *y < p.upper_mark {
+                    p.upper_mark = *y;
+                    p.format_prompt();
+                }
+            }
+        }
+
         Event::AppendData(text) => p.append_str(&text),
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;

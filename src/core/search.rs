@@ -202,11 +202,15 @@ pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool
 ///
 /// This function will continue looping untill it finds a match that is after the
 /// [`PagerState::upper_mark`]
-pub fn next_match(ps: &mut PagerState) {
+pub fn next_nth_match(ps: &mut PagerState, n: usize) {
     // Find the first match that's after the upper_mark, then set the mark to that match.
     // If we can't find one, just set it to the last match
     if let Some(nearest_idx) = ps.search_idx.iter().position(|i| *i > ps.upper_mark) {
-        ps.search_mark = nearest_idx;
+        ps.search_mark = nearest_idx.saturating_add(n).saturating_sub(1);
+
+        if ps.search_mark > ps.search_idx.len().saturating_sub(1) {
+            ps.search_mark = ps.search_idx.len().saturating_sub(1);
+        }
     } else {
         ps.search_mark = ps.search_idx.len().saturating_sub(1);
     }
@@ -223,7 +227,7 @@ pub fn next_match(ps: &mut PagerState) {
 mod tests {
     use std::collections::BTreeSet;
 
-    use super::{highlight_line_matches, next_match, INVERT, NORMAL};
+    use super::{highlight_line_matches, next_nth_match, INVERT, NORMAL};
     use crate::PagerState;
     use crossterm::style::Attribute;
     use regex::Regex;
@@ -239,7 +243,7 @@ mod tests {
         // A sample index for mocking actual search index matches
         pager.search_idx = BTreeSet::from([2, 10, 15, 17, 50]);
         for i in &pager.search_idx.clone() {
-            next_match(&mut pager);
+            next_nth_match(&mut pager);
             assert_eq!(pager.upper_mark, *i as usize);
             pager.search_mark += 1;
         }
