@@ -346,11 +346,11 @@ fn test_search_bindings() {
 
         assert_eq!(
             pager.input_classifier.classify_input(next_event, &pager),
-            Some(InputEvent::NextMatch)
+            Some(InputEvent::MoveToNextMatch(1))
         );
         assert_eq!(
             pager.input_classifier.classify_input(prev_event, &pager),
-            Some(InputEvent::PrevMatch)
+            Some(InputEvent::MoveToPrevMatch(1))
         );
     }
 
@@ -368,11 +368,11 @@ fn test_search_bindings() {
 
         assert_eq!(
             pager.input_classifier.classify_input(next_event, &pager),
-            Some(InputEvent::PrevMatch)
+            Some(InputEvent::MoveToPrevMatch(1))
         );
         assert_eq!(
             pager.input_classifier.classify_input(prev_event, &pager),
-            Some(InputEvent::NextMatch)
+            Some(InputEvent::MoveToNextMatch(1))
         );
     }
 }

@@ -203,15 +203,13 @@ fn start_reactor(
             }
             let event = rx.recv();
 
-            let p = ps.lock().unwrap();
+            let mut p = ps.lock().unwrap();
+
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
-            drop(p);
 
-            #[allow(clippy::unnested_or_patterns)]
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
-                    let mut p = ps.lock().unwrap();
                     handle_event(
                         ev,
                         #[cfg(feature = "search")]
@@ -223,8 +221,7 @@ fn start_reactor(
                     )?;
                     draw(&mut out_lock, &mut p)?;
                 }
-                Ok(Event::SetPrompt(ref text)) | Ok(Event::SendMessage(ref text)) => {
-                    let mut p = ps.lock().unwrap();
+                Ok(Event::SetPrompt(ref text) | Event::SendMessage(ref text)) => {
                     if let Ok(Event::SetPrompt(_)) = event {
                         p.prompt = text.to_string();
                     } else {
@@ -235,7 +232,6 @@ fn start_reactor(
                     super::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
                 }
                 Ok(Event::AppendData(text)) => {
-                    let mut p = ps.lock().unwrap();
                     // Make the string that nneds to be appended
                     let (fmt_text, num_unterminated) = p.make_append_str(&text);
 
@@ -274,7 +270,6 @@ fn start_reactor(
                     p.append_str_on_unterminated(fmt_text, num_unterminated);
                 }
                 Ok(ev) => {
-                    let mut p = ps.lock().unwrap();
                     handle_event(
                         ev,
                         #[cfg(feature = "search")]

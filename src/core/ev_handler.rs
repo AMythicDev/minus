@@ -13,12 +13,13 @@ use std::sync::Mutex;
 
 /// Respond based on the type of event
 ///
-/// It will mat match the type of event received and based on that, it can take actions like:-
+/// It will match the type of event received and based on that, it can take actions like:-
 /// - Mutating fields of [`PagerState`]
 /// - Handle cleanup and exits
 /// - Call search related functions
 #[cfg_attr(not(feature = "search"), allow(unused_mut))]
 #[cfg_attr(not(feature = "search"), allow(clippy::unnecessary_wraps))]
+#[allow(clippy::too_many_lines)]
 pub fn handle_event(
     ev: Event,
     #[cfg(feature = "search")] mut out: &mut impl Write,
@@ -56,44 +57,38 @@ pub fn handle_event(
             p.search_mode = m;
             // Pause the main user input thread from running
             let ilock = event_thread_running.lock().unwrap();
-            //            event_thread_running.swap(false, Ordering::SeqCst);
             // Get the query
             let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
             // Continue the user input thread
             drop(ilock);
 
             if !string.is_empty() {
-                let regex = regex::Regex::new(&string);
+                let regex = regex::Regex::new(string.as_str());
                 if let Ok(r) = regex {
                     p.search_term = Some(r);
-
                     // Format the lines, this will automatically generate the PagerState.search_idx
                     p.format_lines();
-
                     // Reset search mark so it won't be out of bounds if we have
                     // less matches in this search than last time
                     p.search_mark = 0;
-
                     // Move to next search match after the current upper_mark
                     search::next_nth_match(p, 1);
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
                     p.message = Some("Invalid regular expression. Press Enter".to_owned());
-                    p.format_lines();
+                    p.format_prompt();
                 }
             }
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::NextMatch)
-        | Event::UserInput(InputEvent::MoveToNextMatch(1))
+        Event::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
             if p.search_term.is_some() =>
         {
             // Go to the next match
             search::next_nth_match(p, 1);
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::PrevMatch)
-        | Event::UserInput(InputEvent::MoveToPrevMatch(1))
+        Event::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
             if p.search_term.is_some() =>
         {
             // If no matches, return immediately
@@ -132,7 +127,7 @@ pub fn handle_event(
             }
         }
 
-        Event::AppendData(text) => p.append_str(&text),
+        Event::AppendData(text) => p.append_str(text.as_str()),
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
             p.format_prompt();
