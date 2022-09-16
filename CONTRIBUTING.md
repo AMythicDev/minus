@@ -8,22 +8,31 @@ Contributing to a `minus` is pretty straight forward. If this is you're first ti
 - Fork this repo.
 - Start from **main** branch and create a seperate branch for making changes.
 - Read the code available and make your changes.
-- When you're done, submit a pull request for one of the maintainers to check it out. We would let you know if there is any problem or any changes that should be considered.
+- When you're done, submit a pull request for one of the maintainers to check it out. We would let you know if there is
+  any problem or any changes that should be considered.
+  
 
 ## Maintaining code quality and best practices
 - Your code should be formatted with rustfmt and should be free from clippy warnings.
-- If you're adding/making changes to the public API, write/change the documentation appropriately. Put documentation examples where possible. If the code returns a `Result`,
-describe the Error in the documentation. If it can panic, describe that too in the documentation.
-- Every chunk of code has some comments above it. If you write some new code or change some part of the existing code, you should write comments to explain it.
-- If you're code only needs to compiled when dynamic features are needed, gate it on the `async_std_lib` feature and `tokio_lib` feature. Gate it on 
-`search` feature, if it is required only when search features are needed. Gate it on `static_output`, if it's required when static data needs to be paged.
-If you're code is specific to a runtime library, enable the appropriate feature.
+- If you're adding/making changes to the public API, write/change the documentation appropriately. Put documentation
+  examples where possible. If the code returns a `Result`, describe the Error in the documentation. If it can panic,
+  describe that too in the documentation.
+  
+- Every chunk of code has some comments above it. If you write some new code or change some part of the existing code,
+  you should write comments to explain it.
+
+- Gate your code on appropriate Cargo features if it is required only by that functionality
+  - Code related to dynamic paging should be gated on the `dynamic_pagiing` feature.
+  - Code related to searching should be gated on the `search` feature.
+  - Code related to static output display should be gated on `static_output` feature.
 
 ## Tests and CI
-Your code will automatically be tested by GitHub Actions. If you're code fails in CI, you should fix it appropriately and ensure all tests/examples are passing.
+Your code will automatically be tested by GitHub Actions. If you're code fails in CI, you should fix it appropriately
+and ensure all tests/examples are passing.
 
 ## Commit messages
-You should follow the convention from the [Git Book](https://git-scm.com/book/ch5-2.html), which states this format for writing commit messages:
+You should follow the convention from the [Git Book](https://git-scm.com/book/ch5-2.html), which states this format for
+writing commit messages:
 
 ```
 Capitalized, short summary of 50 chars or less
@@ -61,6 +70,8 @@ Closes [Issue ID]
 ```
 
 ## License
-Unless explicitly stated otherwise, all code written to this project is dual licensed under the MIT and Apache license 2.0.
+Unless explicitly stated otherwise, all code written to this project is dual licensed under the MIT and Apache license
+2.0.
 
-The copyrights of `minus` are retained by their contributors and no copyright assignment is required to contribute to the project.
+The copyrights of `minus` are retained by their contributors and no copyright assignment is required to contribute to
+the project.
