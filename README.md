@@ -181,6 +181,9 @@ Here is the list of default key/mouse actions handled by `minus`.
 
 End-applications are free to change these bindings to better suit their needs.
 
+## MSRV
+minus requires Rust >= 1.54 to build correctly.
+
 ## License
 
 Unless explicitly stated, all works to `minus` are dual licensed under the
