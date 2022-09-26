@@ -1,10 +1,21 @@
 #[cfg(feature = "search")]
 use crate::minus_core::search::{self, SearchMode};
-use crate::{error::TermError, input, wrap_str, ExitStrategy, LineNumbers};
+use crate::{
+    error::{MinusError, TermError},
+    input, wrap_str, ExitStrategy, LineNumbers,
+};
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
-use std::io::stdout;
+#[cfg(feature = "search")]
+use std::io::Stdout;
+use std::{
+    io::stdout,
+    sync::{atomic::AtomicBool, Arc},
+};
+
+use crate::minus_core::{ev_handler::handle_event, events::Event};
+use crossbeam_channel::Receiver;
 
 /// Holds all information and configuration about the pager during
 /// its un time.
@@ -143,6 +154,35 @@ impl PagerState {
 
         state.format_prompt();
         Ok(state)
+    }
+
+    /// Generate the initial [`PagerState`]
+    ///
+    /// [`init_core`](crate::minus_core::init::init_core) calls this functions for creating the PagerState.
+    ///
+    /// This function creates a default [`PagerState`] and fetches all events present in the receiver
+    /// to create the initial state. This is done before starting the pager so that
+    /// the optimizationss can be applied.
+    ///
+    /// # Errors
+    /// This function will return an error if it could not create the default [`PagerState`] or fails
+    /// to process the events
+    pub fn generate_initial_state(
+        rx: &mut Receiver<Event>,
+        mut out: &mut Stdout,
+    ) -> Result<Self, MinusError> {
+        let mut ps = Self::new()?;
+        rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
+            handle_event(
+                ev,
+                &mut out,
+                &mut ps,
+                &Arc::new(AtomicBool::new(false)),
+                #[cfg(feature = "search")]
+                &Arc::new(AtomicBool::new(true)),
+            )
+        })?;
+        Ok(ps)
     }
 
     pub(crate) fn num_lines(&self) -> usize {

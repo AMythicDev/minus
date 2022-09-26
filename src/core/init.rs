@@ -8,7 +8,7 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{display::draw, ev_handler::handle_event, events::Event, term};
+use super::{display::draw, ev_handler::handle_event, events::Event, term, RunMode};
 use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
@@ -18,27 +18,20 @@ use crossterm::{
     execute,
     terminal::{Clear, ClearType},
 };
-use once_cell::sync::OnceCell;
 use std::{
     io::{stdout, Stdout},
     panic,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
-#[derive(PartialEq, Eq)]
-pub enum RunMode {
-    #[cfg(feature = "static_output")]
-    Static,
-    #[cfg(feature = "dynamic_output")]
-    Dynamic,
-}
+use parking_lot::Mutex;
 
-pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
+pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
 
 /// The main entry point of minus
 ///
@@ -78,14 +71,14 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
     // Is the event reader running
     #[cfg(feature = "search")]
-    let input_thread_running = Arc::new(Mutex::new(()));
+    let input_thread_running = Arc::new(AtomicBool::new(true));
 
     #[allow(unused_mut)]
-    let mut ps = generate_initial_state(&mut pager.rx, &mut out)?;
+    let mut ps = crate::state::PagerState::generate_initial_state(&mut pager.rx, &mut out)?;
 
     // Static mode checks
     #[cfg(feature = "static_output")]
-    if RUNMODE.get() == Some(&RunMode::Static) {
+    if *RUNMODE.lock() == RunMode::Static {
         // If stdout is not a tty, write everyhting and quit
         if !out.is_tty() {
             write_lines(&mut out, &mut ps)?;
@@ -180,23 +173,31 @@ fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
-    #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
     is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
-    if let Ok(mut p) = ps.lock() {
-        draw(&mut out_lock, &mut p)?;
-    }
+    let mut p = ps.lock();
+    draw(&mut out_lock, &mut p)?;
+    drop(p);
 
     #[allow(clippy::match_same_arms)]
-    match RUNMODE.get() {
+    match *RUNMODE.lock() {
         #[cfg(feature = "dynamic_output")]
-        Some(&RunMode::Dynamic) => loop {
+        RunMode::Dynamic => loop {
             use std::{convert::TryInto, io::Write};
+
+            if is_exitted.load(Ordering::SeqCst) {
+                let mut runmode = RUNMODE.lock();
+                *runmode = RunMode::Uninitialized;
+                drop(runmode);
+                break;
+            }
+
             let event = rx.recv();
 
-            let mut p = ps.lock().unwrap();
+            let mut p = ps.lock();
 
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
@@ -283,9 +284,23 @@ fn start_reactor(
             }
         },
         #[cfg(feature = "static_output")]
-        Some(&RunMode::Static) => loop {
+        RunMode::Static => loop {
+            if is_exitted.load(Ordering::SeqCst) {
+                // Cleanup the screen
+                //
+                // This is not needed in dynamic paging because this is already handled by handle_event
+                let p = ps.lock();
+                term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
+
+                let mut runmode = RUNMODE.lock();
+                *runmode = RunMode::Uninitialized;
+                drop(runmode);
+
+                break;
+            }
+
             if let Ok(Event::UserInput(inp)) = rx.recv() {
-                let mut p = ps.lock().unwrap();
+                let mut p = ps.lock();
                 handle_event(
                     Event::UserInput(inp),
                     &mut out_lock,
@@ -300,42 +315,18 @@ fn start_reactor(
                 draw(&mut out_lock, &mut p)?;
             }
         },
-        None => panic!("Static variable RUNMODE not set"),
+        RunMode::Uninitialized => panic!(
+            "Static variable RUNMODE set to unitialized.\
+This is most likely a bug. Please open an issue to the developers"
+        ),
     }
     Ok(())
-}
-
-/// Generate the initial [`PagerState`]
-///
-/// This function creates a default [`PagerState`] and fetches all events present in the receiver
-/// to create the initial state. This is done before starting the pager so that we
-/// can make the optimizationss that are present in static pager mode.
-///
-/// # Errors
-///  This function will return an error if it could not create the default [`PagerState`]or fails
-///  to process the events
-fn generate_initial_state(
-    rx: &mut Receiver<Event>,
-    mut out: &mut Stdout,
-) -> Result<PagerState, MinusError> {
-    let mut ps = PagerState::new()?;
-    rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
-        handle_event(
-            ev,
-            &mut out,
-            &mut ps,
-            &Arc::new(AtomicBool::new(false)),
-            #[cfg(feature = "search")]
-            &Arc::new(Mutex::new(())),
-        )
-    })?;
-    Ok(ps)
 }
 
 fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
-    #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
     is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     loop {
@@ -344,19 +335,15 @@ fn event_reader(
         }
 
         #[cfg(feature = "search")]
-        let ilock = input_thread_running.lock().unwrap();
-        #[cfg(feature = "search")]
-        drop(ilock);
+        if !input_thread_running.load(Ordering::SeqCst) {
+            std::hint::spin_loop();
+        }
 
         if event::poll(std::time::Duration::from_millis(100))
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
-            let guard = ps.lock();
-            if guard.is_err() {
-                break;
-            }
-            let mut guard = guard.unwrap();
+            let mut guard = ps.lock();
             // Get the events
             let input = guard.input_classifier.classify_input(ev, &guard);
             if let Some(iev) = input {

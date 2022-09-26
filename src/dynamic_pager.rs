@@ -1,5 +1,5 @@
 use crate::error::MinusError;
-use crate::minus_core::init;
+use crate::minus_core::{self, init};
 use crate::Pager;
 
 /// Starts a asynchronously running pager
@@ -15,6 +15,9 @@ use crate::Pager;
 /// The function will return with an error if it encounters a error during paging.
 #[cfg_attr(docsrs, doc(cfg(feature = "dynamic_output")))]
 pub fn dynamic_paging(pager: Pager) -> Result<(), MinusError> {
-    assert!(init::RUNMODE.set(init::RunMode::Dynamic).is_ok(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
+    let mut runmode = init::RUNMODE.lock();
+    assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
+    *runmode = minus_core::RunMode::Dynamic;
+    drop(runmode);
     init::init_core(pager)
 }
