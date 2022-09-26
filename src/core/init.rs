@@ -23,11 +23,13 @@ use std::{
     panic,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
+
+use parking_lot::Mutex;
 
 pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
 
@@ -69,7 +71,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
     // Is the event reader running
     #[cfg(feature = "search")]
-    let input_thread_running = Arc::new(Mutex::new(()));
+    let input_thread_running = Arc::new(AtomicBool::new(true));
 
     #[allow(unused_mut)]
     let mut ps = generate_initial_state(
@@ -175,20 +177,21 @@ fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
-    #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
     is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
-    if let Ok(mut p) = ps.lock() {
-        draw(&mut out_lock, &mut p)?;
-    }
+    let mut p = ps.lock();
+    draw(&mut out_lock, &mut p)?;
+    drop(p);
 
     #[allow(clippy::match_same_arms)]
     match *RUNMODE.lock() {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
             use std::{convert::TryInto, io::Write};
+
             if is_exitted.load(Ordering::SeqCst) {
                 let mut runmode = RUNMODE.lock();
                 *runmode = RunMode::Uninitialized;
@@ -197,7 +200,7 @@ fn start_reactor(
             }
             let event = rx.recv();
 
-            let mut p = ps.lock().unwrap();
+            let mut p = ps.lock();
 
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
@@ -283,7 +286,7 @@ fn start_reactor(
                 // Cleanup the screen
                 //
                 // This is not needed in dynamic paging because this is already handled by handle_event
-                let p = ps.lock().unwrap();
+                let p = ps.lock();
                 term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
 
                 let mut runmode = RUNMODE.lock();
@@ -294,7 +297,7 @@ fn start_reactor(
             }
 
             if let Ok(Event::UserInput(inp)) = rx.recv() {
-                let mut p = ps.lock().unwrap();
+                let mut p = ps.lock();
                 handle_event(
                     Event::UserInput(inp),
                     #[cfg(feature = "search")]
@@ -307,8 +310,10 @@ fn start_reactor(
                 draw(&mut out_lock, &mut p)?;
             }
         },
-        RunMode::Uninitialized => panic!("Static variable RUNMODE set to unitialized.\
-This is most likely a bug. Please open an issue to the developers"),
+        RunMode::Uninitialized => panic!(
+            "Static variable RUNMODE set to unitialized.\
+This is most likely a bug. Please open an issue to the developers"
+        ),
     }
     Ok(())
 }
@@ -335,7 +340,7 @@ fn generate_initial_state(
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &Arc::new(Mutex::new(())),
+            &Arc::new(AtomicBool::new(true)),
         )
     })?;
     Ok(ps)
@@ -344,7 +349,7 @@ fn generate_initial_state(
 fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
-    #[cfg(feature = "search")] input_thread_running: &Arc<Mutex<()>>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
     is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     loop {
@@ -353,19 +358,15 @@ fn event_reader(
         }
 
         #[cfg(feature = "search")]
-        let ilock = input_thread_running.lock().unwrap();
-        #[cfg(feature = "search")]
-        drop(ilock);
+        if !input_thread_running.load(Ordering::SeqCst) {
+            std::hint::spin_loop();
+        }
 
         if event::poll(std::time::Duration::from_millis(100))
             .map_err(|e| MinusError::HandleEvent(e.into()))?
         {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
-            let guard = ps.lock();
-            if guard.is_err() {
-                break;
-            }
-            let mut guard = guard.unwrap();
+            let mut guard = ps.lock();
             // Get the events
             let input = guard.input_classifier.classify_input(ev, &guard);
             if let Some(iev) = input {

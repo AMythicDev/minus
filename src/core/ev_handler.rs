@@ -8,8 +8,9 @@ use super::events::Event;
 #[cfg(feature = "search")]
 use super::search;
 use crate::{error::MinusError, input::InputEvent, PagerState};
+
 #[cfg(feature = "search")]
-use std::sync::Mutex;
+use std::sync::atomic::Ordering;
 
 /// Respond based on the type of event
 ///
@@ -25,7 +26,7 @@ pub fn handle_event(
     #[cfg(feature = "search")] mut out: &mut impl Write,
     p: &mut PagerState,
     is_exitted: &Arc<AtomicBool>,
-    #[cfg(feature = "search")] event_thread_running: &Arc<Mutex<()>>,
+    #[cfg(feature = "search")] event_thread_running: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     match ev {
         Event::SetData(text) => {
@@ -56,11 +57,11 @@ pub fn handle_event(
         Event::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
             // Pause the main user input thread from running
-            let ilock = event_thread_running.lock().unwrap();
+            event_thread_running.store(false, Ordering::SeqCst);
             // Get the query
             let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
             // Continue the user input thread
-            drop(ilock);
+            event_thread_running.store(true, Ordering::SeqCst);
 
             if !string.is_empty() {
                 let regex = regex::Regex::new(string.as_str());
@@ -152,8 +153,6 @@ pub fn handle_event(
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "search")]
-    use std::sync::Mutex;
     use std::sync::{atomic::AtomicBool, Arc};
 
     use super::super::events::Event;
@@ -170,7 +169,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -193,7 +192,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev1,
@@ -228,7 +227,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -250,7 +249,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -273,7 +272,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -295,7 +294,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -317,7 +316,7 @@ mod tests {
         #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
-        let etr = Arc::new(Mutex::new(()));
+        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,

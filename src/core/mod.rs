@@ -10,7 +10,6 @@ pub mod search;
 #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 pub mod term;
 
-
 #[derive(PartialEq, Eq)]
 pub enum RunMode {
     #[cfg(feature = "static_output")]
