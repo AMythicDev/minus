@@ -9,3 +9,19 @@ pub mod init;
 pub mod search;
 #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 pub mod term;
+
+
+#[derive(PartialEq, Eq)]
+pub enum RunMode {
+    #[cfg(feature = "static_output")]
+    Static,
+    #[cfg(feature = "dynamic_output")]
+    Dynamic,
+    Uninitialized,
+}
+
+impl RunMode {
+    pub fn is_uninitialized(&self) -> bool {
+        *self == Self::Uninitialized
+    }
+}

@@ -8,7 +8,7 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{display::draw, ev_handler::handle_event, events::Event, term};
+use super::{display::draw, ev_handler::handle_event, events::Event, term, RunMode};
 use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
@@ -18,7 +18,6 @@ use crossterm::{
     execute,
     terminal::{Clear, ClearType},
 };
-use once_cell::sync::OnceCell;
 use std::{
     io::{stdout, Stdout},
     panic,
@@ -30,15 +29,7 @@ use std::{
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
-#[derive(PartialEq, Eq)]
-pub enum RunMode {
-    #[cfg(feature = "static_output")]
-    Static,
-    #[cfg(feature = "dynamic_output")]
-    Dynamic,
-}
-
-pub static RUNMODE: OnceCell<RunMode> = OnceCell::new();
+pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
 
 /// The main entry point of minus
 ///
@@ -89,7 +80,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
 
     // Static mode checks
     #[cfg(feature = "static_output")]
-    if RUNMODE.get() == Some(&RunMode::Static) {
+    if *RUNMODE.lock() == RunMode::Static {
         // If stdout is not a tty, write everyhting and quit
         if !out.is_tty() {
             write_lines(&mut out, &mut ps)?;
@@ -194,11 +185,14 @@ fn start_reactor(
     }
 
     #[allow(clippy::match_same_arms)]
-    match RUNMODE.get() {
+    match *RUNMODE.lock() {
         #[cfg(feature = "dynamic_output")]
-        Some(&RunMode::Dynamic) => loop {
+        RunMode::Dynamic => loop {
             use std::{convert::TryInto, io::Write};
             if is_exitted.load(Ordering::SeqCst) {
+                let mut runmode = RUNMODE.lock();
+                *runmode = RunMode::Uninitialized;
+                drop(runmode);
                 break;
             }
             let event = rx.recv();
@@ -284,10 +278,18 @@ fn start_reactor(
             }
         },
         #[cfg(feature = "static_output")]
-        Some(&RunMode::Static) => loop {
+        RunMode::Static => loop {
             if is_exitted.load(Ordering::SeqCst) {
+                // Cleanup the screen
+                //
+                // This is not needed in dynamic paging because this is already handled by handle_event
                 let p = ps.lock().unwrap();
                 term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
+
+                let mut runmode = RUNMODE.lock();
+                *runmode = RunMode::Uninitialized;
+                drop(runmode);
+
                 break;
             }
 
@@ -305,7 +307,8 @@ fn start_reactor(
                 draw(&mut out_lock, &mut p)?;
             }
         },
-        None => panic!("Static variable RUNMODE not set"),
+        RunMode::Uninitialized => panic!("Static variable RUNMODE set to unitialized.\
+This is most likely a bug. Please open an issue to the developers"),
     }
     Ok(())
 }
