@@ -33,6 +33,12 @@ pub enum InputEvent {
     /// Get to the previous match in forward mode
     #[cfg(feature = "search")]
     PrevMatch,
+    /// Move to the next nth match in the given direction
+    #[cfg(feature = "search")]
+    MoveToNextMatch(usize),
+    /// Move to the previous nth match in the given direction
+    #[cfg(feature = "search")]
+    MoveToPrevMatch(usize),
 }
 
 /// Define custom keybindings
@@ -243,10 +249,11 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('n'),
                 modifiers: KeyModifiers::NONE,
             }) => {
+                let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
                 if ps.search_mode == SearchMode::Reverse {
-                    Some(InputEvent::PrevMatch)
+                    Some(InputEvent::MoveToPrevMatch(position))
                 } else {
-                    Some(InputEvent::NextMatch)
+                    Some(InputEvent::MoveToNextMatch(position))
                 }
             }
             #[cfg(feature = "search")]
@@ -254,10 +261,11 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('p'),
                 modifiers: KeyModifiers::NONE,
             }) => {
+                let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
                 if ps.search_mode == SearchMode::Reverse {
-                    Some(InputEvent::NextMatch)
+                    Some(InputEvent::MoveToNextMatch(position))
                 } else {
-                    Some(InputEvent::PrevMatch)
+                    Some(InputEvent::MoveToPrevMatch(position))
                 }
             }
             _ => None,
