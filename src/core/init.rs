@@ -81,11 +81,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let input_thread_running = Arc::new(Mutex::new(()));
 
     #[allow(unused_mut)]
-    let mut ps = generate_initial_state(
-        &mut pager.rx,
-        #[cfg(feature = "search")]
-        &mut out,
-    )?;
+    let mut ps = generate_initial_state(&mut pager.rx, &mut out)?;
 
     // Static mode checks
     #[cfg(feature = "static_output")]
@@ -198,9 +194,6 @@ fn start_reactor(
         #[cfg(feature = "dynamic_output")]
         Some(&RunMode::Dynamic) => loop {
             use std::{convert::TryInto, io::Write};
-            if is_exitted.load(Ordering::SeqCst) {
-                break;
-            }
             let event = rx.recv();
 
             let mut p = ps.lock().unwrap();
@@ -208,18 +201,25 @@ fn start_reactor(
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
 
+            if is_exitted.load(Ordering::SeqCst) {
+                break;
+            }
+
+            #[allow(clippy::unnested_or_patterns)]
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
+                    let is_exit_event = ev.is_exit_event();
                     handle_event(
                         ev,
-                        #[cfg(feature = "search")]
                         &mut out_lock,
                         &mut p,
                         is_exitted,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    draw(&mut out_lock, &mut p)?;
+                    if !is_exit_event {
+                        draw(&mut out_lock, &mut p)?;
+                    }
                 }
                 Ok(Event::SetPrompt(ref text) | Event::SendMessage(ref text)) => {
                     if let Ok(Event::SetPrompt(_)) = event {
@@ -272,7 +272,6 @@ fn start_reactor(
                 Ok(ev) => {
                     handle_event(
                         ev,
-                        #[cfg(feature = "search")]
                         &mut out_lock,
                         &mut p,
                         is_exitted,
@@ -285,23 +284,19 @@ fn start_reactor(
         },
         #[cfg(feature = "static_output")]
         Some(&RunMode::Static) => loop {
-            if is_exitted.load(Ordering::SeqCst) {
-                let p = ps.lock().unwrap();
-                term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
-                break;
-            }
-
             if let Ok(Event::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock().unwrap();
                 handle_event(
                     Event::UserInput(inp),
-                    #[cfg(feature = "search")]
                     &mut out_lock,
                     &mut p,
                     is_exitted,
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
+                if is_exitted.load(Ordering::SeqCst) {
+                    break;
+                }
                 draw(&mut out_lock, &mut p)?;
             }
         },
@@ -321,13 +316,12 @@ fn start_reactor(
 ///  to process the events
 fn generate_initial_state(
     rx: &mut Receiver<Event>,
-    #[cfg(feature = "search")] mut out: &mut Stdout,
+    mut out: &mut Stdout,
 ) -> Result<PagerState, MinusError> {
     let mut ps = PagerState::new()?;
     rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),

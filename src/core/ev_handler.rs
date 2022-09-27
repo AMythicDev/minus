@@ -1,12 +1,11 @@
 //! Provides the [`handle_event`] function
+
+use std::io::Write;
 use std::sync::{atomic::AtomicBool, Arc};
 
 #[cfg(feature = "search")]
-use std::io::Write;
-
-use super::events::Event;
-#[cfg(feature = "search")]
 use super::search;
+use super::{events::Event, term};
 use crate::{error::MinusError, input::InputEvent, PagerState};
 #[cfg(feature = "search")]
 use std::sync::Mutex;
@@ -22,7 +21,7 @@ use std::sync::Mutex;
 #[allow(clippy::too_many_lines)]
 pub fn handle_event(
     ev: Event,
-    #[cfg(feature = "search")] mut out: &mut impl Write,
+    mut out: &mut impl Write,
     p: &mut PagerState,
     is_exitted: &Arc<AtomicBool>,
     #[cfg(feature = "search")] event_thread_running: &Arc<Mutex<()>>,
@@ -35,6 +34,7 @@ pub fn handle_event(
         Event::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exitted.store(true, std::sync::atomic::Ordering::SeqCst);
+            term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
         Event::UserInput(InputEvent::UpdateUpperMark(um)) => p.upper_mark = um,
         Event::UserInput(InputEvent::RestorePrompt) => {
@@ -167,14 +167,12 @@ mod tests {
     fn set_data() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetData(TEST_STR.to_string());
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -190,14 +188,12 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev1 = Event::AppendData(format!("{}\n", TEST_STR));
         let ev2 = Event::AppendData(TEST_STR.to_string());
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev1,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -207,7 +203,6 @@ mod tests {
         .unwrap();
         handle_event(
             ev2,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -225,14 +220,12 @@ mod tests {
     fn set_prompt() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetPrompt(TEST_STR.to_string());
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -247,14 +240,12 @@ mod tests {
     fn send_message() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SendMessage(TEST_STR.to_string());
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -270,14 +261,12 @@ mod tests {
     fn set_run_no_overflow() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetRunNoOverflow(false);
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -292,14 +281,12 @@ mod tests {
     fn set_exit_strategy() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetExitStrategy(ExitStrategy::PagerQuit);
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
@@ -314,14 +301,12 @@ mod tests {
     fn add_exit_callback() {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::AddExitCallback(Box::new(|| println!("Hello World")));
-        #[cfg(feature = "search")]
         let mut out = Vec::new();
         #[cfg(feature = "search")]
         let etr = Arc::new(Mutex::new(()));
 
         handle_event(
             ev,
-            #[cfg(feature = "search")]
             &mut out,
             &mut ps,
             &Arc::new(AtomicBool::new(false)),

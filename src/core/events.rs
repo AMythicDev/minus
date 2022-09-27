@@ -58,6 +58,11 @@ impl Debug for Event {
 }
 
 impl Event {
+    #[allow(dead_code)]
+    pub(crate) const fn is_exit_event(&self) -> bool {
+        matches!(self, Self::UserInput(InputEvent::Exit))
+    }
+
     #[cfg(feature = "dynamic_output")]
     pub(crate) const fn required_immidiate_screen_update(&self) -> bool {
         matches!(
