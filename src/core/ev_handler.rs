@@ -4,9 +4,9 @@ use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(feature = "search")]
 use std::io::Write;
 
-use super::events::Event;
 #[cfg(feature = "search")]
 use super::search;
+use super::{events::Event, term};
 use crate::{error::MinusError, input::InputEvent, PagerState};
 #[cfg(feature = "search")]
 use std::sync::Mutex;
@@ -34,6 +34,7 @@ pub fn handle_event(
         Event::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exitted.store(true, std::sync::atomic::Ordering::SeqCst);
+            term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
         Event::UserInput(InputEvent::UpdateUpperMark(um)) => p.upper_mark = um,
         Event::UserInput(InputEvent::RestorePrompt) => {

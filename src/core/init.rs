@@ -198,9 +198,6 @@ fn start_reactor(
         #[cfg(feature = "dynamic_output")]
         Some(&RunMode::Dynamic) => loop {
             use std::{convert::TryInto, io::Write};
-            if is_exitted.load(Ordering::SeqCst) {
-                break;
-            }
             let event = rx.recv();
 
             let p = ps.lock().unwrap();
@@ -208,10 +205,15 @@ fn start_reactor(
             let num_lines = p.num_lines();
             drop(p);
 
+            if is_exitted.load(Ordering::SeqCst) {
+                break;
+            }
+
             #[allow(clippy::unnested_or_patterns)]
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
                     let mut p = ps.lock().unwrap();
+                    let is_exit_event = ev.is_exit_event();
                     handle_event(
                         ev,
                         #[cfg(feature = "search")]
@@ -221,7 +223,9 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    draw(&mut out_lock, &mut p)?;
+                    if !is_exit_event {
+                        draw(&mut out_lock, &mut p)?;
+                    }
                 }
                 Ok(Event::SetPrompt(ref text)) | Ok(Event::SendMessage(ref text)) => {
                     let mut p = ps.lock().unwrap();
@@ -290,12 +294,6 @@ fn start_reactor(
         },
         #[cfg(feature = "static_output")]
         Some(&RunMode::Static) => loop {
-            if is_exitted.load(Ordering::SeqCst) {
-                let p = ps.lock().unwrap();
-                term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
-                break;
-            }
-
             if let Ok(Event::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock().unwrap();
                 handle_event(
@@ -307,6 +305,9 @@ fn start_reactor(
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
+                if is_exitted.load(Ordering::SeqCst) {
+                    break;
+                }
                 draw(&mut out_lock, &mut p)?;
             }
         },
