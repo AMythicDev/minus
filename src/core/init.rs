@@ -74,7 +74,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let input_thread_running = Arc::new(AtomicBool::new(true));
 
     #[allow(unused_mut)]
-    let mut ps = generate_initial_state(
+    let mut ps = PagerState::generate_initial_state(
         &mut pager.rx,
         #[cfg(feature = "search")]
         &mut out,
@@ -316,34 +316,6 @@ This is most likely a bug. Please open an issue to the developers"
         ),
     }
     Ok(())
-}
-
-/// Generate the initial [`PagerState`]
-///
-/// This function creates a default [`PagerState`] and fetches all events present in the receiver
-/// to create the initial state. This is done before starting the pager so that we
-/// can make the optimizationss that are present in static pager mode.
-///
-/// # Errors
-///  This function will return an error if it could not create the default [`PagerState`]or fails
-///  to process the events
-fn generate_initial_state(
-    rx: &mut Receiver<Event>,
-    #[cfg(feature = "search")] mut out: &mut Stdout,
-) -> Result<PagerState, MinusError> {
-    let mut ps = PagerState::new()?;
-    rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
-        handle_event(
-            ev,
-            #[cfg(feature = "search")]
-            &mut out,
-            &mut ps,
-            &Arc::new(AtomicBool::new(false)),
-            #[cfg(feature = "search")]
-            &Arc::new(AtomicBool::new(true)),
-        )
-    })?;
-    Ok(ps)
 }
 
 fn event_reader(
