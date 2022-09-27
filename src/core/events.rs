@@ -58,6 +58,7 @@ impl Debug for Event {
 }
 
 impl Event {
+    #[allow(dead_code)]
     pub(crate) const fn is_exit_event(&self) -> bool {
         matches!(self, Self::UserInput(InputEvent::Exit))
     }
