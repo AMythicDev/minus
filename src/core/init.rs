@@ -8,7 +8,7 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{display::draw, ev_handler::handle_event, events::Event, term};
+use super::{display::draw_full, ev_handler::handle_event, events::Event, term};
 use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
@@ -186,7 +186,7 @@ fn start_reactor(
     let mut out_lock = out.lock();
 
     if let Ok(mut p) = ps.lock() {
-        draw(&mut out_lock, &mut p)?;
+        draw_full(&mut out_lock, &mut p)?;
     }
 
     #[allow(clippy::match_same_arms)]
@@ -219,7 +219,7 @@ fn start_reactor(
                         input_thread_running,
                     )?;
                     if !is_exit_event || !is_movement {
-                        draw(&mut out_lock, &mut p)?;
+                        draw_full(&mut out_lock, &mut p)?;
                     }
                 }
                 Ok(Event::SetPrompt(ref text) | Event::SendMessage(ref text)) => {
@@ -300,7 +300,7 @@ fn start_reactor(
                     break;
                 }
                 if !is_movement {
-                    draw(&mut out_lock, &mut p)?;
+                    draw_full(&mut out_lock, &mut p)?;
                 }
             }
         },

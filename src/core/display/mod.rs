@@ -30,8 +30,6 @@ pub fn draw_for_change(
     let lower_bound = p.upper_mark.saturating_add(writable_rows.min(line_count));
     let new_lower_bound = new_upper_mark.saturating_add(writable_rows.min(line_count));
 
-    // If lower_mark is more than line_count, there could be two cases
-    //
     // If the lower_bound is greater than the avilable line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if new_lower_bound > line_count {
@@ -104,27 +102,7 @@ pub fn draw_for_change(
     Ok(())
 }
 
-/// Draws the scrren
-///
-/// The function will first print out the lines. This is handled inside the [`write_lines`]
-/// function.
-///
-/// Then it wil check if there is any message to display.
-///     - If there is one, it will display it at the prompt site
-///     - If there isn't one, it will display the prompt in place of it
-pub fn draw(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
-    super::term::move_cursor(out, 0, 0, false)?;
-    queue!(out, Clear(ClearType::All))?;
-
-    write_lines(out, pager)?;
-
-    let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
-
-    write_prompt(out, &pager.displayed_prompt, pager_rows)?;
-
-    out.flush().map_err(MinusError::Draw)
-}
-
+/// Write given text at the prompt site
 pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
     write!(
         out,
@@ -137,21 +115,41 @@ pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), M
     Ok(())
 }
 
+// The below functions are just a subset of functionality of the above draw_for_change function.
+// Although, separate they are tightly coupled together.
+
+/// Completely redraws the scrren
+///
+/// The function will first print out the lines from the current upper_mark. This is handled inside the [`write_lines`]
+/// function.
+///
+/// Then it wil check if there is any message to display.
+///   - If there is one, it will display it at the prompt site
+///   - If there isn't one, it will display the prompt in place of it
+pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
+    super::term::move_cursor(out, 0, 0, false)?;
+    queue!(out, Clear(ClearType::All))?;
+
+    write_lines(out, pager)?;
+
+    let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
+
+    write_prompt(out, &pager.displayed_prompt, pager_rows)?;
+
+    out.flush().map_err(MinusError::Draw)
+}
+
 /// Write the lines to the terminal
 ///
 /// Draws (at most) `rows -1` lines, where the first line to display is
 /// [`PagerState::upper_mark`]. This function will always try to display as much lines as
 /// possible within `rows -1`.
 ///
-/// If the total number of lines is less than `rows -1`, they will all be
-/// displayed, regardless of `pager.upper_mark` (which will be updated to reflect
-/// this).
+/// It always skips one row at the botton as a site for the prompt or any message that may be sent.
 ///
-/// The function will always use `rows -1` lines as the the last line is reserved for prompt and messages
-/// The lines are joined with "\n\r" since the terminal is in [raw
-/// mode](../../crossterm/terminal/index.html#raw-mode). A "\n" takes the cursor directly below the
-/// current line without taking it to the very begging, which is column 0.
-/// Hence we use an additional "\r" to take the cursor to the very first column of the line.
+/// This function ensures that upper mark never exceeds a value such that adding upper mark and available rows exceeds
+/// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
+/// text is less than available rows. In this situation, upper mark is always 0.
 pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
     let line_count = pager.num_lines();
 
@@ -164,14 +162,18 @@ pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
         .upper_mark
         .saturating_add(writable_rows.min(line_count));
 
-    // Add \r to ensure cursor is placed at the beginning of each row
-    let displayed_lines = pager
-        .get_flattened_lines_with_bounds(pager.upper_mark, lower_mark)
-        .join("\n\r");
+    // If the lower_bound is greater than the avilable line count, we set it to such a value
+    // so that the last page can be displayed entirely, i.e never scroll past the last line
+    if lower_mark > line_count {
+        pager.upper_mark = line_count.saturating_sub(writable_rows);
+    }
 
-    // Join the lines and display them at once
-    // This is because, writing to console is slow
-    write!(out, "\r{}", displayed_lines)?;
+    // Add \r to ensure cursor is placed at the beginning of each row
+    let lines = pager.get_flattened_lines_with_bounds(pager.upper_mark, lower_mark);
+
+    for line in lines {
+        writeln!(out, "\r{}", line)?;
+    }
     Ok(())
 }
 
