@@ -286,6 +286,7 @@ fn start_reactor(
         #[cfg(feature = "static_output")]
         Some(&RunMode::Static) => loop {
             if let Ok(Event::UserInput(inp)) = rx.recv() {
+                let is_movement = Event::UserInput(inp).is_movement();
                 let mut p = ps.lock().unwrap();
                 handle_event(
                     Event::UserInput(inp),
@@ -298,7 +299,9 @@ fn start_reactor(
                 if is_exitted.load(Ordering::SeqCst) {
                     break;
                 }
-                draw(&mut out_lock, &mut p)?;
+                if !is_movement {
+                    draw(&mut out_lock, &mut p)?;
+                }
             }
         },
         None => panic!("Static variable RUNMODE not set"),
