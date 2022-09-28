@@ -9,7 +9,7 @@
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
 use super::{display::draw, ev_handler::handle_event, events::Event, term};
-use crate::{error::MinusError, input::InputEvent, minus_core::display, Pager, PagerState};
+use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
@@ -207,13 +207,9 @@ fn start_reactor(
 
             #[allow(clippy::unnested_or_patterns)]
             match event {
-                Ok(Event::UserInput(InputEvent::UpdateUpperMark(mut um))) => {
-                    display::draw2(&mut out_lock, &mut p, &mut um)?;
-                    p.upper_mark = um;
-                }
-
                 Ok(ev) if ev.required_immidiate_screen_update() => {
                     let is_exit_event = ev.is_exit_event();
+                    let is_movement = ev.is_movement();
                     handle_event(
                         ev,
                         &mut out_lock,
@@ -222,7 +218,7 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_exit_event {
+                    if !is_exit_event || !is_movement {
                         draw(&mut out_lock, &mut p)?;
                     }
                 }

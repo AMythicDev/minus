@@ -63,6 +63,11 @@ impl Event {
         matches!(self, Self::UserInput(InputEvent::Exit))
     }
 
+    #[allow(dead_code)]
+    pub(crate) const fn is_movement(&self) -> bool {
+        matches!(self, Self::UserInput(InputEvent::UpdateUpperMark(_)))
+    }
+
     #[cfg(feature = "dynamic_output")]
     pub(crate) const fn required_immidiate_screen_update(&self) -> bool {
         matches!(

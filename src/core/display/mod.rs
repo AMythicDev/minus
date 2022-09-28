@@ -10,7 +10,7 @@ use std::{cmp::Ordering, convert::TryInto, io::Write};
 use super::term::move_cursor;
 use crate::{error::MinusError, PagerState};
 
-pub fn draw2(
+pub fn draw_for_change(
     out: &mut impl Write,
     p: &mut PagerState,
     new_upper_mark: &mut usize,
@@ -156,23 +156,13 @@ pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
     let line_count = pager.num_lines();
 
     // Reduce one row for prompt/messages
-    let rows = pager.rows.saturating_sub(1);
+    let writable_rows = pager.rows.saturating_sub(1);
 
     // Calculate the lower_mark by adding either the rows or line_count depending
     // on the minimality
-    let lower_mark = pager.upper_mark.saturating_add(rows.min(line_count));
-
-    // If lower_mark is more than line_count, there could be two cases
-    if lower_mark > line_count {
-        // There is not enough text to fill even a single page.
-        // In this case, set upper_mark = 0
-        pager.upper_mark = if line_count < pager.rows {
-            0
-        } else {
-            // Else we set it to line_count - rows, equalling to the upper_mark of last page
-            line_count.saturating_sub(rows)
-        };
-    }
+    let lower_mark = pager
+        .upper_mark
+        .saturating_add(writable_rows.min(line_count));
 
     // Add \r to ensure cursor is placed at the beginning of each row
     let displayed_lines = pager
