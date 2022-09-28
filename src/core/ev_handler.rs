@@ -3,6 +3,7 @@
 use std::io::Write;
 use std::sync::{atomic::AtomicBool, Arc};
 
+use super::display;
 #[cfg(feature = "search")]
 use super::search;
 use super::{events::Event, term};
@@ -37,7 +38,10 @@ pub fn handle_event(
             is_exitted.store(true, std::sync::atomic::Ordering::SeqCst);
             term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
-        Event::UserInput(InputEvent::UpdateUpperMark(um)) => p.upper_mark = um,
+        Event::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
+            display::draw_for_change(out, p, &mut um)?;
+            p.upper_mark = um;
+        }
         Event::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;

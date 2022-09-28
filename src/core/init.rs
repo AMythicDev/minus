@@ -8,8 +8,10 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{display::draw, ev_handler::handle_event, events::Event, term, RunMode};
-use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
+use super::{display::draw_full, ev_handler::handle_event, events::Event, term, RunMode};
+use crate::{
+    error::MinusError, input::InputEvent, Pager, PagerState,
+};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
@@ -179,7 +181,7 @@ fn start_reactor(
     let mut out_lock = out.lock();
 
     let mut p = ps.lock();
-    draw(&mut out_lock, &mut p)?;
+    draw_full(&mut out_lock, &mut p)?;
     drop(p);
 
     #[allow(clippy::match_same_arms)]
@@ -210,6 +212,7 @@ fn start_reactor(
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
                     let is_exit_event = ev.is_exit_event();
+                    let is_movement = ev.is_movement();
                     handle_event(
                         ev,
                         &mut out_lock,
@@ -218,8 +221,8 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_exit_event {
-                        draw(&mut out_lock, &mut p)?;
+                    if !is_exit_event || !is_movement {
+                        draw_full(&mut out_lock, &mut p)?;
                     }
                 }
                 Ok(Event::SetPrompt(ref text) | Event::SendMessage(ref text)) => {
@@ -301,6 +304,7 @@ fn start_reactor(
 
             if let Ok(Event::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock();
+                let is_movement = Event::UserInput(inp).is_movement();
                 handle_event(
                     Event::UserInput(inp),
                     &mut out_lock,
@@ -312,7 +316,9 @@ fn start_reactor(
                 if is_exitted.load(Ordering::SeqCst) {
                     break;
                 }
-                draw(&mut out_lock, &mut p)?;
+                if !is_movement {
+                    draw_full(&mut out_lock, &mut p)?;
+                }
             }
         },
         RunMode::Uninitialized => panic!(
