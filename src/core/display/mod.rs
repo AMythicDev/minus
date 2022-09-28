@@ -10,6 +10,12 @@ use std::{cmp::Ordering, convert::TryInto, io::Write};
 use super::term::move_cursor;
 use crate::{error::MinusError, PagerState};
 
+/// Handles drawing of screen based on movement
+///
+/// Refreshing the entire terminal can be costly, especially on high resolution displays and this cost can turns out to be
+/// very high if that redrawing is required on every movement of the pager, even for small changes.
+/// This function calculates what part of screen needs to be redrawed on scrolling up/down and based on that, it redraws
+/// only that part of the terminal.
 pub fn draw_for_change(
     out: &mut impl Write,
     p: &mut PagerState,
