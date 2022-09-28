@@ -9,12 +9,10 @@
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
 use super::{display::draw, ev_handler::handle_event, events::Event, term};
-use crate::{
-    error::MinusError, input::InputEvent, minus_core::term::move_cursor, Pager, PagerState,
-};
+use crate::{error::MinusError, input::InputEvent, minus_core::display, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
-use crossterm::{event, queue};
+use crossterm::event;
 #[cfg(feature = "dynamic_output")]
 use crossterm::{
     execute,
@@ -209,46 +207,9 @@ fn start_reactor(
 
             #[allow(clippy::unnested_or_patterns)]
             match event {
-                Ok(Event::UserInput(InputEvent::UpdateUpperMark(um))) => {
-                    let lower_bound = p.upper_mark.saturating_add(p.rows).saturating_sub(1);
-
-                    // TODO: Normalize this value using p.row value
-                    let diff = um.abs_diff(p.upper_mark);
-
-                    let lines = p.get_flattened_lines_with_bounds(
-                        lower_bound,
-                        lower_bound.saturating_add(diff),
-                    );
-
-                    if um > p.upper_mark {
-                        queue!(
-                            out_lock,
-                            crossterm::terminal::ScrollUp(diff.try_into().unwrap())
-                        )?;
-                        move_cursor(
-                            &mut out_lock,
-                            0,
-                            p.rows.saturating_sub(diff + 1).try_into().unwrap(),
-                            false,
-                        )?;
-                        for line in lines {
-                            execute!(out_lock, Clear(ClearType::CurrentLine))?;
-                            write!(out_lock, "\r{}", line)?;
-                        }
-                        super::display::write_prompt(
-                            &mut out_lock,
-                            &p.displayed_prompt,
-                            p.rows.try_into().unwrap(),
-                        )?;
-                        out_lock.flush()?;
-                        p.upper_mark = p.upper_mark.saturating_add(diff);
-                    } else if um < p.upper_mark {
-                        execute!(
-                            out_lock,
-                            crossterm::terminal::ScrollDown(diff.try_into().unwrap())
-                        )?;
-                        p.upper_mark = p.upper_mark.saturating_sub(diff);
-                    }
+                Ok(Event::UserInput(InputEvent::UpdateUpperMark(mut um))) => {
+                    display::draw2(&mut out_lock, &mut p, &mut um)?;
+                    p.upper_mark = um;
                 }
 
                 Ok(ev) if ev.required_immidiate_screen_update() => {
