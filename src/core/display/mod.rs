@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 
-use std::{convert::TryInto, io::Write};
+use std::{cmp::Ordering, convert::TryInto, io::Write};
 
 use super::term::move_cursor;
 use crate::{error::MinusError, PagerState};
@@ -52,44 +52,46 @@ pub fn draw2(
     // need this value whatever the value of delta be.
     let normalized_delta = delta.min(writable_rows);
 
-    let lines = if *new_upper_mark > p.upper_mark {
-        queue!(
-            out,
-            crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
-        )?;
-        // Move up the cursor one extra line to cleanup the old junk prompt
-        move_cursor(
-            out,
-            0,
-            p.rows
-                .saturating_sub(normalized_delta + 1)
-                .try_into()
-                .unwrap(),
-            false,
-        )?;
-        queue!(out, Clear(ClearType::CurrentLine))?;
+    let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
+        Ordering::Greater => {
+            queue!(
+                out,
+                crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
+            )?;
+            // Move up the cursor one extra line to cleanup the old junk prompt
+            move_cursor(
+                out,
+                0,
+                p.rows
+                    .saturating_sub(normalized_delta + 1)
+                    .try_into()
+                    .unwrap(),
+                false,
+            )?;
+            queue!(out, Clear(ClearType::CurrentLine))?;
 
-        if normalized_delta < p.rows {
-            p.get_flattened_lines_with_bounds(lower_bound, new_lower_bound)
-        } else {
+            if normalized_delta < p.rows {
+                p.get_flattened_lines_with_bounds(lower_bound, new_lower_bound)
+            } else {
+                p.get_flattened_lines_with_bounds(
+                    *new_upper_mark,
+                    new_upper_mark.saturating_add(normalized_delta),
+                )
+            }
+        }
+        Ordering::Less => {
+            execute!(
+                out,
+                crossterm::terminal::ScrollDown(delta.try_into().unwrap())
+            )?;
+            move_cursor(out, 0, 0, false)?;
+
             p.get_flattened_lines_with_bounds(
                 *new_upper_mark,
                 new_upper_mark.saturating_add(normalized_delta),
             )
         }
-    } else if *new_upper_mark < p.upper_mark {
-        execute!(
-            out,
-            crossterm::terminal::ScrollDown(delta.try_into().unwrap())
-        )?;
-        move_cursor(out, 0, 0, false)?;
-
-        p.get_flattened_lines_with_bounds(
-            *new_upper_mark,
-            new_upper_mark.saturating_add(normalized_delta),
-        )
-    } else {
-        &[]
+        Ordering::Equal => &[],
     };
 
     for line in lines {
