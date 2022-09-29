@@ -443,3 +443,75 @@ fn test_draw_no_overflow() {
         .expect("Should have written valid UTF-8")
         .contains(TEXT));
 }
+
+#[cfg(test)]
+mod draw_for_change_tests {
+    use super::{draw_for_change, write_prompt};
+    use crate::state::PagerState;
+    use crossterm::{
+        cursor::MoveTo,
+        terminal::{Clear, ClearType, ScrollDown, ScrollUp},
+    };
+    use std::fmt::Write as FmtWrite;
+    use std::io::Write as IOWrite;
+
+    fn create_pager_state() -> PagerState {
+        let lines = {
+            let mut l = String::with_capacity(450);
+            for i in 0..100 {
+                writeln!(&mut l, "L{}", i).unwrap();
+            }
+            l
+        };
+        let mut ps = PagerState::new().unwrap();
+        ps.upper_mark = 0;
+        ps.lines = lines;
+        ps.format_lines();
+        ps.format_prompt();
+        ps
+    }
+
+    #[test]
+    fn small_jump() {
+        let mut ps = create_pager_state();
+        let mut out = Vec::with_capacity(100);
+
+        let mut res = Vec::new();
+        write!(
+            res,
+            "{}{}{}",
+            ScrollUp(3),
+            MoveTo(0, ps.rows as u16 - 4),
+            Clear(ClearType::CurrentLine)
+        )
+        .unwrap();
+        for line in &ps.formatted_lines[9..12] {
+            writeln!(res, "\r{}", line).unwrap();
+        }
+        write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
+
+        draw_for_change(&mut out, &mut ps, &mut 3).unwrap();
+
+        assert_eq!(out, res);
+    }
+
+    #[test]
+    fn large_jump() {
+        let mut ps = create_pager_state();
+        let mut out = Vec::with_capacity(100);
+
+        let mut res = Vec::new();
+        write!(res, "{}{}", MoveTo(0, 0), Clear(ClearType::All)).unwrap();
+        for line in &ps.formatted_lines[50..59] {
+            writeln!(res, "\r{}", line).unwrap();
+        }
+        write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
+
+        draw_for_change(&mut out, &mut ps, &mut 50).unwrap();
+
+        dbg!(String::from_utf8_lossy(&out));
+        dbg!(String::from_utf8_lossy(&res));
+
+        assert_eq!(out, res);
+    }
+}

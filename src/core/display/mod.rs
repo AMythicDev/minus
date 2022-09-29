@@ -49,7 +49,7 @@ pub fn draw_for_change(
     // Let's say the current upper mark is at 100 and writable rows is 25. Now if there is a jump of 200th line,
     // then instead of writing 100 lines, we can just jump to the 200 line and display the next 25 lines from there on.
     //
-    // Hence we use get the minimum of those for displaying
+    // Hence here we can take the minimum of the delta or writable rows for displaying
     //
     // NOTE that the large delta case may not always be true in case of scrolling down. Actually this method produces
     // wrong output if this is not the case hence we still rely on using lower bounds method. But for scrolling up, we
@@ -58,25 +58,29 @@ pub fn draw_for_change(
 
     let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
         Ordering::Greater => {
-            queue!(
-                out,
-                crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
-            )?;
-            // Move up the cursor one extra line to cleanup the old junk prompt
-            move_cursor(
-                out,
-                0,
-                p.rows
-                    .saturating_sub(normalized_delta + 1)
-                    .try_into()
-                    .unwrap(),
-                false,
-            )?;
-            queue!(out, Clear(ClearType::CurrentLine))?;
+            if delta < writable_rows {
+                // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
+                // Clear it off and start displaying new data.
+                queue!(
+                    out,
+                    crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
+                )?;
+                move_cursor(
+                    out,
+                    0,
+                    p.rows
+                        .saturating_sub(normalized_delta + 1)
+                        .try_into()
+                        .unwrap(),
+                    false,
+                )?;
+                queue!(out, Clear(ClearType::CurrentLine))?;
 
-            if normalized_delta < p.rows {
                 p.get_flattened_lines_with_bounds(lower_bound, new_lower_bound)
             } else {
+                // Move the cursor to the origin and clear everything to start displaying new data
+                move_cursor(out, 0, 0, false)?;
+                queue!(out, Clear(ClearType::All))?;
                 p.get_flattened_lines_with_bounds(
                     *new_upper_mark,
                     new_upper_mark.saturating_add(normalized_delta),
