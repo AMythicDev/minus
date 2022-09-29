@@ -472,7 +472,7 @@ mod draw_for_change_tests {
     }
 
     #[test]
-    fn small_jump() {
+    fn small_scrolldown() {
         let mut ps = create_pager_state();
         let mut out = Vec::with_capacity(100);
 
@@ -496,12 +496,72 @@ mod draw_for_change_tests {
     }
 
     #[test]
-    fn large_jump() {
+    fn large_scrolldown() {
         let mut ps = create_pager_state();
         let mut out = Vec::with_capacity(100);
 
         let mut res = Vec::new();
-        write!(res, "{}{}", MoveTo(0, 0), Clear(ClearType::All)).unwrap();
+        write!(
+            res,
+            "{}{}{}",
+            ScrollUp(9),
+            MoveTo(0, 0),
+            Clear(ClearType::CurrentLine)
+        )
+        .unwrap();
+        for line in &ps.formatted_lines[50..59] {
+            writeln!(res, "\r{}", line).unwrap();
+        }
+        write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
+
+        draw_for_change(&mut out, &mut ps, &mut 50).unwrap();
+
+        assert_eq!(out, res);
+    }
+
+    #[test]
+    fn no_overflow_change() {
+        let mut ps = create_pager_state();
+        ps.formatted_lines.truncate(5);
+        let mut out = Vec::with_capacity(100);
+        let mut new_upper_mark = 10;
+
+        let res = Vec::new();
+
+        draw_for_change(&mut out, &mut ps, &mut new_upper_mark).unwrap();
+
+        assert_eq!(out, res);
+    }
+
+    #[test]
+    fn large_scrollup() {
+        let mut ps = create_pager_state();
+        let mut out = Vec::with_capacity(100);
+        ps.upper_mark = 80;
+
+        let mut res = Vec::new();
+        write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
+        for line in &ps.formatted_lines[20..29] {
+            writeln!(res, "\r{}", line).unwrap();
+        }
+        write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
+
+        draw_for_change(&mut out, &mut ps, &mut 20).unwrap();
+
+        dbg!(String::from_utf8_lossy(&out));
+        dbg!(String::from_utf8_lossy(&res));
+
+        assert_eq!(out, res);
+    }
+
+    #[test]
+    fn small_scrollup() {
+        let mut ps = create_pager_state();
+        let mut out = Vec::with_capacity(100);
+        ps.upper_mark = 60;
+
+        let mut res = Vec::new();
+        write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
         for line in &ps.formatted_lines[50..59] {
             writeln!(res, "\r{}", line).unwrap();
         }

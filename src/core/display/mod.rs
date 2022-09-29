@@ -58,29 +58,27 @@ pub fn draw_for_change(
 
     let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
         Ordering::Greater => {
-            if delta < writable_rows {
-                // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
-                // Clear it off and start displaying new data.
-                queue!(
-                    out,
-                    crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
-                )?;
-                move_cursor(
-                    out,
-                    0,
-                    p.rows
-                        .saturating_sub(normalized_delta + 1)
-                        .try_into()
-                        .unwrap(),
-                    false,
-                )?;
-                queue!(out, Clear(ClearType::CurrentLine))?;
+            // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
+            // Clear it off and start displaying new dta.
+            dbg!(normalized_delta);
+            queue!(
+                out,
+                crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
+            )?;
+            move_cursor(
+                out,
+                0,
+                p.rows
+                    .saturating_sub(normalized_delta + 1)
+                    .try_into()
+                    .unwrap(),
+                false,
+            )?;
+            queue!(out, Clear(ClearType::CurrentLine))?;
 
+            if delta < writable_rows {
                 p.get_flattened_lines_with_bounds(lower_bound, new_lower_bound)
             } else {
-                // Move the cursor to the origin and clear everything to start displaying new data
-                move_cursor(out, 0, 0, false)?;
-                queue!(out, Clear(ClearType::All))?;
                 p.get_flattened_lines_with_bounds(
                     *new_upper_mark,
                     new_upper_mark.saturating_add(normalized_delta),
@@ -90,7 +88,7 @@ pub fn draw_for_change(
         Ordering::Less => {
             execute!(
                 out,
-                crossterm::terminal::ScrollDown(delta.try_into().unwrap())
+                crossterm::terminal::ScrollDown(normalized_delta.try_into().unwrap())
             )?;
             move_cursor(out, 0, 0, false)?;
 
@@ -99,7 +97,7 @@ pub fn draw_for_change(
                 new_upper_mark.saturating_add(normalized_delta),
             )
         }
-        Ordering::Equal => &[],
+        Ordering::Equal => return Ok(()),
     };
 
     for line in lines {
