@@ -6,7 +6,6 @@ pub mod events;
 pub mod init;
 #[cfg(feature = "search")]
 pub mod search;
-#[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 pub mod term;
 
 #[derive(PartialEq, Eq)]

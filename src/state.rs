@@ -7,7 +7,6 @@ use crate::{
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
-#[cfg(feature = "search")]
 use std::io::Stdout;
 use std::{
     io::stdout,
