@@ -3,14 +3,14 @@
 use std::io::Write;
 use std::sync::{atomic::AtomicBool, Arc};
 
-use super::display;
+#[cfg(feature = "search")]
+use parking_lot::{Condvar, Mutex};
+
+use super::display::{self};
 #[cfg(feature = "search")]
 use super::search;
 use super::{events::Event, term};
 use crate::{error::MinusError, input::InputEvent, PagerState};
-
-#[cfg(feature = "search")]
-use std::sync::atomic::Ordering;
 
 /// Respond based on the type of event
 ///
@@ -26,7 +26,7 @@ pub fn handle_event(
     mut out: &mut impl Write,
     p: &mut PagerState,
     is_exitted: &Arc<AtomicBool>,
-    #[cfg(feature = "search")] event_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] user_input_active: &Arc<(Mutex<bool>, Condvar)>,
 ) -> Result<(), MinusError> {
     match ev {
         Event::SetData(text) => {
@@ -60,12 +60,16 @@ pub fn handle_event(
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
-            // Pause the main user input thread from running
-            event_thread_running.store(false, Ordering::SeqCst);
-            // Get the query
+            // Pause the main user input thread, read search query and then restart the main input thread
+            let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
+            let mut active = lock.lock();
+            *active = false;
+            drop(active);
             let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
-            // Continue the user input thread
-            event_thread_running.store(true, Ordering::SeqCst);
+            let mut active = lock.lock();
+            *active = true;
+            drop(active);
+            cvar.notify_one();
 
             if !string.is_empty() {
                 let regex = regex::Regex::new(string.as_str());
@@ -78,6 +82,8 @@ pub fn handle_event(
                     p.search_mark = 0;
                     // Move to next search match after the current upper_mark
                     search::next_nth_match(p, 1);
+                    p.format_prompt();
+                    display::draw_full(&mut out, p)?;
                 } else {
                     // Send invalid regex message at the prompt if invalid regex is given
                     p.message = Some("Invalid regular expression. Press Enter".to_owned());
@@ -157,12 +163,20 @@ pub fn handle_event(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::{atomic::AtomicBool, Arc};
-
     use super::super::events::Event;
-    use crate::{ExitStrategy, PagerState};
-
     use super::handle_event;
+    use crate::{ExitStrategy, PagerState};
+    use std::sync::{atomic::AtomicBool, Arc};
+    #[cfg(feature = "search")]
+    use {
+        once_cell::sync::Lazy,
+        parking_lot::{Condvar, Mutex},
+    };
+
+    // Tests constants
+    #[cfg(feature = "search")]
+    static UIA: Lazy<Arc<(Mutex<bool>, Condvar)>> =
+        Lazy::new(|| Arc::new((Mutex::new(true), Condvar::new())));
     const TEST_STR: &str = "This is some sample text";
 
     // Tests for event emitting functions of Pager
@@ -171,8 +185,6 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -180,7 +192,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert_eq!(ps.formatted_lines, vec![TEST_STR.to_string()]);
@@ -192,8 +204,6 @@ mod tests {
         let ev1 = Event::AppendData(format!("{}\n", TEST_STR));
         let ev2 = Event::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev1,
@@ -201,7 +211,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         handle_event(
@@ -210,7 +220,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert_eq!(
@@ -224,8 +234,6 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -233,7 +241,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert_eq!(ps.prompt, TEST_STR.to_string());
@@ -244,8 +252,6 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -253,7 +259,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert_eq!(ps.message.unwrap(), TEST_STR.to_string());
@@ -265,8 +271,6 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetRunNoOverflow(false);
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -274,7 +278,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert!(!ps.run_no_overflow);
@@ -285,8 +289,6 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::SetExitStrategy(ExitStrategy::PagerQuit);
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -294,7 +296,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert_eq!(ps.exit_strategy, ExitStrategy::PagerQuit);
@@ -305,8 +307,6 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Event::AddExitCallback(Box::new(|| println!("Hello World")));
         let mut out = Vec::new();
-        #[cfg(feature = "search")]
-        let etr = Arc::new(AtomicBool::new(true));
 
         handle_event(
             ev,
@@ -314,7 +314,7 @@ mod tests {
             &mut ps,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
-            &etr,
+            &UIA,
         )
         .unwrap();
         assert_eq!(ps.exit_callbacks.len(), 1);

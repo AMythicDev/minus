@@ -1,4 +1,3 @@
-#[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 mod display;
 pub mod ev_handler;
 pub mod events;

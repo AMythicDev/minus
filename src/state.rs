@@ -6,6 +6,8 @@ use crate::{
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
+use parking_lot::{Condvar, Mutex};
+#[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::io::Stdout;
 use std::{
@@ -178,7 +180,7 @@ impl PagerState {
                 &mut ps,
                 &Arc::new(AtomicBool::new(false)),
                 #[cfg(feature = "search")]
-                &Arc::new(AtomicBool::new(true)),
+                &Arc::new((Mutex::new(true), Condvar::new())),
             )
         })?;
         Ok(ps)

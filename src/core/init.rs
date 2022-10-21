@@ -9,9 +9,7 @@
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
 use super::{display::draw_full, ev_handler::handle_event, events::Event, term, RunMode};
-use crate::{
-    error::MinusError, input::InputEvent, Pager, PagerState,
-};
+use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
@@ -31,6 +29,8 @@ use std::{
 #[cfg(feature = "static_output")]
 use {super::display::write_lines, crossterm::tty::IsTty};
 
+#[cfg(feature = "search")]
+use parking_lot::Condvar;
 use parking_lot::Mutex;
 
 pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
@@ -73,7 +73,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let mut out = stdout();
     // Is the event reader running
     #[cfg(feature = "search")]
-    let input_thread_running = Arc::new(AtomicBool::new(true));
+    let input_thread_running = Arc::new((Mutex::new(true), Condvar::new()));
 
     #[allow(unused_mut)]
     let mut ps = crate::state::PagerState::generate_initial_state(&mut pager.rx, &mut out)?;
@@ -175,7 +175,7 @@ fn start_reactor(
     rx: &Receiver<Event>,
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
-    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] input_thread_running: &Arc<(Mutex<bool>, Condvar)>,
     is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
@@ -332,7 +332,7 @@ This is most likely a bug. Please open an issue to the developers"
 fn event_reader(
     evtx: &Sender<Event>,
     ps: &Arc<Mutex<PagerState>>,
-    #[cfg(feature = "search")] input_thread_running: &Arc<AtomicBool>,
+    #[cfg(feature = "search")] user_input_active: &Arc<(Mutex<bool>, Condvar)>,
     is_exitted: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     loop {
@@ -341,8 +341,12 @@ fn event_reader(
         }
 
         #[cfg(feature = "search")]
-        if !input_thread_running.load(Ordering::SeqCst) {
-            std::hint::spin_loop();
+        {
+            let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
+            let mut active = lock.lock();
+            if !*active {
+                cvar.wait(&mut active);
+            }
         }
 
         if event::poll(std::time::Duration::from_millis(100))

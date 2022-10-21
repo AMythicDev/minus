@@ -1,4 +1,5 @@
 #![allow(clippy::shadow_unrelated)]
+#![allow(clippy::cast_possible_truncation)]
 use super::*;
 
 use crate::{LineNumbers, PagerState};
