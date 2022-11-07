@@ -60,7 +60,6 @@ pub fn draw_for_change(
         Ordering::Greater => {
             // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
             // Clear it off and start displaying new dta.
-            dbg!(normalized_delta);
             queue!(
                 out,
                 crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
