@@ -7,7 +7,7 @@ pub mod init;
 pub mod search;
 pub mod term;
 
-#[derive(PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RunMode {
     #[cfg(feature = "static_output")]
     Static,
