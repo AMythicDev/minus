@@ -184,8 +184,9 @@ fn start_reactor(
     draw_full(&mut out_lock, &mut p)?;
     drop(p);
 
+    let run_mode = *RUNMODE.lock();
     #[allow(clippy::match_same_arms)]
-    match *RUNMODE.lock() {
+    match run_mode {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
             use std::{convert::TryInto, io::Write};
@@ -203,10 +204,6 @@ fn start_reactor(
 
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
-
-            if is_exitted.load(Ordering::SeqCst) {
-                break;
-            }
 
             #[allow(clippy::unnested_or_patterns)]
             match event {
@@ -313,9 +310,6 @@ fn start_reactor(
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
-                if is_exitted.load(Ordering::SeqCst) {
-                    break;
-                }
                 if !is_movement {
                     draw_full(&mut out_lock, &mut p)?;
                 }
