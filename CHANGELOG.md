@@ -1,9 +1,30 @@
 # Changelog
-This file documents all notable changes made to this project
+This file documents all changes made to the project and is updated before each release.
+
+## v5.1.0 [Unreleased]
+### Added
+* Added new events to jump to next or previous nth search result.
+  In the default keybindings these are mapped as:-
+    - '10n' would go forward to the 10th search result from the current position
+    - '10p' would go backward to the 10th search result from the current position
+
+### Changed
+* Draw the screen intelligently.
+  On movement, minus now redraws only those lines of the screen that need to be updated rather than redrawing the entire
+  screen. (#84)
+* `parking_lot` has been added as a dependency and all sync locks from std have been migrated to `parking_lot`'s types'
+
+### Fixed
+* Fixed regression while quitting in static paging (#79)
+* Fixed a bug where the screen would get redrawn after quitting in dynamic paging (#79)
+* Fined bug where `dynamic_paging()` and `page_all()` functions can't be used multiple times. (#88)
+
+### Removed
+* Removed all usages of `NextMatch` and 'PrevMatch'. These types may be removed in future major releases
 
 ## v5.0.5 [2022-08-20]
-## Fixed
-* Fixed regression in quitting in v5.0.4 and cleanup issues in from v5.0.0 (#79)
+### Fixed
+* Fixed regression in quitting in v5.0.4 and cleanup issues from v5.0.0 (#79)
 
 ## v5.0.4 [2022-07-31]
 ### Added

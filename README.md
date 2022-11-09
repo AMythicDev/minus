@@ -70,7 +70,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 ```toml
 [dependencies.minus]
-version = "5.0.5"
+version = "5.1.0"
 features = [
     # Enable features you want. For example
     "dynamic_output",
@@ -192,8 +192,8 @@ Here is the list of default key/mouse actions handled by `minus`.
 | /                 | Start forward search                                                                                                      |
 | ?                 | Start backward search                                                                                                     |
 | Esc               | Cancel search input                                                                                                       |
-| n                 | Go to the next search match                                                                                               |
-| p                 | Go to the next previous match                                                                                             |
+| [n] n                 | Go to the next search match                                                                                               |
+| [n] p                 | Go to the next previous match                                                                                             |
 
 End-applications are free to change these bindings to better suit their needs.
 
