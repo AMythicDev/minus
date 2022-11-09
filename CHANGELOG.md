@@ -1,7 +1,7 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
-## v5.1.0 [Unreleased]
+## v5.1.0 [2022-11-10]
 ### Added
 * Added new events to jump to next or previous nth search result.
   In the default keybindings these are mapped as:-
