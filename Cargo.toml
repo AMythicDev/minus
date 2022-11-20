@@ -6,7 +6,7 @@ edition = "2018"
 license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/minus"
 repository = "https://github.com/arijit79/minus"
-description = "An asynchronous paging library for Rust"
+description = "An asynchronous data feedable terminal paging library for Rust"
 keywords = ["pager", "asynchronous", "dynamic", "less", "more"]
 categories = ["Text processing", "Command-line interface", "Asynchronous"]
 
