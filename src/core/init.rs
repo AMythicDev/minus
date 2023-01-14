@@ -218,7 +218,7 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_exit_event || !is_movement {
+                    if !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
@@ -301,6 +301,7 @@ fn start_reactor(
 
             if let Ok(Event::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock();
+                let is_exit_event = Event::UserInput(inp).is_exit_event();
                 let is_movement = Event::UserInput(inp).is_movement();
                 handle_event(
                     Event::UserInput(inp),
@@ -310,7 +311,7 @@ fn start_reactor(
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
-                if !is_movement {
+                if !is_exit_event && !is_movement {
                     draw_full(&mut out_lock, &mut p)?;
                 }
             }
