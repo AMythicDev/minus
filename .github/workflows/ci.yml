@@ -1,4 +1,4 @@
-Pname: ci
+name: ci
 on:
   pull_request:
   push:
