@@ -176,7 +176,7 @@ fn big_line_numbers_are_padded() {
     let lines = {
         let mut l = String::with_capacity(450);
         for i in 0..110 {
-            writeln!(&mut l, "L{}", i).unwrap();
+            writeln!(&mut l, "L{i}").unwrap();
         }
         l
     };
@@ -370,7 +370,7 @@ fn draw_big_line_numbers_are_padded() {
     let lines = {
         let mut l = String::with_capacity(450);
         for i in 0..110 {
-            writeln!(&mut l, "L{}", i).unwrap();
+            writeln!(&mut l, "L{i}").unwrap();
         }
         l
     };
@@ -397,7 +397,7 @@ fn draw_big_line_numbers_are_padded() {
 #[test]
 fn draw_wrapping_line_numbers() {
     let lines = (0..3)
-        .map(|l| format!("Line {i}: This is the line who is {i}", i = l))
+        .map(|l| format!("Line {l}: This is the line who is {l}"))
         .collect::<Vec<String>>()
         .join("\n");
 
@@ -460,7 +460,7 @@ mod draw_for_change_tests {
         let lines = {
             let mut l = String::with_capacity(450);
             for i in 0..100 {
-                writeln!(&mut l, "L{}", i).unwrap();
+                writeln!(&mut l, "L{i}").unwrap();
             }
             l
         };
@@ -487,7 +487,7 @@ mod draw_for_change_tests {
         )
         .unwrap();
         for line in &ps.formatted_lines[9..12] {
-            writeln!(res, "\r{}", line).unwrap();
+            writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
 
@@ -511,7 +511,7 @@ mod draw_for_change_tests {
         )
         .unwrap();
         for line in &ps.formatted_lines[50..59] {
-            writeln!(res, "\r{}", line).unwrap();
+            writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
 
@@ -543,7 +543,7 @@ mod draw_for_change_tests {
         let mut res = Vec::new();
         write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
         for line in &ps.formatted_lines[20..29] {
-            writeln!(res, "\r{}", line).unwrap();
+            writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
 
@@ -564,7 +564,7 @@ mod draw_for_change_tests {
         let mut res = Vec::new();
         write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
         for line in &ps.formatted_lines[50..59] {
-            writeln!(res, "\r{}", line).unwrap();
+            writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
 

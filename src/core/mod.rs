@@ -1,11 +1,10 @@
-mod display;
 pub mod ev_handler;
 pub mod events;
 #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 pub mod init;
 #[cfg(feature = "search")]
 pub mod search;
-pub mod term;
+pub mod utils;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RunMode {
@@ -17,7 +16,7 @@ pub enum RunMode {
 }
 
 impl RunMode {
-    pub fn is_uninitialized(&self) -> bool {
-        *self == Self::Uninitialized
+    pub fn is_uninitialized(self) -> bool {
+        self == Self::Uninitialized
     }
 }

@@ -42,17 +42,17 @@ impl PartialEq for Event {
 impl Debug for Event {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SetData(text) => write!(f, "SetData({:?})", text),
-            Self::AppendData(text) => write!(f, "AppendData({:?})", text),
-            Self::SetPrompt(text) => write!(f, "SetPrompt({:?})", text),
-            Self::SendMessage(text) => write!(f, "SendMessage({:?})", text),
-            Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({:?})", ln),
-            Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({:?})", es),
+            Self::SetData(text) => write!(f, "SetData({text:?})"),
+            Self::AppendData(text) => write!(f, "AppendData({text:?})"),
+            Self::SetPrompt(text) => write!(f, "SetPrompt({text:?})"),
+            Self::SendMessage(text) => write!(f, "SendMessage({text:?})"),
+            Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
+            Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
             #[cfg(feature = "static_output")]
-            Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({:?})", val),
-            Self::UserInput(input) => write!(f, "UserInput({:?})", input),
+            Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
+            Self::UserInput(input) => write!(f, "UserInput({input:?})"),
         }
     }
 }

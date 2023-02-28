@@ -100,7 +100,7 @@ pub fn draw_for_change(
     };
 
     for line in lines {
-        writeln!(out, "\r{}", line)?;
+        writeln!(out, "\r{line}")?;
     }
 
     super::display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
@@ -179,7 +179,7 @@ pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
     let lines = pager.get_flattened_lines_with_bounds(pager.upper_mark, lower_mark);
 
     for line in lines {
-        writeln!(out, "\r{}", line)?;
+        writeln!(out, "\r{line}")?;
     }
     Ok(())
 }

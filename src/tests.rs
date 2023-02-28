@@ -7,7 +7,7 @@ mod fmt_write {
     fn pager_writeln() {
         const TEST: &str = "This is a line";
         let mut pager = Pager::new();
-        writeln!(pager, "{}", TEST).unwrap();
+        writeln!(pager, "{TEST}").unwrap();
         while let Ok(Event::AppendData(text)) = pager.rx.try_recv() {
             if text != "\n" {
                 assert_eq!(text, TEST.to_string());
@@ -19,7 +19,7 @@ mod fmt_write {
     fn test_write() {
         const TEST: &str = "This is a line";
         let mut pager = Pager::new();
-        write!(pager, "{}", TEST).unwrap();
+        write!(pager, "{TEST}").unwrap();
         while let Ok(Event::AppendData(text)) = pager.rx.try_recv() {
             assert_eq!(text, TEST.to_string());
         }
@@ -35,7 +35,7 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
         ps.append_str(TEXT1);
         ps.append_str(TEXT2);
-        assert_eq!(ps.formatted_lines, vec![format!("{}{}", TEXT1, TEXT2)]);
+        assert_eq!(ps.formatted_lines, vec![format!("{TEXT1}{TEXT2}")]);
         assert_eq!(ps.lines, TEXT1.to_string() + TEXT2);
     }
 

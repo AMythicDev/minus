@@ -6,10 +6,11 @@ use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(feature = "search")]
 use parking_lot::{Condvar, Mutex};
 
-use super::display::{self};
 #[cfg(feature = "search")]
 use super::search;
-use super::{events::Event, term};
+use super::utils::display;
+use super::utils::text::AppendStyle;
+use super::{events::Event, utils::term};
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
 /// Respond based on the type of event
@@ -138,7 +139,17 @@ pub fn handle_event(
             }
         }
 
-        Event::AppendData(text) => p.append_str(text.as_str()),
+        Event::AppendData(text) => { 
+            let append_style = p.append_str(text.as_str());
+
+            if let AppendStyle::FullRedraw = append_style {
+                p.format_lines();
+            }
+            if let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = append_style {
+                p.append_str_on_unterminated(fmt_line, num_unterminated);
+            }
+
+        },
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
             p.format_prompt();
@@ -201,7 +212,7 @@ mod tests {
     #[test]
     fn append_str() {
         let mut ps = PagerState::new().unwrap();
-        let ev1 = Event::AppendData(format!("{}\n", TEST_STR));
+        let ev1 = Event::AppendData(format!("{TEST_STR}\n"));
         let ev2 = Event::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
 

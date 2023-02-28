@@ -2,7 +2,7 @@
 use crate::minus_core::search::{self, SearchMode};
 use crate::{
     error::{MinusError, TermError},
-    input, wrap_str, ExitStrategy, LineNumbers,
+    input, wrap_str, ExitStrategy, LineNumbers, minus_core::utils::text::AppendStyle,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
@@ -440,120 +440,54 @@ impl PagerState {
         }
     }
 
-    pub(crate) fn append_str(&mut self, text: &str) {
-        let (fmt_line, num_unterminated) = self.make_append_str(text);
-        self.append_str_on_unterminated(fmt_line, num_unterminated);
-    }
-
-    /// Makes the text that will be displayed and appended it to [`self.formatted_lines`]
-    ///
-    /// - The first output value is the actual text rows that needs to be appended. This is wrapped
-    ///     based on the available columns
-    /// - The second value is the number of rows that should be truncated from [`self.formatted_lines`]
-    ///     before appending this line. This will be 0 if the given `text` is to be appended to
-    ///     [`self.formatted_lines`] but will be `>0` if the given text is actually part of the
-    ///     last appended line. This function determines this by checking whether self.lines ends with
-    ///     `\n` after appending the text
-    pub(crate) fn make_append_str(&mut self, text: &str) -> (Vec<String>, usize) {
+    pub(crate) fn append_str(
+        &mut self,
+        text: &str,
+    ) -> AppendStyle {
         let append = self.lines.ends_with('\n') || self.lines.is_empty();
-
-        let to_format = if append {
-            text.to_string()
-        } else {
-            self.lines.lines().last().unwrap_or("").to_string() + text
-        };
-
-        let to_skip = self.lines.lines().count();
-        // push the text to lines
-        self.lines.push_str(text);
-        // And get how many lines of text will be shown (not how many rows, how many wrapped
-        // lines), and get its string length
-        let line_number = self.lines.lines().count();
-        let len_line_number = line_number.to_string().len();
-        // This will get filled if there is an ongoing search. We just need to append it to
-        // self.search_idx at the end
-        #[cfg(feature = "search")]
-        let mut append_search_idx = BTreeSet::new();
-
-        // If append is true, we take only the given text for formatting
-        // else we also take the last line of self.lines for formatting. This is because we nned to
-        // format the entire line rathar than just this part
-        let to_format_len = to_format.lines().count();
-        let lines = to_format
-            .lines()
-            .enumerate()
-            .map(|(idx, s)| (idx, s.to_string()))
-            .collect::<Vec<(usize, String)>>();
-
-        let mut fmtl = Vec::with_capacity(256);
-
-        // First line
-        let mut first_line = self.formatted_line(
-            // TODO: Remove unwrap from here
-            &lines.first().unwrap().1,
-            len_line_number,
-            to_skip.saturating_sub(1),
-            #[cfg(feature = "search")]
-            if append {
-                self.formatted_lines.len()
-            } else {
-                self.formatted_lines.len().saturating_sub(1)
-            },
-            #[cfg(feature = "search")]
-            &mut append_search_idx,
-        );
-
-        // Format the last line, only if first line and last line are different. We can check this
-        // by seeing whether to_format_len is greater than 1
-        let last_line = if to_format_len > 1 {
-            Some(self.formatted_line(
-                &lines.last().unwrap().1,
-                len_line_number,
-                to_format_len + to_skip.saturating_sub(1),
-                #[cfg(feature = "search")]
-                self.formatted_lines.len(),
-                #[cfg(feature = "search")]
-                &mut append_search_idx,
-            ))
-        } else {
+        let attachment = if append {
             None
-        };
-
-        // Format all other lines except the first and last line
-        let mut mid_lines = lines
-            .iter()
-            .skip(1)
-            .take(lines.len().saturating_sub(2))
-            .flat_map(|(idx, line)| {
-                self.formatted_line(
-                    line,
-                    len_line_number,
-                    idx + to_skip.saturating_sub(1),
-                    #[cfg(feature = "search")]
-                    self.formatted_lines.len(),
-                    #[cfg(feature = "search")]
-                    &mut append_search_idx,
-                )
-            })
-            .collect::<Vec<String>>();
-
-        let unterminated = if self.lines.ends_with('\n') {
-            0
-        } else if to_format_len > 1 {
-            last_line.as_ref().unwrap().len()
         } else {
-            first_line.len()
+            self.lines.lines().last().map(ToString::to_string)
         };
 
-        fmtl.append(&mut first_line);
-        fmtl.append(&mut mid_lines);
-        if let Some(mut ll) = last_line {
-            fmtl.append(&mut ll);
+        let old_line_count = self.lines.lines().count();
+        let old_len_line_number = if old_line_count == 0 {
+            0
+        } else {
+            old_line_count.ilog10() + 1
+        };
+
+        self.lines.push_str(text);
+
+        let new_line_count = self.lines.lines().count();
+        let new_len_line_number = if new_line_count == 0 {
+            0
+        } else {
+            new_line_count.ilog10() + 1
+        };
+
+        if new_len_line_number != old_len_line_number {
+            self.format_lines();
+            return AppendStyle::FullRedraw;
         }
 
+        let append_props = crate::minus_core::utils::text::make_append_str(
+            self,
+            text,
+            attachment,
+            old_line_count,
+            new_line_count,
+        );
+        let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
+
         #[cfg(feature = "search")]
-        self.search_idx.append(&mut append_search_idx);
-        (fmtl, unterminated)
+        {
+            let mut append_search_idx = append_props.append_search_idx;
+            self.search_idx.append(&mut append_search_idx);
+        }
+
+       AppendStyle::PartialUpdate((fmt_line, num_unterminated))
     }
 
     /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of

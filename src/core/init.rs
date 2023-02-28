@@ -8,8 +8,10 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{display::draw_full, ev_handler::handle_event, events::Event, term, RunMode};
-use crate::{error::MinusError, input::InputEvent, Pager, PagerState};
+use super::{
+    ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
+};
+use crate::{error::MinusError, input::InputEvent, Pager, PagerState, minus_core::utils::{text::AppendStyle, self}};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
@@ -27,7 +29,7 @@ use std::{
     },
 };
 #[cfg(feature = "static_output")]
-use {super::display::write_lines, crossterm::tty::IsTty};
+use {super::utils::display::write_lines, crossterm::tty::IsTty};
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -230,11 +232,20 @@ fn start_reactor(
                     }
                     p.format_prompt();
                     term::move_cursor(&mut out_lock, 0, rows, false)?;
-                    super::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
+                    super::utils::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
                 }
                 Ok(Event::AppendData(text)) => {
                     // Make the string that nneds to be appended
-                    let (fmt_text, num_unterminated) = p.make_append_str(&text);
+                    let append_style = p.append_str(&text);
+
+                    if let AppendStyle::FullRedraw = append_style {
+                        // Append the formatted string to PagerState::formatted_lines vec
+                        p.format_lines();
+                        utils::display::draw_full(&mut out_lock, &mut p);
+                        continue;
+                    }
+
+                    let AppendStyle::PartialUpdate((fmt_text, unterminated)) = append_style else { unreachable!() };
 
                     if p.num_lines() < p.rows {
                         // Move the cursor to the very next line after the last displayed line
@@ -268,7 +279,7 @@ fn start_reactor(
                         out_lock.flush()?;
                     }
                     // Append the formatted string to PagerState::formatted_lines vec
-                    p.append_str_on_unterminated(fmt_text, num_unterminated);
+                    p.append_str_on_unterminated(fmt_text, unterminated);
                 }
                 Ok(ev) => {
                     handle_event(

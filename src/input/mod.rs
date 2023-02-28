@@ -146,7 +146,7 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('u'),
                 modifiers,
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
-                let half_screen = (ps.rows / 2) as usize;
+                let half_screen = ps.rows / 2;
                 Some(InputEvent::UpdateUpperMark(
                     ps.upper_mark.saturating_sub(half_screen),
                 ))
@@ -156,7 +156,7 @@ impl InputClassifier for DefaultInputClassifier {
                 code: KeyCode::Char('d'),
                 modifiers,
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
-                let half_screen = (ps.rows / 2) as usize;
+                let half_screen = ps.rows / 2;
                 Some(InputEvent::UpdateUpperMark(
                     ps.upper_mark.saturating_add(half_screen),
                 ))
