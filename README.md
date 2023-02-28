@@ -167,7 +167,7 @@ and quit. Do note that this behaviour only happens in static paging as it is
 assumed that text data will not change.
 
 
-## Standard actions
+## Standard keyboard and mouse bindings
 
 Here is the list of default key/mouse actions handled by `minus`.
 
@@ -198,7 +198,7 @@ Here is the list of default key/mouse actions handled by `minus`.
 End-applications are free to change these bindings to better suit their needs.
 
 ## MSRV
-minus requires Rust >= 1.54 to build correctly
+The latest version of minus minus requires Rust >= 1.60 to build correctly
 
 ## License
 
