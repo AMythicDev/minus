@@ -2,14 +2,16 @@
 use crate::minus_core::search::{self, SearchMode};
 use crate::{
     error::{MinusError, TermError},
-    input, wrap_str, ExitStrategy, LineNumbers, minus_core::utils::text::AppendStyle,
+    input,
+    minus_core::utils::text::AppendStyle,
+    wrap_str, ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
 use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
-use std::io::Stdout;
+use std::{convert::TryInto, io::Stdout};
 use std::{
     io::stdout,
     sync::{atomic::AtomicBool, Arc},
@@ -440,10 +442,7 @@ impl PagerState {
         }
     }
 
-    pub(crate) fn append_str(
-        &mut self,
-        text: &str,
-    ) -> AppendStyle {
+    pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
         let append = self.lines.ends_with('\n') || self.lines.is_empty();
         let attachment = if append {
             None
@@ -477,7 +476,7 @@ impl PagerState {
             text,
             attachment,
             old_line_count,
-            new_line_count,
+            new_len_line_number.try_into().unwrap(),
         );
         let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
 
@@ -487,7 +486,7 @@ impl PagerState {
             self.search_idx.append(&mut append_search_idx);
         }
 
-       AppendStyle::PartialUpdate((fmt_line, num_unterminated))
+        AppendStyle::PartialUpdate((fmt_line, num_unterminated))
     }
 
     /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of

@@ -11,7 +11,12 @@
 use super::{
     ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
 };
-use crate::{error::MinusError, input::InputEvent, Pager, PagerState, minus_core::utils::{text::AppendStyle, self}};
+use crate::{
+    error::MinusError,
+    input::InputEvent,
+    minus_core::utils::{self, text::AppendStyle},
+    Pager, PagerState,
+};
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
@@ -241,7 +246,7 @@ fn start_reactor(
                     if let AppendStyle::FullRedraw = append_style {
                         // Append the formatted string to PagerState::formatted_lines vec
                         p.format_lines();
-                        utils::display::draw_full(&mut out_lock, &mut p);
+                        utils::display::draw_full(&mut out_lock, &mut p)?;
                         continue;
                     }
 

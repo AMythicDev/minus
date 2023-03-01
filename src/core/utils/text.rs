@@ -130,3 +130,201 @@ pub fn make_append_str(
         append_search_idx,
     }
 }
+
+#[cfg(test)]
+mod unterminated {
+    use super::make_append_str;
+    use crate::PagerState;
+
+    #[test]
+    fn test_single_no_endline() {
+        let ps = PagerState::new().unwrap();
+        let append_style = make_append_str(&ps, "This is a line", None, 0, 0);
+        assert_eq!(1, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_single_endline() {
+        let ps = PagerState::new().unwrap();
+        let append_style = make_append_str(&ps, "This is a line\n", None, 0, 0);
+        assert_eq!(0, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_single_multi_newline() {
+        let ps = PagerState::new().unwrap();
+        let append_style = make_append_str(
+            &ps,
+            "This is a line\nThis is another line\nThis is third line",
+            None,
+            0,
+            0,
+        );
+        assert_eq!(1, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_single_multi_endline() {
+        let ps = PagerState::new().unwrap();
+        let append_style =
+            make_append_str(&ps, "This is a line\nThis is another line\n", None, 0, 0);
+        assert_eq!(0, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_single_line_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style = make_append_str(&ps, "This is a quite lengthy lint", None, 0, 0);
+        assert_eq!(2, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_single_mid_newline_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style = make_append_str(
+            &ps,
+            "This is a quite lengthy lint\nIt has three lines\nThis is
+third line",
+            None,
+            0,
+            0,
+        );
+        assert_eq!(1, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_single_endline_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style = make_append_str(
+            &ps,
+            "This is a quite lengthy lint\nIt has three lines\nThis is
+third line\n",
+            None,
+            0,
+            0,
+        );
+        assert_eq!(0, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_no_endline() {
+        let ps = PagerState::new().unwrap();
+        let append_style = make_append_str(&ps, "This is a line", None, 0, 0);
+        assert_eq!(1, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is another line",
+            Some("This is a line".to_string()),
+            1,
+            append_style.num_unterminated,
+        );
+        assert_eq!(1, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_endline() {
+        let ps = PagerState::new().unwrap();
+        let append_style = make_append_str(&ps, "This is a line ", None, 0, 0);
+        assert_eq!(1, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is another line\n",
+            Some("This is a line ".to_string()),
+            1,
+            append_style.num_unterminated,
+        );
+        assert_eq!(0, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_multiple_newline() {
+        let ps = PagerState::new().unwrap();
+        let append_style = make_append_str(&ps, "This is a line\n", None, 0, 0);
+        assert_eq!(0, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is another line\n",
+            None,
+            1,
+            append_style.num_unterminated,
+        );
+        assert_eq!(0, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_wrapping() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style = make_append_str(&ps, "This is a line. This is second line", None, 0, 0);
+        assert_eq!(2, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is another line\n",
+            Some("This is a line. This is second line".to_string()),
+            1,
+            append_style.num_unterminated,
+        );
+        assert_eq!(0, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_wrapping_continued() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style =
+            make_append_str(&ps, "This is a line. This is second line. ", None, 0, 0);
+        assert_eq!(2, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is the third line",
+            Some("This is a line. This is second line. ".to_string()),
+            2,
+            append_style.num_unterminated,
+        );
+        assert_eq!(3, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_wrapping_last_continued() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style =
+            make_append_str(&ps, "This is a line.\nThis is second line. ", None, 0, 0);
+        assert_eq!(1, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is the third line",
+            Some("This is second line. ".to_string()),
+            2,
+            append_style.num_unterminated,
+        );
+        assert_eq!(3, append_style.num_unterminated);
+    }
+
+    #[test]
+    fn test_multi_wrapping_additive() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let append_style = make_append_str(&ps, "This is a line.", None, 0, 0);
+        assert_eq!(1, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is second line. ",
+            Some("This is a line.".to_string()),
+            1,
+            append_style.num_unterminated,
+        );
+        assert_eq!(2, append_style.num_unterminated);
+        let append_style = make_append_str(
+            &ps,
+            "This is third line",
+            Some("This is a line.This is second line. ".to_string()),
+            2,
+            append_style.num_unterminated,
+        );
+        assert_eq!(3, append_style.num_unterminated);
+    }
+}

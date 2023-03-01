@@ -139,7 +139,7 @@ pub fn handle_event(
             }
         }
 
-        Event::AppendData(text) => { 
+        Event::AppendData(text) => {
             let append_style = p.append_str(text.as_str());
 
             if let AppendStyle::FullRedraw = append_style {
@@ -148,8 +148,7 @@ pub fn handle_event(
             if let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = append_style {
                 p.append_str_on_unterminated(fmt_line, num_unterminated);
             }
-
-        },
+        }
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
             p.format_prompt();
