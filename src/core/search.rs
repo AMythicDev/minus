@@ -243,7 +243,7 @@ mod tests {
         pager.search_idx = BTreeSet::from([2, 10, 15, 17, 50]);
         for i in &pager.search_idx.clone() {
             next_nth_match(&mut pager, 1);
-            assert_eq!(pager.upper_mark, *i as usize);
+            assert_eq!(pager.upper_mark, *i);
             pager.search_mark += 1;
         }
     }

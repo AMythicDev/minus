@@ -466,7 +466,7 @@ impl PagerState {
             new_line_count.ilog10() + 1
         };
 
-        if new_len_line_number != old_len_line_number {
+        if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
             self.format_lines();
             return AppendStyle::FullRedraw;
         }
