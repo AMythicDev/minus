@@ -70,7 +70,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 ```toml
 [dependencies.minus]
-version = "5.1.0"
+version = "5.2.0"
 features = [
     # Enable features you want. For example
     "dynamic_output",
@@ -198,7 +198,7 @@ Here is the list of default key/mouse actions handled by `minus`.
 End-applications are free to change these bindings to better suit their needs.
 
 ## MSRV
-The latest version of minus minus requires Rust >= 1.60 to build correctly
+The latest version of minus minus requires Rust >= 1.67 to build correctly
 
 ## License
 

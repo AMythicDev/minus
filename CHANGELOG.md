@@ -1,6 +1,19 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.2.0 [2023-03-01]
+### Added
+* Added `AppendStyle` and `AppendProps` enums in the new `minus_core::utils::text` to control the append behaviour and 
+  properties related to each append operation
+
+### Changes
+* Moved `make_append_str` function and related tests into new `minus_core::utils::text` module
+* Bumped MSRV to Rust 1.67
+
+### Fixed
+* Fixed a bug where line number paddings didn't update properly when their number of digits changed.
+* Fixed bug where screen would get redrawn after processing exit callbacks
+
 ## v5.1.0 [2022-11-10]
 ### Added
 * Added new events to jump to next or previous nth search result.
