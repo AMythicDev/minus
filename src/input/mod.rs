@@ -223,8 +223,12 @@ where
     });
 
     map.insert_wild_event_matcher(|ev, _| {
-        if let Event::Key(KeyEvent {code : KeyCode::Char(c), modifiers: KeyModifiers::NONE }) = ev && c.is_ascii_digit() {
-            InputEvent::Number(c)
+        if let Event::Key(KeyEvent {code : KeyCode::Char(c), modifiers: KeyModifiers::NONE }) = ev {
+            if c.is_ascii_digit() {
+                InputEvent::Number(c)
+            } else {
+                InputEvent::Ignore
+            }
         } else {
             InputEvent::Ignore
         }
