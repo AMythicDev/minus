@@ -102,9 +102,9 @@ where
     }
 
     pub fn remove_resize_event(&mut self) {
-        self.0.remove(&EventWrapper::ExactMatchEvent(Event::Resize(0, 0)));
+        self.0
+            .remove(&EventWrapper::ExactMatchEvent(Event::Resize(0, 0)));
     }
-
 }
 
 // Key event Insertions functions
@@ -128,10 +128,10 @@ where
 
     pub fn remove_key_events(&mut self, keys: &[&str]) {
         for k in keys {
-            self.0.remove(&Event::Key(super::definitions::keydefs::parse_key_event(k)).into());
+            self.0
+                .remove(&Event::Key(super::definitions::keydefs::parse_key_event(k)).into());
         }
     }
-
 }
 
 // Mouse event insertions functions
@@ -155,7 +155,8 @@ where
 
     pub fn remove_mouse_events(&mut self, keys: &[&str]) {
         for k in keys {
-            self.0.remove(&Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into());
+            self.0
+                .remove(&Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into());
         }
     }
 }

@@ -300,7 +300,7 @@ eros.",
 
     #[test]
     fn esc_end_in_match() {
-        let orig = format!("this {NONE}is a te{ESC}st");
+        let orig = format!("this {ESC}is a te{NONE}st");
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
             res.0,
