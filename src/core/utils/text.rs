@@ -1,3 +1,4 @@
+#[cfg(feature = "search")]
 use std::collections::BTreeSet;
 
 use crate::PagerState;
@@ -30,17 +31,22 @@ pub fn make_append_str(
     to_skip: usize,
     len_line_number: usize,
 ) -> AppendProps {
-    let append;
-    let to_format = if let Some(attached_text) = attachment {
-        let mut s = String::with_capacity(text.len() + attached_text.len());
-        s.push_str(&attached_text);
-        s.push_str(text);
-        append = false;
-        s
-    } else {
-        append = true;
-        text.to_string()
-    };
+    #[cfg(feature = "search")]
+    let mut append = true;
+
+    let to_format = attachment.map_or_else(
+        || text.to_string(),
+        |attached_text| {
+            let mut s = String::with_capacity(text.len() + attached_text.len());
+            s.push_str(&attached_text);
+            s.push_str(text);
+            #[cfg(feature = "search")]
+            {
+                append = false;
+            }
+            s
+        },
+    );
 
     // This will get filled if there is an ongoing search. We just need to append it to
     // self.search_idx at the end

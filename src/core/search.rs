@@ -107,7 +107,7 @@ pub fn fetch_input(
                     // string and update the line
                     if let KeyCode::Char(c) = event.code {
                         string.push(c);
-                        write!(out, "\r/{}", string)?;
+                        write!(out, "\r/{string}")?;
                         out.flush()?;
                     }
                 }
@@ -289,7 +289,7 @@ eros.",
     #[test]
     fn esc_outside_match() {
         let res = highlight_line_matches(
-            &format!("{}color{} and test", ESC, NONE),
+            &format!("{ESC}color{NONE} and test"),
             &Regex::new("test").unwrap(),
         );
         assert_eq!(
@@ -300,7 +300,7 @@ eros.",
 
     #[test]
     fn esc_end_in_match() {
-        let orig = format!("this {}is a te{}st", ESC, NONE);
+        let orig = format!("this {NONE}is a te{ESC}st");
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
             res.0,
@@ -310,7 +310,7 @@ eros.",
 
     #[test]
     fn esc_start_in_match() {
-        let orig = format!("this is a te{}st again{}", ESC, NONE);
+        let orig = format!("this is a te{ESC}st again{NONE}");
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
             res.0,
@@ -320,7 +320,7 @@ eros.",
 
     #[test]
     fn esc_around_match() {
-        let orig = format!("this is {}a test again{}", ESC, NONE);
+        let orig = format!("this is {ESC}a test again{NONE}");
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
             res.0,
@@ -330,18 +330,14 @@ eros.",
 
     #[test]
     fn esc_within_match() {
-        let orig = format!("this is a t{}es{}t again", ESC, NONE);
+        let orig = format!("this is a t{ESC}es{NONE}t again");
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(res.0, format!("this is a {}test{} again", *INVERT, *NORMAL));
     }
 
     #[test]
     fn multi_escape_match() {
-        let orig = format!(
-            "this {e}is a te{n}st again {e}yeah{n} test",
-            e = ESC,
-            n = NONE
-        );
+        let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
         let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
         assert_eq!(
             res.0,

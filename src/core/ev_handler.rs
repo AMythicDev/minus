@@ -20,7 +20,6 @@ use crate::{error::MinusError, input::InputEvent, PagerState};
 /// - Handle cleanup and exits
 /// - Call search related functions
 #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-#[cfg_attr(not(feature = "search"), allow(clippy::unnecessary_wraps))]
 #[allow(clippy::too_many_lines)]
 pub fn handle_event(
     ev: Event,
@@ -142,7 +141,7 @@ pub fn handle_event(
         Event::AppendData(text) => {
             let append_style = p.append_str(text.as_str());
 
-            if let AppendStyle::FullRedraw = append_style {
+            if matches!(append_style, AppendStyle::FullRedraw) {
                 p.format_lines();
             }
             if let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = append_style {

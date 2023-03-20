@@ -8,15 +8,17 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
-use super::{
-    ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
-};
 use crate::{
     error::MinusError,
     input::InputEvent,
-    minus_core::utils::{self, text::AppendStyle},
+    minus_core::{
+        ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
+    },
     Pager, PagerState,
 };
+
+#[cfg(feature = "dynamic_output")]
+use crate::minus_core::utils::text::AppendStyle;
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
@@ -192,16 +194,15 @@ fn start_reactor(
     drop(p);
 
     let run_mode = *RUNMODE.lock();
-    #[allow(clippy::match_same_arms)]
     match run_mode {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
             use std::{convert::TryInto, io::Write};
 
             if is_exitted.load(Ordering::SeqCst) {
-                let mut runmode = RUNMODE.lock();
-                *runmode = RunMode::Uninitialized;
-                drop(runmode);
+                let mut rm = RUNMODE.lock();
+                *rm = RunMode::Uninitialized;
+                drop(rm);
                 break;
             }
 
@@ -212,7 +213,6 @@ fn start_reactor(
             let rows: u16 = p.rows.try_into().unwrap();
             let num_lines = p.num_lines();
 
-            #[allow(clippy::unnested_or_patterns)]
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
                     let is_exit_event = ev.is_exit_event();
@@ -243,10 +243,10 @@ fn start_reactor(
                     // Make the string that nneds to be appended
                     let append_style = p.append_str(&text);
 
-                    if let AppendStyle::FullRedraw = append_style {
+                    if matches!(append_style, AppendStyle::FullRedraw) {
                         // Append the formatted string to PagerState::formatted_lines vec
                         p.format_lines();
-                        utils::display::draw_full(&mut out_lock, &mut p)?;
+                        draw_full(&mut out_lock, &mut p)?;
                         continue;
                     }
 
@@ -308,9 +308,9 @@ fn start_reactor(
                 let p = ps.lock();
                 term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
 
-                let mut runmode = RUNMODE.lock();
-                *runmode = RunMode::Uninitialized;
-                drop(runmode);
+                let mut rm = RUNMODE.lock();
+                *rm = RunMode::Uninitialized;
+                drop(rm);
 
                 break;
             }
