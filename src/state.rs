@@ -53,7 +53,7 @@ pub struct PagerState {
     /// Any message to display to the user at the prompt
     /// The first element contains the actual message, while the second element tells
     /// whether the message has changed since the last display.
-    pub(crate) message: Option<String>,
+    pub message: Option<String>,
     /// The prompt that should be displayed to the user, formatted with the
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
