@@ -1,6 +1,11 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.2.1 [2023-03-22]
+### Fixed
+* Fixed bug where copy pasting the default `DefaultInputClassifier` template causes a compile error(#90)
+* Fixed clippy warnings
+
 ## v5.2.0 [2023-03-01]
 ### Added
 * Added `AppendStyle` and `AppendProps` enums in the new `minus_core::utils::text` to control the append behaviour and 
