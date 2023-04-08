@@ -79,9 +79,6 @@ pub use event_wrapper::HashedEventRegister;
 use crate::minus_core::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use std::collections::hash_map::RandomState;
-
-pub use event_wrapper::HashedEventRegister;
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -142,7 +139,7 @@ where
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
     });
-    map.add_key_event("enter", |_, ps| {
+    map.add_key_events(&["enter"], |_, ps| {
         if ps.message.is_some() {
             InputEvent::RestorePrompt
         } else {
@@ -158,7 +155,7 @@ where
         let half_screen = (ps.rows / 2) as usize;
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(half_screen))
     });
-    map.add_key_event("g", |_, _| InputEvent::UpdateUpperMark(0));
+    map.add_key_events(&["g"], |_, _| InputEvent::UpdateUpperMark(0));
 
     map.add_key_events(&["s-g", "s-G", "G"], |_, ps| {
         let mut position = ps
@@ -173,20 +170,20 @@ where
         }
         InputEvent::UpdateUpperMark(position)
     });
-    map.add_key_event("pageup", |_, ps| {
+    map.add_key_events(&["pageup"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(ps.rows - 1))
     });
     map.add_key_events(&["pagedown", "space"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(ps.rows - 1))
     });
-    map.add_key_event("c-l", |_, ps| {
+    map.add_key_events(&["c-l"], |_, ps| {
         InputEvent::UpdateLineNumber(!ps.line_numbers)
     });
     #[cfg(feature = "search")]
     {
-        map.add_key_event("/", |_, _| InputEvent::Search(SearchMode::Forward));
-        map.add_key_event("?", |_, _| InputEvent::Search(SearchMode::Reverse));
-        map.add_key_event("n", |_, ps| {
+        map.add_key_events(&["/"], |_, _| InputEvent::Search(SearchMode::Forward));
+        map.add_key_events(&["?"], |_, _| InputEvent::Search(SearchMode::Reverse));
+        map.add_key_events(&["n"], |_, ps| {
             if ps.search_mode == SearchMode::Forward {
                 InputEvent::NextMatch
             } else if ps.search_mode == SearchMode::Reverse {
@@ -195,7 +192,7 @@ where
                 InputEvent::Ignore
             }
         });
-        map.add_key_event("p", |_, ps| {
+        map.add_key_events(&["p"], |_, ps| {
             if ps.search_mode == SearchMode::Forward {
                 InputEvent::PrevMatch
             } else if ps.search_mode == SearchMode::Reverse {
@@ -206,10 +203,10 @@ where
         });
     }
 
-    map.add_mouse_event("scrollup", |_, ps| {
+    map.add_mouse_events(&["scroll:up"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
     });
-    map.add_mouse_event("scrolldown", |_, ps| {
+    map.add_mouse_events(&["scroll:down"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
     });
 
