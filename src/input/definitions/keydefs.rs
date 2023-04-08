@@ -124,6 +124,7 @@ impl KeySeq {
 
 #[cfg(test)]
 #[test]
+#[allow(clippy::too_many_lines)]
 fn test_parse_key_event() {
     assert_eq!(
         parse_key_event("up"),

@@ -72,6 +72,7 @@
 
 pub(crate) mod definitions;
 pub(crate) mod event_wrapper;
+pub use crossterm::event as crossterm_event;
 
 pub use event_wrapper::HashedEventRegister;
 

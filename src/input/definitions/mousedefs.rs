@@ -20,8 +20,8 @@ static MOUSE_ACTIONS: Lazy<HashMap<&str, MouseEventKind>> = Lazy::new(|| {
     map.insert("mid:drag", MouseEventKind::Drag(MouseButton::Middle));
 
     map.insert("move", MouseEventKind::Moved);
-    map.insert("scrollup", MouseEventKind::ScrollUp);
-    map.insert("scrolldown", MouseEventKind::ScrollDown);
+    map.insert("scroll:up", MouseEventKind::ScrollUp);
+    map.insert("scroll:down", MouseEventKind::ScrollDown);
 
     map
 });
@@ -128,7 +128,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse_mouse_event("scrollup"),
+            parse_mouse_event("scroll:up"),
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 modifiers: KeyModifiers::NONE,
@@ -169,7 +169,7 @@ mod tests {
             }
         );
         assert_eq!(
-            parse_mouse_event("c-scrollup"),
+            parse_mouse_event("c-scroll:up"),
             MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 modifiers: KeyModifiers::CONTROL,
