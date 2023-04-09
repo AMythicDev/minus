@@ -343,6 +343,7 @@ fn test_search_bindings() {
         );
     }
     {
+        pager.search_mode = SearchMode::Forward;
         // NextMatch and PrevMatch forward search
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),

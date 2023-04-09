@@ -185,18 +185,18 @@ where
         map.add_key_events(&["?"], |_, _| InputEvent::Search(SearchMode::Reverse));
         map.add_key_events(&["n"], |_, ps| {
             if ps.search_mode == SearchMode::Forward {
-                InputEvent::NextMatch
+                InputEvent::MoveToNextMatch(1)
             } else if ps.search_mode == SearchMode::Reverse {
-                InputEvent::PrevMatch
+                InputEvent::MoveToPrevMatch(1)
             } else {
                 InputEvent::Ignore
             }
         });
         map.add_key_events(&["p"], |_, ps| {
             if ps.search_mode == SearchMode::Forward {
-                InputEvent::PrevMatch
+                InputEvent::MoveToPrevMatch(1)
             } else if ps.search_mode == SearchMode::Reverse {
-                InputEvent::NextMatch
+                InputEvent::MoveToNextMatch(1)
             } else {
                 InputEvent::Ignore
             }
