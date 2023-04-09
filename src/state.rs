@@ -2,8 +2,8 @@
 use crate::minus_core::search::{self, SearchMode};
 use crate::{
     error::{MinusError, TermError},
-    minus_core::utils::text::AppendStyle,
     input::{self, HashedEventRegister},
+    minus_core::utils::text::AppendStyle,
     wrap_str, ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};

@@ -77,9 +77,6 @@ impl KeySeq {
                         "'{}': Multiple separators found consecutively",
                         text
                     );
-                    if token_iter.peek() == Some(&&Token::Separator) {
-                        panic!("'{}': Multiple - separators found consecutively", text);
-                    }
                 }
                 Token::SingleChar(c) => {
                     token_iter.next();

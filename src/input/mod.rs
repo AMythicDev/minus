@@ -74,11 +74,11 @@ pub(crate) mod definitions;
 pub(crate) mod event_wrapper;
 pub use crossterm::event as crossterm_event;
 
-pub use event_wrapper::HashedEventRegister;
 #[cfg(feature = "search")]
 use crate::minus_core::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+pub use event_wrapper::HashedEventRegister;
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -148,11 +148,11 @@ where
         }
     });
     map.add_key_events(&["u", "c-u"], |_, ps| {
-        let half_screen = (ps.rows / 2) as usize;
+        let half_screen = ps.rows / 2;
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(half_screen))
     });
     map.add_key_events(&["d", "c-d"], |_, ps| {
-        let half_screen = (ps.rows / 2) as usize;
+        let half_screen = ps.rows / 2;
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(half_screen))
     });
     map.add_key_events(&["g"], |_, _| InputEvent::UpdateUpperMark(0));
@@ -211,16 +211,16 @@ where
     });
 
     map.add_resize_event(|ev, _| {
-        let (cols, rows) = if let Event::Resize(cols, rows) = ev {
-            (cols, rows)
-        } else {
-            unreachable!();
-        };
+        let Event::Resize(cols, rows) = ev else { unreachable!(); };
         InputEvent::UpdateTermArea(cols as usize, rows as usize)
     });
 
     map.insert_wild_event_matcher(|ev, _| {
-        if let Event::Key(KeyEvent {code : KeyCode::Char(c), modifiers: KeyModifiers::NONE }) = ev {
+        if let Event::Key(KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::NONE,
+        }) = ev
+        {
             if c.is_ascii_digit() {
                 InputEvent::Number(c)
             } else {

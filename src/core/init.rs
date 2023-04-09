@@ -132,35 +132,33 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     #[cfg(feature = "search")]
     let input_thread_running2 = input_thread_running.clone();
 
-    let (r1, r2) =
-        crossbeam_utils::thread::scope(|s| -> (Result<(), MinusError>, Result<(), MinusError>) {
-            // Has the user quitted
-            let is_exitted = Arc::new(AtomicBool::new(false));
-            let is_exitted2 = is_exitted.clone();
+    let (r1, r2) = std::thread::scope(|s| -> (Result<(), MinusError>, Result<(), MinusError>) {
+        // Has the user quitted
+        let is_exitted = Arc::new(AtomicBool::new(false));
+        let is_exitted2 = is_exitted.clone();
 
-            let t1 = s.spawn(move |_| {
-                event_reader(
-                    &evtx,
-                    &p1,
-                    #[cfg(feature = "search")]
-                    &input_thread_running2,
-                    &is_exitted2,
-                )
-            });
-            let t2 = s.spawn(move |_| {
-                start_reactor(
-                    &rx,
-                    &ps_mutex,
-                    &out,
-                    #[cfg(feature = "search")]
-                    &input_thread_running,
-                    &is_exitted,
-                )
-            });
-            let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
-            (r1, r2)
-        })
-        .unwrap();
+        let t1 = s.spawn(move || {
+            event_reader(
+                &evtx,
+                &p1,
+                #[cfg(feature = "search")]
+                &input_thread_running2,
+                &is_exitted2,
+            )
+        });
+        let t2 = s.spawn(move || {
+            start_reactor(
+                &rx,
+                &ps_mutex,
+                &out,
+                #[cfg(feature = "search")]
+                &input_thread_running,
+                &is_exitted,
+            )
+        });
+        let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
+        (r1, r2)
+    });
     r1?;
     r2?;
     Ok(())

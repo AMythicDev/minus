@@ -213,7 +213,6 @@ where
         self.0
             .remove(&EventWrapper::ExactMatchEvent(Event::Resize(0, 0)));
     }
-
 }
 
 // Key event Insertions functions
@@ -221,7 +220,6 @@ impl<S> HashedEventRegister<S>
 where
     S: BuildHasher,
 {
-
     /// Add a key binding that minus should respond to with the callback `cb`
     ///
     /// # Example
@@ -327,10 +325,3 @@ where
         self.get(&ev).map(|c| c(ev, ps))
     }
 }
-
-pub enum BindType {
-    Key,
-    Mouse,
-    Resize,
-}
-

@@ -65,4 +65,3 @@ enum Token {
     SingleChar(char),
     MultipleChar(String),
 }
-
