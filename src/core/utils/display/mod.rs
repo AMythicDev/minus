@@ -29,8 +29,6 @@ pub fn draw_for_change(
     // Don't use PagerState::rows, it might lead to wrong output
     let writable_rows = p.rows.saturating_sub(1);
 
-    let delta = new_upper_mark.abs_diff(p.upper_mark);
-
     // Calculate the lower_bound for current and new upper marks
     // by adding either the rows or line_count depending on the minimality
     let lower_bound = p.upper_mark.saturating_add(writable_rows.min(line_count));
@@ -42,6 +40,7 @@ pub fn draw_for_change(
         *new_upper_mark = line_count.saturating_sub(writable_rows);
     }
 
+    let delta = new_upper_mark.abs_diff(p.upper_mark);
     // Sometimes the value of delta is too large that we can rather use the value of the writable rows to
     // achieve the same effect with better performance. This means that we have to less lines to the terminal
     //
@@ -55,6 +54,7 @@ pub fn draw_for_change(
     // wrong output if this is not the case hence we still rely on using lower bounds method. But for scrolling up, we
     // need this value whatever the value of delta be.
     let normalized_delta = delta.min(writable_rows);
+    //writeln!(out, "\rDiff: {normalized_delta}")?;
 
     let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
         Ordering::Greater => {
@@ -102,6 +102,8 @@ pub fn draw_for_change(
     for line in lines {
         writeln!(out, "\r{line}")?;
     }
+
+    p.upper_mark = *new_upper_mark;
 
     super::display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
     out.flush()?;
