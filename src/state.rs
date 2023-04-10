@@ -21,7 +21,7 @@ use crate::minus_core::{ev_handler::handle_event, events::Event};
 use crossbeam_channel::Receiver;
 
 /// Holds all information and configuration about the pager during
-/// its un time.
+/// its run time.
 ///
 /// This type is exposed so that end-applications can implement the
 /// [`InputClassifier`](input::InputClassifier) trait which requires the `PagerState` to be passed
@@ -128,7 +128,7 @@ impl PagerState {
             .unwrap_or_else(|_| String::from("minus"));
 
         let mut event_register = HashedEventRegister::default();
-        input::generate_default_bindingss(&mut event_register);
+        input::generate_default_bindings(&mut event_register);
 
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
@@ -173,7 +173,7 @@ impl PagerState {
     /// # Errors
     /// This function will return an error if it could not create the default [`PagerState`] or fails
     /// to process the events
-    pub fn generate_initial_state(
+    pub(crate) fn generate_initial_state(
         rx: &mut Receiver<Event>,
         mut out: &mut Stdout,
     ) -> Result<Self, MinusError> {

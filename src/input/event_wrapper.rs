@@ -84,7 +84,7 @@ use std::{
 
 pub struct HashedEventRegister<S>(HashMap<EventWrapper, EventReturnType, S>);
 
-/// A convinient type for the return type of [`HashedInputRegister::get`]
+/// A convinient type for the return type of [`HashedEventRegister::get`]
 type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Sync>;
 
 #[derive(Copy, Clone, Eq)]
@@ -173,7 +173,7 @@ where
         self.0.insert(EventWrapper::WildEvent, Arc::new(cb));
     }
 
-    pub fn get(&self, k: &Event) -> Option<&EventReturnType> {
+    fn get(&self, k: &Event) -> Option<&EventReturnType> {
         self.0
             .get(&k.into())
             .map_or_else(|| self.0.get(&EventWrapper::WildEvent), |k| Some(k))

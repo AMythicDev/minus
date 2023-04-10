@@ -125,7 +125,8 @@ pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
 }
 
-pub fn generate_default_bindingss<S>(map: &mut HashedEventRegister<S>)
+/// Insert the default set of actions into the [`HashedEventRegister`]
+pub fn generate_default_bindings<S>(map: &mut HashedEventRegister<S>)
 where
     S: std::hash::BuildHasher,
 {

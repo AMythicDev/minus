@@ -1,6 +1,17 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.3.0 [2023-04-10]
+### Added
+* Add a new native API for defining key/mouse bindings (#93)
+
+### Fixed
+* Fixed a bug where screen would get broken if user scrolls with the mouse while simultaneously data in also being
+  inserted onto the screen (#92)
+
+### Misc
+* Removed dependency from [crossbeam-utils](https://crates.io/crates/crossbeam-utils)
+
 ## v5.2.1 [2023-03-22]
 ### Fixed
 * Fixed bug where copy pasting the default `DefaultInputClassifier` template causes a compile error(#90)
