@@ -93,13 +93,19 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
         // If stdout is not a tty, write everyhting and quit
         if !out.is_tty() {
             write_lines(&mut out, &mut ps)?;
+            let mut rm = RUNMODE.lock();
+            *rm = RunMode::Uninitialized;
+            drop(rm);
             return Ok(());
         }
         // If number of lines of text is less than available wors, write everything and quit
         // unless run_no_overflow is set to true
-        if ps.num_lines() <= ps.rows && ps.run_no_overflow {
+        if ps.num_lines() <= ps.rows && !ps.run_no_overflow {
             write_lines(&mut out, &mut ps)?;
             ps.exit();
+            let mut rm = RUNMODE.lock();
+            *rm = RunMode::Uninitialized;
+            drop(rm);
             return Ok(());
         }
     }
