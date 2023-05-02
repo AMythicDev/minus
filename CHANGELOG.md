@@ -1,6 +1,15 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.3.1 [2023-05-02]
+### Fixed
+* Passing `false` to PagerStae::set_run_no_overflow() causes a full
+  pager to start where in reality passing `true` should lead to this
+  action. (#94)
+* If a full pager isn't started in static output mode and another pager
+  is started after the first one, minus would make a panic as the
+  `RUNMODE` variable dosen't get reset. This patch also fixes this bug. (#94)
+
 ## v5.3.0 [2023-04-10]
 ### Added
 * Add a new native API for defining key/mouse bindings (#93)
