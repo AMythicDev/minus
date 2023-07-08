@@ -198,7 +198,7 @@ Here is the list of default key/mouse actions handled by `minus`.
 End-applications are free to change these bindings to better suit their needs.
 
 ## MSRV
-The latest version of minus minus requires Rust >= 1.67 to build correctly
+The latest version of minus requires Rust >= 1.67 to build correctly
 
 ## License
 
