@@ -247,10 +247,9 @@ fn start_reactor(
                     // Make the string that nneds to be appended
                     let append_style = p.append_str(&text);
 
-                    if matches!(append_style, AppendStyle::FullRedraw) {
-                        // Append the formatted string to PagerState::formatted_lines vec
-                        p.format_lines();
+                    if let AppendStyle::FullRedraw(unterminated) = append_style {
                         draw_full(&mut out_lock, &mut p)?;
+                        p.unterminated = unterminated;
                         continue;
                     }
 

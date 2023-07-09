@@ -469,11 +469,6 @@ impl PagerState {
             new_line_count.ilog10() + 1
         };
 
-        if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
-            self.format_lines();
-            return AppendStyle::FullRedraw;
-        }
-
         let append_props = crate::minus_core::utils::text::make_append_str(
             self,
             text,
@@ -488,6 +483,12 @@ impl PagerState {
             let mut append_search_idx = append_props.append_search_idx;
             self.search_idx.append(&mut append_search_idx);
         }
+
+        if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
+            self.format_lines();
+            return AppendStyle::FullRedraw(num_unterminated);
+        }
+
 
         AppendStyle::PartialUpdate((fmt_line, num_unterminated))
     }

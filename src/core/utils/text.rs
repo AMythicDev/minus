@@ -5,7 +5,7 @@ use crate::PagerState;
 
 pub enum AppendStyle {
     PartialUpdate((Vec<String>, usize)),
-    FullRedraw,
+    FullRedraw(usize),
 }
 
 pub struct AppendProps {
