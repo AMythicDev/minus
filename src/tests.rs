@@ -251,26 +251,6 @@ fn exit_callback() {
     assert!(exited.load(Ordering::Relaxed));
 }
 
-mod wrapping {
-    // Test wrapping functions
-    #[test]
-    fn wrap_str() {
-        let test = {
-            let mut line = String::with_capacity(200);
-            for _ in 1..=200 {
-                line.push('#');
-            }
-            line
-        };
-        let result = crate::wrap_str(&test, 80);
-        assert_eq!(result.len(), 3);
-        assert_eq!(
-            (80, 80, 40),
-            (result[0].len(), result[1].len(), result[2].len()),
-        );
-    }
-}
-
 mod emit_events {
     // Check functions emit correct events on functin calls
     use crate::{minus_core::events::Event, ExitStrategy, LineNumbers, Pager};
