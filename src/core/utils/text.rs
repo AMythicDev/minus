@@ -16,27 +16,25 @@ pub struct AppendProps {
 }
 
 /// Makes the text that will be displayed and appended it to [`self.formatted_lines`]
-///
-/// - The first output value is the actual text rows that needs to be appended. This is wrapped
-///     based on the available columns
-/// - The second value is the number of rows that should be truncated from [`self.formatted_lines`]
-///     before appending this line. This will be 0 if the given `text` is to be appended to
-///     [`self.formatted_lines`] but will be `>0` if the given text is actually part of the
-///     last appended line. This function determines this by checking whether self.lines ends with
-///     `\n` after appending the text
 pub fn make_append_str(
     p: &PagerState,
     text: &str,
     attachment: Option<String>,
-    to_skip: usize,
+    line_number_of_actual_placement: usize,
     len_line_number: usize,
 ) -> AppendProps {
+    // Tells whether the line should go on a new row or should it be appended to the last line
+    // By default it is set to true, unless a last line i.e attachment is not None
     #[cfg(feature = "search")]
     let mut append = true;
 
+    // Compute the text to be format
     let to_format = attachment.map_or_else(
         || text.to_string(),
         |attached_text| {
+            // If attachment is not none, merge both the lines into one for formatting
+            // Also set append to false, as we are not pushing a new row but rather overwriting a already placed row
+            // in the terminal
             let mut s = String::with_capacity(text.len() + attached_text.len());
             s.push_str(&attached_text);
             s.push_str(text);
@@ -48,15 +46,11 @@ pub fn make_append_str(
         },
     );
 
-    // This will get filled if there is an ongoing search. We just need to append it to
-    // self.search_idx at the end
+    // This will get filled if there is an ongoing search
     #[cfg(feature = "search")]
     let mut append_search_idx = BTreeSet::new();
 
-    // If append is true, we take only the given text for formatting
-    // else we also take the last line of self.lines for formatting. This is because we nned to
-    // format the entire line rathar than just this part
-    let to_format_len = to_format.lines().count();
+    let to_format_size = to_format.lines().count();
     let lines = to_format
         .lines()
         .enumerate()
@@ -65,17 +59,24 @@ pub fn make_append_str(
 
     let mut fmtl = Vec::with_capacity(256);
 
-    // First line
+    // To format the text we first split the line into three parts: first line, last line and middle lines.
+    // Then we individually format each of these and finally join each of these components together to form
+    // the entire line, which is ready to be inserted into PagerState::formatted_lines.
+    // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
+
+    // Here first line can just be 
+    // We need to take care of first line as it can either be itself from the text, if append is true or it can be
+    // attachment + first line from text, if append is false
     let mut first_line = p.formatted_line(
-        // TODO: Remove unwrap from here
         &lines.first().unwrap().1,
         len_line_number,
-        to_skip.saturating_sub(1),
+        line_number_of_actual_placement,
+        // Reduce formatted index by one if we we are overwriting the last line on the terminal
         #[cfg(feature = "search")]
         if append {
-            to_skip
+            line_number_of_actual_placement
         } else {
-            to_skip.saturating_sub(1)
+            line_number_of_actual_placement.saturating_sub(1)
         },
         #[cfg(feature = "search")]
         &mut append_search_idx,
@@ -83,13 +84,13 @@ pub fn make_append_str(
 
     // Format the last line, only if first line and last line are different. We can check this
     // by seeing whether to_format_len is greater than 1
-    let last_line = if to_format_len > 1 {
+    let last_line = if to_format_size > 1 {
         Some(p.formatted_line(
             &lines.last().unwrap().1,
             len_line_number,
-            to_format_len + to_skip.saturating_sub(1),
+            line_number_of_actual_placement + to_format_size,
             #[cfg(feature = "search")]
-            to_skip,
+            line_number_of_actual_placement,
             #[cfg(feature = "search")]
             &mut append_search_idx,
         ))
@@ -106,20 +107,24 @@ pub fn make_append_str(
             p.formatted_line(
                 line,
                 len_line_number,
-                idx + to_skip.saturating_sub(1),
+                line_number_of_actual_placement + idx,
                 #[cfg(feature = "search")]
-                to_skip,
+                line_number_of_actual_placement,
                 #[cfg(feature = "search")]
                 &mut append_search_idx,
             )
         })
         .collect::<Vec<String>>();
 
+    // Calculate number of rows which are part of last line and are left unterminated  due to absense of \n
     let unterminated = if text.ends_with('\n') {
+    // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
-    } else if to_format_len > 1 {
+    } else if to_format_size > 1 {
+    // If tthere are more than 1 line of text, get the last line's size and return it as unterminated
         last_line.as_ref().unwrap().len()
     } else {
+        // If there is only one line, return the size of first line
         first_line.len()
     };
 
