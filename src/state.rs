@@ -195,128 +195,6 @@ impl PagerState {
         self.formatted_lines.len()
     }
 
-    /// Formats the given `line`
-    ///
-    /// - `line_numbers` tells whether to format the line with line numbers.
-    /// - `len_line_number` is the length of the number of lines in [`PagerState::lines`] as in a string.
-    ///     For example, this will be 2 if number of lines in [`PagerState::lines`] is 50 and 3 if
-    ///     number of lines in [`PagerState::lines`] is 500. This is used for calculating the padding
-    ///     of each displayed line.
-    /// - `idx` is the position index where the line is placed in [`PagerState::lines`].
-    /// - `formatted_idx` is the position index where the line will be placed in the resulting
-    ///    [`PagerState::formatted_lines`]
-    pub(crate) fn formatted_line(
-        &self,
-        line: &str,
-        len_line_number: usize,
-        idx: usize,
-        #[cfg(feature = "search")] formatted_idx: usize,
-        #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
-    ) -> Vec<String> {
-        let line_numbers = matches!(
-            self.line_numbers,
-            LineNumbers::Enabled | LineNumbers::AlwaysOn
-        );
-
-        if line_numbers {
-            // Padding is the space that the actual line text will be shifted to accomodate for
-            // in line numbers. This is equal to:-
-            // 1 for initial space + len_line_number + 1 for `.` sign and + 1 for the followup space
-            //
-            // We reduce this from the number of available columns as this space cannot be used for
-            // actual line display when wrapping the lines
-            let padding = len_line_number + LineNumbers::EXTRA_PADDING;
-            let wrapped_lines = wrap_str(line, self.cols.saturating_sub(padding + 2));
-            let mut formatted_rows = Vec::with_capacity(256);
-
-            let first_line = {
-                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-                let mut row = wrapped_lines.first().unwrap().to_string();
-
-                #[cfg(feature = "search")]
-                if let Some(st) = self.search_term.as_ref() {
-                    // highlight the lines with matching search terms
-                    // If a match is found, add this line's index to PagerState::search_idx
-                    let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
-                    if is_match {
-                        search_idx.insert(formatted_idx);
-                    }
-                    row = highlighted_row;
-                }
-
-                if cfg!(not(test)) {
-                    format!(
-                        "{bold}{number: >len$}.{reset} {row}",
-                        bold = crossterm::style::Attribute::Bold,
-                        number = idx + 1,
-                        len = padding,
-                        reset = crossterm::style::Attribute::Reset,
-                        row = row
-                    )
-                } else {
-                    // In tests, we don't care about ANSI sequences for cool looking line numbers
-                    // hence we don't include them in tests. It just makes testing more difficult
-                    format!(
-                        "{number: >len$}. {row}",
-                        number = idx + 1,
-                        len = padding,
-                        row = row
-                    )
-                }
-            };
-
-            formatted_rows.push(first_line);
-
-            #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-            let mut lines_left = wrapped_lines
-                .into_iter()
-                .enumerate()
-                .skip(1)
-                .map(|(wrap_idx, mut row)| {
-                    #[cfg(feature = "search")]
-                    if let Some(st) = self.search_term.as_ref() {
-                        // highlight the lines with matching search terms
-                        // If a match is found, add this line's index to PagerState::search_idx
-                        let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
-                        if is_match {
-                            search_idx.insert(formatted_idx + wrap_idx);
-                        }
-                        row = highlighted_row;
-                    }
-                    " ".repeat(padding + 2) + &row
-                })
-                .collect::<Vec<String>>();
-            formatted_rows.append(&mut lines_left);
-            formatted_rows
-        } else {
-            #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-            wrap_str(line, self.cols)
-                .iter()
-                .enumerate()
-                .map(|(wrap_idx, row)| {
-                    #[cfg(feature = "search")]
-                    {
-                        self.search_term.as_ref().map_or_else(
-                            || row.to_string(),
-                            |st| {
-                                // highlight the lines with matching search terms
-                                // If a match is found, add this line's index to PagerState::search_idx
-                                let (hrow, is_match) = search::highlight_line_matches(row, st);
-                                if is_match {
-                                    search_idx.insert(formatted_idx + wrap_idx);
-                                }
-                                hrow
-                            },
-                        )
-                    }
-                    #[cfg(not(feature = "search"))]
-                    row.to_string()
-                })
-                .collect::<Vec<String>>()
-        }
-    }
-
     pub(crate) fn format_lines(&mut self) {
         // Keep it for the record and don't call it unless it is really necessory as this is kinda
         // expensive
@@ -488,7 +366,6 @@ impl PagerState {
             self.format_lines();
             return AppendStyle::FullRedraw(num_unterminated);
         }
-
 
         AppendStyle::PartialUpdate((fmt_line, num_unterminated))
     }

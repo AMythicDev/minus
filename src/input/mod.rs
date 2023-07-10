@@ -212,7 +212,9 @@ where
     });
 
     map.add_resize_event(|ev, _| {
-        let Event::Resize(cols, rows) = ev else { unreachable!(); };
+        let Event::Resize(cols, rows) = ev else {
+            unreachable!();
+        };
         InputEvent::UpdateTermArea(cols as usize, rows as usize)
     });
 
