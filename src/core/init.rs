@@ -244,16 +244,17 @@ fn start_reactor(
                     super::utils::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
                 }
                 Ok(Event::AppendData(text)) => {
+                    let prev_unterminated = p.unterminated;
+
                     // Make the string that nneds to be appended
                     let append_style = p.append_str(&text);
 
-                    if let AppendStyle::FullRedraw(unterminated) = append_style {
+                    if let AppendStyle::FullRedraw = append_style {
                         draw_full(&mut out_lock, &mut p)?;
-                        p.unterminated = unterminated;
                         continue;
                     }
 
-                    let AppendStyle::PartialUpdate((fmt_text, unterminated)) = append_style else {
+                    let AppendStyle::PartialUpdate(fmt_text) = append_style else {
                         unreachable!()
                     };
 
@@ -262,7 +263,7 @@ fn start_reactor(
                         term::move_cursor(
                             &mut out_lock,
                             0,
-                            num_lines.saturating_sub(p.unterminated).try_into().unwrap(),
+                            num_lines.saturating_sub(prev_unterminated).try_into().unwrap(),
                             false,
                         )?;
                         // available_rows -> Rows that are still unfilled
@@ -271,7 +272,7 @@ fn start_reactor(
                         // and 10 rows are already occupied, then this will be equal to 9
                         let available_rows = p.rows.saturating_sub(
                             p.num_lines()
-                                .saturating_sub(p.unterminated)
+                                .saturating_sub(prev_unterminated)
                                 .saturating_add(1),
                         );
                         // Minimum amount of text that an be appended
@@ -288,8 +289,6 @@ fn start_reactor(
                         write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
                         out_lock.flush()?;
                     }
-                    // Append the formatted string to PagerState::formatted_lines vec
-                    p.append_str_on_unterminated(fmt_text, unterminated);
                 }
                 Ok(ev) => {
                     handle_event(

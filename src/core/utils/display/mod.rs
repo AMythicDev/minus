@@ -76,9 +76,9 @@ pub fn draw_for_change(
             queue!(out, Clear(ClearType::CurrentLine))?;
 
             if delta < writable_rows {
-                p.get_flattened_lines_with_bounds(lower_bound, new_lower_bound)
+                p.get_formatted_lines_with_bounds(lower_bound, new_lower_bound)
             } else {
-                p.get_flattened_lines_with_bounds(
+                p.get_formatted_lines_with_bounds(
                     *new_upper_mark,
                     new_upper_mark.saturating_add(normalized_delta),
                 )
@@ -91,7 +91,7 @@ pub fn draw_for_change(
             )?;
             move_cursor(out, 0, 0, false)?;
 
-            p.get_flattened_lines_with_bounds(
+            p.get_formatted_lines_with_bounds(
                 *new_upper_mark,
                 new_upper_mark.saturating_add(normalized_delta),
             )
@@ -178,7 +178,7 @@ pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
-    let lines = pager.get_flattened_lines_with_bounds(pager.upper_mark, lower_mark);
+    let lines = pager.get_formatted_lines_with_bounds(pager.upper_mark, lower_mark);
 
     for line in lines {
         writeln!(out, "\r{line}")?;

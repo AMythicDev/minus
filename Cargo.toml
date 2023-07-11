@@ -22,6 +22,9 @@ regex = { version = ">=1.5.5", optional = true }
 crossbeam-channel = "0.5.1"
 parking_lot = "0.12.1"
 once_cell = { version = "1.15.0", features = ["parking_lot"] }
+tracing = { version = "*" }
+tracing-subscriber = { version = "*", features = ["json"] }
+tracing-appender = { version = "*" }
 
 [features]
 search = [ "regex" ]

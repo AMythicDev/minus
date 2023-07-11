@@ -39,7 +39,9 @@
 //! Simple! printing an entire page on the terminal is slow and this approach allows minus to reprint only the 
 //! parts that are required without having to redraw everything
 
-use crate::{LineNumbers, PagerState};
+use textwrap::wrap;
+
+use crate::{LineNumbers};
 
 #[cfg(feature = "search")]
 use {crate::minus_core::search, std::collections::BTreeSet};
@@ -47,12 +49,10 @@ use {crate::minus_core::search, std::collections::BTreeSet};
 /// How should the incoming text be drawn on the screen
 pub enum AppendStyle {
     /// Draw only the region that needs to change
-    /// First element is the formatted text while the second argument gives the number of unterminated rows.
-    PartialUpdate((Vec<String>, usize)),
+    PartialUpdate(Vec<String>),
 
     /// Redraw the entire screen
-    /// The only element gives the value of unterminated rows for the block of text
-    FullRedraw(usize),
+    FullRedraw,
 }
 
 /// Properties related to appending of incoming data
@@ -75,11 +75,14 @@ pub struct AppendProps {
 /// the incoming text will gonna have.
 /// - `len_line_number`: Number of digits that line numbers have.
 pub fn make_append_str(
-    p: &PagerState,
     text: &str,
     attachment: Option<String>,
+    line_numbers: LineNumbers,
     line_number_of_actual_placement: usize,
     len_line_number: usize,
+    cols: usize,
+    #[cfg(feature = "search")]
+    search_term: &Option<regex::Regex>,
 ) -> AppendProps {
     // Tells whether the line should go on a new row or should it be appended to the last line
     // By default it is set to true, unless a last line i.e attachment is not None
@@ -129,7 +132,7 @@ pub fn make_append_str(
         &lines.first().unwrap().1,
         len_line_number,
         line_number_of_actual_placement,
-        p.line_numbers,
+        line_numbers,
         // Reduce formatted index by one if we we are overwriting the last line on the terminal
         #[cfg(feature = "search")]
         if append {
@@ -139,9 +142,9 @@ pub fn make_append_str(
         },
         #[cfg(feature = "search")]
         &mut append_search_idx,
-        p.cols,
+        cols,
         #[cfg(feature = "search")]
-        &p.search_term,
+        search_term,
     );
 
     // Format the last line, only if first line and last line are different. We can check this
@@ -150,15 +153,15 @@ pub fn make_append_str(
         Some(formatted_line(
             &lines.last().unwrap().1,
             len_line_number,
-            line_number_of_actual_placement + to_format_size,
-            p.line_numbers,
+            line_number_of_actual_placement + to_format_size -1,
+            line_numbers,
             #[cfg(feature = "search")]
             line_number_of_actual_placement,
             #[cfg(feature = "search")]
             &mut append_search_idx,
-            p.cols,
+            cols,
             #[cfg(feature = "search")]
-            &p.search_term,
+            search_term,
         ))
     } else {
         None
@@ -174,14 +177,16 @@ pub fn make_append_str(
                 line,
                 len_line_number,
                 line_number_of_actual_placement + idx,
-                p.line_numbers,
+                line_numbers,
                 #[cfg(feature = "search")]
-                line_number_of_actual_placement,
+                {
+                    line_number_of_actual_placement + idx
+                },
                 #[cfg(feature = "search")]
                 &mut append_search_idx,
-                p.cols,
+                cols,
                 #[cfg(feature = "search")]
-                &p.search_term,
+                search_term,
             )
         })
         .collect::<Vec<String>>();
@@ -235,6 +240,7 @@ pub(crate) fn formatted_line(
     cols: usize,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> Vec<String> {
+    assert!(!line.contains('\n'), "Newlines found in appending line {:?}", line);
     // Whether line numbers are active
     let line_numbers = matches!(line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
 
@@ -284,14 +290,14 @@ pub(crate) fn formatted_line(
         // * Line number is added only to the first row of a line. This makes a better UI overall
         let formatter = |row: String, is_first_row: bool, idx: usize| {
             format!(
-                "{bold}{number: >len$}.{reset} {row}",
+                "{bold}{number: >len$}{reset} {row}",
                 bold = if cfg!(not(test)) && is_first_row {
                     crossterm::style::Attribute::Bold.to_string()
                 } else {
                     "".to_string()
                 },
                 number = if is_first_row {
-                    (idx + 1).to_string()
+                    (idx + 1).to_string() + "."
                 } else {
                     "".to_string()
                 },
@@ -307,23 +313,23 @@ pub(crate) fn formatted_line(
 
         // First format the first row separate from other rows, then the subsequent rows and finally join them
         // This is because only the first row contains the line number and not the subsequent rows
-        let first_line = {
+        let first_row = {
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
             let mut row = enumerated_rows.next().unwrap().1.to_string();
             row = handle_search(row, formatted_idx, 0);
-            formatter(row, true, idx + 1)
+            formatter(row, true, idx)
         };
-        formatted_rows.push(first_line);
+        formatted_rows.push(first_row);
 
         #[cfg_attr(not(feature = "search"), allow(unused_mut))]
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-        let mut lines_left = enumerated_rows
+        let mut rows_left = enumerated_rows
             .map(|(wrap_idx, mut row)| {
                 row = handle_search(row, formatted_idx, wrap_idx);
                 formatter(row, false, 0)
             })
             .collect::<Vec<String>>();
-        formatted_rows.append(&mut lines_left);
+        formatted_rows.append(&mut rows_left);
 
         formatted_rows
     } else {
@@ -556,7 +562,7 @@ mod wrapping {
             }
             line
         };
-        let result = crate::wrap_str(&test, 80);
+        let result = wrap_str(&test, 80);
         assert_eq!(result.len(), 3);
         assert_eq!(
             (80, 80, 40),

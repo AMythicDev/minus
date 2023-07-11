@@ -140,13 +140,6 @@ pub fn handle_event(
 
         Event::AppendData(text) => {
             let append_style = p.append_str(text.as_str());
-
-            if let AppendStyle::FullRedraw(unterminated) = append_style {
-                p.unterminated = unterminated;
-            }
-            if let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = append_style {
-                p.append_str_on_unterminated(fmt_line, num_unterminated);
-            }
         }
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;

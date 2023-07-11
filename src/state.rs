@@ -1,10 +1,10 @@
 #[cfg(feature = "search")]
-use crate::minus_core::search::{self, SearchMode};
+use crate::minus_core::search::SearchMode;
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
-    minus_core::utils::text::AppendStyle,
-    wrap_str, ExitStrategy, LineNumbers,
+    minus_core::utils::text::{self, AppendStyle},
+    ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
@@ -203,36 +203,26 @@ impl PagerState {
         // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
         let len_line_number = line_count.to_string().len();
 
-        // Search idx, this will get filled by the self.formatted_line function
-        // we will later set this to self.search_idx
-        #[cfg(feature = "search")]
-        let mut search_idx = BTreeSet::new();
-        let mut formatted_idx = 0;
+        let format_props = text::make_append_str(
+            &self.lines,
+            None,
+            self.line_numbers,
+            0,
+            len_line_number.try_into().unwrap(),
+            self.cols,
+            #[cfg(feature = "search")]
+            &self.search_term
+        );
 
-        self.formatted_lines = self
-            .lines
-            .lines()
-            .enumerate()
-            .flat_map(|(idx, line)| {
-                let new_line = self.formatted_line(
-                    line,
-                    len_line_number,
-                    idx,
-                    #[cfg(feature = "search")]
-                    formatted_idx,
-                    #[cfg(feature = "search")]
-                    &mut search_idx,
-                );
-                formatted_idx += new_line.len();
-                new_line
-            })
-            .collect::<Vec<String>>();
+        let (fmt_lines, num_unterminated) = (format_props.lines, format_props.num_unterminated);
+        self.formatted_lines = fmt_lines;
 
         #[cfg(feature = "search")]
         {
-            self.search_idx = search_idx;
+            self.search_idx = format_props.append_search_idx;
         }
 
+        self.unterminated = num_unterminated;
         self.format_prompt();
     }
 
@@ -305,8 +295,8 @@ impl PagerState {
         self.displayed_prompt = format_string;
     }
 
-    /// Returns all the text within the bounds, after flattening
-    pub(crate) fn get_flattened_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
+    /// Returns all the text within the bounds
+    pub(crate) fn get_formatted_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
         if start >= self.num_lines() || start > end {
             &[]
         } else if end >= self.num_lines() {
@@ -347,13 +337,17 @@ impl PagerState {
             new_line_count.ilog10() + 1
         };
 
-        let append_props = crate::minus_core::utils::text::make_append_str(
-            self,
+        let append_props = text::make_append_str(
             text,
             attachment,
+            self.line_numbers,
             old_line_count,
             new_len_line_number.try_into().unwrap(),
+            self.cols,
+            #[cfg(feature = "search")]
+            &self.search_term
         );
+
         let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
 
         #[cfg(feature = "search")]
@@ -364,27 +358,20 @@ impl PagerState {
 
         if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
             self.format_lines();
-            return AppendStyle::FullRedraw(num_unterminated);
+            return AppendStyle::FullRedraw;
         }
 
-        AppendStyle::PartialUpdate((fmt_line, num_unterminated))
-    }
-
-    /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
-    /// [`self.formatted_lines`]
-    ///
-    /// `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
-    /// that should be truncated from [`self.formatted_lines`] to update the last line
-    pub(crate) fn append_str_on_unterminated(
-        &mut self,
-        mut fmt_line: Vec<String>,
-        num_unterminated: usize,
-    ) {
-        if num_unterminated != 0 || self.unterminated != 0 {
+        // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
+        // [`self.formatted_lines`]
+        //
+        // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
+        // that should be truncated from [`self.formatted_lines`] to update the last line
             self.formatted_lines
                 .truncate(self.formatted_lines.len() - self.unterminated);
-        }
-        self.formatted_lines.append(&mut fmt_line);
+        self.formatted_lines.append(&mut fmt_line.clone());
         self.unterminated = num_unterminated;
+
+
+        AppendStyle::PartialUpdate(fmt_line)
     }
 }
