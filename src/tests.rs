@@ -32,7 +32,9 @@ mod pager_append_str {
     /// Helper function for calling [append_str][PagerState::append_str] and then
     /// [append_str_on_unterminated](PagerState::append_str_on_unterminated)
     fn append_str(ps: &mut PagerState, text: &str) {
-        let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = ps.append_str(text) else { unreachable!() };
+        let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = ps.append_str(text) else {
+            unreachable!()
+        };
         ps.append_str_on_unterminated(fmt_line, num_unterminated);
     }
 

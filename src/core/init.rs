@@ -253,7 +253,9 @@ fn start_reactor(
                         continue;
                     }
 
-                    let AppendStyle::PartialUpdate((fmt_text, unterminated)) = append_style else { unreachable!() };
+                    let AppendStyle::PartialUpdate((fmt_text, unterminated)) = append_style else {
+                        unreachable!()
+                    };
 
                     if p.num_lines() < p.rows {
                         // Move the cursor to the very next line after the last displayed line

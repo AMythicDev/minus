@@ -489,7 +489,6 @@ impl PagerState {
             return AppendStyle::FullRedraw(num_unterminated);
         }
 
-
         AppendStyle::PartialUpdate((fmt_line, num_unterminated))
     }
 
