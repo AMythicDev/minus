@@ -203,7 +203,7 @@ impl PagerState {
         // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
         let len_line_number = line_count.to_string().len();
 
-        let format_opts = text::AppendOpts {
+        let format_opts = text::FormatOpts {
             text: &self.lines,
             attachment: None,
             line_numbers: self.line_numbers,
@@ -216,7 +216,7 @@ impl PagerState {
             search_term: &self.search_term,
         };
 
-        let format_props = text::make_append_str(format_opts);
+        let format_props = text::format_text_block(format_opts);
 
         let (fmt_lines, num_unterminated) = (format_props.lines, format_props.num_unterminated);
         self.formatted_lines = fmt_lines;
@@ -341,7 +341,7 @@ impl PagerState {
             new_line_count.ilog10() + 1
         };
 
-        let append_opts = text::AppendOpts {
+        let append_opts = text::FormatOpts {
             text,
             attachment,
             line_numbers: self.line_numbers,
@@ -354,7 +354,7 @@ impl PagerState {
             search_term: &self.search_term,
         };
 
-        let append_props = text::make_append_str(append_opts);
+        let append_props = text::format_text_block(append_opts);
 
         let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
 
