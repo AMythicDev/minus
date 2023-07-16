@@ -263,7 +263,10 @@ fn start_reactor(
                         term::move_cursor(
                             &mut out_lock,
                             0,
-                            num_lines.saturating_sub(prev_unterminated).try_into().unwrap(),
+                            num_lines
+                                .saturating_sub(prev_unterminated)
+                                .try_into()
+                                .unwrap(),
                             false,
                         )?;
                         // available_rows -> Rows that are still unfilled

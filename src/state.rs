@@ -374,11 +374,10 @@ impl PagerState {
         //
         // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
         // that should be truncated from [`self.formatted_lines`] to update the last line
-            self.formatted_lines
-                .truncate(self.formatted_lines.len() - self.unterminated);
+        self.formatted_lines
+            .truncate(self.formatted_lines.len() - self.unterminated);
         self.formatted_lines.append(&mut fmt_line.clone());
         self.unterminated = num_unterminated;
-
 
         AppendStyle::PartialUpdate(fmt_line)
     }

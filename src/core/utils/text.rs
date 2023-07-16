@@ -30,13 +30,13 @@
 //! # Unterminated rows
 //! It is 0 in most of the cases. The only case when it has a non-zero value is a line or block of text is unterminated
 //! In this case, it is equal to the number of rows that the last line of the block or a the line occupied.
-//! 
-//! Whenever new data comes while a line or block is unterminated minus cleans up the number of unterminated rows 
-//! on the terminal i.e the entire last line. Then it merges the incoming data to the last line and then reprints 
+//!
+//! Whenever new data comes while a line or block is unterminated minus cleans up the number of unterminated rows
+//! on the terminal i.e the entire last line. Then it merges the incoming data to the last line and then reprints
 //! them on the terminal.
 //!
 //! Why this complex approach?  
-//! Simple! printing an entire page on the terminal is slow and this approach allows minus to reprint only the 
+//! Simple! printing an entire page on the terminal is slow and this approach allows minus to reprint only the
 //! parts that are required without having to redraw everything
 
 use crate::LineNumbers;
@@ -61,7 +61,7 @@ pub struct AppendOpts<'a> {
     pub attachment: Option<String>,
     /// Status of line numbers
     pub line_numbers: LineNumbers,
-    /// This is equal to the number of lines in [`PagerState::lines`]. This basically tells what line 
+    /// This is equal to the number of lines in [`PagerState::lines`]. This basically tells what line
     /// number the line will hold.
     pub lines_count: usize,
     /// This is equal to the number of lines in [`PagerState::formatted_lines`]. This is used to
@@ -185,7 +185,7 @@ pub fn make_append_str(mut opts: AppendOpts<'_>) -> AppendResult {
         Some(formatted_line(
             &lines.last().unwrap().1,
             opts.len_line_number,
-            opts.lines_count + to_format_size -1,
+            opts.lines_count + to_format_size - 1,
             opts.line_numbers,
             #[cfg(feature = "search")]
             formatted_row_count,
@@ -202,7 +202,7 @@ pub fn make_append_str(mut opts: AppendOpts<'_>) -> AppendResult {
     #[cfg(feature = "search")]
     {
         // NOTE: VERY IMPORTANT BLOCK TO GET PROPER SEARCH INDEX
-        // Here is the current scenario: suppose you have text block like this (markers are present to denote where a 
+        // Here is the current scenario: suppose you have text block like this (markers are present to denote where a
         // new line begins).
         //
         // * This is line one row one
@@ -225,8 +225,13 @@ pub fn make_append_str(mut opts: AppendOpts<'_>) -> AppendResult {
         // calculated by taking help of [`PagerState::unterminated`] or opts.prev_unterminated.
         //
         // We can simply decrement formatted_lines_count by prev_unterminated to get the effect
-        opts.formatted_lines_count = opts.formatted_lines_count.saturating_sub(opts.prev_unterminated);
-        append_search_idx = append_search_idx.iter().map(|i| opts.formatted_lines_count + i).collect();
+        opts.formatted_lines_count = opts
+            .formatted_lines_count
+            .saturating_sub(opts.prev_unterminated);
+        append_search_idx = append_search_idx
+            .iter()
+            .map(|i| opts.formatted_lines_count + i)
+            .collect();
     }
 
     // Calculate number of rows which are part of last line and are left unterminated  due to absense of \n
@@ -278,7 +283,11 @@ pub(crate) fn formatted_line(
     cols: usize,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> Vec<String> {
-    assert!(!line.contains('\n'), "Newlines found in appending line {:?}", line);
+    assert!(
+        !line.contains('\n'),
+        "Newlines found in appending line {:?}",
+        line
+    );
     // Whether line numbers are active
     let line_numbers = matches!(line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
 
@@ -374,9 +383,7 @@ pub(crate) fn formatted_line(
         // If line numbers aren't active, simply return the rows with search matches highlighted if search is active
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
         enumerated_rows
-            .map(|(wrap_idx, row)| {
-                handle_search(row, formatted_idx, wrap_idx)
-            })
+            .map(|(wrap_idx, row)| handle_search(row, formatted_idx, wrap_idx))
             .collect::<Vec<String>>()
     }
 }
@@ -389,7 +396,6 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
         .map(ToString::to_string)
         .collect::<Vec<String>>()
 }
-
 
 #[cfg(test)]
 mod unterminated {
@@ -608,5 +614,3 @@ mod wrapping {
         );
     }
 }
-
-
