@@ -203,16 +203,20 @@ impl PagerState {
         // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
         let len_line_number = line_count.to_string().len();
 
-        let format_props = text::make_append_str(
-            &self.lines,
-            None,
-            self.line_numbers,
-            0,
-            len_line_number.try_into().unwrap(),
-            self.cols,
+        let format_opts = text::AppendOpts {
+            text: &self.lines,
+            attachment: None,
+            line_numbers: self.line_numbers,
+            len_line_number,
+            formatted_lines_count: 0,
+            lines_count: 0,
+            prev_unterminated: self.unterminated,
+            cols: self.cols,
             #[cfg(feature = "search")]
-            &self.search_term
-        );
+            search_term: &self.search_term,
+        };
+
+        let format_props = text::make_append_str(format_opts);
 
         let (fmt_lines, num_unterminated) = (format_props.lines, format_props.num_unterminated);
         self.formatted_lines = fmt_lines;
@@ -321,11 +325,11 @@ impl PagerState {
             self.lines.lines().last().map(ToString::to_string)
         };
 
-        let old_line_count = self.lines.lines().count();
-        let old_len_line_number = if old_line_count == 0 {
+        let prev_line_count = self.lines.lines().count();
+        let old_len_line_number = if prev_line_count == 0 {
             0
         } else {
-            old_line_count.ilog10() + 1
+            prev_line_count.ilog10() + 1
         };
 
         self.lines.push_str(text);
@@ -337,16 +341,20 @@ impl PagerState {
             new_line_count.ilog10() + 1
         };
 
-        let append_props = text::make_append_str(
+        let append_opts = text::AppendOpts {
             text,
             attachment,
-            self.line_numbers,
-            old_line_count,
-            new_len_line_number.try_into().unwrap(),
-            self.cols,
+            line_numbers: self.line_numbers,
+            len_line_number: new_len_line_number.try_into().unwrap(),
+            formatted_lines_count: self.formatted_lines.len(),
+            lines_count: prev_line_count,
+            prev_unterminated: self.unterminated,
+            cols: self.cols,
             #[cfg(feature = "search")]
-            &self.search_term
-        );
+            search_term: &self.search_term,
+        };
+
+        let append_props = text::make_append_str(append_opts);
 
         let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
 

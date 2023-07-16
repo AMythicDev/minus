@@ -39,9 +39,7 @@
 //! Simple! printing an entire page on the terminal is slow and this approach allows minus to reprint only the 
 //! parts that are required without having to redraw everything
 
-use textwrap::wrap;
-
-use crate::{LineNumbers};
+use crate::LineNumbers;
 
 #[cfg(feature = "search")]
 use {crate::minus_core::search, std::collections::BTreeSet};
@@ -55,8 +53,34 @@ pub enum AppendStyle {
     FullRedraw,
 }
 
+pub struct AppendOpts<'a> {
+    /// Contains the incoming text data
+    pub text: &'a str,
+    /// This is Some when the last line inside minus's present data is unterminated. It contains the last
+    /// line to be attached to the the incoming text
+    pub attachment: Option<String>,
+    /// Status of line numbers
+    pub line_numbers: LineNumbers,
+    /// This is equal to the number of lines in [`PagerState::lines`]. This basically tells what line 
+    /// number the line will hold.
+    pub lines_count: usize,
+    /// This is equal to the number of lines in [`PagerState::formatted_lines`]. This is used to
+    /// calculate the search index of the rows of the line.
+    pub formatted_lines_count: usize,
+    /// Number of digits that line numbers occupy.
+    pub len_line_number: usize,
+    /// Actual number of columns available for displaying
+    pub cols: usize,
+    /// Number of lines that are previously unterminated. It is only relevent when there is `attachment` text otherwise
+    /// it should be 0.
+    pub prev_unterminated: usize,
+    /// Search term if a search is active
+    #[cfg(feature = "search")]
+    pub search_term: &'a Option<regex::Regex>,
+}
+
 /// Properties related to appending of incoming data
-pub struct AppendProps {
+pub struct AppendResult {
     /// Formatted incoming lines
     pub lines: Vec<String>,
     /// Number of rows that are unterminated
@@ -67,38 +91,22 @@ pub struct AppendProps {
 }
 
 /// Makes the text that will be displayed.
-/// - `text`: Contains the incoming text data
-/// - `attachment`: This is Some when the last line inside minus's present data is unterminated. It contains the last
-/// line to be attached to the the incoming text
-/// - `line_number_of_actual_placement`: Describes where this line should be placed in [`PagerState::lines`].
-/// Typically this is equal to the number of lines in [`PagerState::lines`]. This basically tells what line number
-/// the incoming text will gonna have.
-/// - `len_line_number`: Number of digits that line numbers have.
-pub fn make_append_str(
-    text: &str,
-    attachment: Option<String>,
-    line_numbers: LineNumbers,
-    line_number_of_actual_placement: usize,
-    len_line_number: usize,
-    cols: usize,
-    #[cfg(feature = "search")]
-    search_term: &Option<regex::Regex>,
-) -> AppendProps {
+pub fn make_append_str(mut opts: AppendOpts<'_>) -> AppendResult {
     // Tells whether the line should go on a new row or should it be appended to the last line
     // By default it is set to true, unless a last line i.e attachment is not None
     #[cfg(feature = "search")]
     let mut append = true;
 
     // Compute the text to be format
-    let to_format = attachment.map_or_else(
-        || text.to_string(),
+    let to_format = opts.attachment.as_ref().map_or_else(
+        || opts.text.to_string(),
         |attached_text| {
             // If attachment is not none, merge both the lines into one for formatting
             // Also set append to false, as we are not pushing a new row but rather overwriting a already placed row
             // in the terminal
-            let mut s = String::with_capacity(text.len() + attached_text.len());
+            let mut s = String::with_capacity(opts.text.len() + attached_text.len());
             s.push_str(&attached_text);
-            s.push_str(text);
+            s.push_str(opts.text);
             #[cfg(feature = "search")]
             {
                 append = false;
@@ -120,52 +128,32 @@ pub fn make_append_str(
 
     let mut fmtl = Vec::with_capacity(256);
 
+    // Number of rows that have been formatted so far
+    // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
+    let mut formatted_row_count = 0;
+
     // To format the text we first split the line into three parts: first line, last line and middle lines.
     // Then we individually format each of these and finally join each of these components together to form
     // the entire line, which is ready to be inserted into PagerState::formatted_lines.
     // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
 
-    // Here first line can just be
     // We need to take care of first line as it can either be itself from the text, if append is true or it can be
     // attachment + first line from text, if append is false
     let mut first_line = formatted_line(
         &lines.first().unwrap().1,
-        len_line_number,
-        line_number_of_actual_placement,
-        line_numbers,
+        opts.len_line_number,
+        opts.lines_count,
+        opts.line_numbers,
         // Reduce formatted index by one if we we are overwriting the last line on the terminal
         #[cfg(feature = "search")]
-        if append {
-            line_number_of_actual_placement
-        } else {
-            line_number_of_actual_placement.saturating_sub(1)
-        },
+        formatted_row_count,
         #[cfg(feature = "search")]
         &mut append_search_idx,
-        cols,
+        opts.cols,
         #[cfg(feature = "search")]
-        search_term,
+        opts.search_term,
     );
-
-    // Format the last line, only if first line and last line are different. We can check this
-    // by seeing whether to_format_len is greater than 1
-    let last_line = if to_format_size > 1 {
-        Some(formatted_line(
-            &lines.last().unwrap().1,
-            len_line_number,
-            line_number_of_actual_placement + to_format_size -1,
-            line_numbers,
-            #[cfg(feature = "search")]
-            line_number_of_actual_placement,
-            #[cfg(feature = "search")]
-            &mut append_search_idx,
-            cols,
-            #[cfg(feature = "search")]
-            search_term,
-        ))
-    } else {
-        None
-    };
+    formatted_row_count += first_line.len();
 
     // Format all other lines except the first and last line
     let mut mid_lines = lines
@@ -173,26 +161,76 @@ pub fn make_append_str(
         .skip(1)
         .take(lines.len().saturating_sub(2))
         .flat_map(|(idx, line)| {
-            formatted_line(
+            let fmt_line = formatted_line(
                 line,
-                len_line_number,
-                line_number_of_actual_placement + idx,
-                line_numbers,
+                opts.len_line_number,
+                opts.lines_count + idx,
+                opts.line_numbers,
                 #[cfg(feature = "search")]
-                {
-                    line_number_of_actual_placement + idx
-                },
+                formatted_row_count,
                 #[cfg(feature = "search")]
                 &mut append_search_idx,
-                cols,
+                opts.cols,
                 #[cfg(feature = "search")]
-                search_term,
-            )
+                opts.search_term,
+            );
+            formatted_row_count += fmt_line.len();
+            return fmt_line;
         })
         .collect::<Vec<String>>();
 
+    // Format the last line, only if first line and last line are different. We can check this
+    // by seeing whether to_format_len is greater than 1
+    let last_line = if to_format_size > 1 {
+        Some(formatted_line(
+            &lines.last().unwrap().1,
+            opts.len_line_number,
+            opts.lines_count + to_format_size -1,
+            opts.line_numbers,
+            #[cfg(feature = "search")]
+            formatted_row_count,
+            #[cfg(feature = "search")]
+            &mut append_search_idx,
+            opts.cols,
+            #[cfg(feature = "search")]
+            opts.search_term,
+        ))
+    } else {
+        None
+    };
+
+    #[cfg(feature = "search")]
+    {
+        // NOTE: VERY IMPORTANT BLOCK TO GET PROPER SEARCH INDEX
+        // Here is the current scenario: suppose you have text block like this (markers are present to denote where a 
+        // new line begins).
+        //
+        // * This is line one row one
+        //   This is line one row two
+        //   This is line one row three
+        // * This is line two row one
+        //   This is line two row two
+        //   This is line two row three
+        //   This is line two row four
+        //
+        // and suppose a match is found at line 1 row 2 and line 2 row 4. So the index generated will be [1, 6].
+        // Let's say this text block is going to be appended to [PagerState::formatted_lines] from index 23.
+        // Now if directly append this generated index to [`PagerState::search_idx`], it will probably be wrong
+        // as these numbers are *relative to current text block*. The actual search index should have been 24, 30.
+        //
+        // To fix this we basically add the number of items in [`PagerState::formatted_lines`].
+        // But another issue arrives where if the text block is not appended but is rather a continuation of the
+        // already present line: basically for situation where append = false. For this we need to subtract the
+        // number of rows that the last line occupied since it is also getting reformatted. This can be easily
+        // calculated by taking help of [`PagerState::unterminated`] or opts.prev_unterminated.
+        //
+        // We can simply decrement formatted_lines_count by prev_unterminated to get the effect
+        opts.formatted_lines_count = opts.formatted_lines_count.saturating_sub(opts.prev_unterminated);
+        append_search_idx = append_search_idx.iter().map(|i| opts.formatted_lines_count + i).collect();
+    }
+
     // Calculate number of rows which are part of last line and are left unterminated  due to absense of \n
-    let unterminated = if text.ends_with('\n') {
+    let unterminated = if opts.text.ends_with('\n') {
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
     } else if to_format_size > 1 {
@@ -209,7 +247,7 @@ pub fn make_append_str(
         fmtl.append(&mut ll);
     }
 
-    AppendProps {
+    AppendResult {
         lines: fmtl,
         num_unterminated: unterminated,
         #[cfg(feature = "search")]
