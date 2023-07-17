@@ -92,10 +92,10 @@ pub struct FormatResult {
 }
 
 /// Makes the text that will be displayed.
+#[allow(clippy::too_many_lines)]
 pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     // Tells whether the line should go on a new row or should it be appended to the last line
     // By default it is set to true, unless a last line i.e attachment is not None
-    #[cfg(feature = "search")]
     let mut append = true;
 
     // Compute the text to be format
@@ -106,15 +106,30 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             // Also set append to false, as we are not pushing a new row but rather overwriting a already placed row
             // in the terminal
             let mut s = String::with_capacity(opts.text.len() + attached_text.len());
-            s.push_str(&attached_text);
+            s.push_str(attached_text);
             s.push_str(opts.text);
-            #[cfg(feature = "search")]
             {
                 append = false;
             }
             s
         },
     );
+
+    // Tweak certain parameters if we are joining the last line of already present text with the first line of
+    // incoming text.
+    //
+    // First reduce line count by 1 if, because the first line of the incoming text should have the same line
+    // number as the last line. Hence all subsequent lines must get a line number less than expected.
+    //
+    // Next subtract the number of rows that the last line occupied from formatted_lines_count since it is
+    // also getting reformatted. This can be easily accomplished by taking help of [`PagerState::unterminated`]
+    // which we get in opts.prev_unterminated.
+    if !append {
+        opts.lines_count = opts.lines_count.saturating_sub(1);
+        opts.formatted_lines_count = opts
+            .formatted_lines_count
+            .saturating_sub(opts.prev_unterminated);
+    }
 
     // This will get filled if there is an ongoing search
     #[cfg(feature = "search")]
@@ -176,7 +191,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
                 opts.search_term,
             );
             formatted_row_count += fmt_line.len();
-            return fmt_line;
+            fmt_line
         })
         .collect::<Vec<String>>();
 
@@ -220,15 +235,6 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         // as these numbers are *relative to current text block*. The actual search index should have been 24, 30.
         //
         // To fix this we basically add the number of items in [`PagerState::formatted_lines`].
-        // But another issue arrives where if the text block is not appended but is rather a continuation of the
-        // already present line: basically for situation where append = false. For this we need to subtract the
-        // number of rows that the last line occupied since it is also getting reformatted. This can be easily
-        // calculated by taking help of [`PagerState::unterminated`] or opts.prev_unterminated.
-        //
-        // We can simply decrement formatted_lines_count by prev_unterminated to get the effect
-        opts.formatted_lines_count = opts
-            .formatted_lines_count
-            .saturating_sub(opts.prev_unterminated);
         append_search_idx = append_search_idx
             .iter()
             .map(|i| opts.formatted_lines_count + i)
@@ -274,7 +280,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 ///    [`PagerState::formatted_lines`]
 /// - `cols`: Number of columns in the terminal
 /// - `search_term`: Contains the regex iif a search is active
-pub(crate) fn formatted_line(
+#[allow(clippy::too_many_arguments)]
+pub fn formatted_line(
     line: &str,
     len_line_number: usize,
     idx: usize,
@@ -312,9 +319,9 @@ pub(crate) fn formatted_line(
 
     // highlight the lines with matching search terms
     // If a match is found, add this line's index to PagerState::search_idx
-    // This is safe to call even if search feature is turned off or there is no search active: in these cases it wll
-    // simply return the row
-    let mut handle_search = |row: String, formatted_idx: usize, wrap_idx: usize| {
+    #[cfg_attr(not(feature = "search"), allow(unused_mut))]
+    #[cfg_attr(not(feature = "search"), allow(unused_variables))]
+    let mut handle_search = |row: String, wrap_idx: usize| {
         #[cfg(feature = "search")]
         if let Some(st) = search_term.as_ref() {
             let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
@@ -342,18 +349,18 @@ pub(crate) fn formatted_line(
                 bold = if cfg!(not(test)) && is_first_row {
                     crossterm::style::Attribute::Bold.to_string()
                 } else {
-                    "".to_string()
+                    String::new()
                 },
                 number = if is_first_row {
                     (idx + 1).to_string() + "."
                 } else {
-                    "".to_string()
+                    String::new()
                 },
                 len = padding,
                 reset = if cfg!(not(test)) && is_first_row {
                     crossterm::style::Attribute::Reset.to_string()
                 } else {
-                    "".to_string()
+                    String::new()
                 },
                 row = row
             )
@@ -363,8 +370,8 @@ pub(crate) fn formatted_line(
         // This is because only the first row contains the line number and not the subsequent rows
         let first_row = {
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            let mut row = enumerated_rows.next().unwrap().1.to_string();
-            row = handle_search(row, formatted_idx, 0);
+            let mut row = enumerated_rows.next().unwrap().1;
+            row = handle_search(row, 0);
             formatter(row, true, idx)
         };
         formatted_rows.push(first_row);
@@ -373,7 +380,7 @@ pub(crate) fn formatted_line(
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
         let mut rows_left = enumerated_rows
             .map(|(wrap_idx, mut row)| {
-                row = handle_search(row, formatted_idx, wrap_idx);
+                row = handle_search(row, wrap_idx);
                 formatter(row, false, 0)
             })
             .collect::<Vec<String>>();
@@ -384,14 +391,14 @@ pub(crate) fn formatted_line(
         // If line numbers aren't active, simply return the rows with search matches highlighted if search is active
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
         enumerated_rows
-            .map(|(wrap_idx, row)| handle_search(row, formatted_idx, wrap_idx))
+            .map(|(wrap_idx, row)| handle_search(row, wrap_idx))
             .collect::<Vec<String>>()
     }
 }
 
 /// Wrap a line of string into a rows of a terminal based on the number of columns
 /// Read the [`textwrap::wrap`] function for more info
-pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
+pub fn wrap_str(line: &str, cols: usize) -> Vec<String> {
     textwrap::wrap(line, cols)
         .iter()
         .map(ToString::to_string)
@@ -402,7 +409,7 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
 mod unterminated {
     use super::{format_text_block, FormatOpts};
 
-    fn get_append_opts_template(text: &str) -> FormatOpts {
+    const fn get_append_opts_template(text: &str) -> FormatOpts {
         FormatOpts {
             text,
             len_line_number: 0,

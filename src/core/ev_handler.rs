@@ -137,7 +137,9 @@ pub fn handle_event(
             }
         }
 
-        Event::AppendData(text) => { p.append_str(text.as_str()); }
+        Event::AppendData(text) => {
+            p.append_str(text.as_str());
+        }
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
             p.format_prompt();

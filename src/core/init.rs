@@ -193,7 +193,6 @@ fn start_reactor(
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
-
     let mut p = ps.lock();
     draw_full(&mut out_lock, &mut p)?;
     drop(p);
@@ -250,7 +249,7 @@ fn start_reactor(
                     // Make the string that nneds to be appended
                     let append_style = p.append_str(&text);
 
-                    if let AppendStyle::FullRedraw = append_style {
+                    if matches!(append_style, AppendStyle::FullRedraw) {
                         draw_full(&mut out_lock, &mut p)?;
                         continue;
                     }
