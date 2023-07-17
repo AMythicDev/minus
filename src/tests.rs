@@ -27,24 +27,15 @@ mod fmt_write {
 }
 
 mod pager_append_str {
-    use crate::{minus_core::utils::text::AppendStyle, PagerState};
-
-    /// Helper function for calling [append_str][PagerState::append_str] and then
-    /// [append_str_on_unterminated](PagerState::append_str_on_unterminated)
-    fn append_str(ps: &mut PagerState, text: &str) {
-        let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = ps.append_str(text) else {
-            unreachable!()
-        };
-        ps.append_str_on_unterminated(fmt_line, num_unterminated);
-    }
+    use crate::PagerState;
 
     #[test]
     fn sequential_append_str() {
         const TEXT1: &str = "This is a line.";
         const TEXT2: &str = " This is a follow up line";
         let mut ps = PagerState::new().unwrap();
-        append_str(&mut ps, TEXT1);
-        append_str(&mut ps, TEXT2);
+        ps.append_str(TEXT1);
+        ps.append_str(TEXT2);
         assert_eq!(ps.formatted_lines, vec![format!("{TEXT1}{TEXT2}")]);
         assert_eq!(ps.lines, TEXT1.to_string() + TEXT2);
     }
@@ -54,8 +45,8 @@ mod pager_append_str {
         const TEXT1: &str = "This is a line.";
         const TEXT2: &str = " This is a follow up line";
         let mut ps = PagerState::new().unwrap();
-        append_str(&mut ps, &(TEXT1.to_string() + "\n"));
-        append_str(&mut ps, &(TEXT2.to_string() + "\n"));
+        ps.append_str(&(TEXT1.to_string() + "\n"));
+        ps.append_str(&(TEXT2.to_string() + "\n"));
 
         assert_eq!(
             ps.formatted_lines,
@@ -75,7 +66,7 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
 
         for line in LINES {
-            append_str(&mut ps, line);
+            ps.append_str(line);
         }
 
         assert_eq!(
@@ -100,7 +91,7 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
 
         for line in LINES {
-            append_str(&mut ps, line);
+            ps.append_str(line);
         }
 
         assert_eq!(
@@ -125,7 +116,7 @@ mod pager_append_str {
         ps.cols = 15;
 
         for line in LINES {
-            append_str(&mut ps, line);
+            ps.append_str(line);
         }
 
         assert_eq!(
@@ -155,18 +146,18 @@ mod pager_append_str {
 
         let mut ps = PagerState::new().unwrap();
 
-        append_str(&mut ps, LINES[0]);
+        ps.append_str(LINES[0]);
 
         assert_eq!(ps.lines, LINES[0].to_owned());
         assert_eq!(ps.formatted_lines, vec![LINES[0].to_owned()]);
 
-        append_str(&mut ps, LINES[1]);
+        ps.append_str(LINES[1]);
 
         let line = LINES[..2].join("");
         assert_eq!(ps.lines, line);
         assert_eq!(ps.formatted_lines, vec![line]);
 
-        append_str(&mut ps, LINES[2]);
+        ps.append_str(LINES[2]);
 
         let mut line = LINES[..3].join("");
         assert_eq!(ps.lines, line);
@@ -174,7 +165,7 @@ mod pager_append_str {
         line.pop();
         assert_eq!(ps.formatted_lines, vec![line]);
 
-        append_str(&mut ps, LINES[3]);
+        ps.append_str(LINES[3]);
 
         let joined = LINES.join("");
         assert_eq!(ps.lines, joined);
@@ -193,7 +184,7 @@ mod pager_append_str {
 
         let mut ps = PagerState::new().unwrap();
 
-        append_str(&mut ps, TEST);
+        ps.append_str(TEST);
 
         assert_eq!(ps.lines, TEST.to_owned());
         assert_eq!(
@@ -219,7 +210,7 @@ mod pager_append_str {
     fn append_floating_newline() {
         const TEST: &str = "This is a line with a bunch of\nin between\nbut not at the end";
         let mut ps = PagerState::new().unwrap();
-        append_str(&mut ps, TEST);
+        ps.append_str(TEST);
         assert_eq!(
             ps.formatted_lines,
             vec![
@@ -249,26 +240,6 @@ fn exit_callback() {
     ps.exit();
 
     assert!(exited.load(Ordering::Relaxed));
-}
-
-mod wrapping {
-    // Test wrapping functions
-    #[test]
-    fn wrap_str() {
-        let test = {
-            let mut line = String::with_capacity(200);
-            for _ in 1..=200 {
-                line.push('#');
-            }
-            line
-        };
-        let result = crate::wrap_str(&test, 80);
-        assert_eq!(result.len(), 3);
-        assert_eq!(
-            (80, 80, 40),
-            (result[0].len(), result[1].len(), result[2].len()),
-        );
-    }
 }
 
 mod emit_events {

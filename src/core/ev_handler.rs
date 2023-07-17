@@ -9,7 +9,6 @@ use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use super::search;
 use super::utils::display;
-use super::utils::text::AppendStyle;
 use super::{events::Event, utils::term};
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
@@ -138,16 +137,7 @@ pub fn handle_event(
             }
         }
 
-        Event::AppendData(text) => {
-            let append_style = p.append_str(text.as_str());
-
-            if let AppendStyle::FullRedraw(unterminated) = append_style {
-                p.unterminated = unterminated;
-            }
-            if let AppendStyle::PartialUpdate((fmt_line, num_unterminated)) = append_style {
-                p.append_str_on_unterminated(fmt_line, num_unterminated);
-            }
-        }
+        Event::AppendData(text) => { p.append_str(text.as_str()); }
         Event::SetPrompt(prompt) => {
             p.prompt = prompt;
             p.format_prompt();

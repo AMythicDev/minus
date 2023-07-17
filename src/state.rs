@@ -1,10 +1,10 @@
 #[cfg(feature = "search")]
-use crate::minus_core::search::{self, SearchMode};
+use crate::minus_core::search::SearchMode;
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
-    minus_core::utils::text::AppendStyle,
-    wrap_str, ExitStrategy, LineNumbers,
+    minus_core::utils::text::{self, AppendStyle},
+    ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
@@ -195,128 +195,6 @@ impl PagerState {
         self.formatted_lines.len()
     }
 
-    /// Formats the given `line`
-    ///
-    /// - `line_numbers` tells whether to format the line with line numbers.
-    /// - `len_line_number` is the length of the number of lines in [`PagerState::lines`] as in a string.
-    ///     For example, this will be 2 if number of lines in [`PagerState::lines`] is 50 and 3 if
-    ///     number of lines in [`PagerState::lines`] is 500. This is used for calculating the padding
-    ///     of each displayed line.
-    /// - `idx` is the position index where the line is placed in [`PagerState::lines`].
-    /// - `formatted_idx` is the position index where the line will be placed in the resulting
-    ///    [`PagerState::formatted_lines`]
-    pub(crate) fn formatted_line(
-        &self,
-        line: &str,
-        len_line_number: usize,
-        idx: usize,
-        #[cfg(feature = "search")] formatted_idx: usize,
-        #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
-    ) -> Vec<String> {
-        let line_numbers = matches!(
-            self.line_numbers,
-            LineNumbers::Enabled | LineNumbers::AlwaysOn
-        );
-
-        if line_numbers {
-            // Padding is the space that the actual line text will be shifted to accomodate for
-            // in line numbers. This is equal to:-
-            // 1 for initial space + len_line_number + 1 for `.` sign and + 1 for the followup space
-            //
-            // We reduce this from the number of available columns as this space cannot be used for
-            // actual line display when wrapping the lines
-            let padding = len_line_number + LineNumbers::EXTRA_PADDING;
-            let wrapped_lines = wrap_str(line, self.cols.saturating_sub(padding + 2));
-            let mut formatted_rows = Vec::with_capacity(256);
-
-            let first_line = {
-                #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-                let mut row = wrapped_lines.first().unwrap().to_string();
-
-                #[cfg(feature = "search")]
-                if let Some(st) = self.search_term.as_ref() {
-                    // highlight the lines with matching search terms
-                    // If a match is found, add this line's index to PagerState::search_idx
-                    let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
-                    if is_match {
-                        search_idx.insert(formatted_idx);
-                    }
-                    row = highlighted_row;
-                }
-
-                if cfg!(not(test)) {
-                    format!(
-                        "{bold}{number: >len$}.{reset} {row}",
-                        bold = crossterm::style::Attribute::Bold,
-                        number = idx + 1,
-                        len = padding,
-                        reset = crossterm::style::Attribute::Reset,
-                        row = row
-                    )
-                } else {
-                    // In tests, we don't care about ANSI sequences for cool looking line numbers
-                    // hence we don't include them in tests. It just makes testing more difficult
-                    format!(
-                        "{number: >len$}. {row}",
-                        number = idx + 1,
-                        len = padding,
-                        row = row
-                    )
-                }
-            };
-
-            formatted_rows.push(first_line);
-
-            #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-            let mut lines_left = wrapped_lines
-                .into_iter()
-                .enumerate()
-                .skip(1)
-                .map(|(wrap_idx, mut row)| {
-                    #[cfg(feature = "search")]
-                    if let Some(st) = self.search_term.as_ref() {
-                        // highlight the lines with matching search terms
-                        // If a match is found, add this line's index to PagerState::search_idx
-                        let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
-                        if is_match {
-                            search_idx.insert(formatted_idx + wrap_idx);
-                        }
-                        row = highlighted_row;
-                    }
-                    " ".repeat(padding + 2) + &row
-                })
-                .collect::<Vec<String>>();
-            formatted_rows.append(&mut lines_left);
-            formatted_rows
-        } else {
-            #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-            wrap_str(line, self.cols)
-                .iter()
-                .enumerate()
-                .map(|(wrap_idx, row)| {
-                    #[cfg(feature = "search")]
-                    {
-                        self.search_term.as_ref().map_or_else(
-                            || row.to_string(),
-                            |st| {
-                                // highlight the lines with matching search terms
-                                // If a match is found, add this line's index to PagerState::search_idx
-                                let (hrow, is_match) = search::highlight_line_matches(row, st);
-                                if is_match {
-                                    search_idx.insert(formatted_idx + wrap_idx);
-                                }
-                                hrow
-                            },
-                        )
-                    }
-                    #[cfg(not(feature = "search"))]
-                    row.to_string()
-                })
-                .collect::<Vec<String>>()
-        }
-    }
-
     pub(crate) fn format_lines(&mut self) {
         // Keep it for the record and don't call it unless it is really necessory as this is kinda
         // expensive
@@ -325,36 +203,30 @@ impl PagerState {
         // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
         let len_line_number = line_count.to_string().len();
 
-        // Search idx, this will get filled by the self.formatted_line function
-        // we will later set this to self.search_idx
-        #[cfg(feature = "search")]
-        let mut search_idx = BTreeSet::new();
-        let mut formatted_idx = 0;
+        let format_opts = text::FormatOpts {
+            text: &self.lines,
+            attachment: None,
+            line_numbers: self.line_numbers,
+            len_line_number,
+            formatted_lines_count: 0,
+            lines_count: 0,
+            prev_unterminated: self.unterminated,
+            cols: self.cols,
+            #[cfg(feature = "search")]
+            search_term: &self.search_term,
+        };
 
-        self.formatted_lines = self
-            .lines
-            .lines()
-            .enumerate()
-            .flat_map(|(idx, line)| {
-                let new_line = self.formatted_line(
-                    line,
-                    len_line_number,
-                    idx,
-                    #[cfg(feature = "search")]
-                    formatted_idx,
-                    #[cfg(feature = "search")]
-                    &mut search_idx,
-                );
-                formatted_idx += new_line.len();
-                new_line
-            })
-            .collect::<Vec<String>>();
+        let format_props = text::format_text_block(format_opts);
+
+        let (fmt_lines, num_unterminated) = (format_props.lines, format_props.num_unterminated);
+        self.formatted_lines = fmt_lines;
 
         #[cfg(feature = "search")]
         {
-            self.search_idx = search_idx;
+            self.search_idx = format_props.append_search_idx;
         }
 
+        self.unterminated = num_unterminated;
         self.format_prompt();
     }
 
@@ -427,8 +299,8 @@ impl PagerState {
         self.displayed_prompt = format_string;
     }
 
-    /// Returns all the text within the bounds, after flattening
-    pub(crate) fn get_flattened_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
+    /// Returns all the text within the bounds
+    pub(crate) fn get_formatted_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
         if start >= self.num_lines() || start > end {
             &[]
         } else if end >= self.num_lines() {
@@ -453,11 +325,11 @@ impl PagerState {
             self.lines.lines().last().map(ToString::to_string)
         };
 
-        let old_line_count = self.lines.lines().count();
-        let old_len_line_number = if old_line_count == 0 {
+        let prev_line_count = self.lines.lines().count();
+        let old_len_line_number = if prev_line_count == 0 {
             0
         } else {
-            old_line_count.ilog10() + 1
+            prev_line_count.ilog10() + 1
         };
 
         self.lines.push_str(text);
@@ -469,13 +341,21 @@ impl PagerState {
             new_line_count.ilog10() + 1
         };
 
-        let append_props = crate::minus_core::utils::text::make_append_str(
-            self,
+        let append_opts = text::FormatOpts {
             text,
             attachment,
-            old_line_count,
-            new_len_line_number.try_into().unwrap(),
-        );
+            line_numbers: self.line_numbers,
+            len_line_number: new_len_line_number.try_into().unwrap(),
+            formatted_lines_count: self.formatted_lines.len(),
+            lines_count: prev_line_count,
+            prev_unterminated: self.unterminated,
+            cols: self.cols,
+            #[cfg(feature = "search")]
+            search_term: &self.search_term,
+        };
+
+        let append_props = text::format_text_block(append_opts);
+
         let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
 
         #[cfg(feature = "search")]
@@ -486,27 +366,19 @@ impl PagerState {
 
         if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
             self.format_lines();
-            return AppendStyle::FullRedraw(num_unterminated);
+            return AppendStyle::FullRedraw;
         }
 
-        AppendStyle::PartialUpdate((fmt_line, num_unterminated))
-    }
-
-    /// Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
-    /// [`self.formatted_lines`]
-    ///
-    /// `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
-    /// that should be truncated from [`self.formatted_lines`] to update the last line
-    pub(crate) fn append_str_on_unterminated(
-        &mut self,
-        mut fmt_line: Vec<String>,
-        num_unterminated: usize,
-    ) {
-        if num_unterminated != 0 || self.unterminated != 0 {
-            self.formatted_lines
-                .truncate(self.formatted_lines.len() - self.unterminated);
-        }
-        self.formatted_lines.append(&mut fmt_line);
+        // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
+        // [`self.formatted_lines`]
+        //
+        // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
+        // that should be truncated from [`self.formatted_lines`] to update the last line
+        self.formatted_lines
+            .truncate(self.formatted_lines.len() - self.unterminated);
+        self.formatted_lines.append(&mut fmt_line.clone());
         self.unterminated = num_unterminated;
+
+        AppendStyle::PartialUpdate(fmt_line)
     }
 }

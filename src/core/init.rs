@@ -193,6 +193,7 @@ fn start_reactor(
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
+
     let mut p = ps.lock();
     draw_full(&mut out_lock, &mut p)?;
     drop(p);
@@ -215,7 +216,6 @@ fn start_reactor(
             let mut p = ps.lock();
 
             let rows: u16 = p.rows.try_into().unwrap();
-            let num_lines = p.num_lines();
 
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
@@ -244,25 +244,29 @@ fn start_reactor(
                     super::utils::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
                 }
                 Ok(Event::AppendData(text)) => {
+                    let prev_unterminated = p.unterminated;
+                    let prev_row_count = p.num_lines();
+
                     // Make the string that nneds to be appended
                     let append_style = p.append_str(&text);
 
-                    if let AppendStyle::FullRedraw(unterminated) = append_style {
+                    if let AppendStyle::FullRedraw = append_style {
                         draw_full(&mut out_lock, &mut p)?;
-                        p.unterminated = unterminated;
                         continue;
                     }
-
-                    let AppendStyle::PartialUpdate((fmt_text, unterminated)) = append_style else {
+                    let AppendStyle::PartialUpdate(fmt_text) = append_style else {
                         unreachable!()
                     };
 
-                    if p.num_lines() < p.rows {
+                    if prev_row_count < p.rows {
                         // Move the cursor to the very next line after the last displayed line
                         term::move_cursor(
                             &mut out_lock,
                             0,
-                            num_lines.saturating_sub(p.unterminated).try_into().unwrap(),
+                            prev_row_count
+                                .saturating_sub(prev_unterminated)
+                                .try_into()
+                                .unwrap(),
                             false,
                         )?;
                         // available_rows -> Rows that are still unfilled
@@ -270,8 +274,8 @@ fn start_reactor(
                         // For example if 20 rows are in total in a terminal
                         // and 10 rows are already occupied, then this will be equal to 9
                         let available_rows = p.rows.saturating_sub(
-                            p.num_lines()
-                                .saturating_sub(p.unterminated)
+                            prev_row_count
+                                .saturating_sub(prev_unterminated)
                                 .saturating_add(1),
                         );
                         // Minimum amount of text that an be appended
@@ -288,8 +292,6 @@ fn start_reactor(
                         write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
                         out_lock.flush()?;
                     }
-                    // Append the formatted string to PagerState::formatted_lines vec
-                    p.append_str_on_unterminated(fmt_text, unterminated);
                 }
                 Ok(ev) => {
                     handle_event(
