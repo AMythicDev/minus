@@ -80,6 +80,7 @@ pub struct FormatOpts<'a> {
 }
 
 /// Properties related to appending of incoming data
+#[derive(Debug)]
 pub struct FormatResult {
     /// Formatted incoming lines
     pub lines: Vec<String>,
@@ -294,11 +295,11 @@ pub(crate) fn formatted_line(
     // NOTE: Only relevent when line numbers are active
     // Padding is the space that the actual line text will be shifted to accomodate for
     // line numbers. This is equal to:-
-    // LineNumbers::EXTRA_PADDING + len_line_number
+    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.')
     //
     // We reduce this from the number of available columns as this space cannot be used for
     // actual line display when wrapping the lines
-    let padding = len_line_number + LineNumbers::EXTRA_PADDING;
+    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
 
     // Wrap the line and return an iterator over all the rows
     let mut enumerated_rows = if line_numbers {
@@ -399,198 +400,193 @@ pub(crate) fn wrap_str(line: &str, cols: usize) -> Vec<String> {
 
 #[cfg(test)]
 mod unterminated {
-    use super::format_text_block;
-    use crate::PagerState;
+    use super::{format_text_block, FormatOpts};
+
+    fn get_append_opts_template(text: &str) -> FormatOpts {
+        FormatOpts {
+            text,
+            len_line_number: 0,
+            attachment: None,
+            #[cfg(feature = "search")]
+            search_term: &None,
+            lines_count: 0,
+            formatted_lines_count: 0,
+            cols: 80,
+            line_numbers: crate::LineNumbers::Disabled,
+            prev_unterminated: 0,
+        }
+    }
 
     #[test]
     fn test_single_no_endline() {
-        let ps = PagerState::new().unwrap();
-        let append_style = format_text_block(&ps, "This is a line", None, 0, 0);
+        let append_style = format_text_block(get_append_opts_template("This is a line"));
         assert_eq!(1, append_style.num_unterminated);
     }
 
     #[test]
     fn test_single_endline() {
-        let ps = PagerState::new().unwrap();
-        let append_style = format_text_block(&ps, "This is a line\n", None, 0, 0);
+        let append_style = format_text_block(get_append_opts_template("This is a line\n"));
         assert_eq!(0, append_style.num_unterminated);
     }
 
     #[test]
     fn test_single_multi_newline() {
-        let ps = PagerState::new().unwrap();
-        let append_style = format_text_block(
-            &ps,
+        let append_style = format_text_block(get_append_opts_template(
             "This is a line\nThis is another line\nThis is third line",
-            None,
-            0,
-            0,
-        );
+        ));
         assert_eq!(1, append_style.num_unterminated);
     }
 
     #[test]
     fn test_single_multi_endline() {
-        let ps = PagerState::new().unwrap();
-        let append_style =
-            format_text_block(&ps, "This is a line\nThis is another line\n", None, 0, 0);
+        let append_style = format_text_block(get_append_opts_template(
+            "This is a line\nThis is another line\n",
+        ));
         assert_eq!(0, append_style.num_unterminated);
     }
 
     #[test]
     fn test_single_line_wrapping() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style = format_text_block(&ps, "This is a quite lengthy lint", None, 0, 0);
+        let mut fs = get_append_opts_template("This is a quite lengthy line");
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(2, append_style.num_unterminated);
     }
 
     #[test]
     fn test_single_mid_newline_wrapping() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style = format_text_block(
-            &ps,
-            "This is a quite lengthy lint\nIt has three lines\nThis is
+        let mut fs = get_append_opts_template(
+            "This is a quite lengthy line\nIt has three lines\nThis is
 third line",
-            None,
-            0,
-            0,
         );
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(1, append_style.num_unterminated);
     }
 
     #[test]
     fn test_single_endline_wrapping() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style = format_text_block(
-            &ps,
-            "This is a quite lengthy lint\nIt has three lines\nThis is
+        let mut fs = get_append_opts_template(
+            "This is a quite lengthy line\nIt has three lines\nThis is
 third line\n",
-            None,
-            0,
-            0,
         );
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(0, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_no_endline() {
-        let ps = PagerState::new().unwrap();
-        let append_style = format_text_block(&ps, "This is a line", None, 0, 0);
+        let append_style = format_text_block(get_append_opts_template("This is a line. "));
         assert_eq!(1, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is another line",
-            Some("This is a line".to_string()),
-            1,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is another line");
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is a line. ".to_string());
+
+        let append_style = format_text_block(fs);
         assert_eq!(1, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_endline() {
-        let ps = PagerState::new().unwrap();
-        let append_style = format_text_block(&ps, "This is a line ", None, 0, 0);
+        let append_style = format_text_block(get_append_opts_template("This is a line. "));
         assert_eq!(1, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is another line\n",
-            Some("This is a line ".to_string()),
-            1,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is another line\n");
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is a line. ".to_string());
+
+        let append_style = format_text_block(fs);
         assert_eq!(0, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_multiple_newline() {
-        let ps = PagerState::new().unwrap();
-        let append_style = format_text_block(&ps, "This is a line\n", None, 0, 0);
+        let append_style = format_text_block(get_append_opts_template("This is a line\n"));
         assert_eq!(0, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is another line\n",
-            None,
-            1,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is another line\n");
+        fs.lines_count = 1;
+        fs.formatted_lines_count = 1;
+        fs.attachment = None;
+
+        let append_style = format_text_block(fs);
         assert_eq!(0, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_wrapping() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style = format_text_block(&ps, "This is a line. This is second line", None, 0, 0);
+        let mut fs = get_append_opts_template("This is a line. This is second line. ");
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(2, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is another line\n",
-            Some("This is a line. This is second line".to_string()),
-            1,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is another line\n");
+        fs.cols = 20;
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is a line. This is second line".to_string());
+
+        let append_style = format_text_block(fs);
         assert_eq!(0, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_wrapping_continued() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style =
-            format_text_block(&ps, "This is a line. This is second line. ", None, 0, 0);
+        let mut fs = get_append_opts_template("This is a line. This is second line. ");
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(2, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is the third line",
-            Some("This is a line. This is second line. ".to_string()),
-            2,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is third line");
+        fs.cols = 20;
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is a line. This is second line. ".to_string());
+
+        let append_style = format_text_block(fs);
         assert_eq!(3, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_wrapping_last_continued() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style =
-            format_text_block(&ps, "This is a line.\nThis is second line. ", None, 0, 0);
+        let mut fs = get_append_opts_template("This is a line.\nThis is second line. ");
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(1, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is the third line",
-            Some("This is second line. ".to_string()),
-            2,
-            append_style.num_unterminated,
-        );
-        assert_eq!(3, append_style.num_unterminated);
+
+        let mut fs = get_append_opts_template("This is third line.");
+        fs.cols = 20;
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is second line. ".to_string());
+        fs.lines_count = 1;
+        fs.formatted_lines_count = 2;
+
+        let append_style = format_text_block(fs);
+
+        assert_eq!(2, append_style.num_unterminated);
     }
 
     #[test]
     fn test_multi_wrapping_additive() {
-        let mut ps = PagerState::new().unwrap();
-        ps.cols = 20;
-        let append_style = format_text_block(&ps, "This is a line.", None, 0, 0);
+        let mut fs = get_append_opts_template("This is a line. ");
+        fs.cols = 20;
+        let append_style = format_text_block(fs);
         assert_eq!(1, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is second line. ",
-            Some("This is a line.".to_string()),
-            1,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is second line. ");
+        fs.cols = 20;
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is a line. ".to_string());
+
+        let append_style = format_text_block(fs);
         assert_eq!(2, append_style.num_unterminated);
-        let append_style = format_text_block(
-            &ps,
-            "This is third line",
-            Some("This is a line.This is second line. ".to_string()),
-            2,
-            append_style.num_unterminated,
-        );
+
+        let mut fs = get_append_opts_template("This is third line");
+        fs.cols = 20;
+        fs.prev_unterminated = append_style.num_unterminated;
+        fs.attachment = Some("This is a line. This is second line. ".to_string());
+        let append_style = format_text_block(fs);
+
         assert_eq!(3, append_style.num_unterminated);
     }
 }
@@ -598,7 +594,7 @@ third line\n",
 mod wrapping {
     // Test wrapping functions
     #[test]
-    fn wrap_str() {
+    fn test_wrap_str() {
         let test = {
             let mut line = String::with_capacity(200);
             for _ in 1..=200 {
@@ -606,7 +602,7 @@ mod wrapping {
             }
             line
         };
-        let result = wrap_str(&test, 80);
+        let result = super::wrap_str(&test, 80);
         assert_eq!(result.len(), 3);
         assert_eq!(
             (80, 80, 40),
