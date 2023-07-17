@@ -193,6 +193,7 @@ fn start_reactor(
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
+
     let mut p = ps.lock();
     draw_full(&mut out_lock, &mut p)?;
     drop(p);
@@ -215,7 +216,6 @@ fn start_reactor(
             let mut p = ps.lock();
 
             let rows: u16 = p.rows.try_into().unwrap();
-            let num_lines = p.num_lines();
 
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {
@@ -245,6 +245,7 @@ fn start_reactor(
                 }
                 Ok(Event::AppendData(text)) => {
                     let prev_unterminated = p.unterminated;
+                    let prev_row_count = p.num_lines();
 
                     // Make the string that nneds to be appended
                     let append_style = p.append_str(&text);
@@ -253,17 +254,16 @@ fn start_reactor(
                         draw_full(&mut out_lock, &mut p)?;
                         continue;
                     }
-
                     let AppendStyle::PartialUpdate(fmt_text) = append_style else {
                         unreachable!()
                     };
 
-                    if p.num_lines() < p.rows {
+                    if prev_row_count < p.rows {
                         // Move the cursor to the very next line after the last displayed line
                         term::move_cursor(
                             &mut out_lock,
                             0,
-                            num_lines
+                            prev_row_count
                                 .saturating_sub(prev_unterminated)
                                 .try_into()
                                 .unwrap(),
@@ -274,7 +274,7 @@ fn start_reactor(
                         // For example if 20 rows are in total in a terminal
                         // and 10 rows are already occupied, then this will be equal to 9
                         let available_rows = p.rows.saturating_sub(
-                            p.num_lines()
+                            prev_row_count
                                 .saturating_sub(prev_unterminated)
                                 .saturating_add(1),
                         );
