@@ -158,7 +158,7 @@ where
     });
     map.add_key_events(&["g"], |_, _| InputEvent::UpdateUpperMark(0));
 
-    map.add_key_events(&["s-g", "s-G", "G"], |_, ps| {
+    map.add_key_events(&["s-g", "G"], |_, ps| {
         let mut position = ps
             .prefix_num
             .parse::<usize>()
@@ -169,7 +169,10 @@ where
         if position == 0 {
             position = usize::MAX;
         }
-        InputEvent::UpdateUpperMark(position)
+        // Get the exact row number where first row of this line is placed in [`PagerState::formatted_lines`]
+        // and jump to that location.If the line number does not exist, directly jump to the bottom of text.
+        let row_to_go = *ps.lines_to_row_map.get(&position).unwrap_or(&usize::MAX);
+        InputEvent::UpdateUpperMark(row_to_go)
     });
     map.add_key_events(&["pageup"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(ps.rows - 1))

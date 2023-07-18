@@ -38,6 +38,10 @@
 //! Why this complex approach?  
 //! Simple! printing an entire page on the terminal is slow and this approach allows minus to reprint only the
 //! parts that are required without having to redraw everything
+//!
+//! [`PagerState::lines`]: crate::state::PagerState::lines
+
+use std::collections::HashMap;
 
 use crate::LineNumbers;
 
@@ -61,10 +65,10 @@ pub struct FormatOpts<'a> {
     pub attachment: Option<String>,
     /// Status of line numbers
     pub line_numbers: LineNumbers,
-    /// This is equal to the number of lines in [`PagerState::lines`]. This basically tells what line
+    /// This is equal to the number of lines in [`PagerState::lines`](crate::state::PagerState::lines). This basically tells what line
     /// number the line will hold.
     pub lines_count: usize,
-    /// This is equal to the number of lines in [`PagerState::formatted_lines`]. This is used to
+    /// This is equal to the number of lines in [`PagerState::formatted_lines`](crate::state::PagerState::lines). This is used to
     /// calculate the search index of the rows of the line.
     pub formatted_lines_count: usize,
     /// Number of digits that line numbers occupy.
@@ -89,6 +93,9 @@ pub struct FormatResult {
     /// If search is active, this contains the indices where search matches in the incoming text have been found
     #[cfg(feature = "search")]
     pub append_search_idx: BTreeSet<usize>,
+    /// Map of where first row of each line is placed inside in
+    /// [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
+    pub lines_to_row_map: HashMap<usize, usize>,
 }
 
 /// Makes the text that will be displayed.
@@ -146,7 +153,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     // Number of rows that have been formatted so far
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
-    let mut formatted_row_count = 0;
+    let mut formatted_row_count = opts.formatted_lines_count;
+
+    let mut lines_to_row_map = HashMap::new();
 
     // To format the text we first split the line into three parts: first line, last line and middle lines.
     // Then we individually format each of these and finally join each of these components together to form
@@ -169,6 +178,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         #[cfg(feature = "search")]
         opts.search_term,
     );
+
+    lines_to_row_map.insert(opts.lines_count, formatted_row_count);
     formatted_row_count += first_line.len();
 
     // Format all other lines except the first and last line
@@ -190,6 +201,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
                 #[cfg(feature = "search")]
                 opts.search_term,
             );
+            lines_to_row_map.insert(opts.lines_count + idx, formatted_row_count);
             formatted_row_count += fmt_line.len();
             fmt_line
         })
@@ -214,6 +226,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     } else {
         None
     };
+    lines_to_row_map.insert(opts.lines_count + to_format_size - 1, formatted_row_count);
 
     #[cfg(feature = "search")]
     {
@@ -264,6 +277,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         num_unterminated: unterminated,
         #[cfg(feature = "search")]
         append_search_idx,
+        lines_to_row_map,
     }
 }
 
@@ -271,15 +285,17 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 ///
 /// - `line`: The line to format
 /// - `line_numbers`: tells whether to format the line with line numbers.
-/// - `len_line_number`: is the length of the number of lines in [`PagerState::lines`] as in a string.
+/// - `len_line_number`: is the number of digits that number of lines in [`PagerState::lines`] occupy.
 ///     For example, this will be 2 if number of lines in [`PagerState::lines`] is 50 and 3 if
 ///     number of lines in [`PagerState::lines`] is 500. This is used for calculating the padding
 ///     of each displayed line.
 /// - `idx`: is the position index where the line is placed in [`PagerState::lines`].
 /// - `formatted_idx`: is the position index where the line will be placed in the resulting
-///    [`PagerState::formatted_lines`]
+///    [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
 /// - `cols`: Number of columns in the terminal
 /// - `search_term`: Contains the regex iif a search is active
+///
+/// [`PagerState::lines`]: crate::state::PagerState::lines
 #[allow(clippy::too_many_arguments)]
 pub fn formatted_line(
     line: &str,

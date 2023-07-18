@@ -11,7 +11,7 @@ use crossterm::{terminal, tty::IsTty};
 use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
-use std::{convert::TryInto, io::Stdout};
+use std::{collections::HashMap, convert::TryInto, io::Stdout};
 use std::{
     io::stdout,
     sync::{atomic::AtomicBool, Arc},
@@ -96,6 +96,11 @@ pub struct PagerState {
     /// It keeps track of all the numbers that have been entered by the user
     /// untill any of `j`, `k`, `G`, `Up` or `Down` is pressed
     pub prefix_num: String,
+    /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
+    /// inside [`PagerState::formatted_lines`].
+    /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
+    /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
+    pub(crate) lines_to_row_map: HashMap<usize, usize>,
 }
 
 impl PagerState {
@@ -156,6 +161,7 @@ impl PagerState {
             cols,
             rows,
             prefix_num: String::new(),
+            lines_to_row_map: HashMap::new(),
         };
 
         state.format_prompt();
@@ -218,8 +224,13 @@ impl PagerState {
 
         let format_props = text::format_text_block(format_opts);
 
-        let (fmt_lines, num_unterminated) = (format_props.lines, format_props.num_unterminated);
+        let (fmt_lines, num_unterminated, lines_to_row_map) = (
+            format_props.lines,
+            format_props.num_unterminated,
+            format_props.lines_to_row_map,
+        );
         self.formatted_lines = fmt_lines;
+        self.lines_to_row_map = lines_to_row_map;
 
         #[cfg(feature = "search")]
         {
@@ -356,13 +367,18 @@ impl PagerState {
 
         let append_props = text::format_text_block(append_opts);
 
-        let (fmt_line, num_unterminated) = (append_props.lines, append_props.num_unterminated);
+        let (fmt_line, num_unterminated, lines_to_row_map) = (
+            append_props.lines,
+            append_props.num_unterminated,
+            append_props.lines_to_row_map,
+        );
 
         #[cfg(feature = "search")]
         {
             let mut append_search_idx = append_props.append_search_idx;
             self.search_idx.append(&mut append_search_idx);
         }
+        self.lines_to_row_map.extend(lines_to_row_map);
 
         if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
             self.format_lines();
