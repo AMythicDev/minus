@@ -171,7 +171,10 @@ where
         }
         // Get the exact row number where first row of this line is placed in [`PagerState::formatted_lines`]
         // and jump to that location.If the line number does not exist, directly jump to the bottom of text.
-        let row_to_go = *ps.lines_to_row_map.get(&position).unwrap_or(&(usize::MAX - 1));
+        let row_to_go = *ps
+            .lines_to_row_map
+            .get(&position)
+            .unwrap_or(&(usize::MAX - 1));
         InputEvent::UpdateUpperMark(row_to_go)
     });
     map.add_key_events(&["pageup"], |_, ps| {
