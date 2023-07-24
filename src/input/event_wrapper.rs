@@ -313,6 +313,7 @@ where
 
 impl HashedEventRegister<RandomState> {
     /// Create a new [HashedEventRegister] with the default hasher
+    #[must_use]
     pub fn with_default_hasher() -> Self {
         Self::new(RandomState::new())
     }

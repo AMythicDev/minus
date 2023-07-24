@@ -12,6 +12,7 @@ use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
+    collections::hash_map::RandomState,
     collections::HashMap,
     convert::TryInto,
     io::stdout,
@@ -142,7 +143,7 @@ impl PagerState {
             unterminated: 0,
             prompt,
             exit_strategy: ExitStrategy::ProcessQuit,
-            input_classifier: Box::new(HashedEventRegister::default()),
+            input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
             displayed_prompt: String::new(),
