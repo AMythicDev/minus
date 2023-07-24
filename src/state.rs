@@ -4,17 +4,20 @@ use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
     minus_core::utils::text::{self, AppendStyle},
-    ExitStrategy, LineNumbers,
+    ExitStrategy, LineNumbers, data_store::DataStore,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
 use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
-use std::{collections::HashMap, convert::TryInto, io::Stdout};
 use std::{
     io::stdout,
     sync::{atomic::AtomicBool, Arc},
+    collections::HashMap,
+    convert::TryInto,
+    io::Stdout,
+    hash::Hash,
 };
 
 use crate::minus_core::{ev_handler::handle_event, events::Event};
@@ -132,9 +135,6 @@ impl PagerState {
             .into_string()
             .unwrap_or_else(|_| String::from("minus"));
 
-        let mut event_register = HashedEventRegister::default();
-        input::generate_default_bindings(&mut event_register);
-
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
@@ -143,7 +143,7 @@ impl PagerState {
             unterminated: 0,
             prompt,
             exit_strategy: ExitStrategy::ProcessQuit,
-            input_classifier: Box::new(event_register),
+            input_classifier: Box::new(HashedEventRegister::default()),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
             displayed_prompt: String::new(),

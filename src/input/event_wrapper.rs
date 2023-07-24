@@ -153,7 +153,7 @@ where
     S: BuildHasher,
 {
     /// Create a new HashedEventRegister with the Hasher `s`
-    fn new(s: S) -> Self {
+    pub fn new(s: S) -> Self {
         Self(HashMap::with_hasher(s))
     }
 
@@ -311,9 +311,19 @@ where
     }
 }
 
-impl Default for HashedEventRegister<RandomState> {
-    fn default() -> Self {
+impl HashedEventRegister<RandomState> {
+    /// Create a new [HashedEventRegister] with the default hasher
+    pub fn with_default_hasher() -> Self {
         Self::new(RandomState::new())
+    }
+}
+
+impl Default for HashedEventRegister<RandomState> {
+    /// Create a new [HashedEventRegister] with the default hasher and insert the default bindings
+    fn default() -> Self {
+        let mut event_register = Self::new(RandomState::new());
+        super::generate_default_bindings(&mut event_register);
+        event_register
     }
 }
 
