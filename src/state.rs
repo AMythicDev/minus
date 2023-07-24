@@ -4,7 +4,7 @@ use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
     minus_core::utils::text::{self, AppendStyle},
-    ExitStrategy, LineNumbers, data_store::DataStore,
+    ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
@@ -12,12 +12,11 @@ use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
-    io::stdout,
-    sync::{atomic::AtomicBool, Arc},
     collections::HashMap,
     convert::TryInto,
+    io::stdout,
     io::Stdout,
-    hash::Hash,
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use crate::minus_core::{ev_handler::handle_event, events::Event};
