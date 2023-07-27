@@ -87,7 +87,7 @@ pub struct HashedEventRegister<S>(HashMap<EventWrapper, EventReturnType, S>);
 /// A convinient type for the return type of [`HashedEventRegister::get`]
 type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Sync>;
 
-#[derive(Copy, Clone, Eq)]
+#[derive(Clone, Eq)]
 enum EventWrapper {
     ExactMatchEvent(Event),
     WildEvent,
@@ -101,7 +101,7 @@ impl From<Event> for EventWrapper {
 
 impl From<&Event> for EventWrapper {
     fn from(e: &Event) -> Self {
-        Self::ExactMatchEvent(*e)
+        Self::ExactMatchEvent(e.clone())
     }
 }
 

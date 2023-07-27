@@ -228,6 +228,7 @@ where
         if let Event::Key(KeyEvent {
             code: KeyCode::Char(c),
             modifiers: KeyModifiers::NONE,
+            ..
         }) = ev
         {
             if c.is_ascii_digit() {
@@ -255,6 +256,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code,
                 modifiers: KeyModifiers::NONE,
+                ..
             }) if code == KeyCode::Up || code == KeyCode::Char('k') => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
                 Some(InputEvent::UpdateUpperMark(
@@ -266,6 +268,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code,
                 modifiers: KeyModifiers::NONE,
+                ..
             }) if code == KeyCode::Down || code == KeyCode::Char('j') => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
                 Some(InputEvent::UpdateUpperMark(
@@ -277,12 +280,14 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char(c),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) if c.is_ascii_digit() => Some(InputEvent::Number(c)),
 
             // Enter key
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => {
                 if ps.message.is_some() {
                     Some(InputEvent::RestorePrompt)
@@ -298,6 +303,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('u'),
                 modifiers,
+                ..
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
                 let half_screen = ps.rows / 2;
                 Some(InputEvent::UpdateUpperMark(
@@ -308,6 +314,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('d'),
                 modifiers,
+                ..
             }) if modifiers == KeyModifiers::CONTROL || modifiers == KeyModifiers::NONE => {
                 let half_screen = ps.rows / 2;
                 Some(InputEvent::UpdateUpperMark(
@@ -328,19 +335,23 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('g'),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => Some(InputEvent::UpdateUpperMark(0)),
             // Go to bottom.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('g'),
                 modifiers: KeyModifiers::SHIFT,
+                ..
             })
             | Event::Key(KeyEvent {
                 code: KeyCode::Char('G'),
                 modifiers: KeyModifiers::SHIFT,
+                ..
             })
             | Event::Key(KeyEvent {
                 code: KeyCode::Char('G'),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => {
                 let mut position = ps
                     .prefix_num
@@ -359,12 +370,14 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::PageUp,
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => Some(InputEvent::UpdateUpperMark(
                 ps.upper_mark.saturating_sub(ps.rows - 1),
             )),
             Event::Key(KeyEvent {
                 code: c,
                 modifiers: KeyModifiers::NONE,
+                ..
             }) if c == KeyCode::PageDown || c == KeyCode::Char(' ') => Some(
                 InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(ps.rows - 1)),
             ),
@@ -377,30 +390,36 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('l'),
                 modifiers: KeyModifiers::CONTROL,
+                ..
             }) => Some(InputEvent::UpdateLineNumber(!ps.line_numbers)),
             // Quit.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),
                 modifiers: KeyModifiers::NONE,
+                ..
             })
             | Event::Key(KeyEvent {
                 code: KeyCode::Char('c'),
                 modifiers: KeyModifiers::CONTROL,
+                ..
             }) => Some(InputEvent::Exit),
             #[cfg(feature = "search")]
             Event::Key(KeyEvent {
                 code: KeyCode::Char('/'),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => Some(InputEvent::Search(SearchMode::Forward)),
             #[cfg(feature = "search")]
             Event::Key(KeyEvent {
                 code: KeyCode::Char('?'),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => Some(InputEvent::Search(SearchMode::Reverse)),
             #[cfg(feature = "search")]
             Event::Key(KeyEvent {
                 code: KeyCode::Char('n'),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
                 if ps.search_mode == SearchMode::Reverse {
@@ -413,6 +432,7 @@ impl InputClassifier for DefaultInputClassifier {
             Event::Key(KeyEvent {
                 code: KeyCode::Char('p'),
                 modifiers: KeyModifiers::NONE,
+                ..
             }) => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
                 if ps.search_mode == SearchMode::Reverse {

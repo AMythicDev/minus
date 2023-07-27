@@ -14,14 +14,19 @@ categories = ["Text processing", "Command-line interface", "Asynchronous"]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
+[lib]
+name = "minus"
+path = "src/lib.rs"
+crate-type = ["lib"]
+
 [dependencies]
-crossterm = "0.22.1"
-textwrap = { version = "~0.13", default-features = false, features = ["unicode-width"] }
+crossterm = "^0.26"
+textwrap = { version = "~0.16", default-features = false, features = ["unicode-width"] }
 thiserror = "^1"
-regex = { version = ">=1.5.5", optional = true }
-crossbeam-channel = "0.5.1"
+regex = { version = "^1", optional = true }
+crossbeam-channel = "^0.5"
 parking_lot = "0.12.1"
-once_cell = { version = "1.15.0", features = ["parking_lot"] }
+once_cell = { version = "^1.18", features = ["parking_lot"] }
 
 [features]
 search = [ "regex" ]
@@ -34,28 +39,35 @@ tokio = { version = "^1.0", features = ["rt", "macros", "rt-multi-thread", "time
 
 [[example]]
 name = "dyn_tokio"
+path = "examples/dyn_tokio.rs"
 required-features = ["dynamic_output"]
 
 [[example]]
 name = "less-rs"
+path = "examples/less-rs.rs"
 required-features = ["dynamic_output"]
 
 [[example]]
 name = "static"
+path = "examples/static.rs"
 required-features = ["static_output"]
 
 [[example]]
 name = "large_lines"
+path = "examples/large-lines.rs"
 required-features = ["static_output"]
 
 [[example]]
 name = "color-output"
+path = "examples/color-output.rs"
 required-features = ["static_output"]
 
 [[example]]
 name = "static-no-overflow"
+path = "examples/static-no-overflow.rs"
 required-features = ["static_output"]
 
 [[example]]
 name = "msg-tokio"
+path = "examples/msg-tokio.rs"
 required-features = ["dynamic_output"]

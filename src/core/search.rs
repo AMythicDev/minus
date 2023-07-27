@@ -80,6 +80,7 @@ pub fn fetch_input(
                 Event::Key(KeyEvent {
                     code: KeyCode::Esc,
                     modifiers: KeyModifiers::NONE,
+                    ..
                 }) => {
                     write!(out, "{}", cursor::Hide)?;
                     return Ok(String::new());
@@ -88,6 +89,7 @@ pub fn fetch_input(
                 Event::Key(KeyEvent {
                     code: KeyCode::Backspace,
                     modifiers: KeyModifiers::NONE,
+                    ..
                 }) => {
                     string.pop();
                     // Update the line
@@ -97,6 +99,7 @@ pub fn fetch_input(
                 Event::Key(KeyEvent {
                     code: KeyCode::Enter,
                     modifiers: KeyModifiers::NONE,
+                    ..
                 }) => {
                     write!(out, "{}", cursor::Hide)?;
                     // Return the string when enter is pressed

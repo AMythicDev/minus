@@ -3,7 +3,7 @@
 use super::{Token, MODIFIERS};
 use std::collections::HashMap;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventState};
 use once_cell::sync::Lazy;
 
 static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
@@ -118,6 +118,8 @@ impl KeySeq {
         KeyEvent {
             code: ks.code.unwrap_or(KeyCode::Null),
             modifiers: ks.modifiers,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     }
 }
@@ -130,140 +132,180 @@ fn test_parse_key_event() {
         parse_key_event("up"),
         KeyEvent {
             code: KeyCode::Up,
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("k"),
         KeyEvent {
             code: KeyCode::Char('k'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("j"),
         KeyEvent {
             code: KeyCode::Char('j'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("down"),
         KeyEvent {
             code: KeyCode::Down,
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("down"),
         KeyEvent {
             code: KeyCode::Down,
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("enter"),
         KeyEvent {
             code: KeyCode::Enter,
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("c-u"),
         KeyEvent {
             code: KeyCode::Char('u'),
-            modifiers: KeyModifiers::CONTROL
+            modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("c-d"),
         KeyEvent {
             code: KeyCode::Char('d'),
-            modifiers: KeyModifiers::CONTROL
+            modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("g"),
         KeyEvent {
             code: KeyCode::Char('g'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("s-g"),
         KeyEvent {
             code: KeyCode::Char('g'),
-            modifiers: KeyModifiers::SHIFT
+            modifiers: KeyModifiers::SHIFT,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("G"),
         KeyEvent {
             code: KeyCode::Char('G'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("pageup"),
         KeyEvent {
             code: KeyCode::PageUp,
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("pagedown"),
         KeyEvent {
             code: KeyCode::PageDown,
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("c-l"),
         KeyEvent {
             code: KeyCode::Char('l'),
-            modifiers: KeyModifiers::CONTROL
+            modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("q"),
         KeyEvent {
             code: KeyCode::Char('q'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("c-c"),
         KeyEvent {
             code: KeyCode::Char('c'),
-            modifiers: KeyModifiers::CONTROL
+            modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("/"),
         KeyEvent {
             code: KeyCode::Char('/'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("?"),
         KeyEvent {
             code: KeyCode::Char('?'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("n"),
         KeyEvent {
             code: KeyCode::Char('n'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
     assert_eq!(
         parse_key_event("p"),
         KeyEvent {
             code: KeyCode::Char('p'),
-            modifiers: KeyModifiers::NONE
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         }
     );
 }
