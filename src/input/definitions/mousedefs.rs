@@ -181,7 +181,7 @@ mod tests {
             parse_mouse_event("m-c-s-move"),
             MouseEvent {
                 kind: MouseEventKind::Moved,
-                modifiers: KeyModifiers::all(),
+                modifiers: KeyModifiers::SHIFT | KeyModifiers::ALT | KeyModifiers::CONTROL,
                 row: 0,
                 column: 0,
             }

@@ -50,10 +50,12 @@
 //!                 Event::Key(KeyEvent {
 //!                     code: KeyCode::Up,
 //!                     modifiers: KeyModifiers::NONE,
+//!                     ..
 //!                 })
 //!                 | Event::Key(KeyEvent {
 //!                     code: KeyCode::Char('j'),
 //!                     modifiers: KeyModifiers::NONE,
+//!                     ..
 //!                 }) => Some(InputEvent::UpdateUpperMark
 //!                       (ps.upper_mark.saturating_sub(1))),
 //!                 _ => None
@@ -126,6 +128,7 @@ pub trait InputClassifier {
 }
 
 /// Insert the default set of actions into the [`HashedEventRegister`]
+#[allow(clippy::too_many_lines)]
 pub fn generate_default_bindings<S>(map: &mut HashedEventRegister<S>)
 where
     S: std::hash::BuildHasher,

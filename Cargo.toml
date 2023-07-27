@@ -54,7 +54,7 @@ required-features = ["static_output"]
 
 [[example]]
 name = "large_lines"
-path = "examples/large-lines.rs"
+path = "examples/large_lines.rs"
 required-features = ["static_output"]
 
 [[example]]

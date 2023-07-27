@@ -1,7 +1,9 @@
 #[cfg(feature = "search")]
 use crate::SearchMode;
 use crate::{input::InputEvent, LineNumbers, PagerState};
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::event::{
+    Event, KeyCode, KeyEvent, KeyEventState, KeyModifiers, MouseEvent, MouseEventKind,
+};
 
 // Just a transparent function to fix incompatiblity issues between
 // versions
@@ -23,6 +25,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Down,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
 
         assert_eq!(
@@ -35,6 +39,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(pager.upper_mark - 1)),
@@ -46,6 +52,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(0)),
@@ -57,6 +65,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::PageUp,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
@@ -69,6 +79,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('g'),
             modifiers: KeyModifiers::SHIFT,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX - 1)),
@@ -80,6 +92,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('G'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX - 1)),
@@ -91,6 +105,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('G'),
             modifiers: KeyModifiers::SHIFT,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateUpperMark(usize::MAX - 1)),
@@ -102,6 +118,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::PageDown,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             // rows is 5, therefore upper_mark = upper_mark - rows -1
@@ -115,6 +133,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('d'),
             modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // Rows is 5 and upper_mark is at 12 so result should be 14
         assert_eq!(
@@ -128,6 +148,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('u'),
             modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // Rows is 5 and upper_mark is at 12 so result should be 10
         assert_eq!(
@@ -140,6 +162,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char(' '),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // rows is 5, therefore upper_mark = upper_mark - rows -1
         assert_eq!(
@@ -152,6 +176,8 @@ fn test_kb_nav() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Enter,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // therefore upper_mark += 1
         assert_eq!(
@@ -170,6 +196,8 @@ fn test_restore_prompt() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Enter,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // therefore upper_mark += 1
         assert_eq!(
@@ -224,6 +252,8 @@ fn test_saturation() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Down,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // PagerState for local use
         let mut pager = PagerState::new().unwrap();
@@ -240,6 +270,8 @@ fn test_saturation() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Up,
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         // PagerState for local use
         let mut pager = PagerState::new().unwrap();
@@ -272,6 +304,8 @@ fn test_misc_events() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('l'),
             modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::UpdateLineNumber(!pager.line_numbers)),
@@ -283,6 +317,8 @@ fn test_misc_events() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('q'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(Some(InputEvent::Exit), handle_input(ev, &pager));
     }
@@ -291,6 +327,8 @@ fn test_misc_events() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('c'),
             modifiers: KeyModifiers::CONTROL,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(Some(InputEvent::Exit), handle_input(ev, &pager));
     }
@@ -299,6 +337,8 @@ fn test_misc_events() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('a'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(Some(InputEvent::Ignore), handle_input(ev, &pager));
     }
@@ -307,6 +347,8 @@ fn test_misc_events() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('5'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(Some(InputEvent::Number('5')), handle_input(ev, &pager));
     }
@@ -325,6 +367,8 @@ fn test_search_bindings() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('/'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::Search(SearchMode::Forward)),
@@ -336,6 +380,8 @@ fn test_search_bindings() {
         let ev = Event::Key(KeyEvent {
             code: KeyCode::Char('?'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         assert_eq!(
             Some(InputEvent::Search(SearchMode::Reverse)),
@@ -348,10 +394,14 @@ fn test_search_bindings() {
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         let prev_event = Event::Key(KeyEvent {
             code: KeyCode::Char('p'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
 
         assert_eq!(
@@ -370,10 +420,14 @@ fn test_search_bindings() {
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
         let prev_event = Event::Key(KeyEvent {
             code: KeyCode::Char('p'),
             modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
         });
 
         assert_eq!(

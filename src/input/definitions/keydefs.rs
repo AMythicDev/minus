@@ -3,7 +3,7 @@
 use super::{Token, MODIFIERS};
 use std::collections::HashMap;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventState};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventState, KeyModifiers};
 use once_cell::sync::Lazy;
 
 static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
