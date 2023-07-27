@@ -1,6 +1,21 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.4.0 [2023-07-27]
+### Fixed
+* Unexpected line break where number of digits in line number increase (#66)
+* Pressing `[n]G` takes to nth row on screen rather than the nth line in the actual text (#99)
+
+### Changed
+* `HashedInputRegister::default()` now inserts the defualt bindings before returning the `HashedInputRegister`.
+    This better aligns with the docs.
+* Massively simplify all the text-related functions and add better docs to all of them. (#97)
+
+### Added
+* `HashedInputRegister::new()` is now publicly available
+* Added `HashedInputRegister::with_default_hasher()` to create a `HashedInoutRegister` with the default hasher.
+* Added a `Dockerfile` to build/test minus in isolated enviroment.
+
 ## v5.3.1 [2023-05-02]
 ### Fixed
 * Passing `false` to PagerStae::set_run_no_overflow() causes a full
