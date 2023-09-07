@@ -96,6 +96,7 @@ pub fn handle_event(
         {
             // Go to the next match
             search::next_nth_match(p, 1);
+            p.format_prompt();
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
@@ -119,6 +120,7 @@ pub fn handle_event(
         Event::UserInput(InputEvent::MoveToNextMatch(n)) if p.search_term.is_some() => {
             // Go to the next match
             search::next_nth_match(p, n.saturating_sub(1));
+            p.format_prompt();
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::MoveToPrevMatch(n)) if p.search_term.is_some() => {
