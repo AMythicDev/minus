@@ -164,6 +164,17 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     // We need to take care of first line as it can either be itself from the text, if append is true or it can be
     // attachment + first line from text, if append is false
+
+    if lines.is_empty() {
+        return FormatResult {
+            lines: Vec::with_capacity(0),
+            num_unterminated: opts.prev_unterminated,
+            #[cfg(feature = "search")]
+            append_search_idx,
+            lines_to_row_map,
+        };
+    }
+
     let mut first_line = formatted_line(
         &lines.first().unwrap().1,
         opts.len_line_number,

@@ -42,7 +42,7 @@ pub fn draw_for_change(
 
     let delta = new_upper_mark.abs_diff(p.upper_mark);
     // Sometimes the value of delta is too large that we can rather use the value of the writable rows to
-    // achieve the same effect with better performance. This means that we have to less lines to the terminal
+    // achieve the same effect with better performance. This means that we have draw to less lines to the terminal
     //
     // Think of it like this:-
     // Let's say the current upper mark is at 100 and writable rows is 25. Now if there is a jump of 200th line,
@@ -54,7 +54,6 @@ pub fn draw_for_change(
     // wrong output if this is not the case hence we still rely on using lower bounds method. But for scrolling up, we
     // need this value whatever the value of delta be.
     let normalized_delta = delta.min(writable_rows);
-    //writeln!(out, "\rDiff: {normalized_delta}")?;
 
     let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
         Ordering::Greater => {
@@ -139,7 +138,7 @@ pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), Min
     super::term::move_cursor(out, 0, 0, false)?;
     queue!(out, Clear(ClearType::All))?;
 
-    write_lines(out, pager)?;
+    write_stdout(out, pager)?;
 
     let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
 
@@ -150,6 +149,11 @@ pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), Min
 
 /// Write the lines to the terminal
 ///
+/// Note: Although this function can take any type that implements [Write] however it assumes that
+/// it behaves like a terminal i.e itmust set rows and cols in [PagerState].
+/// If you want to write directly to a file without this preassumption, then use the [write_lines]
+/// function.
+///
 /// Draws (at most) `rows -1` lines, where the first line to display is
 /// [`PagerState::upper_mark`]. This function will always try to display as much lines as
 /// possible within `rows -1`.
@@ -159,7 +163,7 @@ pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), Min
 /// This function ensures that upper mark never exceeds a value such that adding upper mark and available rows exceeds
 /// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
 /// text is less than available rows. In this situation, upper mark is always 0.
-pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
+pub fn write_stdout(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
     let line_count = pager.num_lines();
 
     // Reduce one row for prompt/messages
@@ -180,8 +184,22 @@ pub fn write_lines(out: &mut impl Write, pager: &mut PagerState) -> Result<(), M
     // Add \r to ensure cursor is placed at the beginning of each row
     let lines = pager.get_formatted_lines_with_bounds(pager.upper_mark, lower_mark);
 
+    write_lines(out, lines, Some("\r"))
+}
+
+/// Write lines to the the output
+///
+/// Outputs all the `lines` to `out` without any preassumption about terminals.
+/// `initial` tells any extra text to be inserted before each line. For functions that use this
+/// function over terminals, this should be set to `\r` to avoid broken display.
+/// The `\r` resets the cursor to the start of the line.
+pub fn write_lines(
+    out: &mut impl Write,
+    lines: &[String],
+    initial: Option<&str>,
+) -> Result<(), MinusError> {
     for line in lines {
-        writeln!(out, "\r{line}")?;
+        writeln!(out, "{}{line}", initial.unwrap_or(""))?;
     }
     Ok(())
 }

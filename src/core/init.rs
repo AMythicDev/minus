@@ -12,7 +12,11 @@ use crate::{
     error::MinusError,
     input::InputEvent,
     minus_core::{
-        ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
+        ev_handler::handle_event,
+        events::Event,
+        utils::display::draw_full,
+        utils::{display::write_lines, term},
+        RunMode,
     },
     Pager, PagerState,
 };
@@ -36,7 +40,7 @@ use std::{
     },
 };
 #[cfg(feature = "static_output")]
-use {super::utils::display::write_lines, crossterm::tty::IsTty};
+use {super::utils::display::write_stdout, crossterm::tty::IsTty};
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -92,7 +96,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     if *RUNMODE.lock() == RunMode::Static {
         // If stdout is not a tty, write everyhting and quit
         if !out.is_tty() {
-            write_lines(&mut out, &mut ps)?;
+            write_lines(&mut out, &[ps.lines], None)?;
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
             drop(rm);
@@ -101,7 +105,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
         // If number of lines of text is less than available wors, write everything and quit
         // unless run_no_overflow is set to true
         if ps.num_lines() <= ps.rows && !ps.run_no_overflow {
-            write_lines(&mut out, &mut ps)?;
+            write_stdout(&mut out, &mut ps)?;
             ps.exit();
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
