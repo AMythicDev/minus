@@ -206,6 +206,7 @@ Unless explicitly stated, all works to `minus` are dual licensed under the
 [MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
 
 ## Contributing
+:warning: Read about our plans on standardizing Git commit messages https://github.com/arijit79/minus/issues/103 :warning:
 
 Issues and pull requests are more than welcome.
 See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
