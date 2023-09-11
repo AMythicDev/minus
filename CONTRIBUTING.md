@@ -10,7 +10,6 @@ Contributing to a `minus` is pretty straight forward. If this is you're first ti
 - Read the code available and make your changes.
 - When you're done, submit a pull request for one of the maintainers to check it out. We would let you know if there is
   any problem or any changes that should be considered.
-  
 
 ## Maintaining code quality and best practices
 - Your code should be formatted with rustfmt and should be free from clippy warnings.
@@ -31,43 +30,23 @@ Your code will automatically be tested by GitHub Actions. If you're code fails i
 and ensure all tests/examples are passing.
 
 ## Commit messages
-You should follow the convention from the [Git Book](https://git-scm.com/book/ch5-2.html), which states this format for
-writing commit messages:
+To ensure quality commit messages which also help other fellow developers better understand changes, you should
+write commit messages that strictly adhere to [Conventional Commits](https://conventionalcommits.org) v1.0.0. 
 
-```
-Capitalized, short summary of 50 chars or less
+### Scopes
+Commit messages following Conventional Commits can optionally describe their **scope**. The scope broadly
+describes which parts of the project you commit has touched.
 
-More detailed explanatory text, if necessary.  Wrap it to about 72
-characters or so.  In some contexts, the first line is treated as the
-subject of an email and the rest of the text as the body. The blank
-line separating the summary from the body is critical (unless you omit
-the body entirely)
+In general, the Rust quailfied name of each file will be it's respect scope. For example `src/state.rs` will have the
+`state` scope. Similarly `src/dynamic_pager.rs` will have have scope `dynamic_pager`. With all that, there are a few
+exceptions that you should take care of.
 
-Write your commit message in the imperative: "Fix bug" and not "Fixed bug"
-or "Fixes bug." 
-
-Further paragraphs come after blank lines.
-
-- Bullet points are okay, too
-
-- Typically a hyphen or asterisk is used for the bullet, followed by a
-  single space, with blank lines in between, but conventions vary here
-
-- Use a hanging indent
-
-If the commit closes a issue or part of a pull request, mention it here with these keywords
-> close, closes, closed, fixes, fixed
-```
-
-For example, you may write a message like this
-
-```
-Search: Fix bug where search crashes on pressing /
-
-Fix a bug where the search crashes when user presses the / key.
-
-Closes [Issue ID]
-```
+- Use the word `manifest` rather than writing `Cargo.toml`
+- Use the word `root` rather than writing `src/lib.rs`
+- Do not mention the name of parent directories for modules. For example, use `keydefs` for 
+  `src/input/definitions/keydefs.rs` or `display` for `src/core/utils/display/mod.rs`.
+- Use the name of the module rather than writing the path to its `mod.rs` file. For example, write `core` rather than `src/core/mod.rs`
+- Include the name of the parent module if the commit is related to a test. For example, use `display/tests` for `src/core/utils/display/tests.rs`.
 
 ## License
 Unless explicitly stated otherwise, all code written to this project is dual licensed under the MIT and Apache license
