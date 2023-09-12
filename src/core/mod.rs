@@ -6,6 +6,7 @@ pub mod init;
 pub mod search;
 pub mod utils;
 
+/// Define the modes in which minus can run
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RunMode {
     #[cfg(feature = "static_output")]
@@ -16,6 +17,15 @@ pub enum RunMode {
 }
 
 impl RunMode {
+    /// Returns true if minus hasn't started
+    ///
+    /// # Example
+    /// ```
+    /// use minus::RunMode;
+    ///
+    /// let runmode = RunMode::Uninitialized;
+    /// assert_eq!(runmode.is_uninitialized(), true);
+    /// ```
     pub fn is_uninitialized(self) -> bool {
         self == Self::Uninitialized
     }

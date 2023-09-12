@@ -1,5 +1,6 @@
 //! Provides the [`handle_event`] function
 
+use std::convert::TryInto;
 use std::io::Write;
 use std::sync::{atomic::AtomicBool, Arc};
 
@@ -9,7 +10,10 @@ use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use super::search;
 use super::utils::display;
-use super::{events::Event, utils::term};
+use super::{
+    events::Event,
+    utils::{term, text::AppendStyle},
+};
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
 /// Respond based on the type of event
@@ -140,11 +144,36 @@ pub fn handle_event(
         }
 
         Event::AppendData(text) => {
-            p.append_str(text.as_str());
+            let prev_unterminated = p.unterminated;
+            let prev_fmt_lines_count = p.num_lines();
+            let append_style = p.append_str(text.as_str());
+            if !p.running.lock().is_uninitialized() {
+                display::draw_append_text(
+                    out,
+                    p,
+                    prev_unterminated,
+                    prev_fmt_lines_count,
+                    append_style,
+                )?;
+                return Ok(());
+            }
         }
-        Event::SetPrompt(prompt) => {
-            p.prompt = prompt;
+
+        Event::SetPrompt(ref text) | Event::SendMessage(ref text) => {
+            if let Event::SetPrompt(_) = ev {
+                p.prompt = text.to_string();
+            } else {
+                p.message = Some(text.to_string());
+            }
             p.format_prompt();
+            term::move_cursor(&mut out, 0, p.rows.try_into().unwrap(), false)?;
+            if !p.running.lock().is_uninitialized() {
+                super::utils::display::write_prompt(
+                    &mut out,
+                    &p.displayed_prompt,
+                    p.rows.try_into().unwrap(),
+                )?;
+            }
         }
         Event::SendMessage(message) => {
             p.message = Some(message);

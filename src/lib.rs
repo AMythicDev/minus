@@ -220,6 +220,7 @@ pub use static_pager::page_all;
 
 #[cfg(feature = "search")]
 pub use minus_core::search::SearchMode;
+pub use minus_core::RunMode;
 
 pub use error::MinusError;
 pub use pager::Pager;

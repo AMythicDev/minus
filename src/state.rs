@@ -3,7 +3,10 @@ use crate::minus_core::search::SearchMode;
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
-    minus_core::utils::text::{self, AppendStyle},
+    minus_core::{
+        self, init,
+        utils::text::{self, AppendStyle},
+    },
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
@@ -34,12 +37,44 @@ use crossbeam_channel::Receiver;
 /// trait.
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
-    /// The text the pager has been told to be displayed
-    pub(crate) lines: String,
-    /// The output, flattened and formatted into the lines that should be displayed
-    pub(crate) formatted_lines: Vec<String>,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
+    /// Any message to display to the user at the prompt
+    /// The first element contains the actual message, while the second element tells
+    /// whether the message has changed since the last display.
+    pub message: Option<String>,
+    /// The text the pager has been told to be displayed
+    pub(crate) lines: String,
+    /// The upper bound of scrolling.
+    ///
+    /// This is useful for keeping track of the range of lines which are currently being displayed on
+    /// the terminal.
+    /// When `rows - 1` is added to the `upper_mark`, it gives the lower bound of scroll.
+    ///
+    /// For example if there are 10 rows is a terminal and the data to display has 50 lines in it/
+    /// If the `upper_mark` is 15, then the first row of the terminal is the 16th line of the data
+    /// and last row is the 24th line of the data.
+    pub upper_mark: usize,
+    /// Direction of search
+    ///
+    /// See [`SearchMode`] for available options
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, cfg(feature = "search"))]
+    pub search_mode: SearchMode,
+    /// Available rows in the terminal
+    pub rows: usize,
+    /// Available columns in the terminal
+    pub cols: usize,
+    /// This variable helps in scrolling more than one line at a time
+    /// It keeps track of all the numbers that have been entered by the user
+    /// untill any of `j`, `k`, `G`, `Up` or `Down` is pressed
+    pub prefix_num: String,
+
+    /// Describes whether minus is running and in which mode
+    pub running: &'static Mutex<crate::RunMode>,
+
+    /// The output, flattened and formatted into the lines that should be displayed
+    pub(crate) formatted_lines: Vec<String>,
     /// Unterminated lines
     /// Keeps track of the number of lines at the last of [PagerState::formatted_lines] which are
     /// not terminated by a newline
@@ -53,36 +88,16 @@ pub struct PagerState {
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     pub(crate) exit_strategy: ExitStrategy,
-    /// Any message to display to the user at the prompt
-    /// The first element contains the actual message, while the second element tells
-    /// whether the message has changed since the last display.
-    pub message: Option<String>,
     /// The prompt that should be displayed to the user, formatted with the
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
     pub(crate) displayed_prompt: String,
-    /// The upper bound of scrolling.
-    ///
-    /// This is useful for keeping track of the range of lines which are currently being displayed on
-    /// the terminal.
-    /// When `rows - 1` is added to the `upper_mark`, it gives the lower bound of scroll.
-    ///
-    /// For example if there are 10 rows is a terminal and the data to display has 50 lines in it/
-    /// If the `upper_mark` is 15, then the first row of the terminal is the 16th line of the data
-    /// and last row is the 24th line of the data.
-    pub upper_mark: usize,
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
     /// Stores the most recent search term
     #[cfg(feature = "search")]
     pub(crate) search_term: Option<regex::Regex>,
-    /// Direction of search
-    ///
-    /// See [`SearchMode`] for available options
-    #[cfg(feature = "search")]
-    #[cfg_attr(docsrs, cfg(feature = "search"))]
-    pub search_mode: SearchMode,
     /// Lines where searches have a match
     /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
     #[cfg(feature = "search")]
@@ -91,14 +106,6 @@ pub struct PagerState {
     /// It should be 0 even when no search is in action
     #[cfg(feature = "search")]
     pub(crate) search_mark: usize,
-    /// Available rows in the terminal
-    pub rows: usize,
-    /// Available columns in the terminal
-    pub cols: usize,
-    /// This variable helps in scrolling more than one line at a time
-    /// It keeps track of all the numbers that have been entered by the user
-    /// untill any of `j`, `k`, `G`, `Up` or `Down` is pressed
-    pub prefix_num: String,
     /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
     /// inside [`PagerState::formatted_lines`].
     /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
@@ -142,6 +149,7 @@ impl PagerState {
             upper_mark: 0,
             unterminated: 0,
             prompt,
+            running: &init::RUNMODE,
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),

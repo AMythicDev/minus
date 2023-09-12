@@ -236,66 +236,10 @@ fn start_reactor(
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
-                Ok(Event::SetPrompt(ref text) | Event::SendMessage(ref text)) => {
-                    if let Ok(Event::SetPrompt(_)) = event {
-                        p.prompt = text.to_string();
-                    } else {
-                        p.message = Some(text.to_string());
-                    }
-                    p.format_prompt();
-                    term::move_cursor(&mut out_lock, 0, rows, false)?;
-                    super::utils::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
-                }
-                Ok(Event::AppendData(text)) => {
-                    let prev_unterminated = p.unterminated;
-                    let prev_row_count = p.num_lines();
-
-                    // Make the string that nneds to be appended
-                    let append_style = p.append_str(&text);
-
-                    if matches!(append_style, AppendStyle::FullRedraw) {
-                        draw_full(&mut out_lock, &mut p)?;
-                        continue;
-                    }
-                    let AppendStyle::PartialUpdate(fmt_text) = append_style else {
-                        unreachable!()
-                    };
-
-                    if prev_row_count < p.rows {
-                        // Move the cursor to the very next line after the last displayed line
-                        term::move_cursor(
-                            &mut out_lock,
-                            0,
-                            prev_row_count
-                                .saturating_sub(prev_unterminated)
-                                .try_into()
-                                .unwrap(),
-                            false,
-                        )?;
-                        // available_rows -> Rows that are still unfilled
-                        //      rows - number of lines displayed -1 (for prompt)
-                        // For example if 20 rows are in total in a terminal
-                        // and 10 rows are already occupied, then this will be equal to 9
-                        let available_rows = p.rows.saturating_sub(
-                            prev_row_count
-                                .saturating_sub(prev_unterminated)
-                                .saturating_add(1),
-                        );
-                        // Minimum amount of text that an be appended
-                        // If available_rows is less, than this will be available rows else it will be
-                        // the length of the formatted text
-                        //
-                        // If number of rows in terminal is 23 with 20 rows filled and another 5 lines are given
-                        // This woll be equal to 3 as available rows will be 3
-                        // If in the above example only 2 lines are needed to be added, this will be equal to 2
-                        let num_appendable = fmt_text.len().min(available_rows);
-                        if num_appendable >= 1 {
-                            execute!(out_lock, Clear(ClearType::CurrentLine))?;
-                        }
-                        write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
-                        out_lock.flush()?;
-                    }
-                }
+                // Ok(Event::UserInput(InputEvent::Search(search_mode)) => {
+                //     if search_mode == Sear
+                //
+                // }
                 Ok(ev) => {
                     handle_event(
                         ev,

@@ -149,22 +149,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         .map(|(idx, s)| (idx, s.to_string()))
         .collect::<Vec<(usize, String)>>();
 
-    let mut fmtl = Vec::with_capacity(256);
-
-    // Number of rows that have been formatted so far
-    // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
-    let mut formatted_row_count = opts.formatted_lines_count;
-
     let mut lines_to_row_map = HashMap::new();
 
-    // To format the text we first split the line into three parts: first line, last line and middle lines.
-    // Then we individually format each of these and finally join each of these components together to form
-    // the entire line, which is ready to be inserted into PagerState::formatted_lines.
-    // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
-
-    // We need to take care of first line as it can either be itself from the text, if append is true or it can be
-    // attachment + first line from text, if append is false
-
+    // Return if we have nothing to format
     if lines.is_empty() {
         return FormatResult {
             lines: Vec::with_capacity(0),
@@ -174,6 +161,20 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             lines_to_row_map,
         };
     }
+
+    let mut fmtl = Vec::with_capacity(256);
+
+    // Number of rows that have been formatted so far
+    // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
+    let mut formatted_row_count = opts.formatted_lines_count;
+
+    // To format the text we first split the line into three parts: first line, last line and middle lines.
+    // Then we individually format each of these and finally join each of these components together to form
+    // the entire line, which is ready to be inserted into PagerState::formatted_lines.
+    // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
+
+    // We need to take care of first line as it can either be itself from the text, if append is true or it can be
+    // attachment + first line from text, if append is false
 
     let mut first_line = formatted_line(
         &lines.first().unwrap().1,
