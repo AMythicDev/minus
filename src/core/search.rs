@@ -61,6 +61,12 @@ pub fn fetch_input(
     // Place the cursor at the beginning of very prompt line, clear
     // the prompt and show the cursor
 
+    let search_char = if search_mode == SearchMode::Forward {
+        "/"
+    } else {
+        "?"
+    };
+
     use std::convert::TryInto;
     #[allow(clippy::cast_possible_truncation)]
     write!(
@@ -68,11 +74,7 @@ pub fn fetch_input(
         "{}{}{}{}",
         MoveTo(0, rows as u16),
         Clear(ClearType::CurrentLine),
-        if search_mode == SearchMode::Forward {
-            "/"
-        } else {
-            "?"
-        },
+        search_char,
         cursor::Show
     )?;
     out.flush()?;
@@ -104,7 +106,7 @@ pub fn fetch_input(
                     }
                     string.remove(cursor_position.saturating_sub(1).into());
                     // Update the line
-                    write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
+                    write!(out, "\r{}{search_char}{}", Clear(ClearType::CurrentLine), string)?;
                     term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
                     out.flush()?;
                 }
@@ -163,7 +165,7 @@ pub fn fetch_input(
                     // string and update the line
                     if let KeyCode::Char(c) = event.code {
                         string.insert(cursor_position.saturating_sub(1).into(), c);
-                        write!(out, "\r/{string}")?;
+                        write!(out, "\r{search_char}{string}")?;
                         cursor_position = cursor_position.saturating_add(1);
                         term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
                         out.flush()?;
