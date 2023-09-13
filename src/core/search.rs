@@ -13,6 +13,8 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{convert::TryFrom, time::Duration};
 
+use super::utils::term;
+
 static INVERT: Lazy<String> = Lazy::new(|| Attribute::Reverse.to_string());
 static NORMAL: Lazy<String> = Lazy::new(|| Attribute::NoReverse.to_string());
 static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
@@ -58,6 +60,8 @@ pub fn fetch_input(
 ) -> Result<String, MinusError> {
     // Place the cursor at the beginning of very prompt line, clear
     // the prompt and show the cursor
+
+    use std::convert::TryInto;
     #[allow(clippy::cast_possible_truncation)]
     write!(
         out,
@@ -73,6 +77,8 @@ pub fn fetch_input(
     )?;
     out.flush()?;
     let mut string = String::new();
+    let mut cursor_position: u16 = 1;
+
     loop {
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             match event::read().map_err(|e| MinusError::HandleEvent(e.into()))? {
@@ -91,9 +97,15 @@ pub fn fetch_input(
                     modifiers: KeyModifiers::NONE,
                     ..
                 }) => {
-                    string.pop();
+                    if cursor_position != 1 {
+                        cursor_position = cursor_position.saturating_sub(1);
+                    } else {
+                        continue;
+                    }
+                    string.remove(cursor_position.saturating_sub(1).into());
                     // Update the line
                     write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
                     out.flush()?;
                 }
                 Event::Key(KeyEvent {
@@ -105,12 +117,55 @@ pub fn fetch_input(
                     // Return the string when enter is pressed
                     return Ok(string);
                 }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Left,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    if cursor_position != 1 {
+                        cursor_position = cursor_position.saturating_sub(1);
+                    } else {
+                        continue;
+                    }
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Right,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    if <u16 as Into<usize>>::into(cursor_position) <= string.len() {
+                        cursor_position = cursor_position.saturating_add(1);
+                    } else {
+                        continue;
+                    }
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    cursor_position = 1;
+                    term::move_cursor(out, 1, rows.try_into().unwrap(), true)?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::End,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    cursor_position = string.len().saturating_add(1).try_into().unwrap();
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
+                }
+
                 Event::Key(event) => {
                     // For any character key, without a modifier, append it to the
                     // string and update the line
                     if let KeyCode::Char(c) = event.code {
-                        string.push(c);
+                        string.insert(cursor_position.saturating_sub(1).into(), c);
                         write!(out, "\r/{string}")?;
+                        cursor_position = cursor_position.saturating_add(1);
+                        term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
                         out.flush()?;
                     }
                 }
