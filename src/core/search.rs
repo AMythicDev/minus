@@ -252,16 +252,18 @@ where
     Ok(())
 }
 #[cfg(feature = "search")]
-pub fn incremental_search(out: &mut impl std::io::Write, search_mode: SearchMode, ps: &mut PagerState) -> Result<String, MinusError> {
+pub fn incremental_search<T>(out: &mut T, search_mode: SearchMode, ps: &mut PagerState) -> Result<String, MinusError>
+where T: std::io::Write {
     // Place the cursor at the beginning of very prompt line, clear
     // the prompt and show the cursor
 
+    #[allow(clippy::cast_possible_truncation)]
     use super::utils::display::write_stdout;
+    term::move_cursor(out, 0, ps.rows as u16, false)?;
     #[allow(clippy::cast_possible_truncation)]
     write!(
         out,
-        "{}{}{}{}",
-        MoveTo(0, ps.rows as u16),
+        "{}{}{}",
         Clear(ClearType::CurrentLine),
         if search_mode == SearchMode::Forward {
             "/"
@@ -273,6 +275,17 @@ pub fn incremental_search(out: &mut impl std::io::Write, search_mode: SearchMode
     out.flush()?;
     let mut string = String::new();
 
+    ps.search_mode = search_mode;
+
+    let mut refresh_display = |out: &mut T, string: &str| -> Result<(), MinusError> {
+        term::move_cursor(out, 0, 0, false)?;
+        ps.search_term = Regex::new(&string).ok();
+        let format_result = ps.make_format_text();
+        write_stdout(out, &format_result.lines, ps.rows, &mut ps.upper_mark)?;
+        term::move_cursor(out, string.len().saturating_add(1) as u16, ps.rows as u16, true)?;
+        Ok(())
+    };
+
     loop {
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             match event::read().map_err(|e| MinusError::HandleEvent(e.into()))? {
@@ -282,6 +295,7 @@ pub fn incremental_search(out: &mut impl std::io::Write, search_mode: SearchMode
                     modifiers: KeyModifiers::NONE,
                     ..
                 }) => {
+                    ps.search_mode = SearchMode::Unknown;
                     write!(out, "{}", cursor::Hide)?;
                     return Ok(String::new());
                 }
@@ -295,6 +309,7 @@ pub fn incremental_search(out: &mut impl std::io::Write, search_mode: SearchMode
                     // Update the line
                     write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
                     out.flush()?;
+                    refresh_display(out, &string)?;
                 }
                 Event::Key(KeyEvent {
                     code: KeyCode::Enter,
@@ -310,10 +325,9 @@ pub fn incremental_search(out: &mut impl std::io::Write, search_mode: SearchMode
                     // string and update the line
                     if let KeyCode::Char(c) = event.code {
                         string.push(c);
-                        let format_result = ps.make_format_text();
-                        write_stdout(out, &format_result.lines, ps.rows, &mut ps.upper_mark)?;
                         write!(out, "\r/{string}")?;
                         out.flush()?;
+                        refresh_display(out, &string)?;
                     }
                 }
                 _ => continue,

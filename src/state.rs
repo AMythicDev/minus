@@ -5,7 +5,7 @@ use crate::{
     input::{self, HashedEventRegister},
     minus_core::{
         self,
-        utils::text::{self, AppendStyle},
+        utils::text::{self, AppendStyle, FormatResult},
     },
     ExitStrategy, LineNumbers,
 };
