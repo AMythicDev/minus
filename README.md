@@ -144,7 +144,7 @@ async fn main() -> Result<(), MinusError> {
 
 ### Static output:
 
-```rust
+```rust,no_run
 use std::fmt::Write;
 use minus::{MinusError, Pager, page_all};
 
@@ -192,8 +192,8 @@ Here is the list of default key/mouse actions handled by `minus`.
 | /                 | Start forward search                                                                                                      |
 | ?                 | Start backward search                                                                                                     |
 | Esc               | Cancel search input                                                                                                       |
-| [n] n                 | Go to the next search match                                                                                               |
-| [n] p                 | Go to the next previous match                                                                                             |
+| [n] n             | Go to the next search match                                                                                               |
+| [n] p             | Go to the next previous match                                                                                             |
 
 End-applications are free to change these bindings to better suit their needs.
 
