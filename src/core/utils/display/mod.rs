@@ -138,7 +138,7 @@ pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), Min
     super::term::move_cursor(out, 0, 0, false)?;
     queue!(out, Clear(ClearType::All))?;
 
-    write_stdout(out, pager)?;
+    write_stdout(out, &pager.formatted_lines, pager.rows, &mut pager.upper_mark)?;
 
     let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
 
@@ -215,28 +215,28 @@ pub fn draw_append_text(
 /// This function ensures that upper mark never exceeds a value such that adding upper mark and available rows exceeds
 /// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
 /// text is less than available rows. In this situation, upper mark is always 0.
-pub fn write_stdout(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
-    let line_count = pager.num_lines();
+pub fn write_stdout(out: &mut impl Write, lines: &[String], rows: usize, upper_mark: &mut usize) -> Result<(), MinusError> {
+    let line_count = lines.len();
 
     // Reduce one row for prompt/messages
-    let writable_rows = pager.rows.saturating_sub(1);
+    let writable_rows = rows.saturating_sub(1);
 
     // Calculate the lower_mark by adding either the rows or line_count depending
     // on the minimality
-    let lower_mark = pager
-        .upper_mark
+    let lower_mark =
+        upper_mark
         .saturating_add(writable_rows.min(line_count));
 
     // If the lower_bound is greater than the avilable line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if lower_mark > line_count {
-        pager.upper_mark = line_count.saturating_sub(writable_rows);
+        *upper_mark = line_count.saturating_sub(writable_rows);
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
-    let lines = pager.get_formatted_lines_with_bounds(pager.upper_mark, lower_mark);
+    let display_lines: &[String] = &lines[*upper_mark..lower_mark];
 
-    write_lines(out, lines, Some("\r"))
+    write_lines(out, display_lines, Some("\r"))
 }
 
 /// Write lines to the the output

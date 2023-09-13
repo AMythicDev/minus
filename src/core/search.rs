@@ -1,7 +1,7 @@
 //! Provides functions related to searching
 
 #![allow(unused_imports)]
-use crate::error::MinusError;
+use crate::{error::MinusError, input::HashedEventRegister};
 use crate::PagerState;
 use crossterm::{
     cursor::{self, MoveTo},
@@ -16,8 +16,9 @@ use std::{
     io::Write,
     time::Duration,
 };
-
 use super::utils::term;
+
+use std::collections::hash_map::RandomState;
 
 static INVERT: Lazy<String> = Lazy::new(|| Attribute::Reverse.to_string());
 static NORMAL: Lazy<String> = Lazy::new(|| Attribute::NoReverse.to_string());
@@ -249,6 +250,76 @@ where
         _ => return Ok(()),
     }
     Ok(())
+}
+#[cfg(feature = "search")]
+pub fn incremental_search(out: &mut impl std::io::Write, search_mode: SearchMode, ps: &mut PagerState) -> Result<String, MinusError> {
+    // Place the cursor at the beginning of very prompt line, clear
+    // the prompt and show the cursor
+
+    use super::utils::display::write_stdout;
+    #[allow(clippy::cast_possible_truncation)]
+    write!(
+        out,
+        "{}{}{}{}",
+        MoveTo(0, ps.rows as u16),
+        Clear(ClearType::CurrentLine),
+        if search_mode == SearchMode::Forward {
+            "/"
+        } else {
+            "?"
+        },
+        cursor::Show
+    )?;
+    out.flush()?;
+    let mut string = String::new();
+
+    loop {
+        if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
+            match event::read().map_err(|e| MinusError::HandleEvent(e.into()))? {
+                // If Esc is pressed, cancel the search
+                Event::Key(KeyEvent {
+                    code: KeyCode::Esc,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    write!(out, "{}", cursor::Hide)?;
+                    return Ok(String::new());
+                }
+                // On backspace, pop the last character from the string
+                Event::Key(KeyEvent {
+                    code: KeyCode::Backspace,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    string.pop();
+                    // Update the line
+                    write!(out, "\r{}/{}", Clear(ClearType::CurrentLine), string)?;
+                    out.flush()?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Enter,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    write!(out, "{}", cursor::Hide)?;
+                    // Return the string when enter is pressed
+                    return Ok(string);
+                }
+                Event::Key(event) => {
+                    // For any character key, without a modifier, append it to the
+                    // string and update the line
+                    if let KeyCode::Char(c) = event.code {
+                        string.push(c);
+                        let format_result = ps.make_format_text();
+                        write_stdout(out, &format_result.lines, ps.rows, &mut ps.upper_mark)?;
+                        write!(out, "\r/{string}")?;
+                        out.flush()?;
+                    }
+                }
+                _ => continue,
+            }
+        }
+    }
 }
 
 /// Fetch the search query
