@@ -4,14 +4,15 @@ use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
     minus_core::{
-        self, init,
-        utils::text::{self, AppendStyle},
+        self,
+        utils::text::{self, AppendStyle, FormatResult},
     },
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
-use parking_lot::{Condvar, Mutex};
+use parking_lot::Condvar;
+use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
@@ -69,7 +70,6 @@ pub struct PagerState {
     /// It keeps track of all the numbers that have been entered by the user
     /// untill any of `j`, `k`, `G`, `Up` or `Down` is pressed
     pub prefix_num: String,
-
     /// Describes whether minus is running and in which mode
     pub running: &'static Mutex<crate::RunMode>,
 
@@ -149,7 +149,7 @@ impl PagerState {
             upper_mark: 0,
             unterminated: 0,
             prompt,
-            running: &init::RUNMODE,
+            running: &minus_core::RUNMODE,
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),

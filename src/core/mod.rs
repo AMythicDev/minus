@@ -6,6 +6,8 @@ pub mod init;
 pub mod search;
 pub mod utils;
 
+pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
+
 /// Define the modes in which minus can run
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum RunMode {

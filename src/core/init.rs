@@ -46,7 +46,7 @@ use {super::utils::display::write_stdout, crossterm::tty::IsTty};
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
+use super::RUNMODE;
 
 /// The main entry point of minus
 ///
@@ -105,7 +105,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
         // If number of lines of text is less than available wors, write everything and quit
         // unless run_no_overflow is set to true
         if ps.num_lines() <= ps.rows && !ps.run_no_overflow {
-            write_stdout(&mut out, &mut ps)?;
+            write_lines(&mut out, &ps.formatted_lines, Some("\r"))?;
             ps.exit();
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
