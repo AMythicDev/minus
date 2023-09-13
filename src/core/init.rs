@@ -14,23 +14,14 @@ use crate::{
     minus_core::{
         ev_handler::handle_event,
         events::Event,
-        utils::display::draw_full,
-        utils::{display::write_lines, term},
+        utils::{display::draw_full, term},
         RunMode,
     },
     Pager, PagerState,
 };
 
-#[cfg(feature = "dynamic_output")]
-use crate::minus_core::utils::text::AppendStyle;
-
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
-#[cfg(feature = "dynamic_output")]
-use crossterm::{
-    execute,
-    terminal::{Clear, ClearType},
-};
 use std::{
     io::{stdout, Stdout},
     panic,
@@ -40,7 +31,7 @@ use std::{
     },
 };
 #[cfg(feature = "static_output")]
-use {super::utils::display::write_stdout, crossterm::tty::IsTty};
+use crossterm::tty::IsTty;
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -81,7 +72,7 @@ use super::RUNMODE;
 ///
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
-pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
+pub fn init_core(mut pager: Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
     #[allow(unused_mut)]
     let mut out = stdout();
     // Is the event reader running
@@ -113,6 +104,14 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
             return Ok(());
         }
     }
+
+    {
+        let mut runmode = super::RUNMODE.lock();
+        assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
+        *runmode = rm;
+        drop(runmode);
+    }
+
 
     // Setup terminal, adjust line wraps and get rows
     term::setup(&out)?;
@@ -205,8 +204,6 @@ fn start_reactor(
     match run_mode {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
-            use std::{convert::TryInto, io::Write};
-
             if is_exitted.load(Ordering::SeqCst) {
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
@@ -217,8 +214,6 @@ fn start_reactor(
             let event = rx.recv();
 
             let mut p = ps.lock();
-
-            let rows: u16 = p.rows.try_into().unwrap();
 
             match event {
                 Ok(ev) if ev.required_immidiate_screen_update() => {

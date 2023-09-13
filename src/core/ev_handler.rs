@@ -12,7 +12,7 @@ use super::search;
 use super::utils::display;
 use super::{
     events::Event,
-    utils::{term, text::AppendStyle},
+    utils::{term},
 };
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
@@ -174,10 +174,6 @@ pub fn handle_event(
                     p.rows.try_into().unwrap(),
                 )?;
             }
-        }
-        Event::SendMessage(message) => {
-            p.message = Some(message);
-            p.format_prompt();
         }
         Event::SetLineNumbers(ln) => {
             p.line_numbers = ln;

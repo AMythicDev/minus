@@ -1,7 +1,7 @@
 //! Contains function for displaying static data
 //!
 //! This module provides provides the [`page_all`] function to display static output via minus
-use crate::minus_core::{self, init};
+use crate::minus_core::init;
 use crate::{error::MinusError, Pager};
 
 /// Display static information to the screen
@@ -25,11 +25,5 @@ use crate::{error::MinusError, Pager};
 /// The function will return with an error if it encounters a error during paging.
 #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
 pub fn page_all(pager: Pager) -> Result<(), MinusError> {
-    let mut runmode = minus_core::RUNMODE.lock();
-    assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
-    *runmode = minus_core::RunMode::Static;
-    drop(runmode);
-
-    init::init_core(pager)?;
-    Ok(())
+    init::init_core(pager, crate::RunMode::Static)
 }
