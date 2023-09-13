@@ -28,6 +28,7 @@ impl RunMode {
     /// let runmode = RunMode::Uninitialized;
     /// assert_eq!(runmode.is_uninitialized(), true);
     /// ```
+    #[must_use]
     pub fn is_uninitialized(self) -> bool {
         self == Self::Uninitialized
     }

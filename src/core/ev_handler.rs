@@ -10,10 +10,7 @@ use parking_lot::{Condvar, Mutex};
 #[cfg(feature = "search")]
 use super::search;
 use super::utils::display;
-use super::{
-    events::Event,
-    utils::{term},
-};
+use super::{events::Event, utils::term};
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
 /// Respond based on the type of event

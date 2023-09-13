@@ -14,6 +14,7 @@ use crate::Pager;
 /// # Errors
 /// The function will return with an error if it encounters a error during paging.
 #[cfg_attr(docsrs, doc(cfg(feature = "dynamic_output")))]
+#[allow(clippy::needless_pass_by_value)]
 pub fn dynamic_paging(pager: Pager) -> Result<(), MinusError> {
-    init::init_core(pager, crate::RunMode::Dynamic)
+    init::init_core(&pager, crate::RunMode::Dynamic)
 }

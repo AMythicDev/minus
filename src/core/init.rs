@@ -22,6 +22,8 @@ use crate::{
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
+#[cfg(feature = "static_output")]
+use crossterm::tty::IsTty;
 use std::{
     io::{stdout, Stdout},
     panic,
@@ -30,8 +32,9 @@ use std::{
         Arc,
     },
 };
+
 #[cfg(feature = "static_output")]
-use crossterm::tty::IsTty;
+use super::utils::display::write_lines;
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -72,7 +75,7 @@ use super::RUNMODE;
 ///
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
-pub fn init_core(mut pager: Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
+pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
     #[allow(unused_mut)]
     let mut out = stdout();
     // Is the event reader running
@@ -80,7 +83,7 @@ pub fn init_core(mut pager: Pager, rm: RunMode) -> std::result::Result<(), Minus
     let input_thread_running = Arc::new((Mutex::new(true), Condvar::new()));
 
     #[allow(unused_mut)]
-    let mut ps = crate::state::PagerState::generate_initial_state(&mut pager.rx, &mut out)?;
+    let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx, &mut out)?;
 
     // Static mode checks
     #[cfg(feature = "static_output")]
@@ -111,7 +114,6 @@ pub fn init_core(mut pager: Pager, rm: RunMode) -> std::result::Result<(), Minus
         *runmode = rm;
         drop(runmode);
     }
-
 
     // Setup terminal, adjust line wraps and get rows
     term::setup(&out)?;
