@@ -11,7 +11,10 @@ use crossterm::{
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{convert::TryFrom, time::Duration};
+use std::{
+    convert::{TryFrom, TryInto},
+    time::Duration,
+};
 
 use super::utils::term;
 
@@ -21,6 +24,7 @@ static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new("[\\u001b\\u009b]\\[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]")
         .unwrap()
 });
+static WORD: Lazy<Regex> = Lazy::new(|| Regex::new(r"[\w0-9_]+").unwrap());
 
 #[derive(Clone, Copy, Debug, Eq)]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
@@ -53,6 +57,7 @@ impl PartialEq for SearchMode {
 /// It will then store the query in a String and return it when `Return` key is pressed
 /// or return with a empty string if so match is found.
 #[cfg(feature = "search")]
+#[allow(clippy::too_many_lines)]
 pub fn fetch_input(
     out: &mut impl std::io::Write,
     search_mode: SearchMode,
@@ -67,7 +72,6 @@ pub fn fetch_input(
         "?"
     };
 
-    use std::convert::TryInto;
     #[allow(clippy::cast_possible_truncation)]
     write!(
         out,
@@ -80,6 +84,8 @@ pub fn fetch_input(
     out.flush()?;
     let mut string = String::new();
     let mut cursor_position: u16 = 1;
+
+    let mut word_index: Vec<(usize, usize)> = Vec::with_capacity(200);
 
     loop {
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
@@ -99,14 +105,49 @@ pub fn fetch_input(
                     modifiers: KeyModifiers::NONE,
                     ..
                 }) => {
-                    if cursor_position != 1 {
-                        cursor_position = cursor_position.saturating_sub(1);
-                    } else {
+                    if cursor_position == 1 {
                         continue;
                     }
+                    cursor_position = cursor_position.saturating_sub(1);
                     string.remove(cursor_position.saturating_sub(1).into());
+                    word_index = WORD
+                        .find_iter(&string)
+                        .map(|c| (c.start(), c.end()))
+                        .collect();
                     // Update the line
-                    write!(out, "\r{}{search_char}{}", Clear(ClearType::CurrentLine), string)?;
+                    write!(
+                        out,
+                        "\r{}{search_char}{}",
+                        Clear(ClearType::CurrentLine),
+                        string
+                    )?;
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
+                    out.flush()?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Delete,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => {
+                    if cursor_position == 1
+                        || <u16 as Into<usize>>::into(cursor_position) > string.len()
+                    {
+                        continue;
+                    }
+                    cursor_position = cursor_position.saturating_sub(1);
+                    string.remove(cursor_position.into());
+                    word_index = WORD
+                        .find_iter(&string)
+                        .map(|c| (c.start(), c.end()))
+                        .collect();
+                    cursor_position = cursor_position.saturating_add(1);
+                    // Update the line
+                    write!(
+                        out,
+                        "\r{}{search_char}{}",
+                        Clear(ClearType::CurrentLine),
+                        string
+                    )?;
                     term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
                     out.flush()?;
                 }
@@ -124,11 +165,26 @@ pub fn fetch_input(
                     modifiers: KeyModifiers::NONE,
                     ..
                 }) => {
-                    if cursor_position != 1 {
-                        cursor_position = cursor_position.saturating_sub(1);
-                    } else {
+                    if cursor_position == 1 {
                         continue;
                     }
+                    cursor_position = cursor_position.saturating_sub(1);
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Left,
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                }) => {
+                    cursor_position = u16::try_from(
+                        word_index
+                            .iter()
+                            .rfind(|c| c.0 < (cursor_position.saturating_sub(1) as usize))
+                            .unwrap_or(&(cursor_position.saturating_sub(1) as usize, 0))
+                            .0
+                            .saturating_add(1),
+                    )
+                    .unwrap();
                     term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
                 }
                 Event::Key(KeyEvent {
@@ -136,11 +192,26 @@ pub fn fetch_input(
                     modifiers: KeyModifiers::NONE,
                     ..
                 }) => {
-                    if <u16 as Into<usize>>::into(cursor_position) <= string.len() {
-                        cursor_position = cursor_position.saturating_add(1);
-                    } else {
+                    if <u16 as Into<usize>>::into(cursor_position) > string.len() {
                         continue;
                     }
+                    cursor_position = cursor_position.saturating_add(1);
+                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Right,
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                }) => {
+                    cursor_position = u16::try_from(
+                        word_index
+                            .iter()
+                            .find(|c| c.1 > (cursor_position.saturating_add(1) as usize))
+                            .unwrap_or(&(0, cursor_position.saturating_add(1) as usize))
+                            .1
+                            .saturating_add(1),
+                    )
+                    .unwrap();
                     term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
                 }
                 Event::Key(KeyEvent {
@@ -165,6 +236,11 @@ pub fn fetch_input(
                     // string and update the line
                     if let KeyCode::Char(c) = event.code {
                         string.insert(cursor_position.saturating_sub(1).into(), c);
+                        word_index = WORD
+                            .find_iter(&string)
+                            .map(|c| (c.start(), c.end()))
+                            .collect();
+
                         write!(out, "\r{search_char}{string}")?;
                         cursor_position = cursor_position.saturating_add(1);
                         term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
