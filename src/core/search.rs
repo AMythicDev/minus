@@ -1,8 +1,9 @@
 //! Provides functions related to searching
 
 #![allow(unused_imports)]
-use crate::{error::MinusError, input::HashedEventRegister};
+use super::utils::term;
 use crate::PagerState;
+use crate::{error::MinusError, input::HashedEventRegister};
 use crossterm::{
     cursor::{self, MoveTo},
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
@@ -16,7 +17,6 @@ use std::{
     io::Write,
     time::Duration,
 };
-use super::utils::term;
 
 use std::collections::hash_map::RandomState;
 
@@ -252,13 +252,21 @@ where
     Ok(())
 }
 #[cfg(feature = "search")]
-pub fn incremental_search<T>(out: &mut T, search_mode: SearchMode, ps: &mut PagerState) -> Result<String, MinusError>
-where T: std::io::Write {
+#[allow(clippy::module_name_repetitions)]
+pub fn incremental_search<T>(
+    out: &mut T,
+    search_mode: SearchMode,
+    ps: &mut PagerState,
+) -> Result<String, MinusError>
+where
+    T: std::io::Write,
+{
     // Place the cursor at the beginning of very prompt line, clear
     // the prompt and show the cursor
 
+    use crate::minus_core::utils::display::write_text_checked;
+
     #[allow(clippy::cast_possible_truncation)]
-    use super::utils::display::write_stdout;
     term::move_cursor(out, 0, ps.rows as u16, false)?;
     #[allow(clippy::cast_possible_truncation)]
     write!(
@@ -279,10 +287,17 @@ where T: std::io::Write {
 
     let mut refresh_display = |out: &mut T, string: &str| -> Result<(), MinusError> {
         term::move_cursor(out, 0, 0, false)?;
-        ps.search_term = Regex::new(&string).ok();
-        let format_result = ps.make_format_text();
-        write_stdout(out, &format_result.lines, ps.rows, &mut ps.upper_mark)?;
-        term::move_cursor(out, string.len().saturating_add(1) as u16, ps.rows as u16, true)?;
+        ps.search_term = Regex::new(string).ok();
+        let format_result = ps.make_format_lines();
+        ps.search_idx = format_result.append_search_idx;
+        next_nth_match(ps, 1);
+        write_text_checked(out, &format_result.lines, ps.rows, &mut ps.upper_mark)?;
+        term::move_cursor(
+            out,
+            u16::try_from(string.len().saturating_add(1)).unwrap(),
+            u16::try_from(ps.rows).unwrap(),
+            true,
+        )?;
         Ok(())
     };
 

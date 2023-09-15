@@ -22,7 +22,7 @@ fn short_no_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rA line\n\rAnother line\n",
@@ -33,7 +33,7 @@ fn short_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark += 1;
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -56,7 +56,7 @@ fn long_no_line_numbers() {
     pager.lines = lines.to_string();
     pager.format_lines();
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rA line\n\rAnother line\n\rThird line\n",
@@ -70,7 +70,7 @@ fn long_no_line_numbers() {
     pager.upper_mark = 1;
     pager.format_lines();
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rThird line\n\rFourth line\n\rFifth line\n",
@@ -83,7 +83,7 @@ fn long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 2;
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\rThird line\n\rFourth line\n\rFifth line\n",
@@ -102,7 +102,7 @@ fn short_with_line_numbers() {
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r     1. A line\n\r     2. Another line\n",
@@ -114,7 +114,7 @@ fn short_with_line_numbers() {
     pager.upper_mark = 1;
     pager.line_numbers = LineNumbers::AlwaysOn;
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     // The number of lines is less than 'rows' so 'upper_mark' will be 0 even
     // if we set it to 1. This is done because everything can be displayed without problems.
@@ -137,7 +137,7 @@ fn long_with_line_numbers() {
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r     1. A line\n\r     2. Another line\n\r     3. Third line\n",
@@ -149,7 +149,7 @@ fn long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 1;
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r     2. Another line\n\r     3. Third line\n\r     4. Fourth line\n",
@@ -162,7 +162,7 @@ fn long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.upper_mark = 2;
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     assert_eq!(
         "\r     2. Another line\n\r     3. Third line\n\r     4. Fourth line\n",
@@ -189,7 +189,7 @@ fn big_line_numbers_are_padded() {
     pager.line_numbers = LineNumbers::AlwaysOn;
     pager.format_lines();
 
-    assert!(write_stdout(&mut out, &mut pager).is_ok());
+    assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
     // The padding should have inserted a space before the numbers that are less than 100.
     assert_eq!(

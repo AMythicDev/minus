@@ -138,7 +138,7 @@ pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), Min
     super::term::move_cursor(out, 0, 0, false)?;
     queue!(out, Clear(ClearType::All))?;
 
-    write_stdout(out, &pager.formatted_lines, pager.rows, &mut pager.upper_mark)?;
+    write_from_pagerstate(out, pager)?;
 
     let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
 
@@ -202,7 +202,7 @@ pub fn draw_append_text(
 /// Write the lines to the terminal
 ///
 /// Note: Although this function can take any type that implements [Write] however it assumes that
-/// it behaves like a terminal i.e itmust set rows and cols in [PagerState].
+/// it behaves like a terminal i.e it must set rows and cols in [PagerState].
 /// If you want to write directly to a file without this preassumption, then use the [write_lines]
 /// function.
 ///
@@ -215,7 +215,12 @@ pub fn draw_append_text(
 /// This function ensures that upper mark never exceeds a value such that adding upper mark and available rows exceeds
 /// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
 /// text is less than available rows. In this situation, upper mark is always 0.
-pub fn write_stdout(out: &mut impl Write, lines: &[String], rows: usize, upper_mark: &mut usize) -> Result<(), MinusError> {
+pub fn write_text_checked(
+    out: &mut impl Write,
+    lines: &[String],
+    rows: usize,
+    upper_mark: &mut usize,
+) -> Result<(), MinusError> {
     let line_count = lines.len();
 
     // Reduce one row for prompt/messages
@@ -223,18 +228,39 @@ pub fn write_stdout(out: &mut impl Write, lines: &[String], rows: usize, upper_m
 
     // Calculate the lower_mark by adding either the rows or line_count depending
     // on the minimality
-    let lower_mark =
-        upper_mark
-        .saturating_add(writable_rows.min(line_count));
+    let mut lower_mark = upper_mark.saturating_add(writable_rows.min(line_count));
 
     // If the lower_bound is greater than the avilable line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if lower_mark > line_count {
         *upper_mark = line_count.saturating_sub(writable_rows);
+        lower_mark = upper_mark.saturating_add(writable_rows.min(line_count));
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
     let display_lines: &[String] = &lines[*upper_mark..lower_mark];
+
+    write_lines(out, display_lines, Some("\r"))
+}
+
+pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
+    let line_count = ps.num_lines();
+
+    // Reduce one row for prompt/messages
+    let writable_rows = ps.rows.saturating_sub(1);
+
+    // Calculate the lower_mark by adding either the rows or line_count depending
+    // on the minimality
+    let lower_mark = ps.upper_mark.saturating_add(writable_rows.min(line_count));
+
+    // If the lower_bound is greater than the avilable line count, we set it to such a value
+    // so that the last page can be displayed entirely, i.e never scroll past the last line
+    if lower_mark > line_count {
+        ps.upper_mark = line_count.saturating_sub(writable_rows);
+    }
+
+    // Add \r to ensure cursor is placed at the beginning of each row
+    let display_lines: &[String] = ps.get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
 
     write_lines(out, display_lines, Some("\r"))
 }

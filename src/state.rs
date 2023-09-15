@@ -210,7 +210,7 @@ impl PagerState {
     }
 
     pub(crate) fn format_lines(&mut self) {
-        let format_result = self.make_format_text();
+        let format_result = self.make_format_lines();
         #[cfg(feature = "search")]
         {
             self.search_idx = format_result.append_search_idx;
@@ -222,7 +222,7 @@ impl PagerState {
         self.format_prompt();
     }
 
-    pub(crate) fn make_format_text(&self) -> FormatResult {
+    pub(crate) fn make_format_lines(&self) -> FormatResult {
         // Keep it for the record and don't call it unless it is really necessory as this is kinda
         // expensive
         let line_count = self.lines.lines().count();
@@ -243,9 +243,7 @@ impl PagerState {
             search_term: &self.search_term,
         };
 
-        let format_result = text::format_text_block(format_opts);
-
-        format_result
+        text::format_text_block(format_opts)
     }
 
     /// Reformat the inputted prompt to how it should be displayed

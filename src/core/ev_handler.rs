@@ -65,7 +65,8 @@ pub fn handle_event(
             let mut active = lock.lock();
             *active = false;
             drop(active);
-            let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
+            // let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
+            let string = search::incremental_search(&mut out, p.search_mode, p)?;
             let mut active = lock.lock();
             *active = true;
             drop(active);
