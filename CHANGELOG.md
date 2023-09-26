@@ -1,6 +1,12 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.4.0 [2023-09-27]
+### Fixed
+* Fix no updation of search related bugs (#102)
+* Fix gibberish output when stdout is a file (9728a3a)
+* Fix documentation example failure in README.md (0d81ddc)
+
 ## v5.4.0 [2023-07-27]
 ### Fixed
 * Unexpected line break where number of digits in line number increase (#66)
