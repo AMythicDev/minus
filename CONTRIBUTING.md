@@ -14,8 +14,8 @@ Contributing to a `minus` is pretty straight forward. If this is you're first ti
 ## Maintaining code quality and best practices
 - Your code should be formatted with rustfmt and should be free from clippy warnings.
 - If you're adding/making changes to the public API, write/change the documentation appropriately. Put documentation
-  examples where possible. If the code returns a `Result`, describe the Error in the documentation. If it can panic,
-  describe that too in the documentation.
+  examples where possible. If the code returns a `Result`, describe it in the the Error section of the item's documentation.
+  If it can panic, describe that too in the documentation.
   
 - Every chunk of code has some comments above it. If you write some new code or change some part of the existing code,
   you should write comments to explain it.
@@ -32,6 +32,19 @@ and ensure all tests/examples are passing.
 ## Commit messages
 To ensure quality commit messages which also help other fellow developers better understand changes, you should
 write commit messages that strictly adhere to [Conventional Commits](https://conventionalcommits.org) v1.0.0. 
+
+### Types
+You commit must have a type associated with it. Here are all the types that we encourage people to use ensure commits
+can be classified same for everyone contributing to minus.
+- 'ci' - Changes to GitHub Actions CI wofkflows file
+- `chore`: Regular stuff that don't fall into any category like running `rustfmt` etc.
+- `docs` - Improvements to documentation
+- `feat` - Feature improvements
+- `fix` - Bug fixes
+- `perf` - Performance improvements
+- `refactor` - Changes that don't fix bugs or add features but improves the overall quality of code base.
+   You can use this for commits that fix cargo/clippy warnings
+- `test`: Commits that touch examples/unit tests/doc tests.
 
 ### Scopes
 Commit messages following Conventional Commits can optionally describe their **scope**. The scope broadly
