@@ -12,11 +12,7 @@ use crate::{
     error::MinusError,
     input::InputEvent,
     minus_core::{
-        ev_handler::handle_event,
-        events::Event,
-        utils::display::draw_full,
-        utils::{display::write_lines, term},
-        RunMode,
+        ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
     },
     Pager, PagerState,
 };
@@ -40,7 +36,10 @@ use std::{
     },
 };
 #[cfg(feature = "static_output")]
-use {super::utils::display::write_stdout, crossterm::tty::IsTty};
+use {
+    super::utils::display::{write_lines, write_stdout},
+    crossterm::tty::IsTty,
+};
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -81,7 +80,7 @@ pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMo
 ///
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
-pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
+pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
     #[allow(unused_mut)]
     let mut out = stdout();
     // Is the event reader running
@@ -89,7 +88,7 @@ pub fn init_core(mut pager: Pager) -> std::result::Result<(), MinusError> {
     let input_thread_running = Arc::new((Mutex::new(true), Condvar::new()));
 
     #[allow(unused_mut)]
-    let mut ps = crate::state::PagerState::generate_initial_state(&mut pager.rx, &mut out)?;
+    let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx, &mut out)?;
 
     // Static mode checks
     #[cfg(feature = "static_output")]

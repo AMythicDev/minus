@@ -180,7 +180,7 @@ impl PagerState {
     /// This function will return an error if it could not create the default [`PagerState`] or fails
     /// to process the events
     pub(crate) fn generate_initial_state(
-        rx: &mut Receiver<Event>,
+        rx: &Receiver<Event>,
         mut out: &mut Stdout,
     ) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;
