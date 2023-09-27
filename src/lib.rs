@@ -229,6 +229,9 @@ pub use state::PagerState;
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 
+/// Result type returned by most minus's functions
+type Result<T = (), E = MinusError> = std::result::Result<T, E>;
+
 /// Behaviour that happens when the pager is exitted
 #[derive(PartialEq, Clone, Debug, Eq)]
 pub enum ExitStrategy {
