@@ -13,6 +13,7 @@ use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{
     convert::{TryFrom, TryInto},
+    io::Write,
     time::Duration,
 };
 
@@ -51,13 +52,192 @@ impl PartialEq for SearchMode {
     }
 }
 
+struct SearchOpts {
+    ev: Option<Event>,
+    string: String,
+    is_input_done: bool,
+    cursor_position: u16,
+    word_index: Vec<usize>,
+    search_char: char,
+    rows: u16,
+}
+
+fn handle_key_press<O>(out: &mut O, so: &mut SearchOpts) -> crate::Result
+where
+    O: Write,
+{
+    if so.ev.is_none() {
+        return Ok(());
+    }
+    let populate_word_index = |so: &mut SearchOpts| {
+        *so.word_index = WORD
+            .find_iter(so.string)
+            .map(|c| (c.start(), c.end()))
+            .collect::<Vec<(usize, usize)>>();
+    };
+    let update_input_display = |out: &mut O, so: &mut SearchOpts| -> crate::Result {
+        write!(
+            out,
+            "\r{}{}{}",
+            Clear(ClearType::CurrentLine),
+            so.search_char,
+            so.string,
+        )?;
+        Ok(())
+    };
+
+    match so.ev.as_ref().unwrap() {
+        // If Esc is pressed, cancel the search
+        Event::Key(KeyEvent {
+            code: KeyCode::Esc,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            so.is_input_done = true;
+        }
+        // On backspace, pop the last character from the so.string
+        Event::Key(KeyEvent {
+            code: KeyCode::Backspace,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            if so.cursor_position == 1 {
+                return Ok(());
+            }
+            so.cursor_position = so.cursor_position.saturating_sub(1);
+            so.string
+                .remove(so.cursor_position.saturating_sub(1).into());
+            populate_word_index(so);
+            // Update the line
+            update_input_display(out, so)?;
+            term::move_cursor(out, so.cursor_position, so.rows, false)?;
+            out.flush()?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Delete,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            if so.cursor_position == 1
+                || <u16 as Into<usize>>::into(so.cursor_position) > so.string.len()
+            {
+                return Ok(());
+            }
+            so.cursor_position = so.cursor_position.saturating_sub(1);
+            so.string
+                .remove(<u16 as Into<usize>>::into(so.cursor_position));
+            populate_word_index(so);
+            so.cursor_position = so.cursor_position.saturating_add(1);
+            // Update the line
+            update_input_display(out, so)?;
+            term::move_cursor(out, so.cursor_position, so.rows, false)?;
+            out.flush()?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Enter,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            write!(out, "{}", cursor::Hide)?;
+            // Return the so.string when enter is pressed
+            so.is_input_done = true;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Left,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            if so.cursor_position == 1 {
+                return Ok(());
+            }
+            so.cursor_position = so.cursor_position.saturating_sub(1);
+            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Left,
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }) => {
+            so.cursor_position = u16::try_from(
+                *so.word_index
+                    .iter()
+                    .rfind(|c| c.0 < (so.cursor_position.saturating_sub(1) as usize))
+                    .unwrap_or(&(so.cursor_position.saturating_sub(1) as usize, 0))
+                    .0
+                    .saturating_add(1),
+            )
+            .unwrap();
+            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Right,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            if <u16 as Into<usize>>::into(so.cursor_position) > so.string.len() {
+                return Ok(());
+            }
+            so.cursor_position = so.cursor_position.saturating_add(1);
+            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Right,
+            modifiers: KeyModifiers::CONTROL,
+            ..
+        }) => {
+            *so.cursor_position = u16::try_from(
+                so.word_index
+                    .iter()
+                    .find(|c| c.1 > (so.cursor_position.saturating_add(1) as usize))
+                    .unwrap_or(&(0, so.cursor_position.saturating_add(1) as usize))
+                    .1
+                    .saturating_add(1),
+            )
+            .unwrap();
+            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Home,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            so.cursor_position = 1;
+            term::move_cursor(out, 1, so.rows, true)?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::End,
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
+            so.cursor_position = so.string.len().saturating_add(1).try_into().unwrap();
+            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+        }
+
+        Event::Key(event) => {
+            // For any character key, without a modifier, append it to the
+            // so.string and update the line
+            if let KeyCode::Char(c) = event.code {
+                so.string
+                    .insert(so.cursor_position.saturating_sub(1).into(), c);
+
+                populate_word_index(so);
+                update_input_display(out, so)?;
+                so.cursor_position = so.cursor_position.saturating_add(1);
+                term::move_cursor(out, so.cursor_position, so.rows, false)?;
+                out.flush()?;
+            }
+        }
+        _ => return Ok(()),
+    }
+    Ok(())
+}
+
 /// Fetch the search query
 ///
 /// The function will change the prompt to `/` for Forward search or `?` for Reverse search
 /// It will then store the query in a String and return it when `Return` key is pressed
 /// or return with a empty string if so match is found.
 #[cfg(feature = "search")]
-#[allow(clippy::too_many_lines)]
 pub fn fetch_input(
     out: &mut impl std::io::Write,
     search_mode: SearchMode,
@@ -67,9 +247,9 @@ pub fn fetch_input(
     // the prompt and show the cursor
 
     let search_char = if search_mode == SearchMode::Forward {
-        "/"
+        '/'
     } else {
-        "?"
+        '?'
     };
 
     #[allow(clippy::cast_possible_truncation)]
@@ -82,175 +262,30 @@ pub fn fetch_input(
         cursor::Show
     )?;
     out.flush()?;
-    let mut string = String::new();
-    let mut cursor_position: u16 = 1;
 
-    let mut word_index: Vec<(usize, usize)> = Vec::with_capacity(200);
+    let mut search_opts = SearchOpts {
+        search_char,
+        is_input_done: false,
+        ev: None,
+        word_index: Vec::with_capacity(200),
+        cursor_position: 1,
+        string: String::new(),
+        rows: rows.try_into().unwrap(),
+    };
 
     loop {
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
-            match event::read().map_err(|e| MinusError::HandleEvent(e.into()))? {
-                // If Esc is pressed, cancel the search
-                Event::Key(KeyEvent {
-                    code: KeyCode::Esc,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    write!(out, "{}", cursor::Hide)?;
-                    return Ok(String::new());
-                }
-                // On backspace, pop the last character from the string
-                Event::Key(KeyEvent {
-                    code: KeyCode::Backspace,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    if cursor_position == 1 {
-                        continue;
-                    }
-                    cursor_position = cursor_position.saturating_sub(1);
-                    string.remove(cursor_position.saturating_sub(1).into());
-                    word_index = WORD
-                        .find_iter(&string)
-                        .map(|c| (c.start(), c.end()))
-                        .collect();
-                    // Update the line
-                    write!(
-                        out,
-                        "\r{}{search_char}{}",
-                        Clear(ClearType::CurrentLine),
-                        string
-                    )?;
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
-                    out.flush()?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Delete,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    if cursor_position == 1
-                        || <u16 as Into<usize>>::into(cursor_position) > string.len()
-                    {
-                        continue;
-                    }
-                    cursor_position = cursor_position.saturating_sub(1);
-                    string.remove(cursor_position.into());
-                    word_index = WORD
-                        .find_iter(&string)
-                        .map(|c| (c.start(), c.end()))
-                        .collect();
-                    cursor_position = cursor_position.saturating_add(1);
-                    // Update the line
-                    write!(
-                        out,
-                        "\r{}{search_char}{}",
-                        Clear(ClearType::CurrentLine),
-                        string
-                    )?;
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
-                    out.flush()?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Enter,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    write!(out, "{}", cursor::Hide)?;
-                    // Return the string when enter is pressed
-                    return Ok(string);
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Left,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    if cursor_position == 1 {
-                        continue;
-                    }
-                    cursor_position = cursor_position.saturating_sub(1);
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Left,
-                    modifiers: KeyModifiers::CONTROL,
-                    ..
-                }) => {
-                    cursor_position = u16::try_from(
-                        word_index
-                            .iter()
-                            .rfind(|c| c.0 < (cursor_position.saturating_sub(1) as usize))
-                            .unwrap_or(&(cursor_position.saturating_sub(1) as usize, 0))
-                            .0
-                            .saturating_add(1),
-                    )
-                    .unwrap();
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Right,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    if <u16 as Into<usize>>::into(cursor_position) > string.len() {
-                        continue;
-                    }
-                    cursor_position = cursor_position.saturating_add(1);
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Right,
-                    modifiers: KeyModifiers::CONTROL,
-                    ..
-                }) => {
-                    cursor_position = u16::try_from(
-                        word_index
-                            .iter()
-                            .find(|c| c.1 > (cursor_position.saturating_add(1) as usize))
-                            .unwrap_or(&(0, cursor_position.saturating_add(1) as usize))
-                            .1
-                            .saturating_add(1),
-                    )
-                    .unwrap();
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Home,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    cursor_position = 1;
-                    term::move_cursor(out, 1, rows.try_into().unwrap(), true)?;
-                }
-                Event::Key(KeyEvent {
-                    code: KeyCode::End,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => {
-                    cursor_position = string.len().saturating_add(1).try_into().unwrap();
-                    term::move_cursor(out, cursor_position, rows.try_into().unwrap(), true)?;
-                }
-
-                Event::Key(event) => {
-                    // For any character key, without a modifier, append it to the
-                    // string and update the line
-                    if let KeyCode::Char(c) = event.code {
-                        string.insert(cursor_position.saturating_sub(1).into(), c);
-                        word_index = WORD
-                            .find_iter(&string)
-                            .map(|c| (c.start(), c.end()))
-                            .collect();
-
-                        write!(out, "\r{search_char}{string}")?;
-                        cursor_position = cursor_position.saturating_add(1);
-                        term::move_cursor(out, cursor_position, rows.try_into().unwrap(), false)?;
-                        out.flush()?;
-                    }
-                }
-                _ => continue,
-            }
+            let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
+            search_opts.ev = Some(ev);
+            handle_key_press(out, &mut search_opts)?;
+            search_opts.ev = None;
+        }
+        if search_opts.is_input_done {
+            break;
         }
     }
+    write!(out, "{}", cursor::Hide)?;
+    Ok(search_opts.string)
 }
 
 /// Highlights the search match
