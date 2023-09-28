@@ -25,7 +25,10 @@ static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new("[\\u001b\\u009b]\\[[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]")
         .unwrap()
 });
-static WORD: Lazy<Regex> = Lazy::new(|| Regex::new(r"[\w0-9_]+").unwrap());
+
+// TODO deal with "
+static WORD: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r#"([\w_]+)|([-?~@#!$%^&*()-+={}\[\]:;\\|'/?<>.,"]+)|\W"#).unwrap());
 
 #[derive(Clone, Copy, Debug, Eq)]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
@@ -70,10 +73,10 @@ where
         return Ok(());
     }
     let populate_word_index = |so: &mut SearchOpts| {
-        *so.word_index = WORD
-            .find_iter(so.string)
-            .map(|c| (c.start(), c.end()))
-            .collect::<Vec<(usize, usize)>>();
+        so.word_index = WORD
+            .find_iter(&so.string)
+            .map(|c| c.start().saturating_add(1))
+            .collect::<Vec<usize>>();
     };
     let update_input_display = |out: &mut O, so: &mut SearchOpts| -> crate::Result {
         write!(
@@ -161,10 +164,8 @@ where
             so.cursor_position = u16::try_from(
                 *so.word_index
                     .iter()
-                    .rfind(|c| c.0 < (so.cursor_position.saturating_sub(1) as usize))
-                    .unwrap_or(&(so.cursor_position.saturating_sub(1) as usize, 0))
-                    .0
-                    .saturating_add(1),
+                    .rfind(|c| c < &&(so.cursor_position as usize))
+                    .unwrap_or(&(so.cursor_position as usize)),
             )
             .unwrap();
             term::move_cursor(out, so.cursor_position, so.rows, true)?;
@@ -185,13 +186,11 @@ where
             modifiers: KeyModifiers::CONTROL,
             ..
         }) => {
-            *so.cursor_position = u16::try_from(
-                so.word_index
+            so.cursor_position = u16::try_from(
+                *so.word_index
                     .iter()
-                    .find(|c| c.1 > (so.cursor_position.saturating_add(1) as usize))
-                    .unwrap_or(&(0, so.cursor_position.saturating_add(1) as usize))
-                    .1
-                    .saturating_add(1),
+                    .find(|c| c > &&(so.cursor_position as usize))
+                    .unwrap_or(&(so.cursor_position as usize))
             )
             .unwrap();
             term::move_cursor(out, so.cursor_position, so.rows, true)?;
@@ -243,15 +242,18 @@ pub fn fetch_input(
     search_mode: SearchMode,
     rows: usize,
 ) -> Result<String, MinusError> {
-    // Place the cursor at the beginning of very prompt line, clear
-    // the prompt and show the cursor
-
+    // Set the search character to show at column 0
     let search_char = if search_mode == SearchMode::Forward {
         '/'
     } else {
         '?'
     };
 
+    // Initial setup
+    // - Place the cursor at the beginning of prompt line
+    // - Clear the prompt
+    // - Write the search character and
+    // - Show the cursor
     #[allow(clippy::cast_possible_truncation)]
     write!(
         out,
@@ -284,7 +286,15 @@ pub fn fetch_input(
             break;
         }
     }
-    write!(out, "{}", cursor::Hide)?;
+    // Teardown
+    write!(
+        out,
+        "{}{}{}",
+        MoveTo(0, rows as u16),
+        Clear(ClearType::CurrentLine),
+        cursor::Hide
+    )?;
+    out.flush()?;
     Ok(search_opts.string)
 }
 
