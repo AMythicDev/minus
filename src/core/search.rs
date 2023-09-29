@@ -26,7 +26,6 @@ static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
         .unwrap()
 });
 
-// TODO deal with "
 static WORD: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#"([\w_]+)|([-?~@#!$%^&*()-+={}\[\]:;\\|'/?<>.,"]+)|\W"#).unwrap());
 
@@ -55,28 +54,46 @@ impl PartialEq for SearchMode {
     }
 }
 
+/// Options controlling the behaviour of [handle_key_press] by event
 struct SearchOpts {
+    /// Event to respond to
     ev: Option<Event>,
+    /// Current string query
     string: String,
+    /// Is the input prompt closed either due to confirmation of search query using `Enter` or abortion using `Esc`
     is_input_done: bool,
+    /// Specifies the column number that the cursor on at the prompt site
     cursor_position: u16,
-    word_index: Vec<usize>,
+    /// Column numbers where each word start
+    word_index: Vec<u16>,
+    /// Search character, either `/` or `?` depending on [SearchMode]
     search_char: char,
+    /// Number of rows available in the terminal
     rows: u16,
 }
 
+/// Respond to keyboard events
+///
+/// This souuld be called exactly once for each event by [fetch_input]
+#[allow(clippy::too_many_lines)]
 fn handle_key_press<O>(out: &mut O, so: &mut SearchOpts) -> crate::Result
 where
     O: Write,
 {
+    // Bounds between which our cursor can move
+    const FIRST_AVAILABLE_COLUMN: u16 = 1;
+    let last_available_column: u16 = so.string.len().saturating_add(1).try_into().unwrap();
+
+    // If no event is present, abort
     if so.ev.is_none() {
         return Ok(());
     }
+
     let populate_word_index = |so: &mut SearchOpts| {
         so.word_index = WORD
             .find_iter(&so.string)
-            .map(|c| c.start().saturating_add(1))
-            .collect::<Vec<usize>>();
+            .map(|c| c.start().saturating_add(1).try_into().unwrap())
+            .collect::<Vec<u16>>();
     };
     let update_input_display = |out: &mut O, so: &mut SearchOpts| -> crate::Result {
         write!(
@@ -90,21 +107,24 @@ where
     };
 
     match so.ev.as_ref().unwrap() {
-        // If Esc is pressed, cancel the search
+        // If Esc is pressed, cancel the search and also make sure that the search query is
+        // ")cleared
         Event::Key(KeyEvent {
             code: KeyCode::Esc,
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
+            so.string.clear();
             so.is_input_done = true;
         }
-        // On backspace, pop the last character from the so.string
         Event::Key(KeyEvent {
             code: KeyCode::Backspace,
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            if so.cursor_position == 1 {
+            // On backspace, remove the last character just before the cursor from the so.string
+            // But if we are at very first character, do nothing.
+            if so.cursor_position == FIRST_AVAILABLE_COLUMN {
                 return Ok(());
             }
             so.cursor_position = so.cursor_position.saturating_sub(1);
@@ -121,9 +141,9 @@ where
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            if so.cursor_position == 1
-                || <u16 as Into<usize>>::into(so.cursor_position) > so.string.len()
-            {
+            // On delete, remove the character under the cursor from the so.string
+            // But if we are at the column right after the last character, do nothing.
+            if so.cursor_position >= last_available_column {
                 return Ok(());
             }
             so.cursor_position = so.cursor_position.saturating_sub(1);
@@ -141,8 +161,6 @@ where
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            write!(out, "{}", cursor::Hide)?;
-            // Return the so.string when enter is pressed
             so.is_input_done = true;
         }
         Event::Key(KeyEvent {
@@ -150,7 +168,7 @@ where
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            if so.cursor_position == 1 {
+            if so.cursor_position == FIRST_AVAILABLE_COLUMN {
                 return Ok(());
             }
             so.cursor_position = so.cursor_position.saturating_sub(1);
@@ -161,13 +179,14 @@ where
             modifiers: KeyModifiers::CONTROL,
             ..
         }) => {
-            so.cursor_position = u16::try_from(
-                *so.word_index
-                    .iter()
-                    .rfind(|c| c < &&(so.cursor_position as usize))
-                    .unwrap_or(&(so.cursor_position as usize)),
-            )
-            .unwrap();
+            // Find the column number where a word starts which is exactly before the current
+            // cursor position
+            // If we can't find any such column, jump to the very first available column
+            so.cursor_position = *so
+                .word_index
+                .iter()
+                .rfind(|c| c < &&so.cursor_position)
+                .unwrap_or(&FIRST_AVAILABLE_COLUMN);
             term::move_cursor(out, so.cursor_position, so.rows, true)?;
         }
         Event::Key(KeyEvent {
@@ -175,7 +194,7 @@ where
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            if <u16 as Into<usize>>::into(so.cursor_position) > so.string.len() {
+            if so.cursor_position >= last_available_column {
                 return Ok(());
             }
             so.cursor_position = so.cursor_position.saturating_add(1);
@@ -186,13 +205,14 @@ where
             modifiers: KeyModifiers::CONTROL,
             ..
         }) => {
-            so.cursor_position = u16::try_from(
-                *so.word_index
-                    .iter()
-                    .find(|c| c > &&(so.cursor_position as usize))
-                    .unwrap_or(&(so.cursor_position as usize))
-            )
-            .unwrap();
+            // Find the column number where a word starts which is exactly after the current
+            // cursor position
+            // If we can't find any such column, jump to the very last available column
+            so.cursor_position = *so
+                .word_index
+                .iter()
+                .find(|c| c > &&so.cursor_position)
+                .unwrap_or(&last_available_column);
             term::move_cursor(out, so.cursor_position, so.rows, true)?;
         }
         Event::Key(KeyEvent {
@@ -213,8 +233,8 @@ where
         }
 
         Event::Key(event) => {
-            // For any character key, without a modifier, append it to the
-            // so.string and update the line
+            // For any character key, without a modifier, insert it into so.string before
+            // current cursor positon and update the line
             if let KeyCode::Char(c) = event.code {
                 so.string
                     .insert(so.cursor_position.saturating_sub(1).into(), c);
@@ -254,11 +274,10 @@ pub fn fetch_input(
     // - Clear the prompt
     // - Write the search character and
     // - Show the cursor
-    #[allow(clippy::cast_possible_truncation)]
+    term::move_cursor(out, 0, rows.try_into().unwrap(), false)?;
     write!(
         out,
-        "{}{}{}{}",
-        MoveTo(0, rows as u16),
+        "{}{}{}",
         Clear(ClearType::CurrentLine),
         search_char,
         cursor::Show
@@ -287,13 +306,8 @@ pub fn fetch_input(
         }
     }
     // Teardown: almost opposite of setup
-    write!(
-        out,
-        "{}{}{}",
-        MoveTo(0, rows as u16),
-        Clear(ClearType::CurrentLine),
-        cursor::Hide
-    )?;
+    term::move_cursor(out, 0, rows.try_into().unwrap(), false)?;
+    write!(out, "{}{}", Clear(ClearType::CurrentLine), cursor::Hide)?;
     out.flush()?;
     Ok(search_opts.string)
 }
@@ -414,13 +428,13 @@ mod tests {
             event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers},
             terminal::{Clear, ClearType},
         };
-        use std::io::Write;
+        use std::{convert::TryInto, io::Write};
 
         const fn new_search_opts(sm: SearchMode) -> SearchOpts {
             let search_char = match sm {
                 SearchMode::Forward => '/',
                 SearchMode::Reverse => '?',
-                _ => unreachable!(),
+                SearchMode::Unknown => unreachable!(),
             };
             SearchOpts {
                 search_char,
@@ -442,9 +456,10 @@ mod tests {
             })
         }
 
-        fn pretest_setup() -> (SearchOpts, Vec<u8>, u16, &'static str) {
+        fn pretest_setup_forward_search() -> (SearchOpts, Vec<u8>, u16, &'static str) {
             const QUERY_STRING: &str = "this is@complex-text_search?query"; // length = 33
-            const LAST_MOVABLE_COLUMN: u16 = (QUERY_STRING.len() as u16) + 1; // 34
+            #[allow(clippy::cast_possible_truncation)]
+            let last_movable_column: u16 = (QUERY_STRING.len() as u16) + 1; // 34
 
             let mut search_opts = new_search_opts(SearchMode::Forward);
             let mut out = Vec::with_capacity(1500);
@@ -453,8 +468,8 @@ mod tests {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
                 handle_key_press(&mut out, &mut search_opts).unwrap();
             }
-            assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
-            (search_opts, out, LAST_MOVABLE_COLUMN, QUERY_STRING)
+            assert_eq!(search_opts.cursor_position, last_movable_column);
+            (search_opts, out, last_movable_column, QUERY_STRING)
         }
 
         #[test]
@@ -494,7 +509,7 @@ mod tests {
         #[test]
         fn home_end_keys() {
             // Setup
-            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup();
+            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
 
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
             handle_key_press(&mut out, &mut search_opts).unwrap();
@@ -507,8 +522,8 @@ mod tests {
 
         #[test]
         fn basic_left_arrow_movement() {
-            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup();
             const FIRST_MOVABLE_COLUMN: u16 = 1;
+            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
             let query_string_length = last_movable_column - 1;
 
             // We are currently at the very next column to the last char
@@ -530,7 +545,7 @@ mod tests {
         #[test]
         fn basic_right_arrow_movement() {
             // Setup
-            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup();
+            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
             // Go to the 1st char
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
             handle_key_press(&mut out, &mut search_opts).unwrap();
@@ -551,11 +566,13 @@ mod tests {
 
         #[test]
         fn right_jump_by_word() {
-            // Setup
-            let (mut search_opts, mut out, _last_movable_column, _) = pretest_setup();
-            // LAST_MOVABLE_COLUMN = _last_movable_column = 34
-            const LAST_MOVABLE_COLUMN: u16 = 34;
             const JUMP_COLUMNS: [u16; 10] = [1, 5, 6, 8, 9, 16, 17, 28, 29, LAST_MOVABLE_COLUMN];
+            // Setup
+            let (mut search_opts, mut out, _last_movable_column, _) =
+                pretest_setup_forward_search();
+            // LAST_MOVABLE_COLUMN = _last_movable_column = 34
+            #[allow(clippy::items_after_statements)]
+            const LAST_MOVABLE_COLUMN: u16 = 34;
 
             // Go to the 1st char
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
@@ -572,22 +589,24 @@ mod tests {
             for i in &JUMP_COLUMNS[1..] {
                 search_opts.ev = Some(ev.clone());
                 handle_key_press(&mut out, &mut search_opts).unwrap();
-                assert_eq!(search_opts.cursor_position, *i)
+                assert_eq!(search_opts.cursor_position, *i);
             }
             // Pressing ctrl+right will not do anything any keep the cursor at the very next column
             // to the last char
-            search_opts.ev = Some(ev.clone());
+            search_opts.ev = Some(ev);
             handle_key_press(&mut out, &mut search_opts).unwrap();
             assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
         }
 
         #[test]
         fn left_jump_by_word() {
-            // Setup
-            let (mut search_opts, mut out, _last_movable_column, _) = pretest_setup();
-            // LAST_MOVABLE_COLUMN = _last_movable_column = 34
-            const LAST_MOVABLE_COLUMN: u16 = 34;
             const JUMP_COLUMNS: [u16; 10] = [1, 5, 6, 8, 9, 16, 17, 28, 29, LAST_MOVABLE_COLUMN];
+            // Setup
+            let (mut search_opts, mut out, _last_movable_column, _) =
+                pretest_setup_forward_search();
+            // LAST_MOVABLE_COLUMN = _last_movable_column = 34
+            #[allow(clippy::items_after_statements)]
+            const LAST_MOVABLE_COLUMN: u16 = 34;
 
             // We are currently at the very next column to the last char
             let ev = Event::Key(KeyEvent {
@@ -598,20 +617,20 @@ mod tests {
             });
 
             // Jump right word by word
-            for i in (&JUMP_COLUMNS[..(JUMP_COLUMNS.len() - 1)]).iter().rev() {
+            for i in (JUMP_COLUMNS[..(JUMP_COLUMNS.len() - 1)]).iter().rev() {
                 search_opts.ev = Some(ev.clone());
                 handle_key_press(&mut out, &mut search_opts).unwrap();
-                assert_eq!(search_opts.cursor_position, *i)
+                assert_eq!(search_opts.cursor_position, *i);
             }
             // Pressing ctrl+left will not do anything and keep the cursor at the very first column
-            search_opts.ev = Some(ev.clone());
+            search_opts.ev = Some(ev);
             handle_key_press(&mut out, &mut search_opts).unwrap();
             assert_eq!(search_opts.cursor_position, JUMP_COLUMNS[0]);
         }
 
         #[test]
         fn esc_key() {
-            let (mut search_opts, mut out, _, _) = pretest_setup();
+            let (mut search_opts, mut out, _, _) = pretest_setup_forward_search();
 
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Esc));
             handle_key_press(&mut out, &mut search_opts).unwrap();
@@ -619,8 +638,9 @@ mod tests {
         }
 
         #[test]
-        fn sequential_text_input_screen_data() {
-            let (search_opts, out, _last_movable_column, query_string) = pretest_setup();
+        fn forward_sequential_text_input_screen_data() {
+            let (search_opts, out, _last_movable_column, query_string) =
+                pretest_setup_forward_search();
 
             let mut result_out = Vec::with_capacity(1500);
 
@@ -632,9 +652,42 @@ mod tests {
                 cursor_position = cursor_position.saturating_add(1);
                 write!(
                     result_out,
-                    "\r{clear_line}{search_char}{string}{move_to_position}",
+                    "\r{clear_line}/{string}{move_to_position}",
                     clear_line = Clear(ClearType::CurrentLine),
-                    search_char = '/',
+                    move_to_position = MoveTo(cursor_position, search_opts.rows),
+                )
+                .unwrap();
+            }
+            assert_eq!(out, result_out);
+        }
+
+        #[test]
+        fn backward_sequential_text_input_screen_data() {
+            const QUERY_STRING: &str = "this is@complex-text_search?query"; // length = 33
+            #[allow(clippy::cast_possible_truncation)]
+            const LAST_MOVABLE_COLUMN: u16 = (QUERY_STRING.len() as u16) + 1; // 34
+
+            let mut search_opts = new_search_opts(SearchMode::Reverse);
+            let mut out = Vec::with_capacity(1500);
+
+            for c in QUERY_STRING.chars() {
+                search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
+                handle_key_press(&mut out, &mut search_opts).unwrap();
+            }
+            assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
+
+            let mut result_out = Vec::with_capacity(1500);
+
+            // Try to recreate the behaviour of handle_key_press when new char is entered
+            let mut string = String::with_capacity(QUERY_STRING.len());
+            let mut cursor_position: u16 = 1;
+            for c in QUERY_STRING.chars() {
+                string.push(c);
+                cursor_position = cursor_position.saturating_add(1);
+                write!(
+                    result_out,
+                    "\r{clear_line}?{string}{move_to_position}",
+                    clear_line = Clear(ClearType::CurrentLine),
                     move_to_position = MoveTo(cursor_position, search_opts.rows),
                 )
                 .unwrap();
