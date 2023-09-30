@@ -75,6 +75,7 @@ use super::RUNMODE;
 ///
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
+#[allow(clippy::too_many_lines)]
 pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
     #[allow(unused_mut)]
     let mut out = stdout();
@@ -148,7 +149,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     #[cfg(feature = "search")]
     let input_thread_running2 = input_thread_running.clone();
 
-    let res = std::thread::scope(|s| -> Result<(), MinusError> {
+    std::thread::scope(|s| -> crate::Result {
         let out = Arc::new(out);
         let out_copy = out.clone();
         let is_exitted3 = is_exitted.clone();
@@ -192,8 +193,8 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
             res
         });
 
-        let r1 = t1.join();
-        let r2 = t2.join();
+        let r1 = t1.join().unwrap();
+        let r2 = t2.join().unwrap();
 
         if r1.is_err() {
             r1.unwrap()
@@ -202,8 +203,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         } else {
             Ok(())
         }
-    });
-    res
+    })
 }
 
 /// Continously displays the output and reacts to events
