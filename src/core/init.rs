@@ -118,9 +118,14 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     // Setup terminal, adjust line wraps and get rows
     term::setup(&out)?;
 
+    // Has the user quitted
+    let is_exitted = Arc::new(AtomicBool::new(false));
+    let is_exitted2 = is_exitted.clone();
+
     {
         let panic_hook = panic::take_hook();
         panic::set_hook(Box::new(move |pinfo| {
+            is_exitted2.store(true, std::sync::atomic::Ordering::SeqCst);
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will cause UB.
             drop(term::cleanup(
@@ -143,36 +148,62 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     #[cfg(feature = "search")]
     let input_thread_running2 = input_thread_running.clone();
 
-    let (r1, r2) = std::thread::scope(|s| -> (Result<(), MinusError>, Result<(), MinusError>) {
-        // Has the user quitted
-        let is_exitted = Arc::new(AtomicBool::new(false));
-        let is_exitted2 = is_exitted.clone();
+    let res = std::thread::scope(|s| -> Result<(), MinusError> {
+        let out = Arc::new(out);
+        let out_copy = out.clone();
+        let is_exitted3 = is_exitted.clone();
+        let is_exitted4 = is_exitted.clone();
 
         let t1 = s.spawn(move || {
-            event_reader(
+            let res = event_reader(
                 &evtx,
                 &p1,
                 #[cfg(feature = "search")]
                 &input_thread_running2,
-                &is_exitted2,
-            )
+                &is_exitted3,
+            );
+
+            if res.is_err() {
+                is_exitted3.store(true, std::sync::atomic::Ordering::SeqCst);
+                let mut rm = RUNMODE.lock();
+                *rm = RunMode::Uninitialized;
+                drop(rm);
+                term::cleanup(out.as_ref(), &crate::ExitStrategy::PagerQuit, true)?;
+            }
+            res
         });
         let t2 = s.spawn(move || {
-            start_reactor(
+            let res = start_reactor(
                 &rx,
                 &ps_mutex,
-                &out,
+                &out_copy,
                 #[cfg(feature = "search")]
                 &input_thread_running,
-                &is_exitted,
-            )
+                &is_exitted4,
+            );
+
+            if res.is_err() {
+                is_exitted4.store(true, std::sync::atomic::Ordering::SeqCst);
+                let mut rm = RUNMODE.lock();
+                *rm = RunMode::Uninitialized;
+                drop(rm);
+                term::cleanup(out_copy.as_ref(), &crate::ExitStrategy::PagerQuit, true)?;
+            }
+            res
         });
-        let (r1, r2) = (t1.join().unwrap(), t2.join().unwrap());
-        (r1, r2)
+
+        let r1 = t1.join();
+        let r2 = t2.join();
+
+        if r1.is_err() {
+            r1.unwrap()
+        } else if r2.is_err() {
+            r2.unwrap()
+        } else {
+            Ok(())
+        }
     });
-    r1?;
-    r2?;
-    Ok(())
+    res
 }
 
 /// Continously displays the output and reacts to events
