@@ -66,7 +66,7 @@ pub fn handle_event(
             *active = false;
             drop(active);
             // let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
-            let string = search::incremental_search(&mut out, p.search_mode, p)?;
+            let string = search::fetch_input(&mut out, p)?;
             let mut active = lock.lock();
             *active = true;
             drop(active);
@@ -81,8 +81,14 @@ pub fn handle_event(
                     // Reset search mark so it won't be out of bounds if we have
                     // less matches in this search than last time
                     p.search_mark = 0;
+
                     // Move to next search match after the current upper_mark
-                    search::next_nth_match(p, 1);
+                    let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
+                    p.search_mark = position_of_next_match;
+                    if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
+                        p.upper_mark = *idx;
+                    }
+
                     p.format_prompt();
                     display::draw_full(&mut out, p)?;
                 } else {
@@ -97,7 +103,7 @@ pub fn handle_event(
             if p.search_term.is_some() =>
         {
             // Go to the next match
-            search::next_nth_match(p, 1);
+            search::next_nth_match(&p.search_idx, p.upper_mark, 1);
             p.format_prompt();
         }
         #[cfg(feature = "search")]
@@ -121,7 +127,7 @@ pub fn handle_event(
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::MoveToNextMatch(n)) if p.search_term.is_some() => {
             // Go to the next match
-            search::next_nth_match(p, n.saturating_sub(1));
+            search::next_nth_match(&p.search_idx, p.upper_mark, n.saturating_sub(1));
             p.format_prompt();
         }
         #[cfg(feature = "search")]

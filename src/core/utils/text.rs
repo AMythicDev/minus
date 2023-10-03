@@ -66,7 +66,7 @@ pub struct FormatOpts<'a> {
     /// Status of line numbers
     pub line_numbers: LineNumbers,
     /// This is equal to the number of lines in [`PagerState::lines`](crate::state::PagerState::lines). This basically tells what line
-    /// number the line will hold.
+    /// number the upcoming line will hold.
     pub lines_count: usize,
     /// This is equal to the number of lines in [`PagerState::formatted_lines`](crate::state::PagerState::lines). This is used to
     /// calculate the search index of the rows of the line.
@@ -431,6 +431,30 @@ pub fn wrap_str(line: &str, cols: usize) -> Vec<String> {
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<String>>()
+}
+
+pub(crate) fn make_format_lines(text: &String, line_numbers: LineNumbers, prev_unterminated: usize, cols: usize, #[cfg(feature = "search")] search_term: &Option<regex::Regex>) -> FormatResult {
+    // Keep it for record and don't call it unless it is really necessory as this is kinda
+    // expensive
+    let line_count = text.lines().count();
+
+    // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
+    let len_line_number = line_count.to_string().len();
+
+    let format_opts = FormatOpts {
+        text,
+        attachment: None,
+        line_numbers,
+        len_line_number,
+        formatted_lines_count: 0,
+        lines_count: 0,
+        prev_unterminated,
+        cols,
+        #[cfg(feature = "search")]
+        search_term,
+    };
+
+    format_text_block(format_opts)
 }
 
 #[cfg(test)]

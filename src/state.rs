@@ -5,7 +5,7 @@ use crate::{
     input::{self, HashedEventRegister},
     minus_core::{
         self,
-        utils::text::{self, AppendStyle, FormatResult},
+        utils::text::{self, AppendStyle},
     },
     ExitStrategy, LineNumbers,
 };
@@ -210,7 +210,7 @@ impl PagerState {
     }
 
     pub(crate) fn format_lines(&mut self) {
-        let format_result = self.make_format_lines();
+        let format_result = text::make_format_lines(&self.lines, self.line_numbers, self.unterminated, self.cols, #[cfg(feature = "search")] &self.search_term);
         #[cfg(feature = "search")]
         {
             self.search_idx = format_result.append_search_idx;
@@ -222,29 +222,6 @@ impl PagerState {
         self.format_prompt();
     }
 
-    pub(crate) fn make_format_lines(&self) -> FormatResult {
-        // Keep it for the record and don't call it unless it is really necessory as this is kinda
-        // expensive
-        let line_count = self.lines.lines().count();
-
-        // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
-        let len_line_number = line_count.to_string().len();
-
-        let format_opts = text::FormatOpts {
-            text: &self.lines,
-            attachment: None,
-            line_numbers: self.line_numbers,
-            len_line_number,
-            formatted_lines_count: 0,
-            lines_count: 0,
-            prev_unterminated: self.unterminated,
-            cols: self.cols,
-            #[cfg(feature = "search")]
-            search_term: &self.search_term,
-        };
-
-        text::format_text_block(format_opts)
-    }
 
     /// Reformat the inputted prompt to how it should be displayed
     pub(crate) fn format_prompt(&mut self) {
