@@ -60,50 +60,68 @@ pub fn handle_event(
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
+
             // Pause the main user input thread, read search query and then restart the main input thread
             let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
             let mut active = lock.lock();
             *active = false;
             drop(active);
             // let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
-            let string = search::fetch_input(&mut out, p)?;
+            let search_result = search::fetch_input(&mut out, p)?;
             let mut active = lock.lock();
             *active = true;
             drop(active);
             cvar.notify_one();
 
-            if !string.is_empty() {
-                let regex = regex::Regex::new(string.as_str());
-                if let Ok(r) = regex {
-                    p.search_term = Some(r);
-                    // Format the lines, this will automatically generate the PagerState.search_idx
-                    p.format_lines();
-                    // Reset search mark so it won't be out of bounds if we have
-                    // less matches in this search than last time
-                    p.search_mark = 0;
+            if let Some(incremental_search_result) = search_result.incremental_search_result {
+                p.search_term = search_result.compiled_regex;
+                p.upper_mark = incremental_search_result.upper_mark;
+                p.search_mark = incremental_search_result.searh_mark;
+                p.search_idx = incremental_search_result.search_idx;
+                p.formatted_lines = incremental_search_result.formatted_lines;
+                return Ok(());
+            }
 
-                    // Move to next search match after the current upper_mark
-                    let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
-                    p.search_mark = position_of_next_match;
-                    if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
-                        p.upper_mark = *idx;
-                    }
-
-                    p.format_prompt();
-                    display::draw_full(&mut out, p)?;
-                } else {
-                    // Send invalid regex message at the prompt if invalid regex is given
+            p.search_term = if search_result.compiled_regex.is_some() {
+                search_result.compiled_regex
+            } else if !search_result.string.is_empty() {
+                let compiled_regex = regex::Regex::new(&search_result.string).ok();
+                if compiled_regex.is_none() {
                     p.message = Some("Invalid regular expression. Press Enter".to_owned());
                     p.format_prompt();
                 }
+                compiled_regex
+            } else {
+                return Ok(());
+            };
+
+            // Format the lines, this will automatically generate the PagerState.search_idx
+            p.format_lines();
+            // Reset search mark so it won't be out of bounds if we have
+            // less matches in this search than last time
+            p.search_mark = 0;
+
+            // Move to next search match after the current upper_mark
+            let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
+            p.search_mark = position_of_next_match;
+            if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
+                p.upper_mark = *idx;
             }
+
+            p.format_prompt();
+            display::draw_full(&mut out, p)?;
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
             if p.search_term.is_some() =>
         {
-            // Go to the next match
-            search::next_nth_match(&p.search_idx, p.upper_mark, 1);
+            // Move to next search match after the current upper_mark
+            let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
+            p.search_mark = position_of_next_match;
+            if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
+                p.upper_mark = *idx;
+            }
+
             p.format_prompt();
         }
         #[cfg(feature = "search")]
@@ -126,8 +144,12 @@ pub fn handle_event(
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::MoveToNextMatch(n)) if p.search_term.is_some() => {
-            // Go to the next match
-            search::next_nth_match(&p.search_idx, p.upper_mark, n.saturating_sub(1));
+            // Move to next nth search match after the current upper_mark
+            let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, n);
+            p.search_mark = position_of_next_match;
+            if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
+                p.upper_mark = *idx;
+            }
             p.format_prompt();
         }
         #[cfg(feature = "search")]

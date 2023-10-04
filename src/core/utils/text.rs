@@ -433,7 +433,12 @@ pub fn wrap_str(line: &str, cols: usize) -> Vec<String> {
         .collect::<Vec<String>>()
 }
 
-pub(crate) fn make_format_lines(text: &String, line_numbers: LineNumbers, prev_unterminated: usize, cols: usize, #[cfg(feature = "search")] search_term: &Option<regex::Regex>) -> FormatResult {
+pub fn make_format_lines(
+    text: &String,
+    line_numbers: LineNumbers,
+    cols: usize,
+    #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
+) -> FormatResult {
     // Keep it for record and don't call it unless it is really necessory as this is kinda
     // expensive
     let line_count = text.lines().count();
@@ -448,7 +453,7 @@ pub(crate) fn make_format_lines(text: &String, line_numbers: LineNumbers, prev_u
         len_line_number,
         formatted_lines_count: 0,
         lines_count: 0,
-        prev_unterminated,
+        prev_unterminated: 0,
         cols,
         #[cfg(feature = "search")]
         search_term,

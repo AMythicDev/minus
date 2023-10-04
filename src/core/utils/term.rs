@@ -1,7 +1,13 @@
 //! Contains functions for dealing with setup, cleanup
 
+#![allow(dead_code)]
+
 use crate::error::{CleanupError, MinusError, SetupError};
-use crossterm::{cursor, event, execute, queue, terminal, tty::IsTty};
+use crossterm::{
+    cursor, event, execute, queue,
+    terminal::{self, Clear},
+    tty::IsTty,
+};
 use std::io;
 
 /// Setup the terminal
@@ -82,6 +88,14 @@ pub fn move_cursor(
     flush: bool,
 ) -> Result<(), MinusError> {
     queue!(out, cursor::MoveTo(x, y))?;
+    if flush {
+        out.flush()?;
+    }
+    Ok(())
+}
+
+pub fn clear_entire_screen(out: &mut impl io::Write, flush: bool) -> crate::Result {
+    queue!(out, Clear(terminal::ClearType::All))?;
     if flush {
         out.flush()?;
     }

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crossterm::{
     cursor::MoveTo,
     execute, queue,
@@ -7,7 +9,7 @@ use crossterm::{
 
 use std::{cmp::Ordering, convert::TryInto, io::Write};
 
-use super::{term::move_cursor, text::AppendStyle};
+use super::{term, text::AppendStyle};
 use crate::{error::MinusError, PagerState};
 
 /// Handles drawing of screen based on movement
@@ -63,7 +65,7 @@ pub fn draw_for_change(
                 out,
                 crossterm::terminal::ScrollUp(normalized_delta.try_into().unwrap())
             )?;
-            move_cursor(
+            term::move_cursor(
                 out,
                 0,
                 p.rows
@@ -88,7 +90,7 @@ pub fn draw_for_change(
                 out,
                 crossterm::terminal::ScrollDown(normalized_delta.try_into().unwrap())
             )?;
-            move_cursor(out, 0, 0, false)?;
+            term::move_cursor(out, 0, 0, false)?;
 
             p.get_formatted_lines_with_bounds(
                 *new_upper_mark,
@@ -164,7 +166,7 @@ pub fn draw_append_text(
 
     if prev_fmt_lines_count < ps.rows {
         // Move the cursor to the very next line after the last displayed line
-        move_cursor(
+        term::move_cursor(
             out,
             0,
             prev_fmt_lines_count
@@ -239,6 +241,9 @@ pub fn write_text_checked(
 
     // Add \r to ensure cursor is placed at the beginning of each row
     let display_lines: &[String] = &lines[*upper_mark..lower_mark];
+
+    term::move_cursor(out, 0, 0, false)?;
+    term::clear_entire_screen(out, false)?;
 
     write_lines(out, display_lines, Some("\r"))
 }

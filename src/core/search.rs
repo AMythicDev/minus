@@ -57,7 +57,8 @@ impl PartialEq for SearchMode {
 }
 
 /// Options controlling the behaviour of [handle_key_press] by event
-struct SearchOpts<'a> {
+#[allow(clippy::module_name_repetitions)]
+pub struct SearchOpts<'a> {
     /// Event to respond to
     ev: Option<Event>,
     /// Current string query
@@ -74,18 +75,66 @@ struct SearchOpts<'a> {
     rows: u16,
     /// Number of rows available in the terminal
     cols: u16,
+    incremental_search_options: Option<IncrementalSearchOpts<'a>>,
+    incremental_search_result: Option<IncrementalSearchResult>,
+    compiled_regex: Option<Regex>,
+}
+
+pub(crate) struct IncrementalSearchOpts<'a> {
+    /// Current upper mark
+    upper_mark: usize,
     /// Text to be searched
     text: &'a String,
     /// Current status of line numbering
     line_numbers: LineNumbers,
-    /// Number of lines unterminated currently
-    prev_unterminated: usize,
-    /// Current value of [PagerState::upper_mark]
-    upper_mark: usize,
-    /// Cached results of the current incremental search run
-    incremental_search_result: Option<IncrementalSearchResult>,
+    /// Reference tp [PagerState::formatted_lines] before starting of search prompt
+    initial_formatted_lines: &'a Vec<String>,
+    /// Value of [PagerState::upper_mark] before starting of search prompt
+    initial_upper_mark: usize,
 }
 
+impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
+    fn from(ps: &'a PagerState) -> Self {
+        Self {
+            text: &ps.lines,
+            line_numbers: ps.line_numbers,
+            initial_upper_mark: ps.upper_mark,
+            upper_mark: ps.upper_mark,
+            initial_formatted_lines: &ps.formatted_lines,
+        }
+    }
+}
+
+#[allow(clippy::fallible_impl_from)]
+impl<'a> From<&'a PagerState> for SearchOpts<'a> {
+    fn from(ps: &'a PagerState) -> Self {
+        let search_char = if ps.search_mode == SearchMode::Forward {
+            '/'
+        } else if ps.search_mode == SearchMode::Reverse {
+            '?'
+        } else {
+            unreachable!();
+        };
+
+        let incremental_search_options = IncrementalSearchOpts::from(ps);
+
+        Self {
+            ev: None,
+            string: String::with_capacity(200),
+            input_status: InputStatus::Active,
+            cursor_position: 1,
+            word_index: Vec::with_capacity(200),
+            search_char,
+            rows: ps.rows.try_into().unwrap(),
+            cols: ps.cols.try_into().unwrap(),
+            incremental_search_options: Some(incremental_search_options),
+            incremental_search_result: None,
+            compiled_regex: None,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 enum InputStatus {
     /// Closed due to confirmation of search query using `Enter`
     Confirmed,
@@ -96,40 +145,116 @@ enum InputStatus {
 }
 
 impl InputStatus {
-    fn done(&self) -> bool {
-        matches!(self, Self::Cancelled | Self::Cancelled)
+    const fn done(&self) -> bool {
+        matches!(self, Self::Cancelled | Self::Confirmed)
     }
 }
 
-struct FetchInputResult {
-    string: String,
-    incremental_search_result: Option<IncrementalSearchResult>,
+pub(crate) struct FetchInputResult {
+    pub(crate) string: String,
+    pub(crate) incremental_search_result: Option<IncrementalSearchResult>,
+    pub(crate) compiled_regex: Option<Regex>,
 }
 
 impl FetchInputResult {
-    fn new_empty() -> Self {
+    const fn new_empty() -> Self {
         Self {
             string: String::new(),
             incremental_search_result: None,
+            compiled_regex: None,
         }
     }
 }
 
-struct IncrementalSearchResult {
-    formatted_lines: Vec<String>,
-    searh_mark: usize,
-    search_idx: BTreeSet<usize>,
-    upper_mark: usize,
-    compiled_regex: Option<Regex>,
+pub(crate) struct IncrementalSearchResult {
+    pub(crate) formatted_lines: Vec<String>,
+    pub(crate) searh_mark: usize,
+    pub(crate) search_idx: BTreeSet<usize>,
+    pub(crate) upper_mark: usize,
+}
+
+fn run_incremental_search<'a, F, O>(
+    out: &mut O,
+    so: &'a SearchOpts<'a>,
+    incremental_search_condition: F,
+) -> crate::Result<Option<IncrementalSearchResult>>
+where
+    O: Write,
+    F: Fn(&'a SearchOpts) -> bool,
+{
+    if so.incremental_search_options.is_none() {
+        return Ok(None);
+    }
+    let incremental_search_options = so.incremental_search_options.as_ref().unwrap();
+    let mut initial_upper_mark = incremental_search_options.initial_upper_mark;
+
+    let should_proceed = incremental_search_condition(so);
+
+    if so.incremental_search_result.is_some() && (so.compiled_regex.is_none() || !(should_proceed))
+    {
+        display::write_text_checked(
+            out,
+            incremental_search_options.initial_formatted_lines,
+            so.rows.into(),
+            &mut initial_upper_mark,
+        )?;
+        return Ok(None);
+    }
+
+    if so.compiled_regex.is_none() && !should_proceed {
+        return Ok(None);
+    }
+
+    let format_result = text::make_format_lines(
+        incremental_search_options.text,
+        incremental_search_options.line_numbers,
+        so.cols.try_into().unwrap(),
+        &so.compiled_regex,
+    );
+
+    let position_of_next_match = next_nth_match(
+        &format_result.append_search_idx,
+        incremental_search_options.upper_mark,
+        1,
+    );
+
+    let mut upper_mark;
+    if let Some(idx) = format_result
+        .append_search_idx
+        .iter()
+        .nth(position_of_next_match)
+    {
+        upper_mark = *idx;
+    } else {
+        display::write_text_checked(
+            out,
+            incremental_search_options.initial_formatted_lines,
+            so.rows.into(),
+            &mut initial_upper_mark,
+        )?;
+        return Ok(None);
+    }
+    display::write_text_checked(out, &format_result.lines, so.rows.into(), &mut upper_mark)?;
+    Ok(Some(IncrementalSearchResult {
+        formatted_lines: format_result.lines,
+        searh_mark: position_of_next_match,
+        upper_mark,
+        search_idx: format_result.append_search_idx,
+    }))
 }
 
 /// Respond to keyboard events
 ///
 /// This souuld be called exactly once for each event by [fetch_input]
 #[allow(clippy::too_many_lines)]
-fn handle_key_press<O>(out: &mut O, so: &mut SearchOpts<'_>) -> crate::Result
+fn handle_key_press<O, F>(
+    out: &mut O,
+    so: &mut SearchOpts<'_>,
+    incremental_search_condition: F,
+) -> crate::Result
 where
     O: Write,
+    F: Fn(&SearchOpts<'_>) -> bool,
 {
     // Bounds between which our cursor can move
     const FIRST_AVAILABLE_COLUMN: u16 = 1;
@@ -140,57 +265,23 @@ where
         return Ok(());
     }
 
-    let populate_word_index = |so: &mut SearchOpts| {
+    let populate_word_index = |so: &mut SearchOpts<'_>| {
         so.word_index = WORD
             .find_iter(&so.string)
             .map(|c| c.start().saturating_add(1).try_into().unwrap())
             .collect::<Vec<u16>>();
     };
 
-    let mut run_incremental_search = |out: &mut O,
-                                      so: &mut SearchOpts<'_>,
-                                      search_term: &Option<Regex>|
-     -> crate::Result<IncrementalSearchResult> {
-        let format_result = text::make_format_lines(
-            so.text,
-            so.line_numbers,
-            so.prev_unterminated,
-            so.cols.try_into().unwrap(),
-            search_term,
-        );
-        let position_of_next_match =
-            next_nth_match(&format_result.append_search_idx, so.upper_mark, 1);
-        if let Some(idx) = format_result
-            .append_search_idx
-            .iter()
-            .nth(position_of_next_match)
-        {
-            so.upper_mark = *idx;
-        }
-        display::write_text_checked(
-            out,
-            &format_result.lines,
-            so.rows.into(),
-            &mut so.upper_mark,
-        )?;
-        Ok(IncrementalSearchResult {
-            formatted_lines: format_result.lines,
-            searh_mark: position_of_next_match,
-            upper_mark: so.upper_mark,
-            search_idx: format_result.append_search_idx,
-            compiled_regex: None,
-        })
-    };
-
     let refresh_display = |out: &mut O, so: &mut SearchOpts<'_>| -> Result<(), MinusError> {
-        so.incremental_search_result = None;
-        term::move_cursor(out, 0, 0, false)?;
-        let search_term = Regex::new(&so.string).ok();
-        // XXX: Make this overridable by applications and set something better for it
-        let condition = true;
-        if search_term.is_some() && condition {
-            so.incremental_search_result  = Some(run_incremental_search(out, so, &search_term)?);
+        so.compiled_regex = Regex::new(&so.string).ok();
+
+        so.incremental_search_result =
+            run_incremental_search(out, so, incremental_search_condition)?;
+        if let Some(IncrementalSearchResult { upper_mark, .. }) = so.incremental_search_result {
+            so.incremental_search_options.as_mut().unwrap().upper_mark = upper_mark;
         }
+
+        term::move_cursor(out, 0, so.rows, false)?;
         write!(
             out,
             "\r{}{}{}",
@@ -352,9 +443,9 @@ where
 /// It will then store the query in a String and return it when `Return` key is pressed
 /// or return with a empty string if so match is found.
 #[cfg(feature = "search")]
-pub fn fetch_input(
+pub(crate) fn fetch_input(
     out: &mut impl std::io::Write,
-    ps: &mut PagerState,
+    ps: &PagerState,
 ) -> Result<FetchInputResult, MinusError> {
     // Set the search character to show at column 0
     let search_char = if ps.search_mode == SearchMode::Forward {
@@ -378,27 +469,21 @@ pub fn fetch_input(
     )?;
     out.flush()?;
 
-    let mut search_opts = SearchOpts {
-        search_char,
-        input_status: InputStatus::Active,
-        ev: None,
-        word_index: Vec::with_capacity(200),
-        cursor_position: 1,
-        string: String::new(),
-        rows: ps.rows.try_into().unwrap(),
-        cols: ps.cols.try_into().unwrap(),
-        upper_mark: ps.upper_mark,
-        prev_unterminated: ps.unterminated,
-        line_numbers: ps.line_numbers,
-        text: &ps.lines,
-        incremental_search_result: None,
-    };
+    let text_lines_count = ps.lines.lines().count();
+
+    let mut search_opts = SearchOpts::from(ps);
 
     loop {
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
             search_opts.ev = Some(ev);
-            handle_key_press(out, &mut search_opts)?;
+            handle_key_press(
+                out,
+                &mut search_opts,
+                |search_opts: &SearchOpts<'_>| -> bool {
+                    search_opts.string.len() >= 2 && text_lines_count < 5000
+                },
+            )?;
             search_opts.ev = None;
         }
         if search_opts.input_status.done() {
@@ -418,6 +503,7 @@ pub fn fetch_input(
                 string: search_opts.string,
                 // TODO: Allow incremental search result to be propagated upward
                 incremental_search_result: search_opts.incremental_search_result,
+                compiled_regex: search_opts.compiled_regex,
             }
         }
     };
@@ -509,7 +595,8 @@ pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool
 ///
 /// This function will continue looping untill it finds a match that is after the
 /// [`PagerState::upper_mark`]
-pub fn next_nth_match(search_idx: &BTreeSet<usize>, upper_mark: usize, n: usize) -> usize {
+#[must_use]
+pub(crate) fn next_nth_match(search_idx: &BTreeSet<usize>, upper_mark: usize, n: usize) -> usize {
     // Find the index of the match that's exactly after the upper_mark.
     // One we find that, we add n-1 to it to get the next nth match after upper_mark
     let mut position_of_next_match;
@@ -536,7 +623,7 @@ pub fn next_nth_match(search_idx: &BTreeSet<usize>, upper_mark: usize, n: usize)
 mod tests {
     mod input_handling {
         use crate::{
-            minus_core::search::{handle_key_press, SearchOpts},
+            minus_core::search::{handle_key_press, InputStatus, SearchOpts},
             SearchMode,
         };
         use crossterm::{
@@ -546,20 +633,25 @@ mod tests {
         };
         use std::{convert::TryInto, io::Write};
 
-        const fn new_search_opts(sm: SearchMode) -> SearchOpts {
+        fn new_search_opts(sm: SearchMode) -> SearchOpts<'static> {
             let search_char = match sm {
                 SearchMode::Forward => '/',
                 SearchMode::Reverse => '?',
                 SearchMode::Unknown => unreachable!(),
             };
+
             SearchOpts {
-                search_char,
-                is_input_done: false,
                 ev: None,
-                word_index: Vec::new(),
+                string: String::with_capacity(200),
+                input_status: InputStatus::Active,
                 cursor_position: 1,
-                string: String::new(),
-                rows: 80,
+                word_index: Vec::with_capacity(200),
+                search_char,
+                rows: 25,
+                cols: 100,
+                incremental_search_options: None,
+                incremental_search_result: None,
+                compiled_regex: None,
             }
         }
 
@@ -572,7 +664,7 @@ mod tests {
             })
         }
 
-        fn pretest_setup_forward_search() -> (SearchOpts, Vec<u8>, u16, &'static str) {
+        fn pretest_setup_forward_search() -> (SearchOpts<'static>, Vec<u8>, u16, &'static str) {
             const QUERY_STRING: &str = "this is@complex-text_search?query"; // length = 33
             #[allow(clippy::cast_possible_truncation)]
             let last_movable_column: u16 = (QUERY_STRING.len() as u16) + 1; // 34
@@ -582,7 +674,7 @@ mod tests {
 
             for c in QUERY_STRING.chars() {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts).unwrap();
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             }
             assert_eq!(search_opts.cursor_position, last_movable_column);
             (search_opts, out, last_movable_column, QUERY_STRING)
@@ -594,15 +686,15 @@ mod tests {
             let mut out = Vec::with_capacity(1500);
             for (i, c) in "text search matches".chars().enumerate() {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts).unwrap();
-                assert!(!search_opts.is_input_done);
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+                assert_eq!(search_opts.input_status, InputStatus::Active);
                 assert_eq!(search_opts.cursor_position as usize, i + 2);
             }
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Enter));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.word_index, vec![1, 5, 6, 12, 13]);
             assert_eq!(&search_opts.string, "text search matches");
-            assert!(search_opts.is_input_done);
+            assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
 
         #[test]
@@ -611,15 +703,15 @@ mod tests {
             let mut out = Vec::with_capacity(1500);
             for (i, c) in "this is@complex-text_search?query".chars().enumerate() {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts).unwrap();
-                assert!(!search_opts.is_input_done);
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+                assert_eq!(search_opts.input_status, InputStatus::Active);
                 assert_eq!(search_opts.cursor_position as usize, i + 2);
             }
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Enter));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.word_index, vec![1, 5, 6, 8, 9, 16, 17, 28, 29]);
             assert_eq!(&search_opts.string, "this is@complex-text_search?query");
-            assert!(search_opts.is_input_done);
+            assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
 
         #[test]
@@ -628,11 +720,11 @@ mod tests {
             let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
 
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.cursor_position as usize, 1);
 
             search_opts.ev = Some(make_event_from_keycode(KeyCode::End));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.cursor_position, last_movable_column);
         }
 
@@ -649,12 +741,12 @@ mod tests {
             // reaches the first char after which pressing it furthur would not have any effect
             for i in (FIRST_MOVABLE_COLUMN..=query_string_length).rev() {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Left));
-                handle_key_press(&mut out, &mut search_opts).unwrap();
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
                 assert_eq!(search_opts.cursor_position, i);
             }
             // Pressing Left arrow any more will not make any effect
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Left));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.cursor_position, FIRST_MOVABLE_COLUMN);
         }
 
@@ -664,19 +756,19 @@ mod tests {
             let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
             // Go to the 1st char
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
 
             // Check functionality of right arrow key
             // Pressing right arrow moves the cursor towards the end of string until it
             // reaches the very next column to the last char after which pressing it furthur would not have any effect
             for i in 2..=last_movable_column {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Right));
-                handle_key_press(&mut out, &mut search_opts).unwrap();
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
                 assert_eq!(search_opts.cursor_position, i);
             }
             // Pressing right arrow any more will not make any effect
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Right));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.cursor_position, last_movable_column);
         }
 
@@ -692,7 +784,7 @@ mod tests {
 
             // Go to the 1st char
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
 
             let ev = Event::Key(KeyEvent {
                 code: KeyCode::Right,
@@ -704,13 +796,13 @@ mod tests {
             // Jump right word by word
             for i in &JUMP_COLUMNS[1..] {
                 search_opts.ev = Some(ev.clone());
-                handle_key_press(&mut out, &mut search_opts).unwrap();
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
                 assert_eq!(search_opts.cursor_position, *i);
             }
             // Pressing ctrl+right will not do anything any keep the cursor at the very next column
             // to the last char
             search_opts.ev = Some(ev);
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
         }
 
@@ -735,12 +827,12 @@ mod tests {
             // Jump right word by word
             for i in (JUMP_COLUMNS[..(JUMP_COLUMNS.len() - 1)]).iter().rev() {
                 search_opts.ev = Some(ev.clone());
-                handle_key_press(&mut out, &mut search_opts).unwrap();
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
                 assert_eq!(search_opts.cursor_position, *i);
             }
             // Pressing ctrl+left will not do anything and keep the cursor at the very first column
             search_opts.ev = Some(ev);
-            handle_key_press(&mut out, &mut search_opts).unwrap();
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.cursor_position, JUMP_COLUMNS[0]);
         }
 
@@ -749,8 +841,8 @@ mod tests {
             let (mut search_opts, mut out, _, _) = pretest_setup_forward_search();
 
             search_opts.ev = Some(make_event_from_keycode(KeyCode::Esc));
-            handle_key_press(&mut out, &mut search_opts).unwrap();
-            assert!(search_opts.is_input_done);
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            assert_eq!(search_opts.input_status, InputStatus::Cancelled);
         }
 
         #[test]
@@ -768,7 +860,8 @@ mod tests {
                 cursor_position = cursor_position.saturating_add(1);
                 write!(
                     result_out,
-                    "\r{clear_line}/{string}{move_to_position}",
+                    "{move_to_prompt}\r{clear_line}/{string}{move_to_position}",
+                    move_to_prompt = MoveTo(0, search_opts.rows),
                     clear_line = Clear(ClearType::CurrentLine),
                     move_to_position = MoveTo(cursor_position, search_opts.rows),
                 )
@@ -788,7 +881,7 @@ mod tests {
 
             for c in QUERY_STRING.chars() {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts).unwrap();
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             }
             assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
 
@@ -802,7 +895,8 @@ mod tests {
                 cursor_position = cursor_position.saturating_add(1);
                 write!(
                     result_out,
-                    "\r{clear_line}?{string}{move_to_position}",
+                    "{move_to_prompt}\r{clear_line}?{string}{move_to_position}",
+                    move_to_prompt = MoveTo(0, search_opts.rows),
                     clear_line = Clear(ClearType::CurrentLine),
                     move_to_position = MoveTo(cursor_position, search_opts.rows),
                 )
@@ -827,14 +921,17 @@ mod tests {
 
         #[test]
         fn test_next_match() {
-            let mut pager = PagerState::new().unwrap();
-            pager.search_mark = 0;
             // A sample index for mocking actual search index matches
-            pager.search_idx = BTreeSet::from([2, 10, 15, 17, 50]);
-            for i in &pager.search_idx.clone() {
-                next_nth_match(&mut pager, 1);
-                assert_eq!(pager.upper_mark, *i);
-                pager.search_mark += 1;
+            let search_idx = BTreeSet::from([2, 10, 15, 17, 50]);
+            let mut upper_mark = 0;
+            let mut search_mark;
+            for (i, v) in search_idx.iter().enumerate() {
+                search_mark = next_nth_match(&search_idx, upper_mark, 1);
+                assert_eq!(search_mark, i);
+                dbg!(search_mark);
+                let next_upper_mark = *search_idx.iter().nth(search_mark).unwrap();
+                assert_eq!(next_upper_mark, *v);
+                upper_mark = next_upper_mark;
             }
         }
 
