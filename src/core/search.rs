@@ -56,41 +56,50 @@ impl PartialEq for SearchMode {
     }
 }
 
-/// Options controlling the behaviour of [handle_key_press] by event
+/// Options controlling the behaviour of search overall
 #[allow(clippy::module_name_repetitions)]
 pub struct SearchOpts<'a> {
-    /// Event to respond to
-    ev: Option<Event>,
+    /// A [crossterm Event](Event) on which to respond
+    pub ev: Option<Event>,
     /// Current string query
-    string: String,
-    /// Status of the input prompt
-    input_status: InputStatus,
-    /// Specifies the column number that the cursor on at the prompt site
-    cursor_position: u16,
-    /// Column numbers where each word start
-    word_index: Vec<u16>,
+    pub string: String,
+    /// Status of the input prompt. See [InputStatus]
+    pub input_status: InputStatus,
+    /// Specifies the terminal column number that the cursor on at the prompt site.
+    /// It can range between 1 and `string.len() + 1`
+    pub cursor_position: u16,
+    /// Direction of search. See [SearchMode].
+    pub search_mode: SearchMode,
+    /// Column numbers where each new word start
+    pub word_index: Vec<u16>,
     /// Search character, either `/` or `?` depending on [SearchMode]
-    search_char: char,
+    pub search_char: char,
     /// Number of rows available in the terminal
-    rows: u16,
-    /// Number of rows available in the terminal
-    cols: u16,
-    incremental_search_options: Option<IncrementalSearchOpts<'a>>,
+    pub rows: u16,
+    /// Number of cols available in the terminal
+    pub cols: u16,
+    /// Options specifically controlling incremental search
+    pub incremental_search_options: Option<IncrementalSearchOpts<'a>>,
     incremental_search_result: Option<IncrementalSearchResult>,
     compiled_regex: Option<Regex>,
 }
 
-pub(crate) struct IncrementalSearchOpts<'a> {
+/// Options to control incremental search
+///
+/// The values of the fields should not be modified at any point otherwise it may lead to
+/// unexpected text display while doing a incremental search. One exception to this is 
+/// `upper_mark` which is modified by the priavte `handle_key_press` function.
+pub struct IncrementalSearchOpts<'a> {
     /// Current upper mark
-    upper_mark: usize,
+    pub upper_mark: usize,
     /// Text to be searched
-    text: &'a String,
+    pub text: &'a String,
     /// Current status of line numbering
-    line_numbers: LineNumbers,
+    pub line_numbers: LineNumbers,
     /// Reference tp [PagerState::formatted_lines] before starting of search prompt
-    initial_formatted_lines: &'a Vec<String>,
+    pub initial_formatted_lines: &'a Vec<String>,
     /// Value of [PagerState::upper_mark] before starting of search prompt
-    initial_upper_mark: usize,
+    pub initial_upper_mark: usize,
 }
 
 impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
@@ -130,12 +139,14 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             incremental_search_options: Some(incremental_search_options),
             incremental_search_result: None,
             compiled_regex: None,
+            search_mode: ps.search_mode,
         }
     }
 }
 
+/// Status of the search prompt
 #[derive(Debug, PartialEq, Clone)]
-enum InputStatus {
+pub enum InputStatus {
     /// Closed due to confirmation of search query using `Enter`
     Confirmed,
     /// Closed due to abortion using `Esc`
@@ -145,7 +156,9 @@ enum InputStatus {
 }
 
 impl InputStatus {
-    const fn done(&self) -> bool {
+    /// Returns true if the input prompt is closed either by confirming the query or by cancelling
+    /// he search
+    pub const fn done(&self) -> bool {
         matches!(self, Self::Cancelled | Self::Confirmed)
     }
 }
@@ -514,7 +527,7 @@ pub(crate) fn fetch_input(
 ///
 /// The first return value returns the line that has all the search matches highlighted
 /// The second tells whether a search match was actually found
-pub fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool) {
+pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> (String, bool) {
     // Remove all ansi escapes so we can look through it as if it had none
     let stripped_str = ANSI_REGEX.replace_all(line, "");
 
@@ -652,6 +665,7 @@ mod tests {
                 incremental_search_options: None,
                 incremental_search_result: None,
                 compiled_regex: None,
+                search_mode: sm,
             }
         }
 
