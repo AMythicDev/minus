@@ -7,6 +7,7 @@ use crate::{
 };
 
 /// Different events that can be encountered while the pager is running
+#[non_exhaustive]
 pub enum Event {
     AppendData(String),
     SetData(String),
