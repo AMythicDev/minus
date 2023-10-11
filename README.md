@@ -58,6 +58,16 @@ minus achieves this by leveraging Rust's amazing concurrency support and no data
 minus can be used with any async runtime like [`tokio`], [`async-std`] or native [`threads`] if you prefer that. If you
 want to display only static data, you don't even need to depend on any of the above
 
+## Features
+- Send data as well as configure the pager on the fly
+- Supports separate modes for dynamic and static output display
+- Highly configurable
+- Both key and mouse support
+- Key bindings highly inspired by Vim and other modern text editors
+- Clutter free line numbering
+- Full [regex](https://docs.rs/regex) based searching
+- Tries to be very minimal on dependencies
+
 ## Usage
 
 Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
