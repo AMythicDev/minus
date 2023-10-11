@@ -197,6 +197,24 @@ Here is the list of default key/mouse actions handled by `minus`.
 
 End-applications are free to change these bindings to better suit their needs.
 
+## Key Bindings Available at Search Prompt
+Some special key keybindings are defined to facilitate text input while entering a query at the search prompt
+
+| Key Bindings      | Description                                         |
+|-------------------|-----------------------------------------------------|
+| Esc               | Cancel the search                                   |
+| Enter             | Confirm the search query                            |
+| Backspace         | Remove the character before the cursor              |
+| Delete            | Remove the character under the cursor               |
+| Arrow Left        | Move cursor towards left                            |
+| Arrow right       | Move cursor towards right                           |
+| Ctrl+Arrow left   | Move cursor towards left word by word               |
+| Ctrl+Arrow right  | Move cursor towards right word by word              |
+| Home              | Move cursor at the beginning pf search query        |
+| End               | Move cursor at the end pf search query              |
+
+Currently these cannot be changed by applications but this may be supported in the future.
+
 ## MSRV
 The latest version of minus requires Rust >= 1.67 to build correctly
 
