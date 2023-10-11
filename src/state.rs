@@ -1,5 +1,6 @@
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchMode;
+use crate::minus_core::search::{SearchMode, SearchOpts};
+
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
@@ -111,6 +112,8 @@ pub struct PagerState {
     /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
     /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
     pub(crate) lines_to_row_map: HashMap<usize, usize>,
+    #[cfg(feature = "search")]
+    pub(crate) incremental_search_condtion: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>
 }
 
 impl PagerState {
@@ -142,6 +145,11 @@ impl PagerState {
             .into_string()
             .unwrap_or_else(|_| String::from("minus"));
 
+        #[cfg(feature = "search")]
+        let incremental_search_condtion = Box::new(|so: &SearchOpts| {
+            so.string.len() > 1 && so.incremental_search_options.as_ref().unwrap().initial_formatted_lines.len() <= 5000
+        });
+
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
@@ -165,6 +173,8 @@ impl PagerState {
             search_idx: BTreeSet::new(),
             #[cfg(feature = "search")]
             search_mark: 0,
+            #[cfg(feature = "search")]
+            incremental_search_condtion,
             // Just to be safe in tests, keep at 1x1 size
             cols,
             rows,

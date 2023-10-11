@@ -482,8 +482,6 @@ pub(crate) fn fetch_input(
     )?;
     out.flush()?;
 
-    let text_lines_count = ps.lines.lines().count();
-
     let mut search_opts = SearchOpts::from(ps);
 
     loop {
@@ -493,9 +491,7 @@ pub(crate) fn fetch_input(
             handle_key_press(
                 out,
                 &mut search_opts,
-                |search_opts: &SearchOpts<'_>| -> bool {
-                    search_opts.string.len() >= 2 && text_lines_count < 5000
-                },
+                &ps.incremental_search_condtion,
             )?;
             search_opts.ev = None;
         }

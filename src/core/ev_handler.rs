@@ -208,6 +208,8 @@ pub fn handle_event(
         Event::SetExitStrategy(es) => p.exit_strategy = es,
         #[cfg(feature = "static_output")]
         Event::SetRunNoOverflow(val) => p.run_no_overflow = val,
+        #[cfg(feature = "static_output")]
+        Event::IncrementalSearchCondition(cb) => p.incremental_search_condtion = cb,
         Event::SetInputClassifier(clf) => p.input_classifier = clf,
         Event::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Event::UserInput(_) => {}
