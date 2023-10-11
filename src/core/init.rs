@@ -194,13 +194,9 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         let r1 = t1.join().unwrap();
         let r2 = t2.join().unwrap();
 
-        if r1.is_err() {
-            r1
-        } else if r2.is_err() {
-            r2
-        } else {
-            Ok(())
-        }
+        r1?;
+        r2?;
+        Ok(())
     })
 }
 
