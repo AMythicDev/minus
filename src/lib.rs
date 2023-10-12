@@ -66,6 +66,17 @@
 //! For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty
 //! much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
 //!
+//! ## Features
+//! - Send data as well as configure the pager on the fly
+//! - Supports separate modes for dynamic and static output display
+//! - Highly configurable
+//! - Both key and mouse support
+//! - Key bindings highly inspired by Vim and other modern text editors
+//! - Clutter free line numbering
+//! - Full [regex](https://docs.rs/regex) based searching
+//! - Incremental searching of text as you type
+//! - Tries to be very minimal on dependencies
+//!
 //! # Usage
 //! Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
 //! * If you only want a pager to display static data, enable the `static_output` feature

@@ -66,6 +66,7 @@ want to display only static data, you don't even need to depend on any of the ab
 - Key bindings highly inspired by Vim and other modern text editors
 - Clutter free line numbering
 - Full [regex](https://docs.rs/regex) based searching
+- Incremental searching of text as you type
 - Tries to be very minimal on dependencies
 
 ## Usage
