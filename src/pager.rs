@@ -1,4 +1,4 @@
-use crate::{error::MinusError, input, minus_core::events::Event, ExitStrategy, LineNumbers };
+use crate::{error::MinusError, input, minus_core::events::Event, ExitStrategy, LineNumbers};
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
@@ -246,7 +246,10 @@ impl Pager {
     }
 
     #[cfg(feature = "search")]
-    pub fn set_incremental_search_condition(&self, cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>) -> crate::Result {
+    pub fn set_incremental_search_condition(
+        &self,
+        cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+    ) -> crate::Result {
         self.tx.send(Event::IncrementalSearchCondition(cb))?;
         Ok(())
     }

@@ -113,7 +113,8 @@ pub struct PagerState {
     /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
     pub(crate) lines_to_row_map: HashMap<usize, usize>,
     #[cfg(feature = "search")]
-    pub(crate) incremental_search_condtion: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>
+    pub(crate) incremental_search_condtion:
+        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
 }
 
 impl PagerState {
@@ -147,7 +148,14 @@ impl PagerState {
 
         #[cfg(feature = "search")]
         let incremental_search_condtion = Box::new(|so: &SearchOpts| {
-            so.string.len() > 1 && so.incremental_search_options.as_ref().unwrap().initial_formatted_lines.len() <= 5000
+            so.string.len() > 1
+                && so
+                    .incremental_search_options
+                    .as_ref()
+                    .unwrap()
+                    .initial_formatted_lines
+                    .len()
+                    <= 5000
         });
 
         let mut state = Self {

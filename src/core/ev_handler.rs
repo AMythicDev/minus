@@ -60,6 +60,9 @@ pub fn handle_event(
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
+            // Reset search mark so it won't be out of bounds if we have
+            // less matches in this search than last time
+            p.search_mark = 0;
 
             // Pause the main user input thread, read search query and then restart the main input thread
             let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
@@ -73,6 +76,7 @@ pub fn handle_event(
             drop(active);
             cvar.notify_one();
 
+            // If we have incremental search cache directly use it and return
             if let Some(incremental_search_result) = search_result.incremental_search_result {
                 p.search_term = search_result.compiled_regex;
                 p.upper_mark = incremental_search_result.upper_mark;
@@ -82,6 +86,8 @@ pub fn handle_event(
                 return Ok(());
             }
 
+            // If we only have compiled regex cached, use that otherwise compile the original
+            // string query if its not empty
             p.search_term = if search_result.compiled_regex.is_some() {
                 search_result.compiled_regex
             } else if !search_result.string.is_empty() {
@@ -97,15 +103,12 @@ pub fn handle_event(
 
             // Format the lines, this will automatically generate the PagerState.search_idx
             p.format_lines();
-            // Reset search mark so it won't be out of bounds if we have
-            // less matches in this search than last time
-            p.search_mark = 0;
 
             // Move to next search match after the current upper_mark
             let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
-            p.search_mark = position_of_next_match;
-            if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
-                p.upper_mark = *idx;
+            if let Some(pnm) = position_of_next_match {
+                p.search_mark = pnm;
+                p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
             }
 
             p.format_prompt();
@@ -117,9 +120,9 @@ pub fn handle_event(
         {
             // Move to next search match after the current upper_mark
             let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
-            p.search_mark = position_of_next_match;
-            if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
-                p.upper_mark = *idx;
+            if let Some(pnm) = position_of_next_match {
+                p.search_mark = pnm;
+                p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
             }
 
             p.format_prompt();
@@ -146,9 +149,9 @@ pub fn handle_event(
         Event::UserInput(InputEvent::MoveToNextMatch(n)) if p.search_term.is_some() => {
             // Move to next nth search match after the current upper_mark
             let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, n);
-            p.search_mark = position_of_next_match;
-            if let Some(idx) = p.search_idx.iter().nth(p.search_mark) {
-                p.upper_mark = *idx;
+            if let Some(pnm) = position_of_next_match {
+                p.search_mark = pnm;
+                p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
             }
             p.format_prompt();
         }
@@ -208,7 +211,7 @@ pub fn handle_event(
         Event::SetExitStrategy(es) => p.exit_strategy = es,
         #[cfg(feature = "static_output")]
         Event::SetRunNoOverflow(val) => p.run_no_overflow = val,
-        #[cfg(feature = "static_output")]
+        #[cfg(feature = "search")]
         Event::IncrementalSearchCondition(cb) => p.incremental_search_condtion = cb,
         Event::SetInputClassifier(clf) => p.input_classifier = clf,
         Event::AddExitCallback(cb) => p.exit_callbacks.push(cb),

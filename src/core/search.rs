@@ -1,4 +1,53 @@
-//! Provides functions related to searching
+//! Text searching functionality
+//!
+//! Text searching inside minus is quite advanced than other terminal pagers. It is highly
+//! inspired by modern text editors and hence provides features like:-
+//! - [Keybindings](../index.html#key-bindings-available-at-search-prompt) similar to modern text editors
+//! - Incremental search
+//! - Full regex support for writing advanced search queries
+//! and more...
+//!
+//! # Incremental Search
+//! minus supports incrementally searching the text. This means that you can view the search
+//! matches inside the text match as soon as you start typing the query.
+//!
+//! It is also significant because minus caches a lot of results from each incremental search run
+//! and then reuses those results when the search query is confirmed by pressing `Enter`. This
+//! approach eliminates the need to re run the search of text after confirming the query.
+//!
+//! Running Incremental search can be controlled by a function. The function should take
+//! reference to [SearchOpts] as the only argument and return a bool as output. This way we can impose a
+//! condition so that incremental search does not get really resource intensive for really vague queries
+//! This also allows applications can control whether they want incremental search to run.
+//! By default minus uses a default condition where incremental search runs only when length of search
+//! query is greater than 1 and number of screen lines (lines obtained after taking care of wrapping,
+//! mapped to a single row on the terminal) is greater than 5000.
+//!
+//! Applications can override this condtion with the help of
+//! [`Pager::set_incremental_search_condition`](crate::pager::Pager::set_incremental_search_condition) function.
+//!
+//! Here is a an example to demonstrate on its usage. Here we set the conditon to run incremental
+//! search only when the length of the search query is greater than 1.
+//! ```
+//! use minus::{Pager, search::SearchOpts};
+//!
+//! let pager = Pager::new();
+//! pager.set_incremental_search_condition(Box::new(|so: &SearchOpts| so.string.len() > 1)).unwrap();
+//! ```
+//! To completely disable incremental search, set the condition to false
+//! ```
+//! use minus::{Pager, search::SearchOpts};
+//!
+//! let pager = Pager::new();
+//! pager.set_incremental_search_condition(Box::new(|_| false)).unwrap();
+//! ```
+//! Similarly to always run incremental search, set the condition to true
+//! ```
+//! use minus::{Pager, search::SearchOpts};
+//!
+//! let pager = Pager::new();
+//! pager.set_incremental_search_condition(Box::new(|_| true)).unwrap();
+//! ```
 
 #![allow(unused_imports)]
 use super::utils::{display, term, text};
@@ -57,6 +106,12 @@ impl PartialEq for SearchMode {
 }
 
 /// Options controlling the behaviour of search overall
+///
+/// Although it isn't much important for most use cases but it alongside [IncrementalSearchOpts] are the key compoents
+/// when applications want to customize the incremental seaech condition.
+///
+/// Most of the fields have self-explanatory names so it should be very easy to get started using
+/// this
 #[allow(clippy::module_name_repetitions)]
 pub struct SearchOpts<'a> {
     /// A [crossterm Event](Event) on which to respond
@@ -80,23 +135,31 @@ pub struct SearchOpts<'a> {
     pub cols: u16,
     /// Options specifically controlling incremental search
     pub incremental_search_options: Option<IncrementalSearchOpts<'a>>,
-    incremental_search_result: Option<IncrementalSearchResult>,
+    incremental_search_cache: Option<IncrementalSearchCache>,
     compiled_regex: Option<Regex>,
 }
 
 /// Options to control incremental search
 ///
-/// The values of the fields should not be modified at any point otherwise it may lead to
-/// unexpected text display while doing a incremental search. One exception to this is 
-/// `upper_mark` which is modified by the priavte `handle_key_press` function.
+/// NOTE: `text` and `initial_formatted_lines` are experimental in this context and are subject to
+/// change. Use them at your own risk.
+///
+// WARN: The values of the fields should not be modified at any point otherwise it may lead to
+// unexpected text display while doing a incremental search. One exception to this is
+// `upper_mark` which is modified by the priavte `handle_key_press` function.
 pub struct IncrementalSearchOpts<'a> {
     /// Current upper mark
     pub upper_mark: usize,
     /// Text to be searched
+    ///
+    /// This holds the original text provided by applications
     pub text: &'a String,
     /// Current status of line numbering
     pub line_numbers: LineNumbers,
     /// Reference tp [PagerState::formatted_lines] before starting of search prompt
+    ///
+    /// This contains the wrapped and formatted lines that are to be displayed on the terminal
+    /// screen.
     pub initial_formatted_lines: &'a Vec<String>,
     /// Value of [PagerState::upper_mark] before starting of search prompt
     pub initial_upper_mark: usize,
@@ -137,7 +200,7 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             rows: ps.rows.try_into().unwrap(),
             cols: ps.cols.try_into().unwrap(),
             incremental_search_options: Some(incremental_search_options),
-            incremental_search_result: None,
+            incremental_search_cache: None,
             compiled_regex: None,
             search_mode: ps.search_mode,
         }
@@ -163,13 +226,19 @@ impl InputStatus {
     }
 }
 
+/// Return type of [fetch_input]
 pub(crate) struct FetchInputResult {
+    /// Original search query
     pub(crate) string: String,
-    pub(crate) incremental_search_result: Option<IncrementalSearchResult>,
+    /// Incremental search cache if available
+    pub(crate) incremental_search_result: Option<IncrementalSearchCache>,
+    /// Cached pre-compiled [Regex] if available
     pub(crate) compiled_regex: Option<Regex>,
 }
 
 impl FetchInputResult {
+    /// Create an empty `FetchInputResult` with string set to empty string and
+    /// incremental_search_cache and compiled_regex set to `None`.
     const fn new_empty() -> Self {
         Self {
             string: String::new(),
@@ -179,18 +248,27 @@ impl FetchInputResult {
     }
 }
 
-pub(crate) struct IncrementalSearchResult {
+/// A cache for storing all the new data obtained by running incremental search
+pub(crate) struct IncrementalSearchCache {
+    /// Lines to be displayed with highlighted search matches
     pub(crate) formatted_lines: Vec<String>,
+    /// Index from `search_idx` where a search match after current upper mark may be found
+    /// NOTE: There is no guarantee that this will stay within the bounds of `search_idx`
     pub(crate) searh_mark: usize,
+    /// Indices of formatted_lines where search matches have been found
     pub(crate) search_idx: BTreeSet<usize>,
+    /// Index of the line from which to display the text.
+    /// This will be set to the index of line which is after the current upper mark and will
+    /// have a search match for sure
     pub(crate) upper_mark: usize,
 }
 
+/// Runs the incremental search
 fn run_incremental_search<'a, F, O>(
     out: &mut O,
     so: &'a SearchOpts<'a>,
     incremental_search_condition: F,
-) -> crate::Result<Option<IncrementalSearchResult>>
+) -> crate::Result<Option<IncrementalSearchCache>>
 where
     O: Write,
     F: Fn(&'a SearchOpts) -> bool,
@@ -201,56 +279,69 @@ where
     let incremental_search_options = so.incremental_search_options.as_ref().unwrap();
     let mut initial_upper_mark = incremental_search_options.initial_upper_mark;
 
+    // Run the incremental search condition function and store its result value
     let should_proceed = incremental_search_condition(so);
 
-    if so.incremental_search_result.is_some() && (so.compiled_regex.is_none() || !(should_proceed))
-    {
+    // **Screen resetting**:
+    // This is an important bit when running incremental search.It reset the terminal screen to
+    // display the lines from the same location and in the same way as before the search even
+    // started. Basically print it exactly how it looked before pressing `/` or `?`,
+    let mut reset_screen = |out: &mut O, so: &SearchOpts<'_>| -> crate::Result {
         display::write_text_checked(
             out,
             incremental_search_options.initial_formatted_lines,
             so.rows.into(),
             &mut initial_upper_mark,
         )?;
+        Ok(())
+    };
+
+    // If the query prior to the current one had a successful incremental search run and now the
+    // current query isn't a valid regex or the incremental search condition has returned false
+    // then
+    if so.incremental_search_cache.is_some() && (so.compiled_regex.is_none() || !(should_proceed)) {
+        reset_screen(out, so)?;
         return Ok(None);
     }
 
+    // Return immediately if search query isn't valid or incremental search condition is false
+    // NOTE: This must come after the reset screen display code in above statement, otherwise this
+    // will cover all the cases of the above statement's condition and hence the terminal will ever
+    // get reset
     if so.compiled_regex.is_none() && !should_proceed {
         return Ok(None);
     }
 
+    // Format the text with search highlights and get the index of the element in
+    // format_result.append_search_idx which is after the current upper mark
+    //
+    // PERF: Check if this can be futhur optimized
     let format_result = text::make_format_lines(
         incremental_search_options.text,
         incremental_search_options.line_numbers,
         so.cols.try_into().unwrap(),
         &so.compiled_regex,
     );
-
     let position_of_next_match = next_nth_match(
         &format_result.append_search_idx,
         incremental_search_options.upper_mark,
         1,
     );
-
+    // Get the upper mark. If we can't find one, reset the display
     let mut upper_mark;
-    if let Some(idx) = format_result
-        .append_search_idx
-        .iter()
-        .nth(position_of_next_match)
-    {
-        upper_mark = *idx;
+    if let Some(pnm) = position_of_next_match {
+        upper_mark = *format_result.append_search_idx.iter().nth(pnm).unwrap();
+        // Draw the icrementally searched lines from upper mark
+        display::write_text_checked(out, &format_result.lines, so.rows.into(), &mut upper_mark)?;
     } else {
-        display::write_text_checked(
-            out,
-            incremental_search_options.initial_formatted_lines,
-            so.rows.into(),
-            &mut initial_upper_mark,
-        )?;
+        reset_screen(out, so)?;
         return Ok(None);
     }
-    display::write_text_checked(out, &format_result.lines, so.rows.into(), &mut upper_mark)?;
-    Ok(Some(IncrementalSearchResult {
+    // Return the results obtained by running incremental search so that they can be stored as a
+    // cache.
+    Ok(Some(IncrementalSearchCache {
         formatted_lines: format_result.lines,
-        searh_mark: position_of_next_match,
+        searh_mark: position_of_next_match.unwrap(),
         upper_mark,
         search_idx: format_result.append_search_idx,
     }))
@@ -286,14 +377,18 @@ where
     };
 
     let refresh_display = |out: &mut O, so: &mut SearchOpts<'_>| -> Result<(), MinusError> {
+        // Cache the compiled regex if the regex is valid
         so.compiled_regex = Regex::new(&so.string).ok();
 
-        so.incremental_search_result =
+        // Run incremental search and update the upper mark if incremental search had a successful
+        // run
+        so.incremental_search_cache =
             run_incremental_search(out, so, incremental_search_condition)?;
-        if let Some(IncrementalSearchResult { upper_mark, .. }) = so.incremental_search_result {
+        if let Some(IncrementalSearchCache { upper_mark, .. }) = so.incremental_search_cache {
             so.incremental_search_options.as_mut().unwrap().upper_mark = upper_mark;
         }
 
+        // Update prompt
         term::move_cursor(out, 0, so.rows, false)?;
         write!(
             out,
@@ -452,9 +547,11 @@ where
 
 /// Fetch the search query
 ///
-/// The function will change the prompt to `/` for Forward search or `?` for Reverse search
-/// It will then store the query in a String and return it when `Return` key is pressed
-/// or return with a empty string if so match is found.
+/// The function will change the prompt to `/` for Forward search or `?` for Reverse search.
+/// Next it fetches and handles all events from the terminal screen until [SearchOpts::input_status] isn't
+/// set to either [InputStatus::Cancelled] or [InputStatus::Confirmed] by pressing `Esc` or
+/// `Enter` respectively.
+/// Finally we return
 #[cfg(feature = "search")]
 pub(crate) fn fetch_input(
     out: &mut impl std::io::Write,
@@ -484,15 +581,12 @@ pub(crate) fn fetch_input(
 
     let mut search_opts = SearchOpts::from(ps);
 
+    // Fetch events from the terminal and handle them
     loop {
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
             search_opts.ev = Some(ev);
-            handle_key_press(
-                out,
-                &mut search_opts,
-                &ps.incremental_search_condtion,
-            )?;
+            handle_key_press(out, &mut search_opts, &ps.incremental_search_condtion)?;
             search_opts.ev = None;
         }
         if search_opts.input_status.done() {
@@ -507,14 +601,13 @@ pub(crate) fn fetch_input(
     let fetch_input_result = match search_opts.input_status {
         InputStatus::Active => unreachable!(),
         InputStatus::Cancelled => FetchInputResult::new_empty(),
-        InputStatus::Confirmed => {
-            FetchInputResult {
-                string: search_opts.string,
-                // TODO: Allow incremental search result to be propagated upward
-                incremental_search_result: search_opts.incremental_search_result,
-                compiled_regex: search_opts.compiled_regex,
-            }
-        }
+        // When thw query is confirmed, return the actual query along with everything that is valid
+        // in the cache
+        InputStatus::Confirmed => FetchInputResult {
+            string: search_opts.string,
+            incremental_search_result: search_opts.incremental_search_cache,
+            compiled_regex: search_opts.compiled_regex,
+        },
     };
     Ok(fetch_input_result)
 }
@@ -600,12 +693,27 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> (Strin
     (inverted, true)
 }
 
-/// Set [`PagerState::search_mark`] to move to the next match
+/// Return a index of an element from `search_idx` that will contain a search match and
+/// will be after the `upper_mark`
 ///
-/// This function will continue looping untill it finds a match that is after the
-/// [`PagerState::upper_mark`]
+/// `jump` denotes how many indexes to jump through. For example if `search_idx` is
+/// `[5, 17, 25, 34, 42]` and `upper_mark` is at 7 and `jump` is set to 1 then this will
+/// return `Some(1)` which is the index of 17. If `n `is set to 3 it will return
+/// `Some(3)` which is index of 34.
+///
+/// If `jump` causes the index to overflow the length of the `search_idx`, the function will set it
+/// to the index of last element in `search_idx`.Also if search_idx is empty, this will simply
+/// return None
 #[must_use]
-pub(crate) fn next_nth_match(search_idx: &BTreeSet<usize>, upper_mark: usize, n: usize) -> usize {
+pub(crate) fn next_nth_match(
+    search_idx: &BTreeSet<usize>,
+    upper_mark: usize,
+    n: usize,
+) -> Option<usize> {
+    if search_idx.is_empty() {
+        return None;
+    }
+
     // Find the index of the match that's exactly after the upper_mark.
     // One we find that, we add n-1 to it to get the next nth match after upper_mark
     let mut position_of_next_match;
@@ -624,8 +732,7 @@ pub(crate) fn next_nth_match(search_idx: &BTreeSet<usize>, upper_mark: usize, n:
         position_of_next_match = search_idx.len().saturating_sub(1);
     }
 
-    position_of_next_match
-    // And set the upper_mark to that match so that we scroll to it
+    Some(position_of_next_match)
 }
 
 #[cfg(test)]
@@ -659,7 +766,7 @@ mod tests {
                 rows: 25,
                 cols: 100,
                 incremental_search_options: None,
-                incremental_search_result: None,
+                incremental_search_cache: None,
                 compiled_regex: None,
                 search_mode: sm,
             }
@@ -937,9 +1044,8 @@ mod tests {
             let mut search_mark;
             for (i, v) in search_idx.iter().enumerate() {
                 search_mark = next_nth_match(&search_idx, upper_mark, 1);
-                assert_eq!(search_mark, i);
-                dbg!(search_mark);
-                let next_upper_mark = *search_idx.iter().nth(search_mark).unwrap();
+                assert_eq!(search_mark, Some(i));
+                let next_upper_mark = *search_idx.iter().nth(search_mark.unwrap()).unwrap();
                 assert_eq!(next_upper_mark, *v);
                 upper_mark = next_upper_mark;
             }

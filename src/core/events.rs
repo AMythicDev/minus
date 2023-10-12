@@ -23,9 +23,8 @@ pub enum Event {
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
-    #[cfg(feature = "static_output")]
-    IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>)
-
+    #[cfg(feature = "search")]
+    IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 }
 
 impl PartialEq for Event {
@@ -37,6 +36,7 @@ impl PartialEq for Event {
             | (Self::SendMessage(d1), Self::SendMessage(d2)) => d1 == d2,
             (Self::SetLineNumbers(d1), Self::SetLineNumbers(d2)) => d1 == d2,
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
+            #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
@@ -57,7 +57,7 @@ impl Debug for Event {
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
-            #[cfg(feature = "static_output")]
+            #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
             #[cfg(feature = "static_output")]
