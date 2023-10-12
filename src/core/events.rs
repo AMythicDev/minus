@@ -40,7 +40,7 @@ impl PartialEq for Event {
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
-            #[cfg(feature = "static_output")]
+            #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
             _ => false,
         }

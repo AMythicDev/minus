@@ -279,8 +279,8 @@ where
     let incremental_search_options = so.incremental_search_options.as_ref().unwrap();
     let mut initial_upper_mark = incremental_search_options.initial_upper_mark;
 
-    // Run the incremental search condition function and store its result value
-    let should_proceed = incremental_search_condition(so);
+    // Check if we can continue forward with incremental search
+    let should_proceed = so.compiled_regex.is_some() && incremental_search_condition(so);
 
     // **Screen resetting**:
     // This is an important bit when running incremental search.It reset the terminal screen to
@@ -299,7 +299,7 @@ where
     // If the query prior to the current one had a successful incremental search run and now the
     // current query isn't a valid regex or the incremental search condition has returned false
     // then
-    if so.incremental_search_cache.is_some() && (so.compiled_regex.is_none() || !(should_proceed)) {
+    if so.incremental_search_cache.is_some() && !should_proceed {
         reset_screen(out, so)?;
         return Ok(None);
     }
@@ -308,7 +308,7 @@ where
     // NOTE: This must come after the reset screen display code in above statement, otherwise this
     // will cover all the cases of the above statement's condition and hence the terminal will ever
     // get reset
-    if so.compiled_regex.is_none() && !should_proceed {
+    if !should_proceed {
         return Ok(None);
     }
 
@@ -325,7 +325,7 @@ where
     let position_of_next_match = next_nth_match(
         &format_result.append_search_idx,
         incremental_search_options.upper_mark,
-        1,
+        0,
     );
     // Get the upper mark. If we can't find one, reset the display
     let mut upper_mark;
@@ -381,11 +381,13 @@ where
         so.compiled_regex = Regex::new(&so.string).ok();
 
         // Run incremental search and update the upper mark if incremental search had a successful
-        // run
+        // run otherwise set it to the initial upper mark
         so.incremental_search_cache =
             run_incremental_search(out, so, incremental_search_condition)?;
         if let Some(IncrementalSearchCache { upper_mark, .. }) = so.incremental_search_cache {
             so.incremental_search_options.as_mut().unwrap().upper_mark = upper_mark;
+        } else if let Some(incremental_search_options) = so.incremental_search_options.as_mut() {
+            incremental_search_options.upper_mark = incremental_search_options.initial_upper_mark;
         }
 
         // Update prompt
@@ -703,12 +705,17 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> (Strin
 ///
 /// If `jump` causes the index to overflow the length of the `search_idx`, the function will set it
 /// to the index of last element in `search_idx`.Also if search_idx is empty, this will simply
-/// return None
+/// return None.
+///
+/// Setting `jump` equal to 0 causes a slight change in behaviour: it will also return the index of
+/// element if that element is equal to the current upper mark. In the above example lets say that
+/// `upper_mark` is at 17 and `jump` is set to 0 then this will return `Some(1)` as the
+/// `upper_mark` and element at index  are equal i.e 17.
 #[must_use]
 pub(crate) fn next_nth_match(
     search_idx: &BTreeSet<usize>,
     upper_mark: usize,
-    n: usize,
+    jump: usize,
 ) -> Option<usize> {
     if search_idx.is_empty() {
         return None;
@@ -717,8 +724,19 @@ pub(crate) fn next_nth_match(
     // Find the index of the match that's exactly after the upper_mark.
     // One we find that, we add n-1 to it to get the next nth match after upper_mark
     let mut position_of_next_match;
-    if let Some(nearest_idx) = search_idx.iter().position(|i| *i > upper_mark) {
-        position_of_next_match = nearest_idx.saturating_add(n).saturating_sub(1);
+    if let Some(nearest_idx) = search_idx.iter().position(|i| {
+        if jump != 0 {
+            *i > upper_mark
+        } else {
+            *i >= upper_mark
+        }
+    }) {
+        // This ensures that index dosen't get off-by-one in case of jump = 0
+        if jump != 0 {
+            position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
+        } else {
+            position_of_next_match = nearest_idx;
+        }
 
         // If position_of_next_match is goes beyond the length of search_idx
         // set it to the length of search_idx -1 which corresponds to the index of
