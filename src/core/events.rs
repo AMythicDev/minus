@@ -6,6 +6,9 @@ use crate::{
     ExitStrategy, LineNumbers,
 };
 
+#[cfg(feature = "search")]
+use crate::minus_core::search::SearchOpts;
+
 /// Different events that can be encountered while the pager is running
 #[non_exhaustive]
 pub enum Event {
@@ -20,6 +23,8 @@ pub enum Event {
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
+    #[cfg(feature = "search")]
+    IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 }
 
 impl PartialEq for Event {
@@ -35,6 +40,8 @@ impl PartialEq for Event {
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
+            #[cfg(feature = "search")]
+            (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
             _ => false,
         }
     }
@@ -50,6 +57,8 @@ impl Debug for Event {
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
+            #[cfg(feature = "search")]
+            Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
             #[cfg(feature = "static_output")]
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),

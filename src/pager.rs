@@ -2,6 +2,9 @@ use crate::{error::MinusError, input, minus_core::events::Event, ExitStrategy, L
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
+#[cfg(feature = "search")]
+use crate::minus_core::search::SearchOpts;
+
 /// A pager acts as a middleman for communication between the main application
 /// and the user with the core functions of minus
 ///
@@ -115,7 +118,7 @@ impl Pager {
     /// pager.set_prompt("my prompt").expect("Failed to send data to the pager");
     /// ```
     pub fn set_prompt(&self, text: impl Into<String>) -> Result<(), MinusError> {
-        let text = text.into();
+        let text: String = text.into();
         assert!(!text.contains('\n'), "Prompt cannot contain newlines");
         Ok(self.tx.send(Event::SetPrompt(text))?)
     }
@@ -139,7 +142,7 @@ impl Pager {
     /// pager.send_message("An error occurred").expect("Failed to send data to the pager");
     /// ```
     pub fn send_message(&self, text: impl Into<String>) -> Result<(), MinusError> {
-        let text = text.into();
+        let text: String = text.into();
         assert!(!text.contains('\n'), "Message cannot contain newlines");
         Ok(self.tx.send(Event::SendMessage(text))?)
     }
@@ -240,6 +243,15 @@ impl Pager {
         cb: Box<dyn FnMut() + Send + Sync + 'static>,
     ) -> Result<(), MinusError> {
         Ok(self.tx.send(Event::AddExitCallback(cb))?)
+    }
+
+    #[cfg(feature = "search")]
+    pub fn set_incremental_search_condition(
+        &self,
+        cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+    ) -> crate::Result {
+        self.tx.send(Event::IncrementalSearchCondition(cb))?;
+        Ok(())
     }
 }
 

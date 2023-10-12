@@ -237,7 +237,7 @@ pub use dynamic_pager::dynamic_paging;
 pub use static_pager::page_all;
 
 #[cfg(feature = "search")]
-pub use minus_core::search::SearchMode;
+pub use minus_core::search::{self, SearchMode};
 pub use minus_core::RunMode;
 
 pub use error::MinusError;

@@ -1,5 +1,6 @@
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchMode;
+use crate::minus_core::search::{SearchMode, SearchOpts};
+
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
@@ -111,6 +112,9 @@ pub struct PagerState {
     /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
     /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
     pub(crate) lines_to_row_map: HashMap<usize, usize>,
+    #[cfg(feature = "search")]
+    pub(crate) incremental_search_condtion:
+        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
 }
 
 impl PagerState {
@@ -142,6 +146,18 @@ impl PagerState {
             .into_string()
             .unwrap_or_else(|_| String::from("minus"));
 
+        #[cfg(feature = "search")]
+        let incremental_search_condtion = Box::new(|so: &SearchOpts| {
+            so.string.len() > 1
+                && so
+                    .incremental_search_options
+                    .as_ref()
+                    .unwrap()
+                    .initial_formatted_lines
+                    .len()
+                    <= 5000
+        });
+
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
@@ -165,6 +181,8 @@ impl PagerState {
             search_idx: BTreeSet::new(),
             #[cfg(feature = "search")]
             search_mark: 0,
+            #[cfg(feature = "search")]
+            incremental_search_condtion,
             // Just to be safe in tests, keep at 1x1 size
             cols,
             rows,
@@ -210,42 +228,21 @@ impl PagerState {
     }
 
     pub(crate) fn format_lines(&mut self) {
-        // Keep it for the record and don't call it unless it is really necessory as this is kinda
-        // expensive
-        let line_count = self.lines.lines().count();
-
-        // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
-        let len_line_number = line_count.to_string().len();
-
-        let format_opts = text::FormatOpts {
-            text: &self.lines,
-            attachment: None,
-            line_numbers: self.line_numbers,
-            len_line_number,
-            formatted_lines_count: 0,
-            lines_count: 0,
-            prev_unterminated: self.unterminated,
-            cols: self.cols,
+        let format_result = text::make_format_lines(
+            &self.lines,
+            self.line_numbers,
+            self.cols,
             #[cfg(feature = "search")]
-            search_term: &self.search_term,
-        };
-
-        let format_props = text::format_text_block(format_opts);
-
-        let (fmt_lines, num_unterminated, lines_to_row_map) = (
-            format_props.lines,
-            format_props.num_unterminated,
-            format_props.lines_to_row_map,
+            &self.search_term,
         );
-        self.formatted_lines = fmt_lines;
-        self.lines_to_row_map = lines_to_row_map;
-
         #[cfg(feature = "search")]
         {
-            self.search_idx = format_props.append_search_idx;
+            self.search_idx = format_result.append_search_idx;
         }
+        self.formatted_lines = format_result.lines;
+        self.lines_to_row_map = format_result.lines_to_row_map;
 
-        self.unterminated = num_unterminated;
+        self.unterminated = format_result.num_unterminated;
         self.format_prompt();
     }
 
