@@ -5,7 +5,7 @@
 </p>
 
 [![crates.io](https://img.shields.io/crates/v/minus?style=for-the-badge)](https://crates.io/crates/minus)
-[![ci](https://img.shields.io/github/workflow/status/arijit79/minus/ci?label=CI&style=for-the-badge)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
+[![ci](https://github.com/arijit79/minus/actions/workflows/ci.yml/badge.svg)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
 [![docs.rs](https://img.shields.io/docsrs/minus?label=docs.rs&style=for-the-badge)](https://docs.rs/minus)
 [![Discord](https://img.shields.io/discord/953920872857620541?color=%237289da&label=Discord&style=for-the-badge)](https://discord.gg/FKEnDPE6Bv)
 [![Matrix](https://img.shields.io/matrix/minus:matrix.org?color=%230dbd8b&label=Matrix&style=for-the-badge)](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
