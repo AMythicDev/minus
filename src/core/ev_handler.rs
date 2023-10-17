@@ -106,6 +106,7 @@ pub fn handle_event(
 
             // Move to next search match after the current upper_mark
             let position_of_next_match = search::next_nth_match(&p.search_idx, p.upper_mark, 1);
+
             if let Some(pnm) = position_of_next_match {
                 p.search_mark = pnm;
                 p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
@@ -152,6 +153,15 @@ pub fn handle_event(
             if let Some(pnm) = position_of_next_match {
                 p.search_mark = pnm;
                 p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
+
+                // Ensure there is enough text available after location coresponding to
+                // position_of_next_match so that we can display a pagefull of data. If not,
+                // reduce it so that a pagefull of text can be accommodated.
+                // NOTE: Add 1 to total number of lines to avoid off-by-one errors
+                while p.upper_mark.saturating_add(p.rows) > p.num_lines().saturating_add(1) {
+                    p.search_mark = p.search_mark.saturating_sub(1);
+                    p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
+                }
             }
             p.format_prompt();
         }
