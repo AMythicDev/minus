@@ -1,18 +1,18 @@
+_prechecks:
+  -cargo hack 2> /dev/null
+
+  if [ $? == 101 ]; then \
+    cargo install cargo-hack; \
+  fi
+
 fmt:
  cargo fmt --all
 
 check-fmt:
  cargo fmt --all -- --check
 
-build:
- cargo build --no-default-features
- cargo build --features "dynamic_output"
- cargo build --features "static_output"
- cargo build --features "search"
- cargo build --features "dynamic_output,search"
- cargo build --features "static_output,search"
- cargo build --features "static_output,dynamic_output"
- cargo build --all-features
+build: _prechecks
+  cargo hack --feature-powerset build
 
 tests:
  cargo test --all-features --no-run
@@ -24,15 +24,8 @@ examples:
  cargo check --example=static --features=static_output
  cargo check --example=less-rs --features=dynamic_output,search
 
-lint:
- cargo clippy --no-default-features --tests --examples
- cargo clippy --features "dynamic_output" --tests --examples
- cargo clippy --features "static_output" --tests --examples
- cargo clippy --features "search" --tests --examples
- cargo clippy --features "dynamic_output,search" --tests --examples
- cargo clippy --features "static_output,search" --tests --examples
- cargo clippy --features "static_output,dynamic_output" --tests --examples
- cargo clippy --all-features --tests --examples
-
+lint: _prechecks
+  cargo hack --feature-powerset clippy
+  
 verify-all: check-fmt build tests examples lint
  @echo "Ready to go"
