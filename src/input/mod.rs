@@ -194,19 +194,23 @@ where
         map.add_key_events(&["/"], |_, _| InputEvent::Search(SearchMode::Forward));
         map.add_key_events(&["?"], |_, _| InputEvent::Search(SearchMode::Reverse));
         map.add_key_events(&["n"], |_, ps| {
+            let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+
             if ps.search_mode == SearchMode::Forward {
-                InputEvent::MoveToNextMatch(1)
+                InputEvent::MoveToNextMatch(position)
             } else if ps.search_mode == SearchMode::Reverse {
-                InputEvent::MoveToPrevMatch(1)
+                InputEvent::MoveToPrevMatch(position)
             } else {
                 InputEvent::Ignore
             }
         });
         map.add_key_events(&["p"], |_, ps| {
+            let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+
             if ps.search_mode == SearchMode::Forward {
-                InputEvent::MoveToPrevMatch(1)
+                InputEvent::MoveToPrevMatch(position)
             } else if ps.search_mode == SearchMode::Reverse {
-                InputEvent::MoveToNextMatch(1)
+                InputEvent::MoveToNextMatch(position)
             } else {
                 InputEvent::Ignore
             }
