@@ -309,6 +309,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 ///
 /// [`PagerState::lines`]: crate::state::PagerState::lines
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::uninlined_format_args)]
 pub fn formatted_line(
     line: &str,
     len_line_number: usize,

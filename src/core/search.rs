@@ -208,7 +208,7 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
 }
 
 /// Status of the search prompt
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum InputStatus {
     /// Closed due to confirmation of search query using `Enter`
     Confirmed,
@@ -221,6 +221,7 @@ pub enum InputStatus {
 impl InputStatus {
     /// Returns true if the input prompt is closed either by confirming the query or by cancelling
     /// he search
+    #[must_use]
     pub const fn done(&self) -> bool {
         matches!(self, Self::Cancelled | Self::Confirmed)
     }
@@ -264,6 +265,13 @@ pub(crate) struct IncrementalSearchCache {
 }
 
 /// Runs the incremental search
+///
+/// It will return if `Ok(SomeIncrementalSearchCache)` if there was a successful run of incremental
+/// search otherwise it will return `Ok(None)`.
+///
+/// # Errors
+/// This function will returns a `Err(MinusError)` if any operation on the terminal failed to
+/// execute.
 fn run_incremental_search<'a, F, O>(
     out: &mut O,
     so: &'a SearchOpts<'a>,
@@ -725,17 +733,17 @@ pub(crate) fn next_nth_match(
     // One we find that, we add n-1 to it to get the next nth match after upper_mark
     let mut position_of_next_match;
     if let Some(nearest_idx) = search_idx.iter().position(|i| {
-        if jump != 0 {
-            *i > upper_mark
-        } else {
+        if jump == 0 {
             *i >= upper_mark
+        } else {
+            *i > upper_mark
         }
     }) {
         // This ensures that index dosen't get off-by-one in case of jump = 0
-        if jump != 0 {
-            position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
-        } else {
+        if jump == 0 {
             position_of_next_match = nearest_idx;
+        } else {
+            position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
         }
 
         // If position_of_next_match is goes beyond the length of search_idx

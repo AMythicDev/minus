@@ -245,7 +245,16 @@ impl Pager {
         Ok(self.tx.send(Event::AddExitCallback(cb))?)
     }
 
+    /// Override the condition for running incremental search
+    ///
+    /// See [Incrmental Search](../search/index.html#incremental-search) to know more on how this
+    /// works
+    ///
+    /// # Errors
+    /// This function will returns a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be send to the receiver end.
     #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
     pub fn set_incremental_search_condition(
         &self,
         cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
