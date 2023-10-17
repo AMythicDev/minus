@@ -81,7 +81,7 @@ pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMo
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::too_many_lines)]
-pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
+pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
     #[allow(unused_mut)]
     let mut out = stdout();
     // Is the event reader running

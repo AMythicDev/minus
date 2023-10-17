@@ -1,7 +1,15 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
-## v5.4.0 [2023-09-27]
+## v5.4.1 [2023-10-17]
+### Fixed
+* Fixed minus not exitting automatically when panic occurs or when an error is caught (df9f3d4)
+* Fixed `[n]n`/`[n]p` keybindings jump only by 1 search match even if prefix `n` is present.
+
+### Added
+* Added a new `crate::Result` type to facilitate writing Result types.
+
+## v5.4.1 [2023-09-27]
 ### Fixed
 * Fix no updation of search related bugs (#102)
 * Fix gibberish output when stdout is a file (9728a3a)
