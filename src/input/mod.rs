@@ -1,6 +1,6 @@
-//! Working with user input
+//! Working with user events
 //!
-//! This module provides various items for wroking with user input from the terminal.
+//! This module provides various items for wroking with user events from the terminal.
 //!
 //! minus already has a sensible set of default key/mouse bindings so most people do not need to care about this module.
 //! But if you want to add or remove certain key bindings then you need to rely on this module..
@@ -69,8 +69,19 @@
 //!             );
 //! ```
 //!
-//! At the heart of this module is the [`InputEvent`] enum and [`InputClassifier`] trait.
-//! The [`InputEvent`] enum defies the various events which minus can properly respond to
+//! # Custom Actions on User Events
+//!
+//! Sometimes you want to execute arbitrary code when a key/mouse action is pressed like fetching
+//! more data from a server but not necessarily sending it to minus. In these types of scenarios,
+//! the [InputEvent::Ignore] is most likely your true friend. When this is returned by a callback
+//! function, minus will execute your code but not do anything special for the event on its part.
+//! ```no_run,no_compile
+//! input_register.add_key_events(&["f"], |_, ps| {
+//!     fetch_data_from_server(...);
+//!     InputEvent::Ignore
+//! });
+//!
+//! ```
 
 pub(crate) mod definitions;
 pub(crate) mod event_wrapper;
@@ -99,14 +110,25 @@ pub enum InputEvent {
     Number(char),
     /// Restore the original prompt
     RestorePrompt,
+    /// Tells the event hadler to not do anything for this event
+    ///
+    /// This is extremely useful when you want to execute arbitrary code on events without
+    /// necessarily asking the event handler to do anything special for this event. See [Custom
+    /// Actions on User Events](./index.html#custom-actions-on-user-events).
     Ignore,
     /// `/`, Searching for certain pattern of text
     #[cfg(feature = "search")]
     Search(SearchMode),
     /// Get to the next match in forward mode
+    ///
+    /// **NOTE: This has been deprecated in favour of `MoveToNextMatch`. This will likely be
+    /// removed in the next major release.**
     #[cfg(feature = "search")]
     NextMatch,
     /// Get to the previous match in forward mode
+    ///
+    /// **NOTE: This has been deprecated in favour of `MoveToPrevMatch`. This will likely be
+    /// removed in the next major release.**
     #[cfg(feature = "search")]
     PrevMatch,
     /// Move to the next nth match in the given direction
