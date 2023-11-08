@@ -1,5 +1,5 @@
 #[cfg(feature = "search")]
-use crate::minus_core::search::{SearchMode, SearchOpts};
+use crate::search::{SearchMode, SearchOpts};
 
 use crate::{
     error::{MinusError, TermError},

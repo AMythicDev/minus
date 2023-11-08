@@ -238,6 +238,8 @@ pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
 mod pager;
+#[cfg(feature = "search")]
+pub mod search;
 mod state;
 #[cfg(feature = "static_output")]
 mod static_pager;
@@ -247,9 +249,9 @@ pub use dynamic_pager::dynamic_paging;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
-#[cfg(feature = "search")]
-pub use minus_core::search::{self, SearchMode};
 pub use minus_core::RunMode;
+#[cfg(feature = "search")]
+pub use search::SearchMode;
 
 pub use error::MinusError;
 pub use pager::Pager;

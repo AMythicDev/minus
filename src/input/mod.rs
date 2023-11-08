@@ -77,7 +77,7 @@ pub(crate) mod event_wrapper;
 pub use crossterm::event as crossterm_event;
 
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchMode;
+use crate::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 pub use event_wrapper::HashedEventRegister;

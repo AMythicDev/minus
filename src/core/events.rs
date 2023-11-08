@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchOpts;
+use crate::search::SearchOpts;
 
 /// Different events that can be encountered while the pager is running
 #[non_exhaustive]

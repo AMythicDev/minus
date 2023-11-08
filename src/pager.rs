@@ -3,7 +3,7 @@ use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchOpts;
+use crate::search::SearchOpts;
 
 /// A pager acts as a middleman for communication between the main application
 /// and the user with the core functions of minus

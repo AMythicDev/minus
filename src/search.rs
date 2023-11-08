@@ -50,7 +50,7 @@
 //! ```
 
 #![allow(unused_imports)]
-use super::utils::{display, term, text};
+use crate::minus_core::utils::{display, term, text};
 use crate::{error::MinusError, input::HashedEventRegister};
 use crate::{LineNumbers, PagerState};
 use crossterm::{
@@ -327,7 +327,7 @@ where
     let format_result = text::make_format_lines(
         incremental_search_options.text,
         incremental_search_options.line_numbers,
-        so.cols.try_into().unwrap(),
+        so.cols.into(),
         &so.compiled_regex,
     );
     let position_of_next_match = next_nth_match(
@@ -765,7 +765,7 @@ pub(crate) fn next_nth_match(
 mod tests {
     mod input_handling {
         use crate::{
-            minus_core::search::{handle_key_press, InputStatus, SearchOpts},
+            search::{handle_key_press, InputStatus, SearchOpts},
             SearchMode,
         };
         use crossterm::{
@@ -1053,7 +1053,7 @@ mod tests {
     mod highlighting {
         use std::collections::BTreeSet;
 
-        use crate::minus_core::search::{highlight_line_matches, next_nth_match, INVERT, NORMAL};
+        use crate::search::{highlight_line_matches, next_nth_match, INVERT, NORMAL};
         use crate::PagerState;
         use crossterm::style::Attribute;
         use regex::Regex;

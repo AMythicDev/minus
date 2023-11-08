@@ -46,7 +46,7 @@ use std::collections::HashMap;
 use crate::LineNumbers;
 
 #[cfg(feature = "search")]
-use {crate::minus_core::search, std::collections::BTreeSet};
+use {crate::search, std::collections::BTreeSet};
 
 /// How should the incoming text be drawn on the screen
 pub enum AppendStyle {

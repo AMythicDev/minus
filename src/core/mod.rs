@@ -2,10 +2,7 @@ pub mod ev_handler;
 pub mod events;
 #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 pub mod init;
-#[cfg(feature = "search")]
-pub mod search;
 pub mod utils;
-
 pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
 
 /// Define the modes in which minus can run

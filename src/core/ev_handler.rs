@@ -7,10 +7,10 @@ use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(feature = "search")]
 use parking_lot::{Condvar, Mutex};
 
-#[cfg(feature = "search")]
-use super::search;
 use super::utils::display;
 use super::{events::Event, utils::term};
+#[cfg(feature = "search")]
+use crate::search;
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
 /// Respond based on the type of event
