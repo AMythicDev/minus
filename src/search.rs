@@ -676,11 +676,11 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> (Strin
         // Find how many invert|normal markers appear before this escape
         let match_count = matches.iter().take_while(|m| **m <= esc.0).count();
 
-        if match_count % 2 == 1 {
-            // if == 1, then it's either at the same spot as the start of an invert, or in the
-            // middle of an invert. Either way we don't want to place it in.
-            continue;
-        }
+        // if match_count % 2 == 1 {
+        // if == 1, then it's either at the same spot as the start of an invert, or in the
+        // middle of an invert. Either way we don't want to place it in.
+        // continue;
+        // }
 
         // find the number of invert strings and number of uninvert strings that have been
         // inserted up to this point in the string
@@ -690,8 +690,12 @@ pub(crate) fn highlight_line_matches(line: &str, query: &regex::Regex) -> (Strin
         // calculate the index which this escape should be re-inserted at by adding
         // its position in the stripped string to the total length of the ansi escapes
         // (both highlighting and the ones from the original string).
-        let pos =
+        let mut pos =
             esc.0 + inserted_escs_len + (num_invert * INVERT.len()) + (num_normal * NORMAL.len());
+
+        if match_count % 2 == 1 {
+            pos = pos.saturating_sub(1);
+        }
 
         // insert the escape back in
         inverted.insert_str(pos, esc.1);
@@ -1181,13 +1185,16 @@ eros.",
         }
 
         #[test]
-        fn coorect_ascii_sequence_placement() {
-            let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
+        fn correct_ascii_sequence_placement() {
+            //let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
+            let orig =
+                format!("{ESC}test{NONE} this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
+
             let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
             assert_eq!(
                 res.0,
                 format!(
-                    "this {e}is a {i}t{NONE}est{n} again {e}yeah{nn} {i}test{n}",
+                    "{i}{e}test{n}{nn} this {e}is a {i}te{NONE}st{n} again {e}yeah{nn} {i}test{n}",
                     e = ESC,
                     i = *INVERT,
                     n = *NORMAL,
