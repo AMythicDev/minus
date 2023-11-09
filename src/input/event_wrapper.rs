@@ -84,7 +84,7 @@ use std::{
 
 pub struct HashedEventRegister<S>(HashMap<EventWrapper, EventReturnType, S>);
 
-/// A convinient type for the return type of [`HashedEventRegister::get`]
+/// A convenient type for the return type of [`HashedEventRegister::get`]
 type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Sync>;
 
 #[derive(Clone, Eq)]
@@ -164,7 +164,7 @@ where
     /// called when no event matches the incoming event, then we just match whether the event is a keyboard number and
     /// perform the required action.
     ///
-    /// This is also helpful when you nedd to do some action, like sending a message when the user presses wrong
+    /// This is also helpful when you need to do some action, like sending a message when the user presses wrong
     /// keyboard/mouse buttons.
     pub fn insert_wild_event_matcher(
         &mut self,

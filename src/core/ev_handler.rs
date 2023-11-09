@@ -25,7 +25,7 @@ pub fn handle_event(
     ev: Event,
     mut out: &mut impl Write,
     p: &mut PagerState,
-    is_exitted: &Arc<AtomicBool>,
+    is_exited: &Arc<AtomicBool>,
     #[cfg(feature = "search")] user_input_active: &Arc<(Mutex<bool>, Condvar)>,
 ) -> Result<(), MinusError> {
     match ev {
@@ -35,7 +35,7 @@ pub fn handle_event(
         }
         Event::UserInput(InputEvent::Exit) => {
             p.exit();
-            is_exitted.store(true, std::sync::atomic::Ordering::SeqCst);
+            is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
             term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
         Event::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
@@ -80,7 +80,7 @@ pub fn handle_event(
             if let Some(incremental_search_result) = search_result.incremental_search_result {
                 p.search_term = search_result.compiled_regex;
                 p.upper_mark = incremental_search_result.upper_mark;
-                p.search_mark = incremental_search_result.searh_mark;
+                p.search_mark = incremental_search_result.search_mark;
                 p.search_idx = incremental_search_result.search_idx;
                 p.formatted_lines = incremental_search_result.formatted_lines;
                 return Ok(());
@@ -136,7 +136,7 @@ pub fn handle_event(
             if p.search_idx.is_empty() {
                 return Ok(());
             }
-            // Decrement the s_mark and get the preceeding index
+            // Decrement the s_mark and get the preceding index
             p.search_mark = p.search_mark.saturating_sub(1);
             if let Some(y) = p.search_idx.iter().nth(p.search_mark) {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
@@ -154,7 +154,7 @@ pub fn handle_event(
                 p.search_mark = pnm;
                 p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
 
-                // Ensure there is enough text available after location coresponding to
+                // Ensure there is enough text available after location corresponding to
                 // position_of_next_match so that we can display a pagefull of data. If not,
                 // reduce it so that a pagefull of text can be accommodated.
                 // NOTE: Add 1 to total number of lines to avoid off-by-one errors
@@ -171,7 +171,7 @@ pub fn handle_event(
             if p.search_idx.is_empty() {
                 return Ok(());
             }
-            // Decrement the s_mark and get the preceeding index
+            // Decrement the s_mark and get the preceding index
             p.search_mark = p.search_mark.saturating_sub(n);
             if let Some(y) = p.search_idx.iter().nth(p.search_mark) {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
@@ -222,7 +222,7 @@ pub fn handle_event(
         #[cfg(feature = "static_output")]
         Event::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
-        Event::IncrementalSearchCondition(cb) => p.incremental_search_condtion = cb,
+        Event::IncrementalSearchCondition(cb) => p.incremental_search_condition = cb,
         Event::SetInputClassifier(clf) => p.input_classifier = clf,
         Event::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Event::UserInput(_) => {}

@@ -13,7 +13,7 @@ use crate::search::SearchOpts;
 /// is called, the function takes the input. wraps it in the appropriate event
 /// type and transmits it through the sender held inside the this.
 ///
-/// The receiver part of the channel is continously polled by the pager for events. Depending
+/// The receiver part of the channel is continuously polled by the pager for events. Depending
 /// on the type of event that occurs, the pager will either redraw the screen or update
 /// the [PagerState](crate::state::PagerState)
 #[derive(Clone)]
@@ -197,9 +197,9 @@ impl Pager {
         Ok(self.tx.send(Event::SetRunNoOverflow(val))?)
     }
 
-    /// Set a custom input classifer function.
+    /// Set a custom input classifier function.
     ///
-    /// When the pager encounters a user input, it calls the input classifer with
+    /// When the pager encounters a user input, it calls the input classifier with
     /// the event and [PagerState](crate::state::PagerState) as parameters.
     ///
     /// A input classifier is a type implementing the [`InputClassifier`](input::InputClassifier)
@@ -247,7 +247,7 @@ impl Pager {
 
     /// Override the condition for running incremental search
     ///
-    /// See [Incrmental Search](../search/index.html#incremental-search) to know more on how this
+    /// See [Incremental Search](../search/index.html#incremental-search) to know more on how this
     /// works
     ///
     /// # Errors

@@ -23,10 +23,10 @@
 //! query is greater than 1 and number of screen lines (lines obtained after taking care of wrapping,
 //! mapped to a single row on the terminal) is greater than 5000.
 //!
-//! Applications can override this condtion with the help of
+//! Applications can override this condition with the help of
 //! [`Pager::set_incremental_search_condition`](crate::pager::Pager::set_incremental_search_condition) function.
 //!
-//! Here is a an example to demonstrate on its usage. Here we set the conditon to run incremental
+//! Here is a an example to demonstrate on its usage. Here we set the condition to run incremental
 //! search only when the length of the search query is greater than 1.
 //! ```
 //! use minus::{Pager, search::SearchOpts};
@@ -107,7 +107,7 @@ impl PartialEq for SearchMode {
 
 /// Options controlling the behaviour of search overall
 ///
-/// Although it isn't much important for most use cases but it alongside [IncrementalSearchOpts] are the key compoents
+/// Although it isn't much important for most use cases but it alongside [IncrementalSearchOpts] are the key components
 /// when applications want to customize the incremental seaech condition.
 ///
 /// Most of the fields have self-explanatory names so it should be very easy to get started using
@@ -255,7 +255,7 @@ pub(crate) struct IncrementalSearchCache {
     pub(crate) formatted_lines: Vec<String>,
     /// Index from `search_idx` where a search match after current upper mark may be found
     /// NOTE: There is no guarantee that this will stay within the bounds of `search_idx`
-    pub(crate) searh_mark: usize,
+    pub(crate) search_mark: usize,
     /// Indices of formatted_lines where search matches have been found
     pub(crate) search_idx: BTreeSet<usize>,
     /// Index of the line from which to display the text.
@@ -339,7 +339,7 @@ where
     let mut upper_mark;
     if let Some(pnm) = position_of_next_match {
         upper_mark = *format_result.append_search_idx.iter().nth(pnm).unwrap();
-        // Draw the icrementally searched lines from upper mark
+        // Draw the incrementally searched lines from upper mark
         display::write_text_checked(out, &format_result.lines, so.rows.into(), &mut upper_mark)?;
     } else {
         reset_screen(out, so)?;
@@ -349,7 +349,7 @@ where
     // cache.
     Ok(Some(IncrementalSearchCache {
         formatted_lines: format_result.lines,
-        searh_mark: position_of_next_match.unwrap(),
+        search_mark: position_of_next_match.unwrap(),
         upper_mark,
         search_idx: format_result.append_search_idx,
     }))
@@ -538,7 +538,7 @@ where
 
         Event::Key(event) => {
             // For any character key, without a modifier, insert it into so.string before
-            // current cursor positon and update the line
+            // current cursor position and update the line
             if let KeyCode::Char(c) = event.code {
                 so.string
                     .insert(so.cursor_position.saturating_sub(1).into(), c);
@@ -596,7 +596,7 @@ pub(crate) fn fetch_input(
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
             search_opts.ev = Some(ev);
-            handle_key_press(out, &mut search_opts, &ps.incremental_search_condtion)?;
+            handle_key_press(out, &mut search_opts, &ps.incremental_search_condition)?;
             search_opts.ev = None;
         }
         if search_opts.input_status.done() {
@@ -611,7 +611,7 @@ pub(crate) fn fetch_input(
     let fetch_input_result = match search_opts.input_status {
         InputStatus::Active => unreachable!(),
         InputStatus::Cancelled => FetchInputResult::new_empty(),
-        // When thw query is confirmed, return the actual query along with everything that is valid
+        // When the query is confirmed, return the actual query along with everything that is valid
         // in the cache
         InputStatus::Confirmed => FetchInputResult {
             string: search_opts.string,
@@ -739,7 +739,7 @@ pub(crate) fn next_nth_match(
             *i > upper_mark
         }
     }) {
-        // This ensures that index dosen't get off-by-one in case of jump = 0
+        // This ensures that index doesn't get off-by-one in case of jump = 0
         if jump == 0 {
             position_of_next_match = nearest_idx;
         } else {
@@ -881,7 +881,7 @@ mod tests {
 
             // Check functionality of left arrow key
             // Pressing left arrow moves the cursor towards the beginning of string until it
-            // reaches the first char after which pressing it furthur would not have any effect
+            // reaches the first char after which pressing it further would not have any effect
             for i in (FIRST_MOVABLE_COLUMN..=query_string_length).rev() {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Left));
                 handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
@@ -903,7 +903,7 @@ mod tests {
 
             // Check functionality of right arrow key
             // Pressing right arrow moves the cursor towards the end of string until it
-            // reaches the very next column to the last char after which pressing it furthur would not have any effect
+            // reaches the very next column to the last char after which pressing it further would not have any effect
             for i in 2..=last_movable_column {
                 search_opts.ev = Some(make_event_from_keycode(KeyCode::Right));
                 handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();

@@ -80,7 +80,7 @@ pub fn cleanup(
 
 /// Moves the terminal cursor to given x, y coordinates
 ///
-/// The `flush` parameter will immidiately flush the buffer if it is set to `true`
+/// The `flush` parameter will immediately flush the buffer if it is set to `true`
 pub fn move_cursor(
     out: &mut impl io::Write,
     x: u16,

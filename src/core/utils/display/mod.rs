@@ -36,7 +36,7 @@ pub fn draw_for_change(
     let lower_bound = p.upper_mark.saturating_add(writable_rows.min(line_count));
     let new_lower_bound = new_upper_mark.saturating_add(writable_rows.min(line_count));
 
-    // If the lower_bound is greater than the avilable line count, we set it to such a value
+    // If the lower_bound is greater than the available line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if new_lower_bound > line_count {
         *new_upper_mark = line_count.saturating_sub(writable_rows);
@@ -128,12 +128,12 @@ pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), M
 // The below functions are just a subset of functionality of the above draw_for_change function.
 // Although, separate they are tightly coupled together.
 
-/// Completely redraws the scrren
+/// Completely redraws the screen
 ///
 /// The function will first print out the lines from the current upper_mark. This is handled inside the [`write_lines`]
 /// function.
 ///
-/// Then it wil check if there is any message to display.
+/// Then it will check if there is any message to display.
 ///   - If there is one, it will display it at the prompt site
 ///   - If there isn't one, it will display the prompt in place of it
 pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
@@ -212,7 +212,7 @@ pub fn draw_append_text(
 /// [`PagerState::upper_mark`]. This function will always try to display as much lines as
 /// possible within `rows -1`.
 ///
-/// It always skips one row at the botton as a site for the prompt or any message that may be sent.
+/// It always skips one row at the bottom as a site for the prompt or any message that may be sent.
 ///
 /// This function ensures that upper mark never exceeds a value such that adding upper mark and available rows exceeds
 /// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
@@ -232,7 +232,7 @@ pub fn write_text_checked(
     // on the minimality
     let mut lower_mark = upper_mark.saturating_add(writable_rows.min(line_count));
 
-    // If the lower_bound is greater than the avilable line count, we set it to such a value
+    // If the lower_bound is greater than the available line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if lower_mark > line_count {
         *upper_mark = line_count.saturating_sub(writable_rows);
@@ -258,7 +258,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
     // on the minimality
     let lower_mark = ps.upper_mark.saturating_add(writable_rows.min(line_count));
 
-    // If the lower_bound is greater than the avilable line count, we set it to such a value
+    // If the lower_bound is greater than the available line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if lower_mark > line_count {
         ps.upper_mark = line_count.saturating_sub(writable_rows);

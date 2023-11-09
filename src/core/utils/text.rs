@@ -1,6 +1,6 @@
 //! Text related functions
 //!
-//! minus has a very intresting but simple text model that you must go through to understand how minus works.
+//! minus has a very interesting but simple text model that you must go through to understand how minus works.
 //!
 //! # Text Block
 //! A text block in minus is just a bunch of text that may contain newlines (`\n`) between them.
@@ -75,7 +75,7 @@ pub struct FormatOpts<'a> {
     pub len_line_number: usize,
     /// Actual number of columns available for displaying
     pub cols: usize,
-    /// Number of lines that are previously unterminated. It is only relevent when there is `attachment` text otherwise
+    /// Number of lines that are previously unterminated. It is only relevant when there is `attachment` text otherwise
     /// it should be 0.
     pub prev_unterminated: usize,
     /// Search term if a search is active
@@ -266,7 +266,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             .collect();
     }
 
-    // Calculate number of rows which are part of last line and are left unterminated  due to absense of \n
+    // Calculate number of rows which are part of last line and are left unterminated  due to absence of \n
     let unterminated = if opts.text.ends_with('\n') {
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
@@ -305,7 +305,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 /// - `formatted_idx`: is the position index where the line will be placed in the resulting
 ///    [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
 /// - `cols`: Number of columns in the terminal
-/// - `search_term`: Contains the regex iif a search is active
+/// - `search_term`: Contains the regex if a search is active
 ///
 /// [`PagerState::lines`]: crate::state::PagerState::lines
 #[allow(clippy::too_many_arguments)]
@@ -328,8 +328,8 @@ pub fn formatted_line(
     // Whether line numbers are active
     let line_numbers = matches!(line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
 
-    // NOTE: Only relevent when line numbers are active
-    // Padding is the space that the actual line text will be shifted to accomodate for
+    // NOTE: Only relevant when line numbers are active
+    // Padding is the space that the actual line text will be shifted to accommodate for
     // line numbers. This is equal to:-
     // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.')
     //

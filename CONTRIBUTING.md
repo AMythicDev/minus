@@ -6,7 +6,7 @@ Contributing to a `minus` is pretty straight forward. If this is you're first ti
 - Create an issue describing your feature/bug/enhancement and how it will be beneficial.
 - State that you are currently working on implementing/fixing the feature/bug/enhancement
 - Fork this repo.
-- Start from **main** branch and create a seperate branch for making changes.
+- Start from **main** branch and create a separate branch for making changes.
 - Read the code available and make your changes.
 - When you're done, submit a pull request for one of the maintainers to check it out. We would let you know if there is
   any problem or any changes that should be considered.
