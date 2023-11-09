@@ -1179,5 +1179,21 @@ eros.",
                 )
             );
         }
+
+        #[test]
+        fn coorect_ascii_sequence_placement() {
+            let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
+            let res = highlight_line_matches(&orig, &Regex::new("test").unwrap());
+            assert_eq!(
+                res.0,
+                format!(
+                    "this {e}is a {i}t{NONE}est{n} again {e}yeah{nn} {i}test{n}",
+                    e = ESC,
+                    i = *INVERT,
+                    n = *NORMAL,
+                    nn = NONE
+                )
+            );
+        }
     }
 }
