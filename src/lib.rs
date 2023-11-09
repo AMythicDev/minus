@@ -238,6 +238,7 @@ pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
 mod pager;
+pub mod screen_line;
 #[cfg(feature = "search")]
 pub mod search;
 mod state;
@@ -246,16 +247,14 @@ mod static_pager;
 
 #[cfg(feature = "dynamic_output")]
 pub use dynamic_pager::dynamic_paging;
-#[cfg(feature = "static_output")]
-pub use static_pager::page_all;
-
+pub use error::MinusError;
 pub use minus_core::RunMode;
+pub use pager::Pager;
 #[cfg(feature = "search")]
 pub use search::SearchMode;
-
-pub use error::MinusError;
-pub use pager::Pager;
 pub use state::PagerState;
+#[cfg(feature = "static_output")]
+pub use static_pager::page_all;
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
@@ -305,7 +304,7 @@ pub enum LineNumbers {
 }
 
 impl LineNumbers {
-    const EXTRA_PADDING: usize = 5;
+    const EXTRA_PADDING: u16 = 5;
 
     /// Returns `true` if `self` can be inverted (i.e, `!self != self`), see
     /// the documentation for the variants to know if they are invertible or
