@@ -79,7 +79,7 @@ impl Event {
     }
 
     #[cfg(feature = "dynamic_output")]
-    pub(crate) const fn required_immidiate_screen_update(&self) -> bool {
+    pub(crate) const fn required_immediate_screen_update(&self) -> bool {
         matches!(
             self,
             Self::SetData(_) | Self::SetPrompt(_) | Self::SendMessage(_) | Self::UserInput(_)

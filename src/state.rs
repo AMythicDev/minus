@@ -69,7 +69,7 @@ pub struct PagerState {
     pub cols: usize,
     /// This variable helps in scrolling more than one line at a time
     /// It keeps track of all the numbers that have been entered by the user
-    /// untill any of `j`, `k`, `G`, `Up` or `Down` is pressed
+    /// until any of `j`, `k`, `G`, `Up` or `Down` is pressed
     pub prefix_num: String,
     /// Describes whether minus is running and in which mode
     pub running: &'static Mutex<crate::RunMode>,
@@ -113,7 +113,7 @@ pub struct PagerState {
     /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
     pub(crate) lines_to_row_map: HashMap<usize, usize>,
     #[cfg(feature = "search")]
-    pub(crate) incremental_search_condtion:
+    pub(crate) incremental_search_condition:
         Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
 }
 
@@ -147,7 +147,7 @@ impl PagerState {
             .unwrap_or_else(|_| String::from("minus"));
 
         #[cfg(feature = "search")]
-        let incremental_search_condtion = Box::new(|so: &SearchOpts| {
+        let incremental_search_condition = Box::new(|so: &SearchOpts| {
             so.string.len() > 1
                 && so
                     .incremental_search_options
@@ -182,7 +182,7 @@ impl PagerState {
             #[cfg(feature = "search")]
             search_mark: 0,
             #[cfg(feature = "search")]
-            incremental_search_condtion,
+            incremental_search_condition,
             // Just to be safe in tests, keep at 1x1 size
             cols,
             rows,

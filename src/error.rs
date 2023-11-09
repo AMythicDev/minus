@@ -7,7 +7,7 @@ use crate::minus_core::events::Event;
 
 /// An operation on the terminal failed, for example resizing it.
 ///
-/// You can get more informations about this error by calling
+/// You can get more information about this error by calling
 /// [`source`](std::error::Error::source) on it.
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
@@ -109,7 +109,7 @@ pub enum MinusError {
     JoinError(#[from] tokio::task::JoinError),
 }
 
-// Just for  convinience helper which is useful in many places
+// Just for  convenience helper which is useful in many places
 #[cfg(feature = "search")]
 impl From<regex::Error> for MinusError {
     fn from(e: regex::Error) -> Self {

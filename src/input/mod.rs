@@ -1,6 +1,6 @@
 //! Working with user events
 //!
-//! This module provides various items for wroking with user events from the terminal.
+//! This module provides various items for working with user events from the terminal.
 //!
 //! minus already has a sensible set of default key/mouse bindings so most people do not need to care about this module.
 //! But if you want to add or remove certain key bindings then you need to rely on this module..
@@ -32,7 +32,7 @@
 //! This method relies heavily on the [`InputClassifier`] trait and the end-applications needs to bring in the underlying
 //! [`crossterm`] crate to define the inputs.
 //! Also there is no such option to add/remove/update a set of events. You need to manually copy the
-//! [default definitions](DefaultInputClassifier) and make the required modifications youself in this method.
+//! [default definitions](DefaultInputClassifier) and make the required modifications yourself in this method.
 //!
 //! ## Example
 //! ```

@@ -16,7 +16,7 @@ use crate::{error::MinusError, Pager};
 /// * Since any other event except user inputs will not occur, we can do some optimizations on
 /// matching events.
 ///
-/// See [example](../index.html#static-output) on how to use this functon.
+/// See [example](../index.html#static-output) on how to use this function.
 ///
 /// # Panics
 /// This function will panic if another instance of minus is already running.

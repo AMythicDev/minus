@@ -145,7 +145,7 @@ async fn main() -> Result<(), MinusError> {
     let pager = pager.clone();
     let (res1, res2) = join!(spawn_blocking(move || dynamic_paging(pager)), increment);
     // .unwrap() unwraps any error while creating the tokio task
-    //  The ? mark unpacks any error that might have occured while the
+    //  The ? mark unpacks any error that might have occurred while the
     // pager is running
     res1.unwrap()?;
     res2?;
@@ -182,7 +182,7 @@ assumed that text data will not change.
 
 Here is the list of default key/mouse actions handled by `minus`.
 
-**A `[n] key` means that you can preceed the key by a integer**. 
+**A `[n] key` means that you can precede the key by a integer**. 
 
 | Action            | Description                                                                                                               |
 |-------------------|---------------------------------------------------------------------------------------------------------------------------|

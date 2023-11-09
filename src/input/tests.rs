@@ -5,7 +5,7 @@ use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventState, KeyModifiers, MouseEvent, MouseEventKind,
 };
 
-// Just a transparent function to fix incompatiblity issues between
+// Just a transparent function to fix incompatibility issues between
 // versions
 // TODO: Remove this later in favour of how handle_event should actually be called
 fn handle_input(ev: Event, p: &PagerState) -> Option<InputEvent> {
