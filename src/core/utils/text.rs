@@ -335,7 +335,7 @@ pub fn formatted_line(
     //
     // We reduce this from the number of available columns as this space cannot be used for
     // actual line display when wrapping the lines
-    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
+    let padding = len_line_number + (<u16 as Into<usize>>::into(LineNumbers::EXTRA_PADDING)) + 1;
 
     // Wrap the line and return an iterator over all the rows
     let mut enumerated_rows = if line_numbers {
@@ -654,6 +654,80 @@ third line\n",
 
         assert_eq!(3, append_style.num_unterminated);
     }
+}
+
+/// Reformat the inputted prompt to how it should be displayed
+pub(crate) fn format_prompt(
+    prompt: String,
+    cols: usize,
+    prefix_num: &str,
+    message: Option<String>,
+    #[cfg(feature = "search")] search_idx: BTreeSet<usize>,
+    #[cfg(feature = "search")] search_mark: usize,
+) -> String {
+    const SEARCH_BG: &str = "\x1b[34m";
+    const INPUT_BG: &str = "\x1b[33m";
+
+    // Allocate the string. Add extra space in case for the
+    // ANSI escape things if we do have characters typed and search showing
+    let mut format_string = String::with_capacity(cols + (SEARCH_BG.len() * 2) + 4);
+
+    // Get the string that will contain the search index/match indicator
+    #[cfg(feature = "search")]
+    let mut search_str = String::new();
+    #[cfg(feature = "search")]
+    if !search_idx.is_empty() {
+        search_str.push(' ');
+        search_str.push_str(&(search_mark + 1).to_string());
+        search_str.push('/');
+        search_str.push_str(&search_idx.len().to_string());
+        search_str.push(' ');
+    }
+
+    // And get the string that will contain the prefix_num
+    let mut prefix_str = String::new();
+    if !prefix_num.is_empty() {
+        prefix_str.push(' ');
+        prefix_str.push_str(&prefix_num);
+        prefix_str.push(' ');
+    }
+
+    // And lastly, the string that contains the prompt or msg
+    let prompt_str = message.as_ref().unwrap_or(&prompt);
+
+    #[cfg(feature = "search")]
+    let search_len = search_str.len();
+    #[cfg(not(feature = "search"))]
+    let search_len = 0;
+
+    // Calculate how much extra padding in the middle we need between
+    // the prompt/message and the indicators on the right
+    let prefix_len = prefix_str.len();
+    let extra_space = cols.saturating_sub(search_len + prefix_len + prompt_str.len());
+    let dsp_prompt: &str = if extra_space == 0 {
+        &prompt_str[..cols - search_len - prefix_len]
+    } else {
+        prompt_str
+    };
+
+    // push the prompt/msg
+    format_string.push_str(dsp_prompt);
+    format_string.push_str(&" ".repeat(extra_space));
+
+    // add the prefix_num if it exists
+    if prefix_len > 0 {
+        format_string.push_str(INPUT_BG);
+        format_string.push_str(&prefix_str);
+    }
+
+    // and add the search indicator stuff if it exists
+    #[cfg(feature = "search")]
+    if search_len > 0 {
+        format_string.push_str(SEARCH_BG);
+        format_string.push_str(&search_str);
+    }
+
+    format_string
 }
 
 mod wrapping {

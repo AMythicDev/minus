@@ -4,6 +4,7 @@ pub mod events;
 pub mod init;
 pub mod utils;
 pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
+pub mod screen_line;
 
 /// Define the modes in which minus can run
 #[derive(Copy, Clone, PartialEq, Eq)]

@@ -348,17 +348,17 @@ fn event_reader(
             if let Some(iev) = input {
                 if let InputEvent::Number(n) = iev {
                     guard.prefix_num.push(n);
-                    guard.format_prompt();
+                    guard.update_displayed_prompt();
                 } else if !guard.prefix_num.is_empty() {
                     guard.prefix_num.clear();
-                    guard.format_prompt();
+                    guard.update_displayed_prompt();
                 }
                 if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Event::UserInput(iev)) {
                     break;
                 }
             } else if !guard.prefix_num.is_empty() {
                 guard.prefix_num.clear();
-                guard.format_prompt();
+                guard.update_displayed_prompt();
             }
         }
     }
