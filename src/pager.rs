@@ -262,6 +262,32 @@ impl Pager {
         self.tx.send(Event::IncrementalSearchCondition(cb))?;
         Ok(())
     }
+
+    /// Control whether to show the prompt
+    ///
+    /// Many applications don't want the prompt to be displayed at all. This function can be used to completely turn
+    /// off the prompt. Passing `false` to this will stops the prompt from displaying and instead a blank line will
+    /// be displayed.
+    ///
+    /// Note that This merely stop the prompt from being shown. Your application can still update the
+    /// prompt and send messages to the user but it won't be shown until the prompt isn't re-enabled.
+    /// The prompt section will also be used when user opens the search prompt to type a search query.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the mus's receiving end
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new();
+    /// pager.show_prompt(false).unwrap();
+    /// ```
+    pub fn show_prompt(&self, show: bool) -> crate::Result {
+        self.tx.send(Event::ShowPrompt(show))?;
+        Ok(())
+    }
 }
 
 impl Default for Pager {

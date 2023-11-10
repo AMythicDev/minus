@@ -225,6 +225,7 @@ pub fn handle_event(
         Event::IncrementalSearchCondition(cb) => p.incremental_search_condition = cb,
         Event::SetInputClassifier(clf) => p.input_classifier = clf,
         Event::AddExitCallback(cb) => p.exit_callbacks.push(cb),
+        Event::ShowPrompt(show) => p.show_prompt = show,
         Event::UserInput(_) => {}
     }
     Ok(())

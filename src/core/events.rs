@@ -21,6 +21,7 @@ pub enum Event {
     SetExitStrategy(ExitStrategy),
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
+    ShowPrompt(bool),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
@@ -35,6 +36,7 @@ impl PartialEq for Event {
             | (Self::SetPrompt(d1), Self::SetPrompt(d2))
             | (Self::SendMessage(d1), Self::SendMessage(d2)) => d1 == d2,
             (Self::SetLineNumbers(d1), Self::SetLineNumbers(d2)) => d1 == d2,
+            (Self::ShowPrompt(d1), Self::ShowPrompt(d2)) => d1 == d2,
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
             #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
@@ -57,6 +59,7 @@ impl Debug for Event {
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
+            Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
@@ -82,7 +85,11 @@ impl Event {
     pub(crate) const fn required_immediate_screen_update(&self) -> bool {
         matches!(
             self,
-            Self::SetData(_) | Self::SetPrompt(_) | Self::SendMessage(_) | Self::UserInput(_)
+            Self::SetData(_)
+                | Self::SetPrompt(_)
+                | Self::SendMessage(_)
+                | Self::UserInput(_)
+                | Self::ShowPrompt(_)
         )
     }
 }

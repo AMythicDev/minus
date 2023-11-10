@@ -93,6 +93,8 @@ pub struct PagerState {
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
     pub(crate) displayed_prompt: String,
+    /// Whether to show the prompt on the screen
+    pub(crate) show_prompt: bool,
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
@@ -171,6 +173,7 @@ impl PagerState {
             exit_callbacks: Vec::with_capacity(5),
             message: None,
             displayed_prompt: String::new(),
+            show_prompt: true,
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
             #[cfg(feature = "search")]

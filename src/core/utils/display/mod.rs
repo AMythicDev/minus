@@ -106,7 +106,9 @@ pub fn draw_for_change(
 
     p.upper_mark = *new_upper_mark;
 
-    super::display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+    if p.show_prompt {
+        super::display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+    }
     out.flush()?;
 
     Ok(())
@@ -136,15 +138,17 @@ pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), M
 /// Then it will check if there is any message to display.
 ///   - If there is one, it will display it at the prompt site
 ///   - If there isn't one, it will display the prompt in place of it
-pub fn draw_full(out: &mut impl Write, pager: &mut PagerState) -> Result<(), MinusError> {
+pub fn draw_full(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
     super::term::move_cursor(out, 0, 0, false)?;
     queue!(out, Clear(ClearType::All))?;
 
-    write_from_pagerstate(out, pager)?;
+    write_from_pagerstate(out, ps)?;
 
-    let pager_rows: u16 = pager.rows.try_into().map_err(|_| MinusError::Conversion)?;
+    let pager_rows: u16 = ps.rows.try_into().map_err(|_| MinusError::Conversion)?;
 
-    write_prompt(out, &pager.displayed_prompt, pager_rows)?;
+    if ps.show_prompt {
+        write_prompt(out, &ps.displayed_prompt, pager_rows)?;
+    }
 
     out.flush().map_err(MinusError::Draw)
 }
