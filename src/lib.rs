@@ -238,7 +238,7 @@ pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
 mod pager;
-pub mod screen_line;
+pub mod screen;
 #[cfg(feature = "search")]
 pub mod search;
 mod state;

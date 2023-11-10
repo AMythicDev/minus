@@ -45,7 +45,7 @@ pub fn handle_event(
         Event::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
-            p.format_prompt();
+            p.update_displayed_prompt();
         }
         Event::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
@@ -94,7 +94,7 @@ pub fn handle_event(
                 let compiled_regex = regex::Regex::new(&search_result.string).ok();
                 if compiled_regex.is_none() {
                     p.message = Some("Invalid regular expression. Press Enter".to_owned());
-                    p.format_prompt();
+                    p.update_displayed_prompt();
                 }
                 compiled_regex
             } else {
@@ -112,7 +112,7 @@ pub fn handle_event(
                 p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
             }
 
-            p.format_prompt();
+            p.update_displayed_prompt();
             display::draw_full(&mut out, p)?;
         }
         #[cfg(feature = "search")]
@@ -126,7 +126,7 @@ pub fn handle_event(
                 p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
             }
 
-            p.format_prompt();
+            p.update_displayed_prompt();
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
@@ -142,7 +142,7 @@ pub fn handle_event(
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
                     p.upper_mark = *y;
-                    p.format_prompt();
+                    p.update_displayed_prompt();
                 }
             }
         }
@@ -163,7 +163,7 @@ pub fn handle_event(
                     p.upper_mark = *p.search_idx.iter().nth(p.search_mark).unwrap();
                 }
             }
-            p.format_prompt();
+            p.update_displayed_prompt();
         }
         #[cfg(feature = "search")]
         Event::UserInput(InputEvent::MoveToPrevMatch(n)) if p.search_term.is_some() => {
@@ -177,7 +177,7 @@ pub fn handle_event(
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
                     p.upper_mark = *y;
-                    p.format_prompt();
+                    p.update_displayed_prompt();
                 }
             }
         }
@@ -204,7 +204,7 @@ pub fn handle_event(
             } else {
                 p.message = Some(text.to_string());
             }
-            p.format_prompt();
+            p.update_displayed_prompt();
             term::move_cursor(&mut out, 0, p.rows.try_into().unwrap(), false)?;
             if !p.running.lock().is_uninitialized() {
                 super::utils::display::write_prompt(

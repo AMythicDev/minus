@@ -424,7 +424,7 @@ fn draw_help_message() {
     let mut pager = PagerState::new().unwrap();
     pager.lines = lines.to_string();
     pager.line_numbers = LineNumbers::AlwaysOff;
-    pager.format_prompt();
+    pager.update_displayed_prompt();
 
     draw_full(&mut out, &mut pager).expect("Should have written");
 
@@ -468,7 +468,7 @@ mod draw_for_change_tests {
         ps.upper_mark = 0;
         ps.lines = lines;
         ps.format_lines();
-        ps.format_prompt();
+        ps.update_displayed_prompt();
         ps
     }
 
