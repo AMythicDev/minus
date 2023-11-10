@@ -36,7 +36,7 @@ write commit messages that strictly adhere to [Conventional Commits](https://con
 ### Types
 You commit must have a type associated with it. Here are all the types that we encourage people to use ensure commits
 can be classified same for everyone contributing to minus.
-- 'ci' - Changes to GitHub Actions CI wofkflows file
+- `ci` - Changes to GitHub Actions CI wofkflows file
 - `chore`: Regular stuff that don't fall into any category like running `rustfmt` etc.
 - `docs` - Improvements to documentation
 - `feat` - Feature improvements
@@ -44,6 +44,7 @@ can be classified same for everyone contributing to minus.
 - `perf` - Performance improvements
 - `refactor` - Changes that don't fix bugs or add features but improves the overall quality of code base.
    You can use this for commits that fix cargo/clippy warnings
+- `release` - Used to mark commits that make a new commit on crates.io
 - `test`: Commits that touch examples/unit tests/doc tests.
 
 ### Scopes
