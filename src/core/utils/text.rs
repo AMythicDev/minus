@@ -353,7 +353,7 @@ pub fn formatted_line(
     let mut handle_search = |row: String, wrap_idx: usize| {
         #[cfg(feature = "search")]
         if let Some(st) = search_term.as_ref() {
-            let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
+            let (highlighted_row, is_match) = search::highlight_line_matches(&row, st, false);
             if is_match {
                 search_idx.insert(formatted_idx + wrap_idx);
             }
