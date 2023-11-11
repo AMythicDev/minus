@@ -677,14 +677,8 @@ pub(crate) fn highlight_line_matches(
     // into the stripped string at the point where it is being checked.
     let mut inserted_escs_len = 0;
     for esc in escapes {
-        // Find how many invert|normal markers appear before this escape
         let match_count = matches.iter().take_while(|m| **m <= esc.0).count();
-
-        if !accurate && match_count % 2 == 1 {
-            // if == 1, then it's either at the same spot as the start of an invert, or in the
-            // middle of an invert. Either way we don't want to place it in.
-            continue;
-        }
+        // Find how many invert|normal markers appear before this escape
 
         // find the number of invert strings and number of uninvert strings that have been
         // inserted up to this point in the string
@@ -694,10 +688,19 @@ pub(crate) fn highlight_line_matches(
         // calculate the index which this escape should be re-inserted at by adding
         // its position in the stripped string to the total length of the ansi escapes
         // (both highlighting and the ones from the original string).
-        let mut pos =
-            esc.0 + inserted_escs_len + (num_invert * INVERT.len()) + (num_normal * NORMAL.len());
+        // TODO: Add more docs to this
+        let mut pos = if !accurate && match_count % 2 == 1 {
+            // INFO: Its safe to unwrap here
+            matches.get(match_count).unwrap()
+                + NORMAL.len()
+                + inserted_escs_len
+                + (num_invert * INVERT.len())
+                + (num_normal * NORMAL.len())
+        } else {
+            esc.0 + inserted_escs_len + (num_invert * INVERT.len()) + (num_normal * NORMAL.len())
+        };
 
-        if accurate && match_count % 2 == 1 {
+        if match_count % 2 == 1 {
             pos = pos.saturating_sub(1);
         }
 
@@ -1143,7 +1146,7 @@ eros.",
             let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
             assert_eq!(
                 res.0,
-                format!("this {}is a {}test{}", ESC, *INVERT, *NORMAL)
+                format!("this {}is a {}test{}{}", ESC, *INVERT, *NORMAL, NONE)
             );
         }
 
@@ -1153,7 +1156,7 @@ eros.",
             let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
             assert_eq!(
                 res.0,
-                format!("this is a {}test{} again{}", *INVERT, *NORMAL, NONE)
+                format!("this is a {}test{}{ESC} again{}", *INVERT, *NORMAL, NONE)
             );
         }
 
@@ -1171,7 +1174,10 @@ eros.",
         fn esc_within_match() {
             let orig = format!("this is a t{ESC}es{NONE}t again");
             let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
-            assert_eq!(res.0, format!("this is a {}test{} again", *INVERT, *NORMAL));
+            assert_eq!(
+                res.0,
+                format!("this is a {}test{}{ESC}{NONE} again", *INVERT, *NORMAL)
+            );
         }
 
         #[test]
@@ -1181,7 +1187,7 @@ eros.",
             assert_eq!(
                 res.0,
                 format!(
-                    "this {e}is a {i}test{n} again {e}yeah{nn} {i}test{n}",
+                    "this {e}is a {i}test{n}{nn} again {e}yeah{nn} {i}test{n}",
                     e = ESC,
                     i = *INVERT,
                     n = *NORMAL,
