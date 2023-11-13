@@ -218,9 +218,9 @@ where
         map.add_key_events(&["n"], |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
-            if ps.search_mode == SearchMode::Forward {
+            if ps.search_state.search_mode == SearchMode::Forward {
                 InputEvent::MoveToNextMatch(position)
-            } else if ps.search_mode == SearchMode::Reverse {
+            } else if ps.search_state.search_mode == SearchMode::Reverse {
                 InputEvent::MoveToPrevMatch(position)
             } else {
                 InputEvent::Ignore
@@ -229,9 +229,9 @@ where
         map.add_key_events(&["p"], |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
-            if ps.search_mode == SearchMode::Forward {
+            if ps.search_state.search_mode == SearchMode::Forward {
                 InputEvent::MoveToPrevMatch(position)
-            } else if ps.search_mode == SearchMode::Reverse {
+            } else if ps.search_state.search_mode == SearchMode::Reverse {
                 InputEvent::MoveToNextMatch(position)
             } else {
                 InputEvent::Ignore
@@ -451,7 +451,7 @@ impl InputClassifier for DefaultInputClassifier {
                 ..
             }) => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
-                if ps.search_mode == SearchMode::Reverse {
+                if ps.search_state.search_mode == SearchMode::Reverse {
                     Some(InputEvent::MoveToPrevMatch(position))
                 } else {
                     Some(InputEvent::MoveToNextMatch(position))
@@ -464,7 +464,7 @@ impl InputClassifier for DefaultInputClassifier {
                 ..
             }) => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
-                if ps.search_mode == SearchMode::Reverse {
+                if ps.search_state.search_mode == SearchMode::Reverse {
                     Some(InputEvent::MoveToNextMatch(position))
                 } else {
                     Some(InputEvent::MoveToPrevMatch(position))

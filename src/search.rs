@@ -181,9 +181,9 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
 #[allow(clippy::fallible_impl_from)]
 impl<'a> From<&'a PagerState> for SearchOpts<'a> {
     fn from(ps: &'a PagerState) -> Self {
-        let search_char = if ps.search_mode == SearchMode::Forward {
+        let search_char = if ps.search_state.search_mode == SearchMode::Forward {
             '/'
-        } else if ps.search_mode == SearchMode::Reverse {
+        } else if ps.search_state.search_mode == SearchMode::Reverse {
             '?'
         } else {
             unreachable!();
@@ -203,7 +203,7 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             incremental_search_options: Some(incremental_search_options),
             incremental_search_cache: None,
             compiled_regex: None,
-            search_mode: ps.search_mode,
+            search_mode: ps.search_state.search_mode,
         }
     }
 }
@@ -569,7 +569,7 @@ pub(crate) fn fetch_input(
     ps: &PagerState,
 ) -> Result<FetchInputResult, MinusError> {
     // Set the search character to show at column 0
-    let search_char = if ps.search_mode == SearchMode::Forward {
+    let search_char = if ps.search_state.search_mode == SearchMode::Forward {
         '/'
     } else {
         '?'

@@ -389,7 +389,7 @@ fn test_search_bindings() {
         );
     }
     {
-        pager.search_mode = SearchMode::Forward;
+        pager.search_state.search_mode = SearchMode::Forward;
         // NextMatch and PrevMatch forward search
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
@@ -415,7 +415,7 @@ fn test_search_bindings() {
     }
 
     {
-        pager.search_mode = SearchMode::Reverse;
+        pager.search_state.search_mode = SearchMode::Reverse;
         // NextMatch and PrevMatch reverse search
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
