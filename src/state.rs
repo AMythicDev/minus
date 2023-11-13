@@ -28,6 +28,33 @@ use std::{
 use crate::minus_core::{ev_handler::handle_event, events::Event};
 use crossbeam_channel::Receiver;
 
+#[cfg(feature = "search")]
+#[cfg_attr(docsrs, cfg(feature = "search"))]
+pub struct SearchState {
+    /// Direction of search
+    ///
+    /// See [`SearchMode`] for available options
+    pub search_mode: SearchMode,
+    /// Stores the most recent search term
+    pub(crate) search_term: Option<regex::Regex>,
+    /// Lines where searches have a match
+    /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
+    pub(crate) search_idx: BTreeSet<usize>,
+    /// Index of search item currently in focus
+    /// It should be 0 even when no search is in action
+    pub(crate) search_mark: usize,
+    /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
+    /// inside [`PagerState::formatted_lines`].
+    /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
+    /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
+    pub(crate) lines_to_row_map: HashMap<usize, usize>,
+    /// Function to run before running an incremental search.
+    ///
+    /// If the function returns a `false`, the incremental search is cancelled.
+    pub(crate) incremental_search_condition:
+        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+}
+
 /// Holds all information and configuration about the pager during
 /// its run time.
 ///
@@ -60,6 +87,9 @@ pub struct PagerState {
     /// Direction of search
     ///
     /// See [`SearchMode`] for available options
+    ///
+    /// **WARNING: This item has been deprecated in favour of [SearchState::search_mode] availlable
+    /// by the [PagerState::search_state] field. Any new code should prefer using it instead of this one.**
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_mode: SearchMode,
@@ -73,7 +103,9 @@ pub struct PagerState {
     pub prefix_num: String,
     /// Describes whether minus is running and in which mode
     pub running: &'static Mutex<crate::RunMode>,
-
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, cfg(feature = "search"))]
+    pub search_state: SearchState,
     /// The output, flattened and formatted into the lines that should be displayed
     pub(crate) formatted_lines: Vec<String>,
     /// Unterminated lines
@@ -98,25 +130,6 @@ pub struct PagerState {
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
-    /// Stores the most recent search term
-    #[cfg(feature = "search")]
-    pub(crate) search_term: Option<regex::Regex>,
-    /// Lines where searches have a match
-    /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
-    #[cfg(feature = "search")]
-    pub(crate) search_idx: BTreeSet<usize>,
-    /// Index of search item currently in focus
-    /// It should be 0 even when no search is in action
-    #[cfg(feature = "search")]
-    pub(crate) search_mark: usize,
-    /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
-    /// inside [`PagerState::formatted_lines`].
-    /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
-    /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
-    pub(crate) lines_to_row_map: HashMap<usize, usize>,
-    #[cfg(feature = "search")]
-    pub(crate) incremental_search_condition:
-        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
 }
 
 impl PagerState {

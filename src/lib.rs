@@ -240,7 +240,7 @@ mod minus_core;
 mod pager;
 #[cfg(feature = "search")]
 pub mod search;
-mod state;
+pub mod state;
 #[cfg(feature = "static_output")]
 mod static_pager;
 

@@ -121,13 +121,13 @@ pub enum InputEvent {
     Search(SearchMode),
     /// Get to the next match in forward mode
     ///
-    /// **NOTE: This has been deprecated in favour of `MoveToNextMatch`. This will likely be
+    /// **WARNING: This has been deprecated in favour of `MoveToNextMatch`. This will likely be
     /// removed in the next major release.**
     #[cfg(feature = "search")]
     NextMatch,
     /// Get to the previous match in forward mode
     ///
-    /// **NOTE: This has been deprecated in favour of `MoveToPrevMatch`. This will likely be
+    /// **WARNING: This has been deprecated in favour of `MoveToPrevMatch`. This will likely be
     /// removed in the next major release.**
     #[cfg(feature = "search")]
     PrevMatch,
