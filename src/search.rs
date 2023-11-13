@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, doc(cfg(feature = "search")))]
 //! Text searching functionality
 //!
 //! Text searching inside minus is quite advanced than other terminal pagers. It is highly
@@ -596,7 +597,11 @@ pub(crate) fn fetch_input(
         if event::poll(Duration::from_millis(100)).map_err(|e| MinusError::HandleEvent(e.into()))? {
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
             search_opts.ev = Some(ev);
-            handle_key_press(out, &mut search_opts, &ps.incremental_search_condition)?;
+            handle_key_press(
+                out,
+                &mut search_opts,
+                &ps.search_state.incremental_search_condition,
+            )?;
             search_opts.ev = None;
         }
         if search_opts.input_status.done() {

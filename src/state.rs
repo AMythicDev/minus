@@ -29,7 +29,8 @@ use crate::minus_core::{ev_handler::handle_event, events::Event};
 use crossbeam_channel::Receiver;
 
 #[cfg(feature = "search")]
-#[cfg_attr(docsrs, cfg(feature = "search"))]
+#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+#[allow(clippy::module_name_repetitions)]
 pub struct SearchState {
     /// Direction of search
     ///
@@ -43,16 +44,34 @@ pub struct SearchState {
     /// Index of search item currently in focus
     /// It should be 0 even when no search is in action
     pub(crate) search_mark: usize,
-    /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
-    /// inside [`PagerState::formatted_lines`].
-    /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
-    /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
-    pub(crate) lines_to_row_map: HashMap<usize, usize>,
     /// Function to run before running an incremental search.
     ///
     /// If the function returns a `false`, the incremental search is cancelled.
     pub(crate) incremental_search_condition:
         Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+}
+
+#[cfg(feature = "search")]
+impl Default for SearchState {
+    fn default() -> Self {
+        let incremental_search_condition = Box::new(|so: &SearchOpts| {
+            so.string.len() > 1
+                && so
+                    .incremental_search_options
+                    .as_ref()
+                    .unwrap()
+                    .initial_formatted_lines
+                    .len()
+                    <= 5000
+        });
+        Self {
+            search_mode: SearchMode::Unknown,
+            search_term: None,
+            search_idx: BTreeSet::new(),
+            search_mark: 0,
+            incremental_search_condition,
+        }
+    }
 }
 
 /// Holds all information and configuration about the pager during
@@ -130,6 +149,11 @@ pub struct PagerState {
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
+    /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
+    /// inside [`PagerState::formatted_lines`].
+    /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
+    /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
+    pub(crate) lines_to_row_map: HashMap<usize, usize>,
 }
 
 impl PagerState {
@@ -161,18 +185,6 @@ impl PagerState {
             .into_string()
             .unwrap_or_else(|_| String::from("minus"));
 
-        #[cfg(feature = "search")]
-        let incremental_search_condition = Box::new(|so: &SearchOpts| {
-            so.string.len() > 1
-                && so
-                    .incremental_search_options
-                    .as_ref()
-                    .unwrap()
-                    .initial_formatted_lines
-                    .len()
-                    <= 5000
-        });
-
         let mut state = Self {
             lines: String::with_capacity(u16::MAX.into()),
             formatted_lines: Vec::with_capacity(u16::MAX.into()),
@@ -190,15 +202,9 @@ impl PagerState {
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
             #[cfg(feature = "search")]
-            search_term: None,
-            #[cfg(feature = "search")]
             search_mode: SearchMode::default(),
             #[cfg(feature = "search")]
-            search_idx: BTreeSet::new(),
-            #[cfg(feature = "search")]
-            search_mark: 0,
-            #[cfg(feature = "search")]
-            incremental_search_condition,
+            search_state: SearchState::default(),
             // Just to be safe in tests, keep at 1x1 size
             cols,
             rows,
@@ -249,11 +255,11 @@ impl PagerState {
             self.line_numbers,
             self.cols,
             #[cfg(feature = "search")]
-            &self.search_term,
+            &self.search_state.search_term,
         );
         #[cfg(feature = "search")]
         {
-            self.search_idx = format_result.append_search_idx;
+            self.search_state.search_idx = format_result.append_search_idx;
         }
         self.formatted_lines = format_result.lines;
         self.lines_to_row_map = format_result.lines_to_row_map;
@@ -275,11 +281,11 @@ impl PagerState {
         #[cfg(feature = "search")]
         let mut search_str = String::new();
         #[cfg(feature = "search")]
-        if !self.search_idx.is_empty() {
+        if !self.search_state.search_idx.is_empty() {
             search_str.push(' ');
-            search_str.push_str(&(self.search_mark + 1).to_string());
+            search_str.push_str(&(self.search_state.search_mark + 1).to_string());
             search_str.push('/');
-            search_str.push_str(&self.search_idx.len().to_string());
+            search_str.push_str(&self.search_state.search_idx.len().to_string());
             search_str.push(' ');
         }
 
@@ -383,7 +389,7 @@ impl PagerState {
             prev_unterminated: self.unterminated,
             cols: self.cols,
             #[cfg(feature = "search")]
-            search_term: &self.search_term,
+            search_term: &self.search_state.search_term,
         };
 
         let append_props = text::format_text_block(append_opts);
@@ -397,7 +403,7 @@ impl PagerState {
         #[cfg(feature = "search")]
         {
             let mut append_search_idx = append_props.append_search_idx;
-            self.search_idx.append(&mut append_search_idx);
+            self.search_state.search_idx.append(&mut append_search_idx);
         }
         self.lines_to_row_map.extend(lines_to_row_map);
 

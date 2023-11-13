@@ -239,6 +239,7 @@ pub mod input;
 mod minus_core;
 mod pager;
 #[cfg(feature = "search")]
+#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 pub mod search;
 pub mod state;
 #[cfg(feature = "static_output")]
