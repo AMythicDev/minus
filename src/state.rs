@@ -1,3 +1,5 @@
+//! Contains types that hold run-time information of the pager.
+
 #[cfg(feature = "search")]
 use crate::search::{SearchMode, SearchOpts};
 
@@ -31,6 +33,7 @@ use crossbeam_channel::Receiver;
 #[cfg(feature = "search")]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 #[allow(clippy::module_name_repetitions)]
+/// Contains information about the current search
 pub struct SearchState {
     /// Direction of search
     ///
