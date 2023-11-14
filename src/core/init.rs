@@ -12,8 +12,8 @@ use crate::{
     error::MinusError,
     input::InputEvent,
     minus_core::{
+        commands::Command,
         ev_handler::handle_event,
-        events::Event,
         utils::{display::draw_full, term},
         RunMode,
     },
@@ -217,7 +217,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 /// screen.
 #[allow(clippy::too_many_lines)]
 fn start_reactor(
-    rx: &Receiver<Event>,
+    rx: &Receiver<Command>,
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
     #[cfg(feature = "search")] input_thread_running: &Arc<(Mutex<bool>, Condvar)>,
@@ -293,12 +293,12 @@ fn start_reactor(
                 break;
             }
 
-            if let Ok(Event::UserInput(inp)) = rx.recv() {
+            if let Ok(Command::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock();
-                let is_exit_event = Event::UserInput(inp).is_exit_event();
-                let is_movement = Event::UserInput(inp).is_movement();
+                let is_exit_event = Command::UserInput(inp).is_exit_event();
+                let is_movement = Command::UserInput(inp).is_movement();
                 handle_event(
-                    Event::UserInput(inp),
+                    Command::UserInput(inp),
                     &mut out_lock,
                     &mut p,
                     is_exited,
@@ -319,7 +319,7 @@ This is most likely a bug. Please open an issue to the developers"
 }
 
 fn event_reader(
-    evtx: &Sender<Event>,
+    evtx: &Sender<Command>,
     ps: &Arc<Mutex<PagerState>>,
     #[cfg(feature = "search")] user_input_active: &Arc<(Mutex<bool>, Condvar)>,
     is_exited: &Arc<AtomicBool>,
@@ -353,7 +353,7 @@ fn event_reader(
                     guard.prefix_num.clear();
                     guard.format_prompt();
                 }
-                if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Event::UserInput(iev)) {
+                if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Command::UserInput(iev)) {
                     break;
                 }
             } else if !guard.prefix_num.is_empty() {

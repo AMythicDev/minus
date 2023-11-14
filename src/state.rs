@@ -27,7 +27,7 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::minus_core::{ev_handler::handle_event, events::Event};
+use crate::minus_core::{commands::Command, ev_handler::handle_event};
 use crossbeam_channel::Receiver;
 
 #[cfg(feature = "search")]
@@ -231,7 +231,7 @@ impl PagerState {
     /// This function will return an error if it could not create the default [`PagerState`] or fails
     /// to process the events
     pub(crate) fn generate_initial_state(
-        rx: &Receiver<Event>,
+        rx: &Receiver<Command>,
         mut out: &mut Stdout,
     ) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;

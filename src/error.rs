@@ -3,7 +3,7 @@
 //! Some types provided are just present there to avoid leaking
 //! upstream error types
 
-use crate::minus_core::events::Event;
+use crate::minus_core::commands::Command;
 use std::io;
 
 /// An operation on the terminal failed, for example resizing it.
@@ -94,7 +94,7 @@ pub enum MinusError {
     FmtWriteError(#[from] std::fmt::Error),
 
     #[error("Failed to send data to the receiver")]
-    Communication(#[from] crossbeam_channel::SendError<Event>),
+    Communication(#[from] crossbeam_channel::SendError<Command>),
 
     #[error("Failed to convert between some primitives")]
     Conversion,

@@ -8,7 +8,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 use parking_lot::{Condvar, Mutex};
 
 use super::utils::display;
-use super::{events::Event, utils::term};
+use super::{commands::Command, utils::term};
 #[cfg(feature = "search")]
 use crate::search;
 use crate::{error::MinusError, input::InputEvent, PagerState};
@@ -22,43 +22,43 @@ use crate::{error::MinusError, input::InputEvent, PagerState};
 #[cfg_attr(not(feature = "search"), allow(unused_mut))]
 #[allow(clippy::too_many_lines)]
 pub fn handle_event(
-    ev: Event,
+    ev: Command,
     mut out: &mut impl Write,
     p: &mut PagerState,
     is_exited: &Arc<AtomicBool>,
     #[cfg(feature = "search")] user_input_active: &Arc<(Mutex<bool>, Condvar)>,
 ) -> Result<(), MinusError> {
     match ev {
-        Event::SetData(text) => {
+        Command::SetData(text) => {
             p.lines = text;
             p.format_lines();
         }
-        Event::UserInput(InputEvent::Exit) => {
+        Command::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
             term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
-        Event::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
+        Command::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
-        Event::UserInput(InputEvent::RestorePrompt) => {
+        Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
             p.format_prompt();
         }
-        Event::UserInput(InputEvent::UpdateTermArea(c, r)) => {
+        Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
             p.cols = c;
             // Readjust the text wrapping for the new number of columns
             p.format_lines();
         }
-        Event::UserInput(InputEvent::UpdateLineNumber(l)) => {
+        Command::UserInput(InputEvent::UpdateLineNumber(l)) => {
             p.line_numbers = l;
             p.format_lines();
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::Search(m)) => {
+        Command::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
             p.search_state.search_mode = m;
             // Reset search mark so it won't be out of bounds if we have
@@ -123,7 +123,7 @@ pub fn handle_event(
             display::draw_full(&mut out, p)?;
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
+        Command::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
             if p.search_state.search_term.is_some() =>
         {
             // Move to next search match after the current upper_mark
@@ -142,7 +142,7 @@ pub fn handle_event(
             p.format_prompt();
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
+        Command::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
             if p.search_state.search_term.is_some() =>
         {
             // If no matches, return immediately
@@ -165,7 +165,7 @@ pub fn handle_event(
             }
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::MoveToNextMatch(n))
+        Command::UserInput(InputEvent::MoveToNextMatch(n))
             if p.search_state.search_term.is_some() =>
         {
             // Move to next nth search match after the current upper_mark
@@ -197,7 +197,7 @@ pub fn handle_event(
             p.format_prompt();
         }
         #[cfg(feature = "search")]
-        Event::UserInput(InputEvent::MoveToPrevMatch(n))
+        Command::UserInput(InputEvent::MoveToPrevMatch(n))
             if p.search_state.search_term.is_some() =>
         {
             // If no matches, return immediately
@@ -220,7 +220,7 @@ pub fn handle_event(
             }
         }
 
-        Event::AppendData(text) => {
+        Command::AppendData(text) => {
             let prev_unterminated = p.unterminated;
             let prev_fmt_lines_count = p.num_lines();
             let append_style = p.append_str(text.as_str());
@@ -236,8 +236,8 @@ pub fn handle_event(
             }
         }
 
-        Event::SetPrompt(ref text) | Event::SendMessage(ref text) => {
-            if let Event::SetPrompt(_) = ev {
+        Command::SetPrompt(ref text) | Command::SendMessage(ref text) => {
+            if let Command::SetPrompt(_) = ev {
                 p.prompt = text.to_string();
             } else {
                 p.message = Some(text.to_string());
@@ -252,26 +252,26 @@ pub fn handle_event(
                 )?;
             }
         }
-        Event::SetLineNumbers(ln) => {
+        Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
             p.format_lines();
         }
-        Event::SetExitStrategy(es) => p.exit_strategy = es,
+        Command::SetExitStrategy(es) => p.exit_strategy = es,
         #[cfg(feature = "static_output")]
-        Event::SetRunNoOverflow(val) => p.run_no_overflow = val,
+        Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
-        Event::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
-        Event::SetInputClassifier(clf) => p.input_classifier = clf,
-        Event::AddExitCallback(cb) => p.exit_callbacks.push(cb),
-        Event::ShowPrompt(show) => p.show_prompt = show,
-        Event::UserInput(_) => {}
+        Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
+        Command::SetInputClassifier(clf) => p.input_classifier = clf,
+        Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
+        Command::ShowPrompt(show) => p.show_prompt = show,
+        Command::UserInput(_) => {}
     }
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::events::Event;
+    use super::super::commands::Command;
     use super::handle_event;
     use crate::{ExitStrategy, PagerState};
     use std::sync::{atomic::AtomicBool, Arc};
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn set_data() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Event::SetData(TEST_STR.to_string());
+        let ev = Command::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
 
         handle_event(
@@ -309,8 +309,8 @@ mod tests {
     #[test]
     fn append_str() {
         let mut ps = PagerState::new().unwrap();
-        let ev1 = Event::AppendData(format!("{TEST_STR}\n"));
-        let ev2 = Event::AppendData(TEST_STR.to_string());
+        let ev1 = Command::AppendData(format!("{TEST_STR}\n"));
+        let ev2 = Command::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
 
         handle_event(
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn set_prompt() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Event::SetPrompt(TEST_STR.to_string());
+        let ev = Command::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
 
         handle_event(
@@ -358,7 +358,7 @@ mod tests {
     #[test]
     fn send_message() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Event::SendMessage(TEST_STR.to_string());
+        let ev = Command::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
 
         handle_event(
@@ -377,7 +377,7 @@ mod tests {
     #[cfg(feature = "static_output")]
     fn set_run_no_overflow() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Event::SetRunNoOverflow(false);
+        let ev = Command::SetRunNoOverflow(false);
         let mut out = Vec::new();
 
         handle_event(
@@ -395,7 +395,7 @@ mod tests {
     #[test]
     fn set_exit_strategy() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Event::SetExitStrategy(ExitStrategy::PagerQuit);
+        let ev = Command::SetExitStrategy(ExitStrategy::PagerQuit);
         let mut out = Vec::new();
 
         handle_event(
@@ -413,7 +413,7 @@ mod tests {
     #[test]
     fn add_exit_callback() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Event::AddExitCallback(Box::new(|| println!("Hello World")));
+        let ev = Command::AddExitCallback(Box::new(|| println!("Hello World")));
         let mut out = Vec::new();
 
         handle_event(

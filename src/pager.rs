@@ -1,4 +1,4 @@
-use crate::{error::MinusError, input, minus_core::events::Event, ExitStrategy, LineNumbers};
+use crate::{error::MinusError, input, minus_core::commands::Command, ExitStrategy, LineNumbers};
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
@@ -18,8 +18,8 @@ use crate::search::SearchOpts;
 /// the [PagerState](crate::state::PagerState)
 #[derive(Clone)]
 pub struct Pager {
-    pub(crate) tx: Sender<Event>,
-    pub(crate) rx: Receiver<Event>,
+    pub(crate) tx: Sender<Command>,
+    pub(crate) rx: Receiver<Command>,
 }
 
 impl Pager {
@@ -51,7 +51,7 @@ impl Pager {
     /// pager.set_text("This is a line").expect("Failed to send data to the pager");
     /// ```
     pub fn set_text(&self, s: impl Into<String>) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetData(s.into()))?)
+        Ok(self.tx.send(Command::SetData(s.into()))?)
     }
 
     /// Appends text to the pager output.
@@ -77,7 +77,7 @@ impl Pager {
     /// write!(pager, "This is some text").expect("Failed to send data to the pager");
     /// ```
     pub fn push_str(&self, s: impl Into<String>) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::AppendData(s.into()))?)
+        Ok(self.tx.send(Command::AppendData(s.into()))?)
     }
 
     /// Set line number configuration for the pager
@@ -96,7 +96,7 @@ impl Pager {
     /// pager.set_line_numbers(LineNumbers::Enabled).expect("Failed to send data to the pager");
     /// ```
     pub fn set_line_numbers(&self, l: LineNumbers) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetLineNumbers(l))?)
+        Ok(self.tx.send(Command::SetLineNumbers(l))?)
     }
 
     /// Set the text displayed at the bottom prompt
@@ -120,7 +120,7 @@ impl Pager {
     pub fn set_prompt(&self, text: impl Into<String>) -> Result<(), MinusError> {
         let text: String = text.into();
         assert!(!text.contains('\n'), "Prompt cannot contain newlines");
-        Ok(self.tx.send(Event::SetPrompt(text))?)
+        Ok(self.tx.send(Command::SetPrompt(text))?)
     }
 
     /// Display a temporary message at the prompt area
@@ -144,7 +144,7 @@ impl Pager {
     pub fn send_message(&self, text: impl Into<String>) -> Result<(), MinusError> {
         let text: String = text.into();
         assert!(!text.contains('\n'), "Message cannot contain newlines");
-        Ok(self.tx.send(Event::SendMessage(text))?)
+        Ok(self.tx.send(Command::SendMessage(text))?)
     }
 
     /// Set the default exit strategy.
@@ -163,7 +163,7 @@ impl Pager {
     /// pager.set_exit_strategy(ExitStrategy::ProcessQuit).expect("Failed to send data to the pager");
     /// ```
     pub fn set_exit_strategy(&self, es: ExitStrategy) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetExitStrategy(es))?)
+        Ok(self.tx.send(Command::SetExitStrategy(es))?)
     }
 
     /// Set whether to display pager if there's less data than
@@ -194,7 +194,7 @@ impl Pager {
     #[cfg(feature = "static_output")]
     #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
     pub fn set_run_no_overflow(&self, val: bool) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetRunNoOverflow(val))?)
+        Ok(self.tx.send(Command::SetRunNoOverflow(val))?)
     }
 
     /// Set a custom input classifier function.
@@ -215,7 +215,7 @@ impl Pager {
         &self,
         handler: Box<dyn input::InputClassifier + Send + Sync>,
     ) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetInputClassifier(handler))?)
+        Ok(self.tx.send(Command::SetInputClassifier(handler))?)
     }
 
     /// Adds a function that will be called when the user quits the pager
@@ -242,7 +242,7 @@ impl Pager {
         &self,
         cb: Box<dyn FnMut() + Send + Sync + 'static>,
     ) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::AddExitCallback(cb))?)
+        Ok(self.tx.send(Command::AddExitCallback(cb))?)
     }
 
     /// Override the condition for running incremental search
@@ -259,7 +259,7 @@ impl Pager {
         &self,
         cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
     ) -> crate::Result {
-        self.tx.send(Event::IncrementalSearchCondition(cb))?;
+        self.tx.send(Command::IncrementalSearchCondition(cb))?;
         Ok(())
     }
 
@@ -285,7 +285,7 @@ impl Pager {
     /// pager.show_prompt(false).unwrap();
     /// ```
     pub fn show_prompt(&self, show: bool) -> crate::Result {
-        self.tx.send(Event::ShowPrompt(show))?;
+        self.tx.send(Command::ShowPrompt(show))?;
         Ok(())
     }
 }

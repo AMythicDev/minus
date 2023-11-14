@@ -1,6 +1,6 @@
 // Test the implementation of std::fmt::Write on Pager
 mod fmt_write {
-    use crate::{minus_core::events::Event, Pager};
+    use crate::{minus_core::commands::Command, Pager};
     use std::fmt::Write;
 
     #[test]
@@ -8,7 +8,7 @@ mod fmt_write {
         const TEST: &str = "This is a line";
         let mut pager = Pager::new();
         writeln!(pager, "{TEST}").unwrap();
-        while let Ok(Event::AppendData(text)) = pager.rx.try_recv() {
+        while let Ok(Command::AppendData(text)) = pager.rx.try_recv() {
             if text != "\n" {
                 assert_eq!(text, TEST.to_string());
             }
@@ -20,7 +20,7 @@ mod fmt_write {
         const TEST: &str = "This is a line";
         let mut pager = Pager::new();
         write!(pager, "{TEST}").unwrap();
-        while let Ok(Event::AppendData(text)) = pager.rx.try_recv() {
+        while let Ok(Command::AppendData(text)) = pager.rx.try_recv() {
             assert_eq!(text, TEST.to_string());
         }
     }
@@ -244,7 +244,7 @@ fn exit_callback() {
 
 mod emit_events {
     // Check functions emit correct events on function calls
-    use crate::{minus_core::events::Event, ExitStrategy, LineNumbers, Pager};
+    use crate::{minus_core::commands::Command, ExitStrategy, LineNumbers, Pager};
 
     const TEST_STR: &str = "This is sample text";
     #[test]
@@ -252,7 +252,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_text(TEST_STR).unwrap();
         assert_eq!(
-            Event::SetData(TEST_STR.to_string()),
+            Command::SetData(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -262,7 +262,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.push_str(TEST_STR).unwrap();
         assert_eq!(
-            Event::AppendData(TEST_STR.to_string()),
+            Command::AppendData(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -272,7 +272,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_prompt(TEST_STR).unwrap();
         assert_eq!(
-            Event::SetPrompt(TEST_STR.to_string()),
+            Command::SetPrompt(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -282,7 +282,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.send_message(TEST_STR).unwrap();
         assert_eq!(
-            Event::SendMessage(TEST_STR.to_string()),
+            Command::SendMessage(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -292,7 +292,10 @@ mod emit_events {
     fn set_run_no_overflow() {
         let pager = Pager::new();
         pager.set_run_no_overflow(false).unwrap();
-        assert_eq!(Event::SetRunNoOverflow(false), pager.rx.try_recv().unwrap());
+        assert_eq!(
+            Command::SetRunNoOverflow(false),
+            pager.rx.try_recv().unwrap()
+        );
     }
 
     #[test]
@@ -300,7 +303,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_line_numbers(LineNumbers::Enabled).unwrap();
         assert_eq!(
-            Event::SetLineNumbers(LineNumbers::Enabled),
+            Command::SetLineNumbers(LineNumbers::Enabled),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -310,7 +313,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_exit_strategy(ExitStrategy::PagerQuit).unwrap();
         assert_eq!(
-            Event::SetExitStrategy(ExitStrategy::PagerQuit),
+            Command::SetExitStrategy(ExitStrategy::PagerQuit),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -321,6 +324,6 @@ mod emit_events {
         let pager = Pager::new();
         pager.add_exit_callback(func.clone()).unwrap();
 
-        assert_eq!(Event::AddExitCallback(func), pager.rx.try_recv().unwrap());
+        assert_eq!(Command::AddExitCallback(func), pager.rx.try_recv().unwrap());
     }
 }

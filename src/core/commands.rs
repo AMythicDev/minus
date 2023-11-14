@@ -11,7 +11,7 @@ use crate::search::SearchOpts;
 
 /// Different events that can be encountered while the pager is running
 #[non_exhaustive]
-pub enum Event {
+pub enum Command {
     AppendData(String),
     SetData(String),
     UserInput(InputEvent),
@@ -28,7 +28,7 @@ pub enum Event {
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 }
 
-impl PartialEq for Event {
+impl PartialEq for Command {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::SetData(d1), Self::SetData(d2))
@@ -49,7 +49,7 @@ impl PartialEq for Event {
     }
 }
 
-impl Debug for Event {
+impl Debug for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::SetData(text) => write!(f, "SetData({text:?})"),
@@ -70,7 +70,7 @@ impl Debug for Event {
     }
 }
 
-impl Event {
+impl Command {
     #[allow(dead_code)]
     pub(crate) const fn is_exit_event(&self) -> bool {
         matches!(self, Self::UserInput(InputEvent::Exit))
