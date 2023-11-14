@@ -4,6 +4,7 @@
 //! upstream error types
 
 use crate::minus_core::events::Event;
+use std::io;
 
 /// An operation on the terminal failed, for example resizing it.
 ///
@@ -15,7 +16,7 @@ use crate::minus_core::events::Event;
 pub struct TermError(
     // This member is private to avoid leaking the crossterm error type up the
     // dependency chain.
-    #[from] crossterm::ErrorKind,
+    #[from] io::Error,
 );
 
 /// There was an error while compiling the regex

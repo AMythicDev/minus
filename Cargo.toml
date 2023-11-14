@@ -20,7 +20,7 @@ path = "src/lib.rs"
 crate-type = ["lib"]
 
 [dependencies]
-crossterm = "^0.26"
+crossterm = "^0.27"
 textwrap = { version = "~0.16", default-features = false, features = ["unicode-width"] }
 thiserror = "^1"
 regex = { version = "^1", optional = true }
