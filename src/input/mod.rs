@@ -96,6 +96,7 @@ pub use event_wrapper::HashedEventRegister;
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
+#[non_exhaustive]
 pub enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.
     Exit,
