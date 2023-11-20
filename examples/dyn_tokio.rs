@@ -6,7 +6,6 @@ use tokio::{join, task::spawn_blocking, time::sleep};
 #[tokio::main]
 async fn main() -> Result<(), MinusError> {
     let mut output = minus::Pager::new();
-    output.show_prompt(false)?;
     let output2 = output.clone();
 
     let increment = async {
