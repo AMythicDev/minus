@@ -238,6 +238,7 @@ pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
 mod pager;
+pub mod screen;
 #[cfg(feature = "search")]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 pub mod search;

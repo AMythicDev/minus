@@ -23,7 +23,7 @@ pub fn draw_for_change(
     p: &mut PagerState,
     new_upper_mark: &mut usize,
 ) -> Result<(), MinusError> {
-    let line_count = p.num_lines();
+    let line_count = p.screen.formatted_lines_count();
 
     // Reduce one row for prompt/messages
     //
@@ -77,9 +77,10 @@ pub fn draw_for_change(
             queue!(out, Clear(ClearType::CurrentLine))?;
 
             if delta < writable_rows {
-                p.get_formatted_lines_with_bounds(lower_bound, new_lower_bound)
+                p.screen
+                    .get_formatted_lines_with_bounds(lower_bound, new_lower_bound)
             } else {
-                p.get_formatted_lines_with_bounds(
+                p.screen.get_formatted_lines_with_bounds(
                     *new_upper_mark,
                     new_upper_mark.saturating_add(normalized_delta),
                 )
@@ -92,7 +93,7 @@ pub fn draw_for_change(
             )?;
             term::move_cursor(out, 0, 0, false)?;
 
-            p.get_formatted_lines_with_bounds(
+            p.screen.get_formatted_lines_with_bounds(
                 *new_upper_mark,
                 new_upper_mark.saturating_add(normalized_delta),
             )
@@ -253,7 +254,7 @@ pub fn write_text_checked(
 }
 
 pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
-    let line_count = ps.num_lines();
+    let line_count = ps.screen.formatted_lines_count();
 
     // Reduce one row for prompt/messages
     let writable_rows = ps.rows.saturating_sub(1);
@@ -269,7 +270,9 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
-    let display_lines: &[String] = ps.get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
+    let display_lines: &[String] = ps
+        .screen
+        .get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
 
     write_lines(out, display_lines, Some("\r"))
 }

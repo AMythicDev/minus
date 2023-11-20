@@ -36,8 +36,8 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
         ps.append_str(TEXT1);
         ps.append_str(TEXT2);
-        assert_eq!(ps.formatted_lines, vec![format!("{TEXT1}{TEXT2}")]);
-        assert_eq!(ps.lines, TEXT1.to_string() + TEXT2);
+        assert_eq!(ps.screen.formatted_lines, vec![format!("{TEXT1}{TEXT2}")]);
+        assert_eq!(ps.screen.orig_text, TEXT1.to_string() + TEXT2);
     }
 
     #[test]
@@ -49,7 +49,7 @@ mod pager_append_str {
         ps.append_str(&(TEXT2.to_string() + "\n"));
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![TEXT1.to_string(), TEXT2.to_string()]
         );
     }
@@ -70,7 +70,7 @@ mod pager_append_str {
         }
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "hello,".to_string(),
                 "this is a test".to_string(),
@@ -95,7 +95,7 @@ mod pager_append_str {
         }
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "This line has trailing whitespace           This has leading whitespace",
                 "   This has whitespace on both sides   Andthishasnone"
@@ -120,7 +120,7 @@ mod pager_append_str {
         }
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "this is a",
                 "normal line",
@@ -148,29 +148,29 @@ mod pager_append_str {
 
         ps.append_str(LINES[0]);
 
-        assert_eq!(ps.lines, LINES[0].to_owned());
-        assert_eq!(ps.formatted_lines, vec![LINES[0].to_owned()]);
+        assert_eq!(ps.screen.orig_text, LINES[0].to_owned());
+        assert_eq!(ps.screen.formatted_lines, vec![LINES[0].to_owned()]);
 
         ps.append_str(LINES[1]);
 
         let line = LINES[..2].join("");
-        assert_eq!(ps.lines, line);
-        assert_eq!(ps.formatted_lines, vec![line]);
+        assert_eq!(ps.screen.orig_text, line);
+        assert_eq!(ps.screen.formatted_lines, vec![line]);
 
         ps.append_str(LINES[2]);
 
         let mut line = LINES[..3].join("");
-        assert_eq!(ps.lines, line);
+        assert_eq!(ps.screen.orig_text, line);
 
         line.pop();
-        assert_eq!(ps.formatted_lines, vec![line]);
+        assert_eq!(ps.screen.formatted_lines, vec![line]);
 
         ps.append_str(LINES[3]);
 
         let joined = LINES.join("");
-        assert_eq!(ps.lines, joined);
+        assert_eq!(ps.screen.orig_text, joined);
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             joined
                 .lines()
                 .map(ToString::to_string)
@@ -186,20 +186,20 @@ mod pager_append_str {
 
         ps.append_str(TEST);
 
-        assert_eq!(ps.lines, TEST.to_owned());
+        assert_eq!(ps.screen.orig_text, TEST.to_owned());
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             TEST.lines()
                 .map(ToString::to_string)
                 .collect::<Vec<String>>()
         );
 
-        ps.lines = TEST.to_string();
+        ps.screen.orig_text = TEST.to_string();
         ps.format_lines();
 
-        assert_eq!(ps.lines, TEST.to_owned());
+        assert_eq!(ps.screen.orig_text, TEST.to_owned());
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             TEST.lines()
                 .map(ToString::to_string)
                 .collect::<Vec<String>>()
@@ -212,14 +212,14 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
         ps.append_str(TEST);
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "This is a line with a bunch of".to_string(),
                 "in between".to_string(),
                 "but not at the end".to_owned()
             ]
         );
-        assert_eq!(ps.lines, TEST.to_string());
+        assert_eq!(ps.screen.orig_text, TEST.to_string());
     }
 }
 

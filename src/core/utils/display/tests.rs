@@ -17,7 +17,7 @@ fn short_no_line_numbers() {
     let lines = "A line\nAnother line";
     let mut pager = PagerState::new().unwrap();
 
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.format_lines();
 
     let mut out = Vec::with_capacity(lines.len());
@@ -53,7 +53,7 @@ fn long_no_line_numbers() {
     let mut pager = PagerState::new().unwrap();
     // One extra line for prompt
     pager.rows = 4;
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.format_lines();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
@@ -66,7 +66,7 @@ fn long_no_line_numbers() {
 
     // This ensures that asking for a position other than 0 works.
     let mut out = Vec::with_capacity(lines.len());
-    pager.lines = "Another line\nThird line\nFourth line\nFifth line\n".to_string();
+    pager.screen.orig_text = "Another line\nThird line\nFourth line\nFifth line\n".to_string();
     pager.upper_mark = 1;
     pager.format_lines();
 
@@ -98,7 +98,7 @@ fn short_with_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
@@ -133,7 +133,7 @@ fn long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.rows = 4;
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
@@ -185,7 +185,7 @@ fn big_line_numbers_are_padded() {
     let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 95;
     pager.rows = 11;
-    pager.lines = lines;
+    pager.screen.orig_text = lines;
     pager.line_numbers = LineNumbers::AlwaysOn;
     pager.format_lines();
 
@@ -228,7 +228,7 @@ fn draw_short_no_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::AlwaysOff;
     pager.format_lines();
 
@@ -260,7 +260,7 @@ fn draw_long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.rows = 3;
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.format_lines();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
@@ -299,7 +299,7 @@ fn draw_short_with_line_numbers() {
     let lines = "A line\nAnother line";
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
@@ -330,7 +330,7 @@ fn draw_long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.rows = 3;
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
@@ -378,7 +378,7 @@ fn draw_big_line_numbers_are_padded() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 95;
-    pager.lines = lines;
+    pager.screen.orig_text = lines;
     pager.line_numbers = LineNumbers::Enabled;
     pager.format_lines();
 
@@ -403,7 +403,7 @@ fn draw_wrapping_line_numbers() {
 
     let mut out = Vec::new();
     let mut pager = PagerState::new().unwrap();
-    pager.lines = lines;
+    pager.screen.orig_text = lines;
     pager.cols = 30;
     pager.upper_mark = 2;
     pager.line_numbers = LineNumbers::Enabled;
@@ -422,7 +422,7 @@ fn draw_help_message() {
 
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.lines = lines.to_string();
+    pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::AlwaysOff;
     pager.format_prompt();
 
@@ -437,7 +437,7 @@ fn test_draw_no_overflow() {
     const TEXT: &str = "This is a line of text to the pager";
     let mut out = Vec::with_capacity(TEXT.len());
     let mut pager = PagerState::new().unwrap();
-    pager.lines = TEXT.to_string();
+    pager.screen.orig_text = TEXT.to_string();
     pager.format_lines();
     draw_full(&mut out, &mut pager).unwrap();
     assert!(String::from_utf8(out)
@@ -466,7 +466,7 @@ mod draw_for_change_tests {
         };
         let mut ps = PagerState::new().unwrap();
         ps.upper_mark = 0;
-        ps.lines = lines;
+        ps.screen.orig_text = lines;
         ps.format_lines();
         ps.format_prompt();
         ps
@@ -486,7 +486,7 @@ mod draw_for_change_tests {
             Clear(ClearType::CurrentLine)
         )
         .unwrap();
-        for line in &ps.formatted_lines[9..12] {
+        for line in &ps.screen.formatted_lines[9..12] {
             writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
@@ -510,7 +510,7 @@ mod draw_for_change_tests {
             Clear(ClearType::CurrentLine)
         )
         .unwrap();
-        for line in &ps.formatted_lines[50..59] {
+        for line in &ps.screen.formatted_lines[50..59] {
             writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
@@ -523,7 +523,7 @@ mod draw_for_change_tests {
     #[test]
     fn no_overflow_change() {
         let mut ps = create_pager_state();
-        ps.formatted_lines.truncate(5);
+        ps.screen.formatted_lines.truncate(5);
         let mut out = Vec::with_capacity(100);
         let mut new_upper_mark = 10;
 
@@ -542,7 +542,7 @@ mod draw_for_change_tests {
 
         let mut res = Vec::new();
         write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
-        for line in &ps.formatted_lines[20..29] {
+        for line in &ps.screen.formatted_lines[20..29] {
             writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();
@@ -563,7 +563,7 @@ mod draw_for_change_tests {
 
         let mut res = Vec::new();
         write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
-        for line in &ps.formatted_lines[50..59] {
+        for line in &ps.screen.formatted_lines[50..59] {
             writeln!(res, "\r{line}").unwrap();
         }
         write_prompt(&mut res, &ps.displayed_prompt, ps.rows as u16).unwrap();

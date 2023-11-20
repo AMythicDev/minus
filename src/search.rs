@@ -169,11 +169,11 @@ pub struct IncrementalSearchOpts<'a> {
 impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
     fn from(ps: &'a PagerState) -> Self {
         Self {
-            text: &ps.lines,
+            text: &ps.screen.orig_text,
             line_numbers: ps.line_numbers,
             initial_upper_mark: ps.upper_mark,
             upper_mark: ps.upper_mark,
-            initial_formatted_lines: &ps.formatted_lines,
+            initial_formatted_lines: &ps.screen.formatted_lines,
         }
     }
 }

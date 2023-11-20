@@ -10,6 +10,7 @@ use crate::{
         self,
         utils::text::{self, AppendStyle},
     },
+    screen::Screen,
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
@@ -94,8 +95,6 @@ pub struct PagerState {
     /// The first element contains the actual message, while the second element tells
     /// whether the message has changed since the last display.
     pub message: Option<String>,
-    /// The text the pager has been told to be displayed
-    pub(crate) lines: String,
     /// The upper bound of scrolling.
     ///
     /// This is useful for keeping track of the range of lines which are currently being displayed on
@@ -128,8 +127,7 @@ pub struct PagerState {
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_state: SearchState,
-    /// The output, flattened and formatted into the lines that should be displayed
-    pub(crate) formatted_lines: Vec<String>,
+    pub screen: Screen,
     /// Unterminated lines
     /// Keeps track of the number of lines at the last of [PagerState::formatted_lines] which are
     /// not terminated by a newline
@@ -189,8 +187,6 @@ impl PagerState {
             .unwrap_or_else(|_| String::from("minus"));
 
         let mut state = Self {
-            lines: String::with_capacity(u16::MAX.into()),
-            formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             unterminated: 0,
@@ -200,6 +196,7 @@ impl PagerState {
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
+            screen: Screen::default(),
             displayed_prompt: String::new(),
             show_prompt: true,
             #[cfg(feature = "static_output")]
@@ -248,13 +245,9 @@ impl PagerState {
         Ok(ps)
     }
 
-    pub(crate) fn num_lines(&self) -> usize {
-        self.formatted_lines.len()
-    }
-
     pub(crate) fn format_lines(&mut self) {
         let format_result = text::make_format_lines(
-            &self.lines,
+            &self.screen.orig_text,
             self.line_numbers,
             self.cols,
             #[cfg(feature = "search")]
@@ -264,7 +257,7 @@ impl PagerState {
         {
             self.search_state.search_idx = format_result.append_search_idx;
         }
-        self.formatted_lines = format_result.lines;
+        self.screen.formatted_lines = format_result.lines;
         self.lines_to_row_map = format_result.lines_to_row_map;
 
         self.unterminated = format_result.num_unterminated;
@@ -340,17 +333,6 @@ impl PagerState {
         self.displayed_prompt = format_string;
     }
 
-    /// Returns all the text within the bounds
-    pub(crate) fn get_formatted_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
-        if start >= self.num_lines() || start > end {
-            &[]
-        } else if end >= self.num_lines() {
-            &self.formatted_lines[start..]
-        } else {
-            &self.formatted_lines[start..end]
-        }
-    }
-
     /// Runs the exit callbacks
     pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
@@ -359,23 +341,27 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
-        let append = self.lines.ends_with('\n') || self.lines.is_empty();
+        let append = self.screen.orig_text.ends_with('\n') || self.screen.orig_text.is_empty();
         let attachment = if append {
             None
         } else {
-            self.lines.lines().last().map(ToString::to_string)
+            self.screen
+                .orig_text
+                .lines()
+                .last()
+                .map(ToString::to_string)
         };
 
-        let prev_line_count = self.lines.lines().count();
+        let prev_line_count = self.screen.orig_text.lines().count();
         let old_len_line_number = if prev_line_count == 0 {
             0
         } else {
             prev_line_count.ilog10() + 1
         };
 
-        self.lines.push_str(text);
+        self.screen.orig_text.push_str(text);
 
-        let new_line_count = self.lines.lines().count();
+        let new_line_count = self.screen.orig_text.lines().count();
         let new_len_line_number = if new_line_count == 0 {
             0
         } else {
@@ -387,7 +373,7 @@ impl PagerState {
             attachment,
             line_numbers: self.line_numbers,
             len_line_number: new_len_line_number.try_into().unwrap(),
-            formatted_lines_count: self.formatted_lines.len(),
+            formatted_lines_count: self.screen.formatted_lines.len(),
             lines_count: prev_line_count,
             prev_unterminated: self.unterminated,
             cols: self.cols,
@@ -420,9 +406,10 @@ impl PagerState {
         //
         // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
         // that should be truncated from [`self.formatted_lines`] to update the last line
-        self.formatted_lines
-            .truncate(self.formatted_lines.len() - self.unterminated);
-        self.formatted_lines.append(&mut fmt_line.clone());
+        self.screen
+            .formatted_lines
+            .truncate(self.screen.formatted_lines.len() - self.unterminated);
+        self.screen.formatted_lines.append(&mut fmt_line.clone());
         self.unterminated = num_unterminated;
 
         AppendStyle::PartialUpdate(fmt_line)

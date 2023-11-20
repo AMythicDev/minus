@@ -30,7 +30,7 @@ pub fn handle_event(
 ) -> Result<(), MinusError> {
     match ev {
         Command::SetData(text) => {
-            p.lines = text;
+            p.screen.orig_text = text;
             p.format_lines();
         }
         Command::UserInput(InputEvent::Exit) => {
@@ -83,7 +83,7 @@ pub fn handle_event(
                 p.upper_mark = incremental_search_result.upper_mark;
                 p.search_state.search_mark = incremental_search_result.search_mark;
                 p.search_state.search_idx = incremental_search_result.search_idx;
-                p.formatted_lines = incremental_search_result.formatted_lines;
+                p.screen.formatted_lines = incremental_search_result.formatted_lines;
                 return Ok(());
             }
 
@@ -184,7 +184,9 @@ pub fn handle_event(
                 // position_of_next_match so that we can display a pagefull of data. If not,
                 // reduce it so that a pagefull of text can be accommodated.
                 // NOTE: Add 1 to total number of lines to avoid off-by-one errors
-                while p.upper_mark.saturating_add(p.rows) > p.num_lines().saturating_add(1) {
+                while p.upper_mark.saturating_add(p.rows)
+                    > p.screen.formatted_lines_count().saturating_add(1)
+                {
                     p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
                     p.upper_mark = *p
                         .search_state
@@ -222,7 +224,7 @@ pub fn handle_event(
 
         Command::AppendData(text) => {
             let prev_unterminated = p.unterminated;
-            let prev_fmt_lines_count = p.num_lines();
+            let prev_fmt_lines_count = p.screen.formatted_lines_count();
             let append_style = p.append_str(text.as_str());
             if !p.running.lock().is_uninitialized() {
                 display::draw_append_text(
@@ -303,7 +305,7 @@ mod tests {
             &UIA,
         )
         .unwrap();
-        assert_eq!(ps.formatted_lines, vec![TEST_STR.to_string()]);
+        assert_eq!(ps.screen.formatted_lines, vec![TEST_STR.to_string()]);
     }
 
     #[test]
@@ -332,7 +334,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![TEST_STR.to_string(), TEST_STR.to_string()]
         );
     }
