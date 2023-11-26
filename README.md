@@ -62,10 +62,10 @@ want to display only static data, you don't even need to depend on any of the ab
 - Send data as well as configure the pager on the fly
 - Supports separate modes for dynamic and static output display
 - Highly configurable
-- Both key and mouse support
+- Both keyboard and mouse support
 - Key bindings highly inspired by Vim and other modern text editors
 - Clutter free line numbering
-- Full [regex](https://docs.rs/regex) based searching
+- Full [regex](https://docs.rs/regex) based searching which also fully takes care of escape sequences.
 - Incremental searching of text as you type
 - Tries to be very minimal on dependencies
 
@@ -247,6 +247,16 @@ minus would never have been this without the :heart: from these kind people
 <a href="https://github.com/arijit79/minus/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=arijit79/minus" />
 </a>
+
+And the help from these projects:-
+- [crossterm](https://crates.io/crates/crossterm): An amazing library for working with terminals.
+- [textwrap](https://crates.io/crates/textwrap): Support for text wrapping\
+- [thiserror](https://crates.io/crates/thiserror): Helps in defining custom errors types.
+- [regex](https://crates.io/crates/regex): Regex support when searching.
+- [crossbeam-channel](https://crates.io/crates/crossbeam-channel): MPMC channel
+- [parking_lot](https://crates.io/crates/parking_lot): Improved atomic storage types
+- [once_cell](https://crates.io/crates/once_cell): Provides one-time initialization types.
+- [tokio](https://crates.io/crates/tokio): Provides runtime for async examples.
 
 ## Get in touch
 

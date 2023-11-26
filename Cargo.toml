@@ -34,7 +34,6 @@ static_output = []
 dynamic_output = []
 
 [dev-dependencies]
-futures-lite = { version = "^1" }
 tokio = { version = "^1.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
 
 [[example]]

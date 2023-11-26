@@ -70,10 +70,11 @@
 //! - Send data as well as configure the pager on the fly
 //! - Supports separate modes for dynamic and static output display
 //! - Highly configurable
-//! - Both key and mouse support
+//! - Both keyboard and mouse support
 //! - Key bindings highly inspired by Vim and other modern text editors
 //! - Clutter free line numbering
-//! - Full [regex](https://docs.rs/regex) based searching
+//! - Full [regex](https://docs.rs/regex) based searching which also fully takes care of escape
+//! sequences.
 //! - Incremental searching of text as you type
 //! - Tries to be very minimal on dependencies
 //!
