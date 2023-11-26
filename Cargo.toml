@@ -1,6 +1,6 @@
 [package]
 name = "minus"
-version = "5.4.0"
+version = "5.5.0"
 authors = ["Arijit Dey <arijid79@gmail.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"

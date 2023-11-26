@@ -1,6 +1,40 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.5.0 [2023-11-27]
+### Fixed
+* Prompt status not being updated when a new search is activated. (#102)
+* Improved consistency of search highlighting.
+* Fix a panic when using `delete` key when defining keybindings using the new input mapping method.
+* Fix a bug where search character shown at prompt is `/` regardless of search direction.
+
+### Added
+* Added `Pager::show_prompt()` function to control whether to show prompt.
+* Introudce s `state::SearchState` type to hold data specific to seaching only.
+* Added a `PagerState::search_state` field to get the `SearchState` field.
+* Introduce a feature to disable minus's method of search highlighting and get exact/accurate highlighting of the search matches.
+* Added incremental searching support
+* Introduced more keybindings on the search prompt. (#104)
+* Added a `Pager::set_incremental_search_condition` function to set condition for running incremental search.
+* Introduce `SearchOpts` and `IncrementalSearchOpts` types so that applications can control when to run incremental search.
+* Added an experimental `screen` module and `Screen` type to get analysis of the data present in minus.
+
+### Changed
+* Make the `state` module public.
+* Make the `search` module public.
+* Rename `events` module to `commands`
+* Changed the name of `Event` enum to `Command`
+* Moved the `PagerState::lines` and `PagerState::formatted_lines` fields into the `Screen` type.
+* Make the `RunMode` type public.
+
+### Deprecated
+* `InputEvent::NextMatch` has been deprecated in favour of `InputEvent::MoveToNextMatch`
+* `InputEvent::PrevMatch` has been deprecated in favour of `InputEvent::MoveToPrevMatch`
+* `PagerState::search_mode` hhas been deprecated in favour of `SearchState::search_mode`
+
+### Removed
+* Remove `futures-lite` from dependencies.
+
 ## v5.4.0 [2023-07-27]
 ### Fixed
 * Unexpected line break where number of digits in line number increase (#66)

@@ -1,6 +1,6 @@
 //! Provides functions for getting analysis of the text data inside minus.
 //!
-//! This module is still a work is progress.
+//! This module is still a work is progress and is subject to change.
 pub struct Screen {
     pub(crate) orig_text: String,
     pub(crate) formatted_lines: Vec<String>,
