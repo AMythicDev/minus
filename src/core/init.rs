@@ -2,7 +2,7 @@
 //!
 //! This module provides two main functions:-
 //! * The [`init_core`] function which is responsible for setting the initial state of the
-//! Pager, do enviroment checks and initializing various core functions on either async
+//! Pager, do environment checks and initializing various core functions on either async
 //! tasks or native threads depending on the feature set
 //!
 //! * The [`start_reactor`] function displays the displays the output and also polls
@@ -12,21 +12,18 @@ use crate::{
     error::MinusError,
     input::InputEvent,
     minus_core::{
-        ev_handler::handle_event, events::Event, utils::display::draw_full, utils::term, RunMode,
+        commands::Command,
+        ev_handler::handle_event,
+        utils::{display::draw_full, term},
+        RunMode,
     },
     Pager, PagerState,
 };
 
-#[cfg(feature = "dynamic_output")]
-use crate::minus_core::utils::text::AppendStyle;
-
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
-#[cfg(feature = "dynamic_output")]
-use crossterm::{
-    execute,
-    terminal::{Clear, ClearType},
-};
+#[cfg(feature = "static_output")]
+use crossterm::tty::IsTty;
 use std::{
     io::{stdout, Stdout},
     panic,
@@ -35,17 +32,15 @@ use std::{
         Arc,
     },
 };
+
 #[cfg(feature = "static_output")]
-use {
-    super::utils::display::{write_lines, write_stdout},
-    crossterm::tty::IsTty,
-};
+use super::utils::display::write_lines;
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMode::Uninitialized);
+use super::RUNMODE;
 
 /// The main entry point of minus
 ///
@@ -69,7 +64,7 @@ pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMo
 // is a a nightmare because terminals are really naughty and more when you have to fight with it
 // using your library... your only weapon
 // So we just don't take any more proposals about this. It is really frustating to
-// to throughly test each implementation and fix out all rough edges around it
+// to thoroughly test each implementation and fix out all rough edges around it
 /// Next it initializes the runtime and calls [`start_reactor`] and a [`event reader`]` which is
 /// selected based on the enabled feature set:-
 ///
@@ -81,7 +76,7 @@ pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMo
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::too_many_lines)]
-pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
+pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
     #[allow(unused_mut)]
     let mut out = stdout();
     // Is the event reader running
@@ -94,18 +89,18 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
     // Static mode checks
     #[cfg(feature = "static_output")]
     if *RUNMODE.lock() == RunMode::Static {
-        // If stdout is not a tty, write everyhting and quit
+        // If stdout is not a tty, write everything and quit
         if !out.is_tty() {
-            write_lines(&mut out, &[ps.lines], None)?;
+            write_lines(&mut out, &[ps.screen.orig_text], None)?;
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
             drop(rm);
             return Ok(());
         }
-        // If number of lines of text is less than available wors, write everything and quit
+        // If number of lines of text is less than available rows, write everything and quit
         // unless run_no_overflow is set to true
-        if ps.num_lines() <= ps.rows && !ps.run_no_overflow {
-            write_stdout(&mut out, &mut ps)?;
+        if ps.screen.formatted_lines_count() <= ps.rows && !ps.run_no_overflow {
+            write_lines(&mut out, &ps.screen.formatted_lines, Some("\r"))?;
             ps.exit();
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
@@ -114,17 +109,24 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
         }
     }
 
+    {
+        let mut runmode = super::RUNMODE.lock();
+        assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably because another instance of minus is already running");
+        *runmode = rm;
+        drop(runmode);
+    }
+
     // Setup terminal, adjust line wraps and get rows
     term::setup(&out)?;
 
-    // Has the user quitted
-    let is_exitted = Arc::new(AtomicBool::new(false));
-    let is_exitted2 = is_exitted.clone();
+    // Has the user quit
+    let is_exited = Arc::new(AtomicBool::new(false));
+    let is_exited2 = is_exited.clone();
 
     {
         let panic_hook = panic::take_hook();
         panic::set_hook(Box::new(move |pinfo| {
-            is_exitted2.store(true, std::sync::atomic::Ordering::SeqCst);
+            is_exited2.store(true, std::sync::atomic::Ordering::SeqCst);
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will cause UB.
             drop(term::cleanup(
@@ -150,8 +152,8 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
     std::thread::scope(|s| -> crate::Result {
         let out = Arc::new(out);
         let out_copy = out.clone();
-        let is_exitted3 = is_exitted.clone();
-        let is_exitted4 = is_exitted.clone();
+        let is_exited3 = is_exited.clone();
+        let is_exited4 = is_exited.clone();
 
         let t1 = s.spawn(move || {
             let res = event_reader(
@@ -159,11 +161,11 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
                 &p1,
                 #[cfg(feature = "search")]
                 &input_thread_running2,
-                &is_exitted3,
+                &is_exited3,
             );
 
             if res.is_err() {
-                is_exitted3.store(true, std::sync::atomic::Ordering::SeqCst);
+                is_exited3.store(true, std::sync::atomic::Ordering::SeqCst);
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
@@ -178,11 +180,11 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
                 &out_copy,
                 #[cfg(feature = "search")]
                 &input_thread_running,
-                &is_exitted4,
+                &is_exited4,
             );
 
             if res.is_err() {
-                is_exitted4.store(true, std::sync::atomic::Ordering::SeqCst);
+                is_exited4.store(true, std::sync::atomic::Ordering::SeqCst);
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
@@ -200,9 +202,9 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
     })
 }
 
-/// Continously displays the output and reacts to events
+/// Continuously displays the output and reacts to events
 ///
-/// This function displays the output continously while also checking for user inputs.
+/// This function displays the output continuously while also checking for user inputs.
 ///
 /// Whenever a event like a user input or instruction from the main application is detected
 /// it will call [`handle_event`] to take required action for the event.
@@ -211,15 +213,15 @@ pub fn init_core(pager: &Pager) -> std::result::Result<(), MinusError> {
 ///
 /// For example if all rows in a terminal aren't filled and a
 /// [`AppendData`](super::events::Event::AppendData) event occurs, it is absolutely necessory
-/// to update the screen immidiately; while if all rows are filled, we can omit to redraw the
+/// to update the screen immediately; while if all rows are filled, we can omit to redraw the
 /// screen.
 #[allow(clippy::too_many_lines)]
 fn start_reactor(
-    rx: &Receiver<Event>,
+    rx: &Receiver<Command>,
     ps: &Arc<Mutex<PagerState>>,
     out: &Stdout,
     #[cfg(feature = "search")] input_thread_running: &Arc<(Mutex<bool>, Condvar)>,
-    is_exitted: &Arc<AtomicBool>,
+    is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
@@ -231,9 +233,7 @@ fn start_reactor(
     match run_mode {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
-            use std::{convert::TryInto, io::Write};
-
-            if is_exitted.load(Ordering::SeqCst) {
+            if is_exited.load(Ordering::SeqCst) {
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
@@ -244,17 +244,15 @@ fn start_reactor(
 
             let mut p = ps.lock();
 
-            let rows: u16 = p.rows.try_into().unwrap();
-
             match event {
-                Ok(ev) if ev.required_immidiate_screen_update() => {
+                Ok(ev) if ev.required_immediate_screen_update() => {
                     let is_exit_event = ev.is_exit_event();
                     let is_movement = ev.is_movement();
                     handle_event(
                         ev,
                         &mut out_lock,
                         &mut p,
-                        is_exitted,
+                        is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
@@ -262,72 +260,16 @@ fn start_reactor(
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
-                Ok(Event::SetPrompt(ref text) | Event::SendMessage(ref text)) => {
-                    if let Ok(Event::SetPrompt(_)) = event {
-                        p.prompt = text.to_string();
-                    } else {
-                        p.message = Some(text.to_string());
-                    }
-                    p.format_prompt();
-                    term::move_cursor(&mut out_lock, 0, rows, false)?;
-                    super::utils::display::write_prompt(&mut out_lock, &p.displayed_prompt, rows)?;
-                }
-                Ok(Event::AppendData(text)) => {
-                    let prev_unterminated = p.unterminated;
-                    let prev_row_count = p.num_lines();
-
-                    // Make the string that nneds to be appended
-                    let append_style = p.append_str(&text);
-
-                    if matches!(append_style, AppendStyle::FullRedraw) {
-                        draw_full(&mut out_lock, &mut p)?;
-                        continue;
-                    }
-                    let AppendStyle::PartialUpdate(fmt_text) = append_style else {
-                        unreachable!()
-                    };
-
-                    if prev_row_count < p.rows {
-                        // Move the cursor to the very next line after the last displayed line
-                        term::move_cursor(
-                            &mut out_lock,
-                            0,
-                            prev_row_count
-                                .saturating_sub(prev_unterminated)
-                                .try_into()
-                                .unwrap(),
-                            false,
-                        )?;
-                        // available_rows -> Rows that are still unfilled
-                        //      rows - number of lines displayed -1 (for prompt)
-                        // For example if 20 rows are in total in a terminal
-                        // and 10 rows are already occupied, then this will be equal to 9
-                        let available_rows = p.rows.saturating_sub(
-                            prev_row_count
-                                .saturating_sub(prev_unterminated)
-                                .saturating_add(1),
-                        );
-                        // Minimum amount of text that an be appended
-                        // If available_rows is less, than this will be available rows else it will be
-                        // the length of the formatted text
-                        //
-                        // If number of rows in terminal is 23 with 20 rows filled and another 5 lines are given
-                        // This woll be equal to 3 as available rows will be 3
-                        // If in the above example only 2 lines are needed to be added, this will be equal to 2
-                        let num_appendable = fmt_text.len().min(available_rows);
-                        if num_appendable >= 1 {
-                            execute!(out_lock, Clear(ClearType::CurrentLine))?;
-                        }
-                        write!(out_lock, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
-                        out_lock.flush()?;
-                    }
-                }
+                // Ok(Event::UserInput(InputEvent::Search(search_mode)) => {
+                //     if search_mode == Sear
+                //
+                // }
                 Ok(ev) => {
                     handle_event(
                         ev,
                         &mut out_lock,
                         &mut p,
-                        is_exitted,
+                        is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
@@ -337,7 +279,7 @@ fn start_reactor(
         },
         #[cfg(feature = "static_output")]
         RunMode::Static => loop {
-            if is_exitted.load(Ordering::SeqCst) {
+            if is_exited.load(Ordering::SeqCst) {
                 // Cleanup the screen
                 //
                 // This is not needed in dynamic paging because this is already handled by handle_event
@@ -351,15 +293,15 @@ fn start_reactor(
                 break;
             }
 
-            if let Ok(Event::UserInput(inp)) = rx.recv() {
+            if let Ok(Command::UserInput(inp)) = rx.recv() {
                 let mut p = ps.lock();
-                let is_exit_event = Event::UserInput(inp).is_exit_event();
-                let is_movement = Event::UserInput(inp).is_movement();
+                let is_exit_event = Command::UserInput(inp).is_exit_event();
+                let is_movement = Command::UserInput(inp).is_movement();
                 handle_event(
-                    Event::UserInput(inp),
+                    Command::UserInput(inp),
                     &mut out_lock,
                     &mut p,
-                    is_exitted,
+                    is_exited,
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
@@ -369,7 +311,7 @@ fn start_reactor(
             }
         },
         RunMode::Uninitialized => panic!(
-            "Static variable RUNMODE set to unitialized.\
+            "Static variable RUNMODE set to uninitialized.\
 This is most likely a bug. Please open an issue to the developers"
         ),
     }
@@ -377,13 +319,13 @@ This is most likely a bug. Please open an issue to the developers"
 }
 
 fn event_reader(
-    evtx: &Sender<Event>,
+    evtx: &Sender<Command>,
     ps: &Arc<Mutex<PagerState>>,
     #[cfg(feature = "search")] user_input_active: &Arc<(Mutex<bool>, Condvar)>,
-    is_exitted: &Arc<AtomicBool>,
+    is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     loop {
-        if is_exitted.load(Ordering::SeqCst) {
+        if is_exited.load(Ordering::SeqCst) {
             break;
         }
 
@@ -411,7 +353,7 @@ fn event_reader(
                     guard.prefix_num.clear();
                     guard.format_prompt();
                 }
-                if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Event::UserInput(iev)) {
+                if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Command::UserInput(iev)) {
                     break;
                 }
             } else if !guard.prefix_num.is_empty() {

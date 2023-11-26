@@ -22,7 +22,7 @@ static SPECIAL_KEYS: Lazy<HashMap<&str, KeyCode>> = Lazy::new(|| {
     map.insert("home", KeyCode::Home);
     map.insert("end", KeyCode::End);
     map.insert("insert", KeyCode::Insert);
-    map.insert("Delete", KeyCode::Delete);
+    map.insert("delete", KeyCode::Delete);
     map.insert("esc", KeyCode::Esc);
     map.insert("f1", KeyCode::F(1));
     map.insert("f2", KeyCode::F(2));

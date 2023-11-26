@@ -1,6 +1,6 @@
 // Test the implementation of std::fmt::Write on Pager
 mod fmt_write {
-    use crate::{minus_core::events::Event, Pager};
+    use crate::{minus_core::commands::Command, Pager};
     use std::fmt::Write;
 
     #[test]
@@ -8,7 +8,7 @@ mod fmt_write {
         const TEST: &str = "This is a line";
         let mut pager = Pager::new();
         writeln!(pager, "{TEST}").unwrap();
-        while let Ok(Event::AppendData(text)) = pager.rx.try_recv() {
+        while let Ok(Command::AppendData(text)) = pager.rx.try_recv() {
             if text != "\n" {
                 assert_eq!(text, TEST.to_string());
             }
@@ -20,7 +20,7 @@ mod fmt_write {
         const TEST: &str = "This is a line";
         let mut pager = Pager::new();
         write!(pager, "{TEST}").unwrap();
-        while let Ok(Event::AppendData(text)) = pager.rx.try_recv() {
+        while let Ok(Command::AppendData(text)) = pager.rx.try_recv() {
             assert_eq!(text, TEST.to_string());
         }
     }
@@ -36,8 +36,8 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
         ps.append_str(TEXT1);
         ps.append_str(TEXT2);
-        assert_eq!(ps.formatted_lines, vec![format!("{TEXT1}{TEXT2}")]);
-        assert_eq!(ps.lines, TEXT1.to_string() + TEXT2);
+        assert_eq!(ps.screen.formatted_lines, vec![format!("{TEXT1}{TEXT2}")]);
+        assert_eq!(ps.screen.orig_text, TEXT1.to_string() + TEXT2);
     }
 
     #[test]
@@ -49,7 +49,7 @@ mod pager_append_str {
         ps.append_str(&(TEXT2.to_string() + "\n"));
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![TEXT1.to_string(), TEXT2.to_string()]
         );
     }
@@ -70,7 +70,7 @@ mod pager_append_str {
         }
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "hello,".to_string(),
                 "this is a test".to_string(),
@@ -95,7 +95,7 @@ mod pager_append_str {
         }
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "This line has trailing whitespace           This has leading whitespace",
                 "   This has whitespace on both sides   Andthishasnone"
@@ -120,7 +120,7 @@ mod pager_append_str {
         }
 
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "this is a",
                 "normal line",
@@ -148,29 +148,29 @@ mod pager_append_str {
 
         ps.append_str(LINES[0]);
 
-        assert_eq!(ps.lines, LINES[0].to_owned());
-        assert_eq!(ps.formatted_lines, vec![LINES[0].to_owned()]);
+        assert_eq!(ps.screen.orig_text, LINES[0].to_owned());
+        assert_eq!(ps.screen.formatted_lines, vec![LINES[0].to_owned()]);
 
         ps.append_str(LINES[1]);
 
         let line = LINES[..2].join("");
-        assert_eq!(ps.lines, line);
-        assert_eq!(ps.formatted_lines, vec![line]);
+        assert_eq!(ps.screen.orig_text, line);
+        assert_eq!(ps.screen.formatted_lines, vec![line]);
 
         ps.append_str(LINES[2]);
 
         let mut line = LINES[..3].join("");
-        assert_eq!(ps.lines, line);
+        assert_eq!(ps.screen.orig_text, line);
 
         line.pop();
-        assert_eq!(ps.formatted_lines, vec![line]);
+        assert_eq!(ps.screen.formatted_lines, vec![line]);
 
         ps.append_str(LINES[3]);
 
         let joined = LINES.join("");
-        assert_eq!(ps.lines, joined);
+        assert_eq!(ps.screen.orig_text, joined);
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             joined
                 .lines()
                 .map(ToString::to_string)
@@ -186,20 +186,20 @@ mod pager_append_str {
 
         ps.append_str(TEST);
 
-        assert_eq!(ps.lines, TEST.to_owned());
+        assert_eq!(ps.screen.orig_text, TEST.to_owned());
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             TEST.lines()
                 .map(ToString::to_string)
                 .collect::<Vec<String>>()
         );
 
-        ps.lines = TEST.to_string();
+        ps.screen.orig_text = TEST.to_string();
         ps.format_lines();
 
-        assert_eq!(ps.lines, TEST.to_owned());
+        assert_eq!(ps.screen.orig_text, TEST.to_owned());
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             TEST.lines()
                 .map(ToString::to_string)
                 .collect::<Vec<String>>()
@@ -212,14 +212,14 @@ mod pager_append_str {
         let mut ps = PagerState::new().unwrap();
         ps.append_str(TEST);
         assert_eq!(
-            ps.formatted_lines,
+            ps.screen.formatted_lines,
             vec![
                 "This is a line with a bunch of".to_string(),
                 "in between".to_string(),
                 "but not at the end".to_owned()
             ]
         );
-        assert_eq!(ps.lines, TEST.to_string());
+        assert_eq!(ps.screen.orig_text, TEST.to_string());
     }
 }
 
@@ -243,8 +243,8 @@ fn exit_callback() {
 }
 
 mod emit_events {
-    // Check functions emit correct events on functin calls
-    use crate::{minus_core::events::Event, ExitStrategy, LineNumbers, Pager};
+    // Check functions emit correct events on function calls
+    use crate::{minus_core::commands::Command, ExitStrategy, LineNumbers, Pager};
 
     const TEST_STR: &str = "This is sample text";
     #[test]
@@ -252,7 +252,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_text(TEST_STR).unwrap();
         assert_eq!(
-            Event::SetData(TEST_STR.to_string()),
+            Command::SetData(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -262,7 +262,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.push_str(TEST_STR).unwrap();
         assert_eq!(
-            Event::AppendData(TEST_STR.to_string()),
+            Command::AppendData(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -272,7 +272,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_prompt(TEST_STR).unwrap();
         assert_eq!(
-            Event::SetPrompt(TEST_STR.to_string()),
+            Command::SetPrompt(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -282,7 +282,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.send_message(TEST_STR).unwrap();
         assert_eq!(
-            Event::SendMessage(TEST_STR.to_string()),
+            Command::SendMessage(TEST_STR.to_string()),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -292,7 +292,10 @@ mod emit_events {
     fn set_run_no_overflow() {
         let pager = Pager::new();
         pager.set_run_no_overflow(false).unwrap();
-        assert_eq!(Event::SetRunNoOverflow(false), pager.rx.try_recv().unwrap());
+        assert_eq!(
+            Command::SetRunNoOverflow(false),
+            pager.rx.try_recv().unwrap()
+        );
     }
 
     #[test]
@@ -300,7 +303,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_line_numbers(LineNumbers::Enabled).unwrap();
         assert_eq!(
-            Event::SetLineNumbers(LineNumbers::Enabled),
+            Command::SetLineNumbers(LineNumbers::Enabled),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -310,7 +313,7 @@ mod emit_events {
         let pager = Pager::new();
         pager.set_exit_strategy(ExitStrategy::PagerQuit).unwrap();
         assert_eq!(
-            Event::SetExitStrategy(ExitStrategy::PagerQuit),
+            Command::SetExitStrategy(ExitStrategy::PagerQuit),
             pager.rx.try_recv().unwrap()
         );
     }
@@ -321,6 +324,6 @@ mod emit_events {
         let pager = Pager::new();
         pager.add_exit_callback(func.clone()).unwrap();
 
-        assert_eq!(Event::AddExitCallback(func), pager.rx.try_recv().unwrap());
+        assert_eq!(Command::AddExitCallback(func), pager.rx.try_recv().unwrap());
     }
 }

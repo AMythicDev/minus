@@ -1,6 +1,6 @@
-//! Working with user input
+//! Working with user events
 //!
-//! This module provides various items for wroking with user input from the terminal.
+//! This module provides various items for working with user events from the terminal.
 //!
 //! minus already has a sensible set of default key/mouse bindings so most people do not need to care about this module.
 //! But if you want to add or remove certain key bindings then you need to rely on this module..
@@ -32,7 +32,7 @@
 //! This method relies heavily on the [`InputClassifier`] trait and the end-applications needs to bring in the underlying
 //! [`crossterm`] crate to define the inputs.
 //! Also there is no such option to add/remove/update a set of events. You need to manually copy the
-//! [default definitions](DefaultInputClassifier) and make the required modifications youself in this method.
+//! [default definitions](DefaultInputClassifier) and make the required modifications yourself in this method.
 //!
 //! ## Example
 //! ```
@@ -69,15 +69,26 @@
 //!             );
 //! ```
 //!
-//! At the heart of this module is the [`InputEvent`] enum and [`InputClassifier`] trait.
-//! The [`InputEvent`] enum defies the various events which minus can properly respond to
+//! # Custom Actions on User Events
+//!
+//! Sometimes you want to execute arbitrary code when a key/mouse action is pressed like fetching
+//! more data from a server but not necessarily sending it to minus. In these types of scenarios,
+//! the [InputEvent::Ignore] is most likely your true friend. When this is returned by a callback
+//! function, minus will execute your code but not do anything special for the event on its part.
+//! ```text
+//! input_register.add_key_events(&["f"], |_, ps| {
+//!     fetch_data_from_server(...);
+//!     InputEvent::Ignore
+//! });
+//!
+//! ```
 
 pub(crate) mod definitions;
 pub(crate) mod event_wrapper;
 pub use crossterm::event as crossterm_event;
 
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchMode;
+use crate::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 pub use event_wrapper::HashedEventRegister;
@@ -85,6 +96,7 @@ pub use event_wrapper::HashedEventRegister;
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
+#[non_exhaustive]
 pub enum InputEvent {
     /// `Ctrl+C` or `Q`, exits the application.
     Exit,
@@ -99,14 +111,25 @@ pub enum InputEvent {
     Number(char),
     /// Restore the original prompt
     RestorePrompt,
+    /// Tells the event hadler to not do anything for this event
+    ///
+    /// This is extremely useful when you want to execute arbitrary code on events without
+    /// necessarily asking the event handler to do anything special for this event. See [Custom
+    /// Actions on User Events](./index.html#custom-actions-on-user-events).
     Ignore,
     /// `/`, Searching for certain pattern of text
     #[cfg(feature = "search")]
     Search(SearchMode),
     /// Get to the next match in forward mode
+    ///
+    /// **WARNING: This has been deprecated in favour of `MoveToNextMatch`. This will likely be
+    /// removed in the next major release.**
     #[cfg(feature = "search")]
     NextMatch,
     /// Get to the previous match in forward mode
+    ///
+    /// **WARNING: This has been deprecated in favour of `MoveToPrevMatch`. This will likely be
+    /// removed in the next major release.**
     #[cfg(feature = "search")]
     PrevMatch,
     /// Move to the next nth match in the given direction
@@ -196,9 +219,9 @@ where
         map.add_key_events(&["n"], |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
-            if ps.search_mode == SearchMode::Forward {
+            if ps.search_state.search_mode == SearchMode::Forward {
                 InputEvent::MoveToNextMatch(position)
-            } else if ps.search_mode == SearchMode::Reverse {
+            } else if ps.search_state.search_mode == SearchMode::Reverse {
                 InputEvent::MoveToPrevMatch(position)
             } else {
                 InputEvent::Ignore
@@ -207,9 +230,9 @@ where
         map.add_key_events(&["p"], |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
-            if ps.search_mode == SearchMode::Forward {
+            if ps.search_state.search_mode == SearchMode::Forward {
                 InputEvent::MoveToPrevMatch(position)
-            } else if ps.search_mode == SearchMode::Reverse {
+            } else if ps.search_state.search_mode == SearchMode::Reverse {
                 InputEvent::MoveToNextMatch(position)
             } else {
                 InputEvent::Ignore
@@ -429,7 +452,7 @@ impl InputClassifier for DefaultInputClassifier {
                 ..
             }) => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
-                if ps.search_mode == SearchMode::Reverse {
+                if ps.search_state.search_mode == SearchMode::Reverse {
                     Some(InputEvent::MoveToPrevMatch(position))
                 } else {
                     Some(InputEvent::MoveToNextMatch(position))
@@ -442,7 +465,7 @@ impl InputClassifier for DefaultInputClassifier {
                 ..
             }) => {
                 let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
-                if ps.search_mode == SearchMode::Reverse {
+                if ps.search_state.search_mode == SearchMode::Reverse {
                     Some(InputEvent::MoveToNextMatch(position))
                 } else {
                     Some(InputEvent::MoveToPrevMatch(position))

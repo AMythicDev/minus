@@ -3,11 +3,12 @@
 //! Some types provided are just present there to avoid leaking
 //! upstream error types
 
-use crate::minus_core::events::Event;
+use crate::minus_core::commands::Command;
+use std::io;
 
 /// An operation on the terminal failed, for example resizing it.
 ///
-/// You can get more informations about this error by calling
+/// You can get more information about this error by calling
 /// [`source`](std::error::Error::source) on it.
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
@@ -15,7 +16,7 @@ use crate::minus_core::events::Event;
 pub struct TermError(
     // This member is private to avoid leaking the crossterm error type up the
     // dependency chain.
-    #[from] crossterm::ErrorKind,
+    #[from] io::Error,
 );
 
 /// There was an error while compiling the regex
@@ -93,7 +94,7 @@ pub enum MinusError {
     FmtWriteError(#[from] std::fmt::Error),
 
     #[error("Failed to send data to the receiver")]
-    Communication(#[from] crossbeam_channel::SendError<Event>),
+    Communication(#[from] crossbeam_channel::SendError<Command>),
 
     #[error("Failed to convert between some primitives")]
     Conversion,
@@ -109,7 +110,7 @@ pub enum MinusError {
     JoinError(#[from] tokio::task::JoinError),
 }
 
-// Just for  convinience helper which is useful in many places
+// Just for  convenience helper which is useful in many places
 #[cfg(feature = "search")]
 impl From<regex::Error> for MinusError {
     fn from(e: regex::Error) -> Self {

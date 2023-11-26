@@ -1,6 +1,40 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.5.0 [2023-11-27]
+### Fixed
+* Prompt status not being updated when a new search is activated. (#102)
+* Improved consistency of search highlighting.
+* Fix a panic when using `delete` key when defining keybindings using the new input mapping method.
+* Fix a bug where search character shown at prompt is `/` regardless of search direction.
+
+### Added
+* Added `Pager::show_prompt()` function to control whether to show prompt.
+* Introudce s `state::SearchState` type to hold data specific to seaching only.
+* Added a `PagerState::search_state` field to get the `SearchState` field.
+* Introduce a feature to disable minus's method of search highlighting and get exact/accurate highlighting of the search matches.
+* Added incremental searching support
+* Introduced more keybindings on the search prompt. (#104)
+* Added a `Pager::set_incremental_search_condition` function to set condition for running incremental search.
+* Introduce `SearchOpts` and `IncrementalSearchOpts` types so that applications can control when to run incremental search.
+* Added an experimental `screen` module and `Screen` type to get analysis of the data present in minus.
+
+### Changed
+* Make the `state` module public.
+* Make the `search` module public.
+* Rename `events` module to `commands`
+* Changed the name of `Event` enum to `Command`
+* Moved the `PagerState::lines` and `PagerState::formatted_lines` fields into the `Screen` type.
+* Make the `RunMode` type public.
+
+### Deprecated
+* `InputEvent::NextMatch` has been deprecated in favour of `InputEvent::MoveToNextMatch`
+* `InputEvent::PrevMatch` has been deprecated in favour of `InputEvent::MoveToPrevMatch`
+* `PagerState::search_mode` hhas been deprecated in favour of `SearchState::search_mode`
+
+### Removed
+* Remove `futures-lite` from dependencies.
+
 ## v5.4.1 [2023-10-17]
 ### Fixed
 * Fixed minus not exitting automatically when panic occurs or when an error is caught (df9f3d4)
@@ -21,23 +55,23 @@ This file documents all changes made to the project and is updated before each r
 * Pressing `[n]G` takes to nth row on screen rather than the nth line in the actual text (#99)
 
 ### Changed
-* `HashedInputRegister::default()` now inserts the defualt bindings before returning the `HashedInputRegister`.
+* `HashedInputRegister::default()` now inserts the default bindings before returning the `HashedInputRegister`.
     This better aligns with the docs.
 * Massively simplify all the text-related functions and add better docs to all of them. (#97)
 
 ### Added
 * `HashedInputRegister::new()` is now publicly available
-* Added `HashedInputRegister::with_default_hasher()` to create a `HashedInoutRegister` with the default hasher.
-* Added a `Dockerfile` to build/test minus in isolated enviroment.
+* Added `HashedInputRegister::with_default_hasher()` to create a `HashedInputRegister` with the default hasher.
+* Added a `Dockerfile` to build/test minus in isolated environment.
 
 ## v5.3.1 [2023-05-02]
 ### Fixed
-* Passing `false` to PagerStae::set_run_no_overflow() causes a full
+* Passing `false` to PagerState::set_run_no_overflow() causes a full
   pager to start where in reality passing `true` should lead to this
   action. (#94)
 * If a full pager isn't started in static output mode and another pager
   is started after the first one, minus would make a panic as the
-  `RUNMODE` variable dosen't get reset. This patch also fixes this bug. (#94)
+  `RUNMODE` variable doesn't get reset. This patch also fixes this bug. (#94)
 
 ## v5.3.0 [2023-04-10]
 ### Added
@@ -132,16 +166,16 @@ This file documents all changes made to the project and is updated before each r
 
 - Fixed mouse scroll wheel not scrolling through the screen.
 
-   This occured because a of a previous patch which removed the line that enabled the mouse events to be captured.
+   This occurred because a of a previous patch which removed the line that enabled the mouse events to be captured.
  
 * Fix panic when the search term gets changed
 
-  This occured due to the `search_idx` not being repopulated when a new search is activated.
+  This occurred due to the `search_idx` not being repopulated when a new search is activated.
 
 ## v5.0.1 [2022-03-20]
 * Fixed extremely high CPU usage while running caused due to calling `Receiver::try_recv()` rather than
   `Receiver::recv()`(#60)
-* Fixed another performace bug which was due to calling `event::poll` every 10ms. The poll duration
+* Fixed another performance bug which was due to calling `event::poll` every 10ms. The poll duration
   was increased to 100ms without any loss of responsiveness (9f7dace34)
 * Changed initialization of some fields in `PagerState` tp preallocate memory for them. This reduces
   the number of allocations that need to be made when the pager just starts.
@@ -170,7 +204,7 @@ This file documents all changes made to the project and is updated before each r
 
 * Store the current run mode as static value
 
-  * The `RUNMODE` static item tells minus whether it is running in static mode or asynchonous mode
+  * The `RUNMODE` static item tells minus whether it is running in static mode or asynchronous mode
   * Added `once_cell` as a dependency to store the above value in static scope.
   
 * Added feature to scroll through more than one line
@@ -184,7 +218,7 @@ This file documents all changes made to the project and is updated before each r
   (#57)
     
 * Added a `PagerState` struct to store and share internal data. It is made public, along with some of its
-fields so that it can be used to implement `InputClassifer` trait for applications that want to modify the
+fields so that it can be used to implement `InputClassifier` trait for applications that want to modify the
 default keybindings
 
 * Renamed `AlternatePagingError` to `MinusError`.

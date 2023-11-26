@@ -1,7 +1,7 @@
 //! Contains function for displaying static data
 //!
 //! This module provides provides the [`page_all`] function to display static output via minus
-use crate::minus_core::{self, init};
+use crate::minus_core::init;
 use crate::{error::MinusError, Pager};
 
 /// Display static information to the screen
@@ -16,7 +16,7 @@ use crate::{error::MinusError, Pager};
 /// * Since any other event except user inputs will not occur, we can do some optimizations on
 /// matching events.
 ///
-/// See [example](../index.html#static-output) on how to use this functon.
+/// See [example](../index.html#static-output) on how to use this function.
 ///
 /// # Panics
 /// This function will panic if another instance of minus is already running.
@@ -26,11 +26,5 @@ use crate::{error::MinusError, Pager};
 #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
 #[allow(clippy::needless_pass_by_value)]
 pub fn page_all(pager: Pager) -> Result<(), MinusError> {
-    let mut runmode = init::RUNMODE.lock();
-    assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably bcause another instance of minus is already running");
-    *runmode = minus_core::RunMode::Static;
-    drop(runmode);
-
-    init::init_core(&pager)?;
-    Ok(())
+    init::init_core(&pager, crate::RunMode::Static)
 }

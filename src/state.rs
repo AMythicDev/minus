@@ -1,14 +1,22 @@
+//! Contains types that hold run-time information of the pager.
+
 #[cfg(feature = "search")]
-use crate::minus_core::search::SearchMode;
+use crate::search::{SearchMode, SearchOpts};
+
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
-    minus_core::utils::text::{self, AppendStyle},
+    minus_core::{
+        self,
+        utils::text::{self, AppendStyle},
+    },
+    screen::Screen,
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
 #[cfg(feature = "search")]
-use parking_lot::{Condvar, Mutex};
+use parking_lot::Condvar;
+use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
@@ -20,8 +28,55 @@ use std::{
     sync::{atomic::AtomicBool, Arc},
 };
 
-use crate::minus_core::{ev_handler::handle_event, events::Event};
+use crate::minus_core::{commands::Command, ev_handler::handle_event};
 use crossbeam_channel::Receiver;
+
+#[cfg(feature = "search")]
+#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+#[allow(clippy::module_name_repetitions)]
+/// Contains information about the current search
+pub struct SearchState {
+    /// Direction of search
+    ///
+    /// See [`SearchMode`] for available options
+    pub search_mode: SearchMode,
+    /// Stores the most recent search term
+    pub(crate) search_term: Option<regex::Regex>,
+    /// Lines where searches have a match
+    /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
+    pub(crate) search_idx: BTreeSet<usize>,
+    /// Index of search item currently in focus
+    /// It should be 0 even when no search is in action
+    pub(crate) search_mark: usize,
+    /// Function to run before running an incremental search.
+    ///
+    /// If the function returns a `false`, the incremental search is cancelled.
+    pub(crate) incremental_search_condition:
+        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+}
+
+#[cfg(feature = "search")]
+impl Default for SearchState {
+    fn default() -> Self {
+        let incremental_search_condition = Box::new(|so: &SearchOpts| {
+            so.string.len() > 1
+                && so
+                    .incremental_search_options
+                    .as_ref()
+                    .unwrap()
+                    .initial_formatted_lines
+                    .len()
+                    <= 5000
+        });
+        Self {
+            search_mode: SearchMode::Unknown,
+            search_term: None,
+            search_idx: BTreeSet::new(),
+            search_mark: 0,
+            incremental_search_condition,
+        }
+    }
+}
 
 /// Holds all information and configuration about the pager during
 /// its run time.
@@ -34,12 +89,45 @@ use crossbeam_channel::Receiver;
 /// trait.
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
-    /// The text the pager has been told to be displayed
-    pub(crate) lines: String,
-    /// The output, flattened and formatted into the lines that should be displayed
-    pub(crate) formatted_lines: Vec<String>,
     /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
+    /// Any message to display to the user at the prompt
+    /// The first element contains the actual message, while the second element tells
+    /// whether the message has changed since the last display.
+    pub message: Option<String>,
+    /// The upper bound of scrolling.
+    ///
+    /// This is useful for keeping track of the range of lines which are currently being displayed on
+    /// the terminal.
+    /// When `rows - 1` is added to the `upper_mark`, it gives the lower bound of scroll.
+    ///
+    /// For example if there are 10 rows is a terminal and the data to display has 50 lines in it/
+    /// If the `upper_mark` is 15, then the first row of the terminal is the 16th line of the data
+    /// and last row is the 24th line of the data.
+    pub upper_mark: usize,
+    /// Direction of search
+    ///
+    /// See [`SearchMode`] for available options
+    ///
+    /// **WARNING: This item has been deprecated in favour of [SearchState::search_mode] availlable
+    /// by the [PagerState::search_state] field. Any new code should prefer using it instead of this one.**
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, cfg(feature = "search"))]
+    pub search_mode: SearchMode,
+    /// Available rows in the terminal
+    pub rows: usize,
+    /// Available columns in the terminal
+    pub cols: usize,
+    /// This variable helps in scrolling more than one line at a time
+    /// It keeps track of all the numbers that have been entered by the user
+    /// until any of `j`, `k`, `G`, `Up` or `Down` is pressed
+    pub prefix_num: String,
+    /// Describes whether minus is running and in which mode
+    pub running: &'static Mutex<crate::RunMode>,
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, cfg(feature = "search"))]
+    pub search_state: SearchState,
+    pub screen: Screen,
     /// Unterminated lines
     /// Keeps track of the number of lines at the last of [PagerState::formatted_lines] which are
     /// not terminated by a newline
@@ -53,52 +141,15 @@ pub struct PagerState {
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     pub(crate) exit_strategy: ExitStrategy,
-    /// Any message to display to the user at the prompt
-    /// The first element contains the actual message, while the second element tells
-    /// whether the message has changed since the last display.
-    pub message: Option<String>,
     /// The prompt that should be displayed to the user, formatted with the
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
     pub(crate) displayed_prompt: String,
-    /// The upper bound of scrolling.
-    ///
-    /// This is useful for keeping track of the range of lines which are currently being displayed on
-    /// the terminal.
-    /// When `rows - 1` is added to the `upper_mark`, it gives the lower bound of scroll.
-    ///
-    /// For example if there are 10 rows is a terminal and the data to display has 50 lines in it/
-    /// If the `upper_mark` is 15, then the first row of the terminal is the 16th line of the data
-    /// and last row is the 24th line of the data.
-    pub upper_mark: usize,
+    /// Whether to show the prompt on the screen
+    pub(crate) show_prompt: bool,
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
-    /// Stores the most recent search term
-    #[cfg(feature = "search")]
-    pub(crate) search_term: Option<regex::Regex>,
-    /// Direction of search
-    ///
-    /// See [`SearchMode`] for available options
-    #[cfg(feature = "search")]
-    #[cfg_attr(docsrs, cfg(feature = "search"))]
-    pub search_mode: SearchMode,
-    /// Lines where searches have a match
-    /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
-    #[cfg(feature = "search")]
-    pub(crate) search_idx: BTreeSet<usize>,
-    /// Index of search item currently in focus
-    /// It should be 0 even when no search is in action
-    #[cfg(feature = "search")]
-    pub(crate) search_mark: usize,
-    /// Available rows in the terminal
-    pub rows: usize,
-    /// Available columns in the terminal
-    pub cols: usize,
-    /// This variable helps in scrolling more than one line at a time
-    /// It keeps track of all the numbers that have been entered by the user
-    /// untill any of `j`, `k`, `G`, `Up` or `Down` is pressed
-    pub prefix_num: String,
     /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
     /// inside [`PagerState::formatted_lines`].
     /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
@@ -136,27 +187,24 @@ impl PagerState {
             .unwrap_or_else(|_| String::from("minus"));
 
         let mut state = Self {
-            lines: String::with_capacity(u16::MAX.into()),
-            formatted_lines: Vec::with_capacity(u16::MAX.into()),
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
             unterminated: 0,
             prompt,
+            running: &minus_core::RUNMODE,
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
+            screen: Screen::default(),
             displayed_prompt: String::new(),
+            show_prompt: true,
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
             #[cfg(feature = "search")]
-            search_term: None,
-            #[cfg(feature = "search")]
             search_mode: SearchMode::default(),
             #[cfg(feature = "search")]
-            search_idx: BTreeSet::new(),
-            #[cfg(feature = "search")]
-            search_mark: 0,
+            search_state: SearchState::default(),
             // Just to be safe in tests, keep at 1x1 size
             cols,
             rows,
@@ -180,7 +228,7 @@ impl PagerState {
     /// This function will return an error if it could not create the default [`PagerState`] or fails
     /// to process the events
     pub(crate) fn generate_initial_state(
-        rx: &Receiver<Event>,
+        rx: &Receiver<Command>,
         mut out: &mut Stdout,
     ) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;
@@ -197,47 +245,22 @@ impl PagerState {
         Ok(ps)
     }
 
-    pub(crate) fn num_lines(&self) -> usize {
-        self.formatted_lines.len()
-    }
-
     pub(crate) fn format_lines(&mut self) {
-        // Keep it for the record and don't call it unless it is really necessory as this is kinda
-        // expensive
-        let line_count = self.lines.lines().count();
-
-        // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
-        let len_line_number = line_count.to_string().len();
-
-        let format_opts = text::FormatOpts {
-            text: &self.lines,
-            attachment: None,
-            line_numbers: self.line_numbers,
-            len_line_number,
-            formatted_lines_count: 0,
-            lines_count: 0,
-            prev_unterminated: self.unterminated,
-            cols: self.cols,
+        let format_result = text::make_format_lines(
+            &self.screen.orig_text,
+            self.line_numbers,
+            self.cols,
             #[cfg(feature = "search")]
-            search_term: &self.search_term,
-        };
-
-        let format_props = text::format_text_block(format_opts);
-
-        let (fmt_lines, num_unterminated, lines_to_row_map) = (
-            format_props.lines,
-            format_props.num_unterminated,
-            format_props.lines_to_row_map,
+            &self.search_state.search_term,
         );
-        self.formatted_lines = fmt_lines;
-        self.lines_to_row_map = lines_to_row_map;
-
         #[cfg(feature = "search")]
         {
-            self.search_idx = format_props.append_search_idx;
+            self.search_state.search_idx = format_result.append_search_idx;
         }
+        self.screen.formatted_lines = format_result.lines;
+        self.lines_to_row_map = format_result.lines_to_row_map;
 
-        self.unterminated = num_unterminated;
+        self.unterminated = format_result.num_unterminated;
         self.format_prompt();
     }
 
@@ -254,11 +277,11 @@ impl PagerState {
         #[cfg(feature = "search")]
         let mut search_str = String::new();
         #[cfg(feature = "search")]
-        if !self.search_idx.is_empty() {
+        if !self.search_state.search_idx.is_empty() {
             search_str.push(' ');
-            search_str.push_str(&(self.search_mark + 1).to_string());
+            search_str.push_str(&(self.search_state.search_mark + 1).to_string());
             search_str.push('/');
-            search_str.push_str(&self.search_idx.len().to_string());
+            search_str.push_str(&self.search_state.search_idx.len().to_string());
             search_str.push(' ');
         }
 
@@ -310,17 +333,6 @@ impl PagerState {
         self.displayed_prompt = format_string;
     }
 
-    /// Returns all the text within the bounds
-    pub(crate) fn get_formatted_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
-        if start >= self.num_lines() || start > end {
-            &[]
-        } else if end >= self.num_lines() {
-            &self.formatted_lines[start..]
-        } else {
-            &self.formatted_lines[start..end]
-        }
-    }
-
     /// Runs the exit callbacks
     pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
@@ -329,23 +341,27 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
-        let append = self.lines.ends_with('\n') || self.lines.is_empty();
+        let append = self.screen.orig_text.ends_with('\n') || self.screen.orig_text.is_empty();
         let attachment = if append {
             None
         } else {
-            self.lines.lines().last().map(ToString::to_string)
+            self.screen
+                .orig_text
+                .lines()
+                .last()
+                .map(ToString::to_string)
         };
 
-        let prev_line_count = self.lines.lines().count();
+        let prev_line_count = self.screen.orig_text.lines().count();
         let old_len_line_number = if prev_line_count == 0 {
             0
         } else {
             prev_line_count.ilog10() + 1
         };
 
-        self.lines.push_str(text);
+        self.screen.orig_text.push_str(text);
 
-        let new_line_count = self.lines.lines().count();
+        let new_line_count = self.screen.orig_text.lines().count();
         let new_len_line_number = if new_line_count == 0 {
             0
         } else {
@@ -357,12 +373,12 @@ impl PagerState {
             attachment,
             line_numbers: self.line_numbers,
             len_line_number: new_len_line_number.try_into().unwrap(),
-            formatted_lines_count: self.formatted_lines.len(),
+            formatted_lines_count: self.screen.formatted_lines.len(),
             lines_count: prev_line_count,
             prev_unterminated: self.unterminated,
             cols: self.cols,
             #[cfg(feature = "search")]
-            search_term: &self.search_term,
+            search_term: &self.search_state.search_term,
         };
 
         let append_props = text::format_text_block(append_opts);
@@ -376,7 +392,7 @@ impl PagerState {
         #[cfg(feature = "search")]
         {
             let mut append_search_idx = append_props.append_search_idx;
-            self.search_idx.append(&mut append_search_idx);
+            self.search_state.search_idx.append(&mut append_search_idx);
         }
         self.lines_to_row_map.extend(lines_to_row_map);
 
@@ -390,9 +406,10 @@ impl PagerState {
         //
         // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
         // that should be truncated from [`self.formatted_lines`] to update the last line
-        self.formatted_lines
-            .truncate(self.formatted_lines.len() - self.unterminated);
-        self.formatted_lines.append(&mut fmt_line.clone());
+        self.screen
+            .formatted_lines
+            .truncate(self.screen.formatted_lines.len() - self.unterminated);
+        self.screen.formatted_lines.append(&mut fmt_line.clone());
         self.unterminated = num_unterminated;
 
         AppendStyle::PartialUpdate(fmt_line)

@@ -1,6 +1,6 @@
 //! Text related functions
 //!
-//! minus has a very intresting but simple text model that you must go through to understand how minus works.
+//! minus has a very interesting but simple text model that you must go through to understand how minus works.
 //!
 //! # Text Block
 //! A text block in minus is just a bunch of text that may contain newlines (`\n`) between them.
@@ -46,7 +46,7 @@ use std::collections::HashMap;
 use crate::LineNumbers;
 
 #[cfg(feature = "search")]
-use {crate::minus_core::search, std::collections::BTreeSet};
+use {crate::search, std::collections::BTreeSet};
 
 /// How should the incoming text be drawn on the screen
 pub enum AppendStyle {
@@ -66,7 +66,7 @@ pub struct FormatOpts<'a> {
     /// Status of line numbers
     pub line_numbers: LineNumbers,
     /// This is equal to the number of lines in [`PagerState::lines`](crate::state::PagerState::lines). This basically tells what line
-    /// number the line will hold.
+    /// number the upcoming line will hold.
     pub lines_count: usize,
     /// This is equal to the number of lines in [`PagerState::formatted_lines`](crate::state::PagerState::lines). This is used to
     /// calculate the search index of the rows of the line.
@@ -75,7 +75,7 @@ pub struct FormatOpts<'a> {
     pub len_line_number: usize,
     /// Actual number of columns available for displaying
     pub cols: usize,
-    /// Number of lines that are previously unterminated. It is only relevent when there is `attachment` text otherwise
+    /// Number of lines that are previously unterminated. It is only relevant when there is `attachment` text otherwise
     /// it should be 0.
     pub prev_unterminated: usize,
     /// Search term if a search is active
@@ -149,22 +149,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         .map(|(idx, s)| (idx, s.to_string()))
         .collect::<Vec<(usize, String)>>();
 
-    let mut fmtl = Vec::with_capacity(256);
-
-    // Number of rows that have been formatted so far
-    // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
-    let mut formatted_row_count = opts.formatted_lines_count;
-
     let mut lines_to_row_map = HashMap::new();
 
-    // To format the text we first split the line into three parts: first line, last line and middle lines.
-    // Then we individually format each of these and finally join each of these components together to form
-    // the entire line, which is ready to be inserted into PagerState::formatted_lines.
-    // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
-
-    // We need to take care of first line as it can either be itself from the text, if append is true or it can be
-    // attachment + first line from text, if append is false
-
+    // Return if we have nothing to format
     if lines.is_empty() {
         return FormatResult {
             lines: Vec::with_capacity(0),
@@ -174,6 +161,20 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             lines_to_row_map,
         };
     }
+
+    let mut fmtl = Vec::with_capacity(256);
+
+    // Number of rows that have been formatted so far
+    // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
+    let mut formatted_row_count = opts.formatted_lines_count;
+
+    // To format the text we first split the line into three parts: first line, last line and middle lines.
+    // Then we individually format each of these and finally join each of these components together to form
+    // the entire line, which is ready to be inserted into PagerState::formatted_lines.
+    // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
+
+    // We need to take care of first line as it can either be itself from the text, if append is true or it can be
+    // attachment + first line from text, if append is false
 
     let mut first_line = formatted_line(
         &lines.first().unwrap().1,
@@ -265,7 +266,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             .collect();
     }
 
-    // Calculate number of rows which are part of last line and are left unterminated  due to absense of \n
+    // Calculate number of rows which are part of last line and are left unterminated  due to absence of \n
     let unterminated = if opts.text.ends_with('\n') {
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
@@ -304,10 +305,11 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 /// - `formatted_idx`: is the position index where the line will be placed in the resulting
 ///    [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
 /// - `cols`: Number of columns in the terminal
-/// - `search_term`: Contains the regex iif a search is active
+/// - `search_term`: Contains the regex if a search is active
 ///
 /// [`PagerState::lines`]: crate::state::PagerState::lines
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::uninlined_format_args)]
 pub fn formatted_line(
     line: &str,
     len_line_number: usize,
@@ -326,8 +328,8 @@ pub fn formatted_line(
     // Whether line numbers are active
     let line_numbers = matches!(line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
 
-    // NOTE: Only relevent when line numbers are active
-    // Padding is the space that the actual line text will be shifted to accomodate for
+    // NOTE: Only relevant when line numbers are active
+    // Padding is the space that the actual line text will be shifted to accommodate for
     // line numbers. This is equal to:-
     // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.')
     //
@@ -351,7 +353,7 @@ pub fn formatted_line(
     let mut handle_search = |row: String, wrap_idx: usize| {
         #[cfg(feature = "search")]
         if let Some(st) = search_term.as_ref() {
-            let (highlighted_row, is_match) = search::highlight_line_matches(&row, st);
+            let (highlighted_row, is_match) = search::highlight_line_matches(&row, st, false);
             if is_match {
                 search_idx.insert(formatted_idx + wrap_idx);
             }
@@ -430,6 +432,35 @@ pub fn wrap_str(line: &str, cols: usize) -> Vec<String> {
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<String>>()
+}
+
+pub fn make_format_lines(
+    text: &String,
+    line_numbers: LineNumbers,
+    cols: usize,
+    #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
+) -> FormatResult {
+    // Keep it for record and don't call it unless it is really necessory as this is kinda
+    // expensive
+    let line_count = text.lines().count();
+
+    // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
+    let len_line_number = line_count.to_string().len();
+
+    let format_opts = FormatOpts {
+        text,
+        attachment: None,
+        line_numbers,
+        len_line_number,
+        formatted_lines_count: 0,
+        lines_count: 0,
+        prev_unterminated: 0,
+        cols,
+        #[cfg(feature = "search")]
+        search_term,
+    };
+
+    format_text_block(format_opts)
 }
 
 #[cfg(test)]

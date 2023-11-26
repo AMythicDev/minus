@@ -1,6 +1,9 @@
-use crate::{error::MinusError, input, minus_core::events::Event, ExitStrategy, LineNumbers};
+use crate::{error::MinusError, input, minus_core::commands::Command, ExitStrategy, LineNumbers};
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
+
+#[cfg(feature = "search")]
+use crate::search::SearchOpts;
 
 /// A pager acts as a middleman for communication between the main application
 /// and the user with the core functions of minus
@@ -10,13 +13,13 @@ use std::fmt;
 /// is called, the function takes the input. wraps it in the appropriate event
 /// type and transmits it through the sender held inside the this.
 ///
-/// The receiver part of the channel is continously polled by the pager for events. Depending
+/// The receiver part of the channel is continuously polled by the pager for events. Depending
 /// on the type of event that occurs, the pager will either redraw the screen or update
 /// the [PagerState](crate::state::PagerState)
 #[derive(Clone)]
 pub struct Pager {
-    pub(crate) tx: Sender<Event>,
-    pub(crate) rx: Receiver<Event>,
+    pub(crate) tx: Sender<Command>,
+    pub(crate) rx: Receiver<Command>,
 }
 
 impl Pager {
@@ -48,7 +51,7 @@ impl Pager {
     /// pager.set_text("This is a line").expect("Failed to send data to the pager");
     /// ```
     pub fn set_text(&self, s: impl Into<String>) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetData(s.into()))?)
+        Ok(self.tx.send(Command::SetData(s.into()))?)
     }
 
     /// Appends text to the pager output.
@@ -74,7 +77,7 @@ impl Pager {
     /// write!(pager, "This is some text").expect("Failed to send data to the pager");
     /// ```
     pub fn push_str(&self, s: impl Into<String>) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::AppendData(s.into()))?)
+        Ok(self.tx.send(Command::AppendData(s.into()))?)
     }
 
     /// Set line number configuration for the pager
@@ -93,7 +96,7 @@ impl Pager {
     /// pager.set_line_numbers(LineNumbers::Enabled).expect("Failed to send data to the pager");
     /// ```
     pub fn set_line_numbers(&self, l: LineNumbers) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetLineNumbers(l))?)
+        Ok(self.tx.send(Command::SetLineNumbers(l))?)
     }
 
     /// Set the text displayed at the bottom prompt
@@ -115,9 +118,9 @@ impl Pager {
     /// pager.set_prompt("my prompt").expect("Failed to send data to the pager");
     /// ```
     pub fn set_prompt(&self, text: impl Into<String>) -> Result<(), MinusError> {
-        let text = text.into();
+        let text: String = text.into();
         assert!(!text.contains('\n'), "Prompt cannot contain newlines");
-        Ok(self.tx.send(Event::SetPrompt(text))?)
+        Ok(self.tx.send(Command::SetPrompt(text))?)
     }
 
     /// Display a temporary message at the prompt area
@@ -139,9 +142,9 @@ impl Pager {
     /// pager.send_message("An error occurred").expect("Failed to send data to the pager");
     /// ```
     pub fn send_message(&self, text: impl Into<String>) -> Result<(), MinusError> {
-        let text = text.into();
+        let text: String = text.into();
         assert!(!text.contains('\n'), "Message cannot contain newlines");
-        Ok(self.tx.send(Event::SendMessage(text))?)
+        Ok(self.tx.send(Command::SendMessage(text))?)
     }
 
     /// Set the default exit strategy.
@@ -160,7 +163,7 @@ impl Pager {
     /// pager.set_exit_strategy(ExitStrategy::ProcessQuit).expect("Failed to send data to the pager");
     /// ```
     pub fn set_exit_strategy(&self, es: ExitStrategy) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetExitStrategy(es))?)
+        Ok(self.tx.send(Command::SetExitStrategy(es))?)
     }
 
     /// Set whether to display pager if there's less data than
@@ -191,12 +194,12 @@ impl Pager {
     #[cfg(feature = "static_output")]
     #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
     pub fn set_run_no_overflow(&self, val: bool) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetRunNoOverflow(val))?)
+        Ok(self.tx.send(Command::SetRunNoOverflow(val))?)
     }
 
-    /// Set a custom input classifer function.
+    /// Set a custom input classifier function.
     ///
-    /// When the pager encounters a user input, it calls the input classifer with
+    /// When the pager encounters a user input, it calls the input classifier with
     /// the event and [PagerState](crate::state::PagerState) as parameters.
     ///
     /// A input classifier is a type implementing the [`InputClassifier`](input::InputClassifier)
@@ -212,7 +215,7 @@ impl Pager {
         &self,
         handler: Box<dyn input::InputClassifier + Send + Sync>,
     ) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::SetInputClassifier(handler))?)
+        Ok(self.tx.send(Command::SetInputClassifier(handler))?)
     }
 
     /// Adds a function that will be called when the user quits the pager
@@ -239,7 +242,51 @@ impl Pager {
         &self,
         cb: Box<dyn FnMut() + Send + Sync + 'static>,
     ) -> Result<(), MinusError> {
-        Ok(self.tx.send(Event::AddExitCallback(cb))?)
+        Ok(self.tx.send(Command::AddExitCallback(cb))?)
+    }
+
+    /// Override the condition for running incremental search
+    ///
+    /// See [Incremental Search](../search/index.html#incremental-search) to know more on how this
+    /// works
+    ///
+    /// # Errors
+    /// This function will returns a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be send to the receiver end.
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+    pub fn set_incremental_search_condition(
+        &self,
+        cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+    ) -> crate::Result {
+        self.tx.send(Command::IncrementalSearchCondition(cb))?;
+        Ok(())
+    }
+
+    /// Control whether to show the prompt
+    ///
+    /// Many applications don't want the prompt to be displayed at all. This function can be used to completely turn
+    /// off the prompt. Passing `false` to this will stops the prompt from displaying and instead a blank line will
+    /// be displayed.
+    ///
+    /// Note that This merely stop the prompt from being shown. Your application can still update the
+    /// prompt and send messages to the user but it won't be shown until the prompt isn't re-enabled.
+    /// The prompt section will also be used when user opens the search prompt to type a search query.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the mus's receiving end
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new();
+    /// pager.show_prompt(false).unwrap();
+    /// ```
+    pub fn show_prompt(&self, show: bool) -> crate::Result {
+        self.tx.send(Command::ShowPrompt(show))?;
+        Ok(())
     }
 }
 

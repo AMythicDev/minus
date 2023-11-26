@@ -5,7 +5,7 @@
 </p>
 
 [![crates.io](https://img.shields.io/crates/v/minus?style=for-the-badge)](https://crates.io/crates/minus)
-[![ci](https://img.shields.io/github/workflow/status/arijit79/minus/ci?label=CI&style=for-the-badge)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
+[![ci](https://github.com/arijit79/minus/actions/workflows/ci.yml/badge.svg)](https://github.com/arijit79/minus/actions/workflows/ci.yml)
 [![docs.rs](https://img.shields.io/docsrs/minus?label=docs.rs&style=for-the-badge)](https://docs.rs/minus)
 [![Discord](https://img.shields.io/discord/953920872857620541?color=%237289da&label=Discord&style=for-the-badge)](https://discord.gg/FKEnDPE6Bv)
 [![Matrix](https://img.shields.io/matrix/minus:matrix.org?color=%230dbd8b&label=Matrix&style=for-the-badge)](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
@@ -57,6 +57,17 @@ minus achieves this by leveraging Rust's amazing concurrency support and no data
 
 minus can be used with any async runtime like [`tokio`], [`async-std`] or native [`threads`] if you prefer that. If you
 want to display only static data, you don't even need to depend on any of the above
+
+## Features
+- Send data as well as configure the pager on the fly
+- Supports separate modes for dynamic and static output display
+- Highly configurable
+- Both keyboard and mouse support
+- Key bindings highly inspired by Vim and other modern text editors
+- Clutter free line numbering
+- Full [regex](https://docs.rs/regex) based searching which also fully takes care of escape sequences.
+- Incremental searching of text as you type
+- Tries to be very minimal on dependencies
 
 ## Usage
 
@@ -134,7 +145,7 @@ async fn main() -> Result<(), MinusError> {
     let pager = pager.clone();
     let (res1, res2) = join!(spawn_blocking(move || dynamic_paging(pager)), increment);
     // .unwrap() unwraps any error while creating the tokio task
-    //  The ? mark unpacks any error that might have occured while the
+    //  The ? mark unpacks any error that might have occurred while the
     // pager is running
     res1.unwrap()?;
     res2?;
@@ -171,7 +182,7 @@ assumed that text data will not change.
 
 Here is the list of default key/mouse actions handled by `minus`.
 
-**A `[n] key` means that you can preceed the key by a integer**. 
+**A `[n] key` means that you can precede the key by a integer**. 
 
 | Action            | Description                                                                                                               |
 |-------------------|---------------------------------------------------------------------------------------------------------------------------|
@@ -197,6 +208,24 @@ Here is the list of default key/mouse actions handled by `minus`.
 
 End-applications are free to change these bindings to better suit their needs.
 
+## Key Bindings Available at Search Prompt
+Some special key keybindings are defined to facilitate text input while entering a query at the search prompt
+
+| Key Bindings      | Description                                         |
+|-------------------|-----------------------------------------------------|
+| Esc               | Cancel the search                                   |
+| Enter             | Confirm the search query                            |
+| Backspace         | Remove the character before the cursor              |
+| Delete            | Remove the character under the cursor               |
+| Arrow Left        | Move cursor towards left                            |
+| Arrow right       | Move cursor towards right                           |
+| Ctrl+Arrow left   | Move cursor towards left word by word               |
+| Ctrl+Arrow right  | Move cursor towards right word by word              |
+| Home              | Move cursor at the beginning pf search query        |
+| End               | Move cursor at the end pf search query              |
+
+Currently these cannot be changed by applications but this may be supported in the future.
+
 ## MSRV
 The latest version of minus requires Rust >= 1.67 to build correctly
 
@@ -206,6 +235,7 @@ Unless explicitly stated, all works to `minus` are dual licensed under the
 [MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
 
 ## Contributing
+:warning: Read about our plans on standardizing Git commit messages https://github.com/arijit79/minus/issues/103 :warning:
 
 Issues and pull requests are more than welcome.
 See [CONTRIBUTING.md](CONTRIBUTING.md) on how to contribute to `minus`.
@@ -217,6 +247,16 @@ minus would never have been this without the :heart: from these kind people
 <a href="https://github.com/arijit79/minus/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=arijit79/minus" />
 </a>
+
+And the help from these projects:-
+- [crossterm](https://crates.io/crates/crossterm): An amazing library for working with terminals.
+- [textwrap](https://crates.io/crates/textwrap): Support for text wrapping\
+- [thiserror](https://crates.io/crates/thiserror): Helps in defining custom errors types.
+- [regex](https://crates.io/crates/regex): Regex support when searching.
+- [crossbeam-channel](https://crates.io/crates/crossbeam-channel): MPMC channel
+- [parking_lot](https://crates.io/crates/parking_lot): Improved atomic storage types
+- [once_cell](https://crates.io/crates/once_cell): Provides one-time initialization types.
+- [tokio](https://crates.io/crates/tokio): Provides runtime for async examples.
 
 ## Get in touch
 

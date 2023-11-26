@@ -66,6 +66,18 @@
 //! For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty
 //! much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
 //!
+//! ## Features
+//! - Send data as well as configure the pager on the fly
+//! - Supports separate modes for dynamic and static output display
+//! - Highly configurable
+//! - Both keyboard and mouse support
+//! - Key bindings highly inspired by Vim and other modern text editors
+//! - Clutter free line numbering
+//! - Full [regex](https://docs.rs/regex) based searching which also fully takes care of escape
+//! sequences.
+//! - Incremental searching of text as you type
+//! - Tries to be very minimal on dependencies
+//!
 //! # Usage
 //! Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
 //! * If you only want a pager to display static data, enable the `static_output` feature
@@ -136,7 +148,7 @@
 //!     let pager = pager.clone();
 //!     let (res1, res2) = join!(spawn_blocking(move || dynamic_paging(pager)), increment);
 //!     // .unwrap() unwraps any error while creating the tokio task
-//!     //  The ? mark unpacks any error that might have occured while the
+//!     //  The ? mark unpacks any error that might have occurred while the
 //!     // pager is running
 //!     res1.unwrap()?;
 //!     res2?;
@@ -172,7 +184,7 @@
 //!
 //! Here is the list of default key/mouse actions handled by `minus`.
 //!
-//! **A `[n] key` means that you can preceed the key by a integer**.
+//! **A `[n] key` means that you can precede the key by a integer**.
 //!
 //! | Action            | Description                                                                                                               |
 //! |-------------------|---------------------------------------------------------------------------------------------------------------------------|
@@ -198,6 +210,24 @@
 //!
 //! End-applications are free to change these bindings to better suit their needs.
 //!
+//! ## Key Bindings Available at Search Prompt
+//! Some special key keybindings are defined to facilitate text input while entering a query at the search prompt
+//!
+//! | Key Bindings      | Description                                         |
+//! |-------------------|-----------------------------------------------------|
+//! | Esc               | Cancel the search                                   |
+//! | Enter             | Confirm the search query                            |
+//! | Backspace         | Remove the character before the cursor              |
+//! | Delete            | Remove the character under the cursor               |
+//! | Arrow Left        | Move cursor towards left                            |
+//! | Arrow right       | Move cursor towards right                           |
+//! | Ctrl+Arrow left   | Move cursor towards left word by word               |
+//! | Ctrl+Arrow right  | Move cursor towards right word by word              |
+//! | Home              | Move cursor at the beginning pf search query        |
+//! | End               | Move cursor at the end pf search query              |
+//!
+//! Currently these cannot be changed by applications but this may be supported in the future.
+//!
 //! [`tokio`]: https://docs.rs/tokio
 //! [`async-std`]: https://docs.rs/async-std
 //! [`Threads`]: std::thread
@@ -209,7 +239,11 @@ pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
 mod pager;
-mod state;
+pub mod screen;
+#[cfg(feature = "search")]
+#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+pub mod search;
+pub mod state;
 #[cfg(feature = "static_output")]
 mod static_pager;
 
@@ -218,8 +252,9 @@ pub use dynamic_pager::dynamic_paging;
 #[cfg(feature = "static_output")]
 pub use static_pager::page_all;
 
+pub use minus_core::RunMode;
 #[cfg(feature = "search")]
-pub use minus_core::search::SearchMode;
+pub use search::SearchMode;
 
 pub use error::MinusError;
 pub use pager::Pager;
@@ -231,12 +266,12 @@ pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
 /// Result type returned by most minus's functions
 type Result<T = (), E = MinusError> = std::result::Result<T, E>;
 
-/// Behaviour that happens when the pager is exitted
+/// Behaviour that happens when the pager is exited
 #[derive(PartialEq, Clone, Debug, Eq)]
 pub enum ExitStrategy {
     /// Kill the entire application immediately.
     ///
-    /// This is the prefered option if paging is the last thing you do. For example,
+    /// This is the preferred option if paging is the last thing you do. For example,
     /// the last thing you do in your program is reading from a file or a database and
     /// paging it concurrently
     ///
@@ -244,7 +279,7 @@ pub enum ExitStrategy {
     ProcessQuit,
     /// Kill the pager only.
     ///
-    /// This is the prefered option if you want to do more stuff after exiting the pager. For example,
+    /// This is the preferred option if you want to do more stuff after exiting the pager. For example,
     /// if you've file system locks or you want to close database connectiions after
     /// the pager has done i's job, you probably want to go for this option
     PagerQuit,

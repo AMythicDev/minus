@@ -5,7 +5,7 @@ use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventState, KeyModifiers, MouseEvent, MouseEventKind,
 };
 
-// Just a transparent function to fix incompatiblity issues between
+// Just a transparent function to fix incompatibility issues between
 // versions
 // TODO: Remove this later in favour of how handle_event should actually be called
 fn handle_input(ev: Event, p: &PagerState) -> Option<InputEvent> {
@@ -389,7 +389,7 @@ fn test_search_bindings() {
         );
     }
     {
-        pager.search_mode = SearchMode::Forward;
+        pager.search_state.search_mode = SearchMode::Forward;
         // NextMatch and PrevMatch forward search
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),
@@ -415,7 +415,7 @@ fn test_search_bindings() {
     }
 
     {
-        pager.search_mode = SearchMode::Reverse;
+        pager.search_state.search_mode = SearchMode::Reverse;
         // NextMatch and PrevMatch reverse search
         let next_event = Event::Key(KeyEvent {
             code: KeyCode::Char('n'),

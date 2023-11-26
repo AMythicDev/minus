@@ -4,7 +4,7 @@
 
 // This example uses a lot of `.expect()` and does not properly handle them. If
 // someone is interested to add proper error handling, you are free to file pull
-//requests. Libraries like anyhow and thiserror are generally prefered and minus
+//requests. Libraries like anyhow and thiserror are generally preferred and minus
 //also uses thiserror
 
 use std::env::args;
