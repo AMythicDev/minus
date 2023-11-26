@@ -1,12 +1,19 @@
+//! Provides functions for getting analysis of the text data inside minus.
+//!
+//! This module is still a work is progress.
 pub struct Screen {
     pub(crate) orig_text: String,
     pub(crate) formatted_lines: Vec<String>,
 }
 
 impl Screen {
+    /// Get the actual number of physical rows from the text that will be printed on the terminal
     pub fn formatted_lines_count(&self) -> usize {
         self.formatted_lines.len()
     }
+    /// Get the number of [`Lines`](std::str::Lines) in the text.
+    ///
+    /// NOTE: This operation might be expensive if the text data is too large.
     pub fn line_count(&self) -> usize {
         self.orig_text.lines().count()
     }
