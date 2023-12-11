@@ -85,11 +85,7 @@ impl Command {
     pub(crate) const fn required_immediate_screen_update(&self) -> bool {
         matches!(
             self,
-            Self::SetData(_)
-                | Self::SetPrompt(_)
-                | Self::SendMessage(_)
-                | Self::UserInput(_)
-                | Self::ShowPrompt(_)
+            Self::SetData(_) | Self::SetPrompt(_) | Self::SendMessage(_) | Self::ShowPrompt(_)
         )
     }
 }

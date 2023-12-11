@@ -3,7 +3,6 @@
 use crossterm::{
     cursor::MoveTo,
     execute, queue,
-    style::Attribute,
     terminal::{Clear, ClearType},
 };
 
@@ -117,14 +116,7 @@ pub fn draw_for_change(
 
 /// Write given text at the prompt site
 pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
-    write!(
-        out,
-        "{mv}\r{rev}{prompt}{reset}",
-        mv = MoveTo(0, rows),
-        rev = Attribute::Reverse,
-        prompt = text,
-        reset = Attribute::Reset,
-    )?;
+    write!(out, "{mv}\r{prompt}", mv = MoveTo(0, rows), prompt = text)?;
     Ok(())
 }
 

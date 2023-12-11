@@ -25,6 +25,7 @@ use crossterm::event;
 #[cfg(feature = "static_output")]
 use crossterm::tty::IsTty;
 use std::{
+    convert::TryInto,
     io::{stdout, Stdout},
     panic,
     sync::{
@@ -40,7 +41,7 @@ use super::utils::display::write_lines;
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::RUNMODE;
+use super::{utils, RUNMODE};
 
 /// The main entry point of minus
 ///
@@ -246,6 +247,18 @@ fn start_reactor(
 
             match event {
                 Ok(ev) if ev.required_immediate_screen_update() => {
+                    handle_event(
+                        ev,
+                        &mut out_lock,
+                        &mut p,
+                        is_exited,
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                    draw_full(&mut out_lock, &mut p)?;
+                }
+                Ok(Command::UserInput(ev)) => {
+                    let ev = Command::UserInput(ev);
                     let is_exit_event = ev.is_exit_event();
                     let is_movement = ev.is_movement();
                     handle_event(
@@ -256,14 +269,19 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
+                    if p.message.is_some() {
+                        p.message = None;
+                        p.format_prompt();
+                        utils::display::write_prompt(
+                            &mut out_lock,
+                            &p.displayed_prompt,
+                            p.rows.try_into().unwrap(),
+                        )?;
+                    }
                     if !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
-                // Ok(Event::UserInput(InputEvent::Search(search_mode)) => {
-                //     if search_mode == Sear
-                //
-                // }
                 Ok(ev) => {
                     handle_event(
                         ev,

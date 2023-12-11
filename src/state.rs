@@ -266,12 +266,15 @@ impl PagerState {
 
     /// Reformat the inputted prompt to how it should be displayed
     pub(crate) fn format_prompt(&mut self) {
-        const SEARCH_BG: &str = "\x1b[34m";
-        const INPUT_BG: &str = "\x1b[33m";
+        const PROMPT_SPEC: &str = "\x1b[2;40;37m";
+        const SEARCH_SPEC: &str = "\x1b[30;44m";
+        const INPUT_SPEC: &str = "\x1b[30;43m";
+        const MSG_SPEC: &str = "\x1b[30;1;41m";
+        const RESET: &str = "\x1b[0m";
 
         // Allocate the string. Add extra space in case for the
         // ANSI escape things if we do have characters typed and search showing
-        let mut format_string = String::with_capacity(self.cols + (SEARCH_BG.len() * 2) + 4);
+        let mut format_string = String::with_capacity(self.cols + (SEARCH_SPEC.len() * 5) + 4);
 
         // Get the string that will contain the search index/match indicator
         #[cfg(feature = "search")]
@@ -314,21 +317,28 @@ impl PagerState {
         };
 
         // push the prompt/msg
-        format_string.push_str(dsp_prompt);
+        if self.message.is_some() {
+            format_string.push_str(MSG_SPEC);
+            format_string.push_str(dsp_prompt);
+        } else {
+            format_string.push_str(PROMPT_SPEC);
+            format_string.push_str(dsp_prompt);
+        }
         format_string.push_str(&" ".repeat(extra_space));
 
         // add the prefix_num if it exists
         if prefix_len > 0 {
-            format_string.push_str(INPUT_BG);
+            format_string.push_str(INPUT_SPEC);
             format_string.push_str(&prefix_str);
         }
 
         // and add the search indicator stuff if it exists
         #[cfg(feature = "search")]
         if search_len > 0 {
-            format_string.push_str(SEARCH_BG);
+            format_string.push_str(SEARCH_SPEC);
             format_string.push_str(&search_str);
         }
+        format_string.push_str(RESET);
 
         self.displayed_prompt = format_string;
     }

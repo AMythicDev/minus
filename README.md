@@ -184,27 +184,27 @@ Here is the list of default key/mouse actions handled by `minus`.
 
 **A `[n] key` means that you can precede the key by a integer**. 
 
-| Action            | Description                                                                                                               |
-|-------------------|---------------------------------------------------------------------------------------------------------------------------|
-| Ctrl+C/q          | Quit the pager                                                                                                            |
-| [n] Arrow Up/k    | Scroll up by n number of line(s). If n is omitted, scroll up by 1 line                                                    |
-| [n] Arrow Down/j  | Scroll down by n number of line(s). If n is omitted, scroll down by 1 line                                                |
-| Page Up           | Scroll up by entire page                                                                                                  |
-| Page Down         | Scroll down by entire page                                                                                                |
-| [n] Enter         | Scroll down by n number of line(s). If n is omitted, scroll by 1 line. If there are prompt messages, this will clear them |
-| Space             | Scroll down by one page                                                                                                   |
-| Ctrl+U/u          | Scroll up by half a screen                                                                                                |
-| Ctrl+D/d          | Scroll down by half a screen                                                                                              |
-| g                 | Go to the very top of the output                                                                                          |
-| [n] G             | Go to the very bottom of the output. If n is present, goes to that line                                                   |
-| Mouse scroll Up   | Scroll up by 5 lines                                                                                                      |
-| Mouse scroll Down | Scroll down by 5 lines                                                                                                    |
-| Ctrl+L            | Toggle line numbers if not forced enabled/disabled                                                                        |
-| /                 | Start forward search                                                                                                      |
-| ?                 | Start backward search                                                                                                     |
-| Esc               | Cancel search input                                                                                                       |
-| [n] n             | Go to the next search match                                                                                               |
-| [n] p             | Go to the next previous match                                                                                             |
+| Action            | Description                                                                  |
+|-------------------|------------------------------------------------------------------------------|
+| Ctrl+C/q          | Quit the pager                                                               |
+| [n] Arrow Up/k    | Scroll up by n number of line(s). If n is omitted, scroll up by 1 line       |
+| [n] Arrow Down/j  | Scroll down by n number of line(s). If n is omitted, scroll down by 1 line   |
+| Page Up           | Scroll up by entire page                                                     |
+| Page Down         | Scroll down by entire page                                                   |
+| [n] Enter         | Scroll down by n number of line(s). If n is omitted, scroll by 1 line        |
+| Space             | Scroll down by one page                                                      |
+| Ctrl+U/u          | Scroll up by half a screen                                                   |
+| Ctrl+D/d          | Scroll down by half a screen                                                 |
+| g                 | Go to the very top of the output                                             |
+| [n] G             | Go to the very bottom of the output. If n is present, goes to that line      |
+| Mouse scroll Up   | Scroll up by 5 lines                                                         |
+| Mouse scroll Down | Scroll down by 5 lines                                                       |
+| Ctrl+L            | Toggle line numbers if not forced enabled/disabled                           |
+| /                 | Start forward search                                                         |
+| ?                 | Start backward search                                                        |
+| Esc               | Cancel search input                                                          |
+| [n] n             | Go to the next search match                                                  |
+| [n] p             | Go to the next previous match                                                |
 
 End-applications are free to change these bindings to better suit their needs.
 
