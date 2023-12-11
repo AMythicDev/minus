@@ -1,6 +1,11 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.5.1 [2023-12-05]
+### Fixed
+* Version information in README
+* Static mode specific functionality not working due to incorrect placing of `RUNMODE` setting code. ([#110](https://github.com/arijit79/minus/pull/110))
+
 ## v5.5.0 [2023-11-27]
 ### Fixed
 * Prompt status not being updated when a new search is activated. (#102)

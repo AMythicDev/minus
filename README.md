@@ -81,7 +81,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 ```toml
 [dependencies.minus]
-version = "5.4.2"
+version = "5.5.1"
 features = [
     # Enable features you want. For example
     "dynamic_output",
@@ -250,7 +250,7 @@ minus would never have been this without the :heart: from these kind people
 
 And the help from these projects:-
 - [crossterm](https://crates.io/crates/crossterm): An amazing library for working with terminals.
-- [textwrap](https://crates.io/crates/textwrap): Support for text wrapping\
+- [textwrap](https://crates.io/crates/textwrap): Support for text wrapping.
 - [thiserror](https://crates.io/crates/thiserror): Helps in defining custom errors types.
 - [regex](https://crates.io/crates/regex): Regex support when searching.
 - [crossbeam-channel](https://crates.io/crates/crossbeam-channel): MPMC channel

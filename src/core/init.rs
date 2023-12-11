@@ -86,6 +86,13 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     #[allow(unused_mut)]
     let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx, &mut out)?;
 
+    {
+        let mut runmode = super::RUNMODE.lock();
+        assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably because another instance of minus is already running");
+        *runmode = rm;
+        drop(runmode);
+    }
+
     // Static mode checks
     #[cfg(feature = "static_output")]
     if *RUNMODE.lock() == RunMode::Static {

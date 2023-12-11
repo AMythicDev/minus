@@ -8,12 +8,14 @@ pub struct Screen {
 
 impl Screen {
     /// Get the actual number of physical rows from the text that will be printed on the terminal
+    #[must_use]
     pub fn formatted_lines_count(&self) -> usize {
         self.formatted_lines.len()
     }
     /// Get the number of [`Lines`](std::str::Lines) in the text.
     ///
     /// NOTE: This operation might be expensive if the text data is too large.
+    #[must_use]
     pub fn line_count(&self) -> usize {
         self.orig_text.lines().count()
     }
