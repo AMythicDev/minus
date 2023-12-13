@@ -226,9 +226,10 @@ fn start_reactor(
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
-    let mut p = ps.lock();
-    draw_full(&mut out_lock, &mut p)?;
-    drop(p);
+    {
+        let mut p = ps.lock();
+        draw_full(&mut out_lock, &mut p)?;
+    }
 
     let run_mode = *RUNMODE.lock();
     match run_mode {
@@ -296,38 +297,45 @@ fn start_reactor(
             }
         },
         #[cfg(feature = "static_output")]
-        RunMode::Static => loop {
-            if is_exited.load(Ordering::SeqCst) {
-                // Cleanup the screen
-                //
-                // This is not needed in dynamic paging because this is already handled by handle_event
-                let p = ps.lock();
-                term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
-
-                let mut rm = RUNMODE.lock();
-                *rm = RunMode::Uninitialized;
-                drop(rm);
-
-                break;
+        RunMode::Static => {
+            {
+                let mut p = ps.lock();
+                draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1));
             }
 
-            if let Ok(Command::UserInput(inp)) = rx.recv() {
-                let mut p = ps.lock();
-                let is_exit_event = Command::UserInput(inp).is_exit_event();
-                let is_movement = Command::UserInput(inp).is_movement();
-                handle_event(
-                    Command::UserInput(inp),
-                    &mut out_lock,
-                    &mut p,
-                    is_exited,
-                    #[cfg(feature = "search")]
-                    input_thread_running,
-                )?;
-                if !is_exit_event && !is_movement {
-                    draw_full(&mut out_lock, &mut p)?;
+            loop {
+                if is_exited.load(Ordering::SeqCst) {
+                    // Cleanup the screen
+                    //
+                    // This is not needed in dynamic paging because this is already handled by handle_event
+                    let p = ps.lock();
+                    term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
+
+                    let mut rm = RUNMODE.lock();
+                    *rm = RunMode::Uninitialized;
+                    drop(rm);
+
+                    break;
+                }
+
+                if let Ok(Command::UserInput(inp)) = rx.recv() {
+                    let mut p = ps.lock();
+                    let is_exit_event = Command::UserInput(inp).is_exit_event();
+                    let is_movement = Command::UserInput(inp).is_movement();
+                    handle_event(
+                        Command::UserInput(inp),
+                        &mut out_lock,
+                        &mut p,
+                        is_exited,
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                    if !is_exit_event && !is_movement {
+                        draw_full(&mut out_lock, &mut p)?;
+                    }
                 }
             }
-        },
+        }
         RunMode::Uninitialized => panic!(
             "Static variable RUNMODE set to uninitialized.\
 This is most likely a bug. Please open an issue to the developers"
