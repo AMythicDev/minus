@@ -17,13 +17,24 @@
         };
 
         rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+        rust-nightly-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain-nightly.toml;
+
+        shared_packages = with pkgs; [
+          just
+        ];
       in
       with pkgs;
       {
-        devShells.default = mkShell {
-          packages = with pkgs; [
-            just
-          ] ++ [ rust-toolchain ];
+        devShells = rec {
+          default = msrv;
+
+          nightly = mkShell {
+            packages = shared_packages ++ [ rust-nightly-toolchain ];
+          };
+
+          msrv = mkShell {
+            packages = shared_packages ++ [ rust-toolchain ];
+          };
         };
       }
     );
