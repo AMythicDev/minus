@@ -234,6 +234,10 @@ pub fn handle_event(
                     prev_fmt_lines_count,
                     append_style,
                 )?;
+
+                if p.follow_output {
+                    display::draw_for_change(out, p, &mut (usize::MAX - 1))?;
+                }
                 return Ok(());
             }
         }
