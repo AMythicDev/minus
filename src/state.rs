@@ -212,7 +212,7 @@ impl PagerState {
             rows,
             prefix_num: String::new(),
             lines_to_row_map: HashMap::new(),
-            follow_output: true,
+            follow_output: false,
         };
 
         state.format_prompt();
