@@ -43,7 +43,10 @@ use super::utils::display::write_lines;
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::{utils, RUNMODE};
+use super::{
+    utils::{self, display::draw_for_change},
+    RUNMODE,
+};
 
 /// The main entry point of minus
 ///
@@ -231,6 +234,10 @@ fn start_reactor(
     {
         let mut p = ps.lock();
         draw_full(&mut out_lock, &mut p)?;
+
+        if p.follow_output {
+            draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
+        }
     }
 
     let run_mode = *RUNMODE.lock();
