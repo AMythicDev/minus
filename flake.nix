@@ -1,6 +1,4 @@
 {
-  description = "Home Manager configuration of arijit";
-
   inputs = {
     # Specify the source of Home Manager and Nixpkgs.
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
