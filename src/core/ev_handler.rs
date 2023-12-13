@@ -267,6 +267,7 @@ pub fn handle_event(
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::ShowPrompt(show) => p.show_prompt = show,
         Command::UserInput(_) => {}
+        Command::FollowOutput(follow_output) => p.follow_output = follow_output,
     }
     Ok(())
 }

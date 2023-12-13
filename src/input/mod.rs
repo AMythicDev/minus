@@ -138,6 +138,8 @@ pub enum InputEvent {
     /// Move to the previous nth match in the given direction
     #[cfg(feature = "search")]
     MoveToPrevMatch(usize),
+
+    ToggleFollowOutput,
 }
 
 /// Classifies the input and returns the appropriate [`InputEvent`]
@@ -166,6 +168,7 @@ where
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
     });
+    map.add_key_events(&["f"], |_, _| InputEvent::ToggleFollowOutput);
     map.add_key_events(&["enter"], |_, ps| {
         if ps.message.is_some() {
             InputEvent::RestorePrompt
@@ -305,6 +308,13 @@ impl InputClassifier for DefaultInputClassifier {
                     ps.upper_mark.saturating_add(position),
                 ))
             }
+
+            // Toggle output following
+            Event::Key(KeyEvent {
+                code,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) if code == KeyCode::Char('f') => Some(InputEvent::ToggleFollowOutput),
 
             // For number keys
             Event::Key(KeyEvent {

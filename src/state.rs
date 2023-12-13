@@ -155,6 +155,8 @@ pub struct PagerState {
     /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
     /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
     pub(crate) lines_to_row_map: HashMap<usize, usize>,
+
+    pub(crate) follow_output: bool,
 }
 
 impl PagerState {
@@ -210,6 +212,7 @@ impl PagerState {
             rows,
             prefix_num: String::new(),
             lines_to_row_map: HashMap::new(),
+            follow_output: true,
         };
 
         state.format_prompt();

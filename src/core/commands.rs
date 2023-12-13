@@ -22,6 +22,7 @@ pub enum Command {
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     ShowPrompt(bool),
+    FollowOutput(bool),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
@@ -66,6 +67,7 @@ impl Debug for Command {
             #[cfg(feature = "static_output")]
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
+            Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
         }
     }
 }

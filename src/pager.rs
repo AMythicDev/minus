@@ -288,6 +288,11 @@ impl Pager {
         self.tx.send(Command::ShowPrompt(show))?;
         Ok(())
     }
+
+    pub fn follow_output(&self, follow_output: bool) -> crate::Result {
+        self.tx.send(Command::FollowOutput(follow_output))?;
+        Ok(())
+    }
 }
 
 impl Default for Pager {
