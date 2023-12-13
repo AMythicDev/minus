@@ -306,7 +306,7 @@ impl Pager {
     /// use minus::Pager;
     ///
     /// let pager = Pager::new();
-    /// pager.show_prompt(true).unwrap();
+    /// pager.follow_output(true).unwrap();
     /// ```
     pub fn follow_output(&self, follow_output: bool) -> crate::Result {
         self.tx.send(Command::FollowOutput(follow_output))?;
