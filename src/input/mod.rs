@@ -312,7 +312,7 @@ impl InputClassifier for DefaultInputClassifier {
             // Toggle output following
             Event::Key(KeyEvent {
                 code,
-                modifiers: KeyModifiers::NONE,
+                modifiers: KeyModifiers::CONTROL,
                 ..
             }) if code == KeyCode::Char('f') => Some(InputEvent::ToggleFollowOutput),
 
