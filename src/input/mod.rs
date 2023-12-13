@@ -139,7 +139,7 @@ pub enum InputEvent {
     #[cfg(feature = "search")]
     MoveToPrevMatch(usize),
 
-    ToggleFollowOutput,
+    FollowOutput(bool),
 }
 
 /// Classifies the input and returns the appropriate [`InputEvent`]
@@ -168,7 +168,9 @@ where
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
     });
-    map.add_key_events(&["f"], |_, _| InputEvent::ToggleFollowOutput);
+    map.add_key_events(&["c-f"], |_, ps| {
+        InputEvent::FollowOutput(!ps.follow_output)
+    });
     map.add_key_events(&["enter"], |_, ps| {
         if ps.message.is_some() {
             InputEvent::RestorePrompt
@@ -314,7 +316,7 @@ impl InputClassifier for DefaultInputClassifier {
                 code,
                 modifiers: KeyModifiers::CONTROL,
                 ..
-            }) if code == KeyCode::Char('f') => Some(InputEvent::ToggleFollowOutput),
+            }) if code == KeyCode::Char('f') => Some(InputEvent::FollowOutput(!ps.follow_output)),
 
             // For number keys
             Event::Key(KeyEvent {

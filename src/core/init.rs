@@ -8,6 +8,8 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
+#[cfg(feature = "static_output")]
+use crate::minus_core::utils::display;
 use crate::{
     error::MinusError,
     input::InputEvent,
@@ -300,7 +302,9 @@ fn start_reactor(
         RunMode::Static => {
             {
                 let mut p = ps.lock();
-                draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1));
+                if p.follow_output {
+                    display::draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
+                }
             }
 
             loop {

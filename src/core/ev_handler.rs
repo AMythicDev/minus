@@ -270,8 +270,11 @@ pub fn handle_event(
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::ShowPrompt(show) => p.show_prompt = show,
+        Command::FollowOutput(follow_output)
+        | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
+            p.follow_output = follow_output
+        }
         Command::UserInput(_) => {}
-        Command::FollowOutput(follow_output) => p.follow_output = follow_output,
     }
     Ok(())
 }
