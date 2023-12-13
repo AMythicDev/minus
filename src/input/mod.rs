@@ -138,7 +138,13 @@ pub enum InputEvent {
     /// Move to the previous nth match in the given direction
     #[cfg(feature = "search")]
     MoveToPrevMatch(usize),
-
+    /// Control follow mode.
+    ///
+    /// When set to true, minus ensures that the user's screen always follows the end part of the
+    /// output. By default it is turned off.
+    ///
+    /// This is similar to [Pager::follow_output](crate::pager::Pager::follow_output) except that
+    /// this is used to control it from the user's side.
     FollowOutput(bool),
 }
 

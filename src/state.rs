@@ -155,7 +155,8 @@ pub struct PagerState {
     /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
     /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
     pub(crate) lines_to_row_map: HashMap<usize, usize>,
-
+    /// Value for follow mode.
+    /// See [follow_output](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
 }
 
