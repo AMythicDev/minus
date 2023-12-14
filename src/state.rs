@@ -275,6 +275,7 @@ impl PagerState {
         const INPUT_SPEC: &str = "\x1b[30;43m";
         const MSG_SPEC: &str = "\x1b[30;1;41m";
         const RESET: &str = "\x1b[0m";
+        const FOLLOW_MODE_SPEC: &str = "\x1b[1m";
 
         // Allocate the string. Add extra space in case for the
         // ANSI escape things if we do have characters typed and search showing
@@ -308,14 +309,20 @@ impl PagerState {
         #[cfg(not(feature = "search"))]
         let search_len = 0;
 
+        let follow_mode_str: &str = if self.follow_output {
+            " follow-mode "
+        } else {
+            ""
+        };
+
         // Calculate how much extra padding in the middle we need between
         // the prompt/message and the indicators on the right
         let prefix_len = prefix_str.len();
         let extra_space = self
             .cols
-            .saturating_sub(search_len + prefix_len + prompt_str.len());
+            .saturating_sub(search_len + prefix_len + follow_mode_str.len() + prompt_str.len());
         let dsp_prompt: &str = if extra_space == 0 {
-            &prompt_str[..self.cols - search_len - prefix_len]
+            &prompt_str[..self.cols - search_len - prefix_len - follow_mode_str.len()]
         } else {
             prompt_str
         };
@@ -342,6 +349,13 @@ impl PagerState {
             format_string.push_str(SEARCH_SPEC);
             format_string.push_str(&search_str);
         }
+
+        // add follow-mode indicator
+        if follow_mode_str.len() > 0 {
+            format_string.push_str(FOLLOW_MODE_SPEC);
+            format_string.push_str(follow_mode_str);
+        }
+
         format_string.push_str(RESET);
 
         self.displayed_prompt = format_string;

@@ -273,6 +273,7 @@ pub fn handle_event(
         Command::FollowOutput(follow_output)
         | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
             p.follow_output = follow_output;
+            p.format_prompt();
 
             if !p.running.lock().is_uninitialized() {
                 display::draw_for_change(out, p, &mut (usize::MAX - 1))?;
