@@ -24,10 +24,7 @@ use crate::{
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
-#[cfg(feature = "static_output")]
-use crossterm::tty::IsTty;
 use std::{
-    convert::TryInto,
     io::{stdout, Stdout},
     panic,
     sync::{
@@ -35,18 +32,17 @@ use std::{
         Arc,
     },
 };
+#[cfg(feature = "dynamic_output")]
+use {super::utils, std::convert::TryInto};
 
 #[cfg(feature = "static_output")]
-use super::utils::display::write_lines;
+use {super::utils::display::write_lines, crossterm::tty::IsTty};
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::{
-    utils::{self, display::draw_for_change},
-    RUNMODE,
-};
+use super::{utils::display::draw_for_change, RUNMODE};
 
 /// The main entry point of minus
 ///
