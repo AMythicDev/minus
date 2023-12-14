@@ -347,7 +347,7 @@ impl PagerState {
         }
 
         // add follow-mode indicator
-        if follow_mode_str.len() > 0 {
+        if !follow_mode_str.is_empty() {
             format_string.push_str(FOLLOW_MODE_SPEC);
             format_string.push_str(follow_mode_str);
         }
