@@ -309,11 +309,7 @@ impl PagerState {
         #[cfg(not(feature = "search"))]
         let search_len = 0;
 
-        let follow_mode_str: &str = if self.follow_output {
-            " follow-mode "
-        } else {
-            ""
-        };
+        let follow_mode_str: &str = if self.follow_output { "[F]" } else { "" };
 
         // Calculate how much extra padding in the middle we need between
         // the prompt/message and the indicators on the right
