@@ -8,6 +8,8 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
+#[cfg(feature = "static_output")]
+use crate::minus_core::utils::display;
 use crate::{
     error::MinusError,
     input::InputEvent,
@@ -22,10 +24,7 @@ use crate::{
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
-#[cfg(feature = "static_output")]
-use crossterm::tty::IsTty;
 use std::{
-    convert::TryInto,
     io::{stdout, Stdout},
     panic,
     sync::{
@@ -33,15 +32,17 @@ use std::{
         Arc,
     },
 };
+#[cfg(feature = "dynamic_output")]
+use {super::utils, std::convert::TryInto};
 
 #[cfg(feature = "static_output")]
-use super::utils::display::write_lines;
+use {super::utils::display::write_lines, crossterm::tty::IsTty};
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::{utils, RUNMODE};
+use super::{utils::display::draw_for_change, RUNMODE};
 
 /// The main entry point of minus
 ///
@@ -226,9 +227,14 @@ fn start_reactor(
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
 
-    let mut p = ps.lock();
-    draw_full(&mut out_lock, &mut p)?;
-    drop(p);
+    {
+        let mut p = ps.lock();
+        draw_full(&mut out_lock, &mut p)?;
+
+        if p.follow_output {
+            draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
+        }
+    }
 
     let run_mode = *RUNMODE.lock();
     match run_mode {
@@ -296,38 +302,47 @@ fn start_reactor(
             }
         },
         #[cfg(feature = "static_output")]
-        RunMode::Static => loop {
-            if is_exited.load(Ordering::SeqCst) {
-                // Cleanup the screen
-                //
-                // This is not needed in dynamic paging because this is already handled by handle_event
-                let p = ps.lock();
-                term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
-
-                let mut rm = RUNMODE.lock();
-                *rm = RunMode::Uninitialized;
-                drop(rm);
-
-                break;
-            }
-
-            if let Ok(Command::UserInput(inp)) = rx.recv() {
+        RunMode::Static => {
+            {
                 let mut p = ps.lock();
-                let is_exit_event = Command::UserInput(inp).is_exit_event();
-                let is_movement = Command::UserInput(inp).is_movement();
-                handle_event(
-                    Command::UserInput(inp),
-                    &mut out_lock,
-                    &mut p,
-                    is_exited,
-                    #[cfg(feature = "search")]
-                    input_thread_running,
-                )?;
-                if !is_exit_event && !is_movement {
-                    draw_full(&mut out_lock, &mut p)?;
+                if p.follow_output {
+                    display::draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
                 }
             }
-        },
+
+            loop {
+                if is_exited.load(Ordering::SeqCst) {
+                    // Cleanup the screen
+                    //
+                    // This is not needed in dynamic paging because this is already handled by handle_event
+                    let p = ps.lock();
+                    term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
+
+                    let mut rm = RUNMODE.lock();
+                    *rm = RunMode::Uninitialized;
+                    drop(rm);
+
+                    break;
+                }
+
+                if let Ok(Command::UserInput(inp)) = rx.recv() {
+                    let mut p = ps.lock();
+                    let is_exit_event = Command::UserInput(inp).is_exit_event();
+                    let is_movement = Command::UserInput(inp).is_movement();
+                    handle_event(
+                        Command::UserInput(inp),
+                        &mut out_lock,
+                        &mut p,
+                        is_exited,
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                    if !is_exit_event && !is_movement {
+                        draw_full(&mut out_lock, &mut p)?;
+                    }
+                }
+            }
+        }
         RunMode::Uninitialized => panic!(
             "Static variable RUNMODE set to uninitialized.\
 This is most likely a bug. Please open an issue to the developers"

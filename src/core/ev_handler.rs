@@ -234,6 +234,10 @@ pub fn handle_event(
                     prev_fmt_lines_count,
                     append_style,
                 )?;
+
+                if p.follow_output {
+                    display::draw_for_change(out, p, &mut (usize::MAX - 1))?;
+                }
                 return Ok(());
             }
         }
@@ -266,6 +270,15 @@ pub fn handle_event(
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::ShowPrompt(show) => p.show_prompt = show,
+        Command::FollowOutput(follow_output)
+        | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
+            p.follow_output = follow_output;
+            p.format_prompt();
+
+            if !p.running.lock().is_uninitialized() {
+                display::draw_for_change(out, p, &mut (usize::MAX - 1))?;
+            }
+        }
         Command::UserInput(_) => {}
     }
     Ok(())

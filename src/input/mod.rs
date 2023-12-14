@@ -138,6 +138,14 @@ pub enum InputEvent {
     /// Move to the previous nth match in the given direction
     #[cfg(feature = "search")]
     MoveToPrevMatch(usize),
+    /// Control follow mode.
+    ///
+    /// When set to true, minus ensures that the user's screen always follows the end part of the
+    /// output. By default it is turned off.
+    ///
+    /// This is similar to [Pager::follow_output](crate::pager::Pager::follow_output) except that
+    /// this is used to control it from the user's side.
+    FollowOutput(bool),
 }
 
 /// Classifies the input and returns the appropriate [`InputEvent`]
@@ -165,6 +173,9 @@ where
     map.add_key_events(&["down", "j"], |_, ps| {
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
+    });
+    map.add_key_events(&["c-f"], |_, ps| {
+        InputEvent::FollowOutput(!ps.follow_output)
     });
     map.add_key_events(&["enter"], |_, ps| {
         if ps.message.is_some() {
@@ -305,6 +316,13 @@ impl InputClassifier for DefaultInputClassifier {
                     ps.upper_mark.saturating_add(position),
                 ))
             }
+
+            // Toggle output following
+            Event::Key(KeyEvent {
+                code,
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            }) if code == KeyCode::Char('f') => Some(InputEvent::FollowOutput(!ps.follow_output)),
 
             // For number keys
             Event::Key(KeyEvent {

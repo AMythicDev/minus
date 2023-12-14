@@ -288,6 +288,30 @@ impl Pager {
         self.tx.send(Command::ShowPrompt(show))?;
         Ok(())
     }
+
+    /// Configures follow output
+    ///
+    /// When set to true, minus ensures that the user's screen always follows the end part of the
+    /// output. By default it is turned off.
+    ///
+    /// This is similar to [InputEvent::FollowOutput](crate::input::InputEvent::FollowOutput) except that
+    /// this is used to control it from the application's side.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the mus's receiving end
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new();
+    /// pager.follow_output(true).unwrap();
+    /// ```
+    pub fn follow_output(&self, follow_output: bool) -> crate::Result {
+        self.tx.send(Command::FollowOutput(follow_output))?;
+        Ok(())
+    }
 }
 
 impl Default for Pager {
