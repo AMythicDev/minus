@@ -42,7 +42,7 @@ use {super::utils::display::write_lines, crossterm::tty::IsTty};
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::{utils::display::draw_for_change, RUNMODE};
+use super::{utils::display::draw_for_change, CommandQueue, RUNMODE};
 
 /// The main entry point of minus
 ///
@@ -226,6 +226,7 @@ fn start_reactor(
     is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
+    let mut command_queue = CommandQueue::new();
 
     {
         let mut p = ps.lock();
@@ -236,7 +237,7 @@ fn start_reactor(
         }
     }
 
-    let run_mode = *RUNMODE.lock();
+    let run_mode = RUNMODE.lock().clone();
     match run_mode {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
@@ -247,16 +248,21 @@ fn start_reactor(
                 break;
             }
 
-            let event = rx.recv();
+            let next_command = if command_queue.is_empty() {
+                rx.recv()
+            } else {
+                Ok(command_queue.pop_front().unwrap())
+            };
 
             let mut p = ps.lock();
 
-            match event {
+            match next_command {
                 Ok(ev) if ev.required_immediate_screen_update() => {
                     handle_event(
                         ev,
                         &mut out_lock,
                         &mut p,
+                        &mut command_queue,
                         is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
@@ -272,6 +278,7 @@ fn start_reactor(
                         ev,
                         &mut out_lock,
                         &mut p,
+                        &mut command_queue,
                         is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
@@ -294,6 +301,7 @@ fn start_reactor(
                         ev,
                         &mut out_lock,
                         &mut p,
+                        &mut command_queue,
                         is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
@@ -316,8 +324,8 @@ fn start_reactor(
                     // Cleanup the screen
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
-                    let exit_strategy = &ps.lock().exit_strategy;
-                    term::cleanup(&mut out_lock, exit_strategy, true)?;
+                    let p = ps.lock();
+                    term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
 
                     let mut rm = RUNMODE.lock();
                     *rm = RunMode::Uninitialized;
@@ -325,16 +333,22 @@ fn start_reactor(
 
                     break;
                 }
+                let next_command = if command_queue.is_empty() {
+                    rx.recv()
+                } else {
+                    Ok(command_queue.pop_front().unwrap())
+                };
 
-                if let Ok(Command::UserInput(inp)) = rx.recv() {
+                if let Ok(command) = next_command {
                     let mut p = ps.lock();
-                    let is_exit_event = Command::UserInput(inp).is_exit_event();
-                    let is_movement = Command::UserInput(inp).is_movement();
-                    let is_ignore = inp == InputEvent::Ignore;
+                    let is_exit_event = command.is_exit_event();
+                    let is_movement = command.is_movement();
+                    let is_ignore = command == Command::UserInput(InputEvent::Ignore);
                     handle_event(
-                        Command::UserInput(inp),
+                        command,
                         &mut out_lock,
                         &mut p,
+                        &mut command_queue,
                         is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
