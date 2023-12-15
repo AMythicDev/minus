@@ -193,6 +193,7 @@
 //! | Mouse scroll Up   | Scroll up by 5 lines                                                         |
 //! | Mouse scroll Down | Scroll down by 5 lines                                                       |
 //! | Ctrl+L            | Toggle line numbers if not forced enabled/disabled                           |
+//! | Ctrl+f            | Toggle [follow-mode]                                                         |
 //! | /                 | Start forward search                                                         |
 //! | ?                 | Start backward search                                                        |
 //! | Esc               | Cancel search input                                                          |
@@ -222,6 +223,7 @@
 //! [`tokio`]: https://docs.rs/tokio
 //! [`async-std`]: https://docs.rs/async-std
 //! [`Threads`]: std::thread
+//! [follow-mode]: struct.Pager.html#method.follow_output
 
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
