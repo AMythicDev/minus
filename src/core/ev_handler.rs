@@ -14,7 +14,7 @@ use super::{commands::Command, utils::term};
 use crate::search;
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
-/// Respond based on the type of event
+/// Respond based on the type of command
 ///
 /// It will match the type of event received and based on that, it can take actions like:-
 /// - Mutating fields of [`PagerState`]
@@ -33,32 +33,31 @@ pub fn handle_event(
     match ev {
         Command::SetData(text) => {
             p.screen.orig_text = text;
-            p.format_lines();
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         Command::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
             term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
-        Command::UpdateUpperMark(mut um)
-        | Command::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
+        Command::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
-            p.format_prompt();
+            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
         }
         Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
             p.cols = c;
             // Readjust the text wrapping for the new number of columns
-            p.format_lines();
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         Command::UserInput(InputEvent::UpdateLineNumber(l)) => {
             p.line_numbers = l;
-            p.format_lines();
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::Search(m)) => {
@@ -87,6 +86,7 @@ pub fn handle_event(
                 p.search_state.search_mark = incremental_search_result.search_mark;
                 p.search_state.search_idx = incremental_search_result.search_idx;
                 p.screen.formatted_lines = incremental_search_result.formatted_lines;
+                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 return Ok(());
             }
 
@@ -97,9 +97,14 @@ pub fn handle_event(
             } else if !search_result.string.is_empty() {
                 let compiled_regex = regex::Regex::new(&search_result.string).ok();
                 if compiled_regex.is_none() {
-                    p.message = Some("Invalid regular expression. Press Enter".to_owned());
-                    p.format_prompt();
+                    command_queue.push_back_unchecked(Command::SendMessage(
+                        "Invalid regular expression. Press Enter".to_string(),
+                    ));
+                    return Ok(());
                 }
+                command_queue
+                    .push_back_unchecked(Command::UserInput(InputEvent::MoveToNextMatch(0)));
+                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 compiled_regex
             } else {
                 return Ok(());
@@ -107,23 +112,6 @@ pub fn handle_event(
 
             // Format the lines, this will automatically generate the PagerState.search_idx
             p.format_lines();
-
-            // Move to next search match after the current upper_mark
-            let position_of_next_match =
-                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 0);
-
-            if let Some(pnm) = position_of_next_match {
-                p.search_state.search_mark = pnm;
-                p.upper_mark = *p
-                    .search_state
-                    .search_idx
-                    .iter()
-                    .nth(p.search_state.search_mark)
-                    .unwrap();
-            }
-
-            p.format_prompt();
-            display::draw_full(&mut out, p)?;
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
@@ -141,8 +129,10 @@ pub fn handle_event(
                     .nth(p.search_state.search_mark)
                     .unwrap();
             }
-
-            p.format_prompt();
+            command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
+                p.upper_mark,
+            )));
+            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
@@ -163,7 +153,10 @@ pub fn handle_event(
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
                     p.upper_mark = *y;
-                    p.format_prompt();
+                    command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
+                    command_queue.push_back_unchecked(Command::UserInput(
+                        InputEvent::UpdateUpperMark(p.upper_mark),
+                    ));
                 }
             }
         }
@@ -198,8 +191,11 @@ pub fn handle_event(
                         .nth(p.search_state.search_mark)
                         .unwrap();
                 }
+                command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
+                    p.upper_mark,
+                )));
             }
-            p.format_prompt();
+            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::MoveToPrevMatch(n))
@@ -220,9 +216,14 @@ pub fn handle_event(
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
                     p.upper_mark = *y;
-                    p.format_prompt();
+                    command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 }
             }
+        }
+
+        Command::FormatRedrawDisplay => {
+            p.format_lines();
+            display::draw_full(&mut out, p)?;
         }
 
         Command::AppendData(text) => {
@@ -239,9 +240,10 @@ pub fn handle_event(
                 )?;
 
                 if p.follow_output {
-                    display::draw_for_change(out, p, &mut (usize::MAX - 1))?;
+                    command_queue.push_back_unchecked(Command::UserInput(
+                        InputEvent::UpdateUpperMark(p.screen.formatted_lines_count()),
+                    ));
                 }
-                return Ok(());
             }
         }
 
@@ -251,19 +253,11 @@ pub fn handle_event(
             } else {
                 p.message = Some(text.to_string());
             }
-            p.format_prompt();
-            term::move_cursor(&mut out, 0, p.rows.try_into().unwrap(), false)?;
-            if !p.running.lock().is_uninitialized() {
-                super::utils::display::write_prompt(
-                    &mut out,
-                    &p.displayed_prompt,
-                    p.rows.try_into().unwrap(),
-                )?;
-            }
+            command_queue.push_back(Command::FormatRedrawPrompt);
         }
         Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
-            p.format_lines();
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         Command::FormatRedrawPrompt => {
             p.format_prompt();
@@ -280,7 +274,9 @@ pub fn handle_event(
         Command::FollowOutput(follow_output)
         | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
             p.follow_output = follow_output;
-            command_queue.push_back(Command::UpdateUpperMark(p.screen.formatted_lines_count()));
+            command_queue.push_back(Command::UserInput(InputEvent::UpdateUpperMark(
+                p.screen.formatted_lines_count(),
+            )));
             command_queue.push_back(Command::FormatRedrawPrompt);
         }
         Command::UserInput(_) => {}

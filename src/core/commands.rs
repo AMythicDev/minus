@@ -25,7 +25,6 @@ pub enum Command {
     FollowOutput(bool),
     FormatRedrawPrompt,
     FormatRedrawDisplay,
-    UpdateUpperMark(usize),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
@@ -42,7 +41,6 @@ impl PartialEq for Command {
             (Self::SetLineNumbers(d1), Self::SetLineNumbers(d2)) => d1 == d2,
             (Self::ShowPrompt(d1), Self::ShowPrompt(d2)) => d1 == d2,
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
-            (Self::UpdateUpperMark(um1), Self::UpdateUpperMark(um2)) => um1 == um2,
             #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
@@ -67,7 +65,6 @@ impl Debug for Command {
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             Self::FormatRedrawPrompt => write!(f, "FormatRedrawPrompt"),
             Self::FormatRedrawDisplay => write!(f, "FormatRedrawDisplay"),
-            Self::UpdateUpperMark(um) => write!(f, "UpdateUpperMark({um:?})"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
@@ -88,13 +85,5 @@ impl Command {
     #[allow(dead_code)]
     pub(crate) const fn is_movement(&self) -> bool {
         matches!(self, Self::UserInput(InputEvent::UpdateUpperMark(_)))
-    }
-
-    #[cfg(feature = "dynamic_output")]
-    pub(crate) const fn required_immediate_screen_update(&self) -> bool {
-        matches!(
-            self,
-            Self::SetData(_) | Self::SetPrompt(_) | Self::SendMessage(_) | Self::ShowPrompt(_)
-        )
     }
 }

@@ -32,8 +32,6 @@ use std::{
         Arc,
     },
 };
-#[cfg(feature = "dynamic_output")]
-use {super::utils, std::convert::TryInto};
 
 #[cfg(feature = "static_output")]
 use {super::utils::display::write_lines, crossterm::tty::IsTty};
@@ -232,6 +230,14 @@ fn start_reactor(
         let mut p = ps.lock();
         draw_full(&mut out_lock, &mut p)?;
 
+        if p.screen.formatted_lines.is_empty() {
+            p.format_lines();
+        }
+
+        if p.displayed_prompt.is_empty() {
+            p.format_prompt();
+        }
+
         if p.follow_output {
             draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
         }
@@ -257,45 +263,6 @@ fn start_reactor(
             let mut p = ps.lock();
 
             match next_command {
-                Ok(ev) if ev.required_immediate_screen_update() => {
-                    handle_event(
-                        ev,
-                        &mut out_lock,
-                        &mut p,
-                        &mut command_queue,
-                        is_exited,
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                    draw_full(&mut out_lock, &mut p)?;
-                }
-                Ok(Command::UserInput(ev)) => {
-                    let ev = Command::UserInput(ev);
-                    let is_exit_event = ev.is_exit_event();
-                    let is_movement = ev.is_movement();
-                    let is_ignore = ev == Command::UserInput(InputEvent::Ignore);
-                    handle_event(
-                        ev,
-                        &mut out_lock,
-                        &mut p,
-                        &mut command_queue,
-                        is_exited,
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                    if p.message.is_some() {
-                        p.message = None;
-                        p.format_prompt();
-                        utils::display::write_prompt(
-                            &mut out_lock,
-                            &p.displayed_prompt,
-                            p.rows.try_into().unwrap(),
-                        )?;
-                    }
-                    if !is_ignore && !is_exit_event && !is_movement {
-                        draw_full(&mut out_lock, &mut p)?;
-                    }
-                }
                 Ok(ev) => {
                     handle_event(
                         ev,
@@ -341,9 +308,6 @@ fn start_reactor(
 
                 if let Ok(command) = next_command {
                     let mut p = ps.lock();
-                    let is_exit_event = command.is_exit_event();
-                    let is_movement = command.is_movement();
-                    let is_ignore = command == Command::UserInput(InputEvent::Ignore);
                     handle_event(
                         command,
                         &mut out_lock,
@@ -353,9 +317,6 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_ignore && !is_exit_event && !is_movement {
-                        draw_full(&mut out_lock, &mut p)?;
-                    }
                 }
             }
         }
