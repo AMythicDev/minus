@@ -24,7 +24,7 @@ minus is an asynchronous terminal [paging] library written in Rust.
 - Supports separate modes for dynamic and static output display
     This separation of modes allows us to do some cool tricks in static mode. For example in static mode, if the terminal has 
     enough rows to display all the data at once then minus won't even start the pager and write all the data to the screen and quit. 
-    (Ofcourse this behaviour can be avoided if you don't like it).
+    (Of course this behaviour can be avoided if you don't like it).
     Similarly, in static mode if the output is piped using the `|` or sent to a file using the `>`/`>>`, minus would simply pass the 
     data as it is without starting the pager.
 - Highly configurable
