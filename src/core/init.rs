@@ -267,6 +267,7 @@ fn start_reactor(
                     let ev = Command::UserInput(ev);
                     let is_exit_event = ev.is_exit_event();
                     let is_movement = ev.is_movement();
+                    let is_ignore = inp == InputEvent::Ignore;
                     handle_event(
                         ev,
                         &mut out_lock,
@@ -284,7 +285,7 @@ fn start_reactor(
                             p.rows.try_into().unwrap(),
                         )?;
                     }
-                    if !is_exit_event && !is_movement {
+                    if !is_ignore && !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
@@ -326,8 +327,6 @@ fn start_reactor(
                 }
 
                 if let Ok(Command::UserInput(inp)) = rx.recv() {
-                    // dbg!(inp);
-                    // std::thread::sleep(std::time::Duration::from_millis(100));
                     let mut p = ps.lock();
                     let is_exit_event = Command::UserInput(inp).is_exit_event();
                     let is_movement = Command::UserInput(inp).is_movement();
