@@ -267,7 +267,7 @@ fn start_reactor(
                     let ev = Command::UserInput(ev);
                     let is_exit_event = ev.is_exit_event();
                     let is_movement = ev.is_movement();
-                    let is_ignore = inp == InputEvent::Ignore;
+                    let is_ignore = ev == Command::UserInput(InputEvent::Ignore);
                     handle_event(
                         ev,
                         &mut out_lock,
