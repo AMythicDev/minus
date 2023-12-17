@@ -326,11 +326,12 @@ fn start_reactor(
                 }
 
                 if let Ok(Command::UserInput(inp)) = rx.recv() {
-                    dbg!(inp);
-                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    // dbg!(inp);
+                    // std::thread::sleep(std::time::Duration::from_millis(100));
                     let mut p = ps.lock();
                     let is_exit_event = Command::UserInput(inp).is_exit_event();
                     let is_movement = Command::UserInput(inp).is_movement();
+                    let is_ignore = inp == InputEvent::Ignore;
                     handle_event(
                         Command::UserInput(inp),
                         &mut out_lock,
@@ -339,7 +340,7 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_exit_event && !is_movement {
+                    if !is_ignore && !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
