@@ -255,6 +255,7 @@ fn start_reactor(
                 Ok(ev) if ev.required_immediate_screen_update() => {
                     let is_exit_event = ev.is_exit_event();
                     let is_movement = ev.is_movement();
+                    let is_ignore = ev == Command::UserInput(InputEvent::Ignore);
                     handle_event(
                         ev,
                         &mut out_lock,
@@ -263,7 +264,7 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_exit_event && !is_movement {
+                    if !is_ignore && !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
@@ -304,6 +305,7 @@ fn start_reactor(
                 let mut p = ps.lock();
                 let is_exit_event = Command::UserInput(inp).is_exit_event();
                 let is_movement = Command::UserInput(inp).is_movement();
+                let is_ignore = inp == InputEvent::Ignore;
                 handle_event(
                     Command::UserInput(inp),
                     &mut out_lock,
@@ -312,7 +314,7 @@ fn start_reactor(
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
-                if !is_exit_event && !is_movement {
+                if !is_ignore && !is_exit_event && !is_movement {
                     draw_full(&mut out_lock, &mut p)?;
                 }
             }
