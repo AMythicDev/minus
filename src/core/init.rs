@@ -326,6 +326,8 @@ fn start_reactor(
                 }
 
                 if let Ok(Command::UserInput(inp)) = rx.recv() {
+                    dbg!(inp);
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                     let mut p = ps.lock();
                     let is_exit_event = Command::UserInput(inp).is_exit_event();
                     let is_movement = Command::UserInput(inp).is_movement();
