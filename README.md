@@ -37,16 +37,26 @@ These could cause long delays before output to the terminal if the data comes fr
 downloaded from the internet.
 
 ## Features
-- Send data as well as configure the pager on the fly
-- Supports separate modes for dynamic and static output display
-- Highly configurable
-- Both keyboard and mouse support
-- Key bindings highly inspired by Vim and other modern text editors
+- Send data as well as configure the pager on the fly.  
+    This means that your data can be shown on the pager's screen as soon as it is loaded by your application. But not only that,
+    you can also configure the minus while its running.
+- Supports separate modes for dynamic and static output display  
+    This separation of modes allows us to do some cool tricks in static mode. For example in static mode, if the terminal has 
+    enough rows to display all the data at once then minus won't even start the pager and write all the data to the screen and quit. 
+    (Of course this behaviour can be avoided if you don't like it).
+    Similarly, in static mode if the output is piped using the `|` or sent to a file using the `>`/`>>`, minus would simply pass the 
+    data as it is without starting the pager.
+- Highly configurable  
+    You can configure terminal key/mouse mappings, line numbers, bottom prompt line and more with a simple and clean API.
+- Both keyboard and mouse support  
+    Key bindings highly inspired by Vim and other modern text editors
 - Clutter free line numbering
-- Full [regex](https://docs.rs/regex) based searching which also fully takes care of escape sequences.
-- Incremental searching of text as you type
-- Tries to be very minimal on dependencies
-- is designed to be used with [`tokio`], [`async-std`] or native [`threads`]
+- Follow output mode  
+    This feature ensures that you always see the last line as the data is being pushed onto the pager's buffer.
+- Full [regex](https://docs.rs/regex) based searching.  
+	Which also fully takes care of escape sequences. Also supports incremental searching of text as you type.
+- Tries to be very minimal on dependencies.
+- Is designed to be used with [`tokio`], [`async-std`] or native [`threads`] as you like.
 
 ## Usage
 
