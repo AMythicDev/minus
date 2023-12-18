@@ -15,7 +15,7 @@
 
 //! `minus`: A library for asynchronous terminal [pager], written in Rust.
 //!
-//! If you learn about its motivation and features. Take a look into it's [README].
+//! If you want to learn about its motivation and features, please take a look into it's [README].
 //!
 //! # Examples
 //!
