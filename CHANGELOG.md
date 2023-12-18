@@ -1,10 +1,16 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.5.2 [2023-12-18]
+### Fixed
+* Fix bug where search jumps to next match even if the first match is present on the current upper mark line
+* Fix screen flickering on some terminals due to unnecessary redraw on `InputEvent::Ignore` command. 
+* Fix clippy warnings
+
 ## v5.5.1 [2023-12-05]
 ### Fixed
 * Version information in README
-* Static mode specific functionality not working due to incorrect placing of `RUNMODE` setting code. ([#110](https://github.com/arijit79/minus/pull/110))
+* [#110](https://github.com/arijit79/minus/pull/110): Static mode specific functionality not working due to incorrect placing of `RUNMODE` setting code. 
 
 ## v5.5.0 [2023-11-27]
 ### Fixed

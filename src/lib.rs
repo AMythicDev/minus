@@ -86,7 +86,7 @@
 //! * If you want search support inside the pager, you need to enable the `search` feature
 //! ```toml
 //! [dependencies.minus]
-//! version = "^5.0"
+//! version = "^5.5"
 //! features = [
 //!    # Enable features you want. For example
 //!    "dynamic_output",
