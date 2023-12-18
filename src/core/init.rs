@@ -243,7 +243,7 @@ fn start_reactor(
         }
     }
 
-    let run_mode = RUNMODE.lock().clone();
+    let run_mode = *RUNMODE.lock();
     match run_mode {
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {

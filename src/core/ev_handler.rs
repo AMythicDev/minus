@@ -304,11 +304,19 @@ mod tests {
 
     // Tests for event emitting functions of Pager
     #[test]
+    #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn set_data() {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
-        *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        #[cfg(feature = "dynamic_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        }
+        #[cfg(feature = "static_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
+        }
         let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
@@ -369,12 +377,20 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn set_prompt() {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
         let mut command_queue = CommandQueue::new_zero();
-        *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        #[cfg(feature = "dynamic_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        }
+        #[cfg(feature = "static_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
+        }
 
         handle_event(
             ev,
@@ -390,9 +406,17 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn send_message() {
         let mut ps = PagerState::new().unwrap();
-        *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        #[cfg(feature = "dynamic_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        }
+        #[cfg(feature = "static_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
+        }
         let ev = Command::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
         let mut command_queue = CommandQueue::new_zero();
