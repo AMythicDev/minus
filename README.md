@@ -11,7 +11,7 @@
 [![Matrix](https://img.shields.io/matrix/minus:matrix.org?color=%230dbd8b&label=Matrix&style=for-the-badge)](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
 [![Crates.io](https://img.shields.io/crates/l/minus?style=for-the-badge)](https://github.com/arijit79/minus#license)
 
-minus is an asynchronous terminal [paging] library written in Rust.
+`minus`: A library for asynchronous terminal [pager], written in Rust.
 
 <p align="center">
     <img src="./demo.png"/>
@@ -136,4 +136,4 @@ We are open to discussion and thoughts om improving `minus`. Join us at
 [`tokio`]: https://crates.io/crates/tokio
 [`async-std`]: https://crates.io/crates/async-std
 [`Threads`]: https://doc.rust-lang.org/std/thread/index.html
-[paging]: https://en.wikipedia.org/wiki/Terminal_pager
+[pager]: https://en.wikipedia.org/wiki/Terminal_pager
