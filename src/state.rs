@@ -326,11 +326,10 @@ impl PagerState {
         // push the prompt/msg
         if self.message.is_some() {
             format_string.push_str(MSG_SPEC);
-            format_string.push_str(dsp_prompt);
         } else {
             format_string.push_str(PROMPT_SPEC);
-            format_string.push_str(dsp_prompt);
         }
+        format_string.push_str(dsp_prompt);
         format_string.push_str(&" ".repeat(extra_space));
 
         // add the prefix_num if it exists

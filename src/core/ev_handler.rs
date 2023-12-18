@@ -107,7 +107,7 @@ pub fn handle_event(
 
             // Move to next search match after the current upper_mark
             let position_of_next_match =
-                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
+                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 0);
 
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;

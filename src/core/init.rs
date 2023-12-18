@@ -267,6 +267,7 @@ fn start_reactor(
                     let ev = Command::UserInput(ev);
                     let is_exit_event = ev.is_exit_event();
                     let is_movement = ev.is_movement();
+                    let is_ignore = ev == Command::UserInput(InputEvent::Ignore);
                     handle_event(
                         ev,
                         &mut out_lock,
@@ -284,7 +285,7 @@ fn start_reactor(
                             p.rows.try_into().unwrap(),
                         )?;
                     }
-                    if !is_exit_event && !is_movement {
+                    if !is_ignore && !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
@@ -315,8 +316,8 @@ fn start_reactor(
                     // Cleanup the screen
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
-                    let p = ps.lock();
-                    term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
+                    let exit_strategy = &ps.lock().exit_strategy;
+                    term::cleanup(&mut out_lock, exit_strategy, true)?;
 
                     let mut rm = RUNMODE.lock();
                     *rm = RunMode::Uninitialized;
@@ -329,6 +330,7 @@ fn start_reactor(
                     let mut p = ps.lock();
                     let is_exit_event = Command::UserInput(inp).is_exit_event();
                     let is_movement = Command::UserInput(inp).is_movement();
+                    let is_ignore = inp == InputEvent::Ignore;
                     handle_event(
                         Command::UserInput(inp),
                         &mut out_lock,
@@ -337,7 +339,7 @@ fn start_reactor(
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_exit_event && !is_movement {
+                    if !is_ignore && !is_exit_event && !is_movement {
                         draw_full(&mut out_lock, &mut p)?;
                     }
                 }
