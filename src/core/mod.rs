@@ -45,9 +45,7 @@ impl CommandQueue {
     /// This function will panic if it is called in an environment where [RUNMODE] is
     /// uninitialized.
     pub fn push_back(&mut self, value: Command) {
-        if RUNMODE.lock().is_uninitialized() {
-            panic!();
-        }
+        assert!(!RUNMODE.lock().is_uninitialized(), "CommandQueue::push_back() caled when  RUNMODE is not set. This is most likely a bug. Please report the issue on minus's issue tracker on Github.");
         self.0.push_back(value);
     }
     /// Store `value` without checking [RUNMODE].

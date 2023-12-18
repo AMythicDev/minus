@@ -288,7 +288,7 @@ pub fn handle_event(
 mod tests {
     use super::super::commands::Command;
     use super::handle_event;
-    use crate::{minus_core::CommandQueue, ExitStrategy, PagerState};
+    use crate::{minus_core::CommandQueue, ExitStrategy, PagerState, RunMode};
     use std::sync::{atomic::AtomicBool, Arc};
     #[cfg(feature = "search")]
     use {
@@ -308,10 +308,21 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
+        *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
         let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
+            &mut out,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+            #[cfg(feature = "search")]
+            &UIA,
+        )
+        .unwrap();
+        handle_event(
+            command_queue.pop_front().unwrap(),
             &mut out,
             &mut ps,
             &mut command_queue,
@@ -363,6 +374,7 @@ mod tests {
         let ev = Command::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
         let mut command_queue = CommandQueue::new_zero();
+        *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
 
         handle_event(
             ev,
@@ -380,6 +392,7 @@ mod tests {
     #[test]
     fn send_message() {
         let mut ps = PagerState::new().unwrap();
+        *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
         let ev = Command::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
         let mut command_queue = CommandQueue::new_zero();

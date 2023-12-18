@@ -260,21 +260,17 @@ fn start_reactor(
                 Ok(command_queue.pop_front().unwrap())
             };
 
-            let mut p = ps.lock();
-
-            match next_command {
-                Ok(ev) => {
-                    handle_event(
-                        ev,
-                        &mut out_lock,
-                        &mut p,
-                        &mut command_queue,
-                        is_exited,
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                }
-                Err(_) => {}
+            if let Ok(command) = next_command {
+                let mut p = ps.lock();
+                handle_event(
+                    command,
+                    &mut out_lock,
+                    &mut p,
+                    &mut command_queue,
+                    is_exited,
+                    #[cfg(feature = "search")]
+                    input_thread_running,
+                )?;
             }
         },
         #[cfg(feature = "static_output")]
