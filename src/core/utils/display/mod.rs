@@ -117,6 +117,7 @@ pub fn draw_for_change(
 /// Write given text at the prompt site
 pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
     write!(out, "{mv}\r{prompt}", mv = MoveTo(0, rows), prompt = text)?;
+    out.flush()?;
     Ok(())
 }
 

@@ -23,6 +23,8 @@ pub enum Command {
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     ShowPrompt(bool),
     FollowOutput(bool),
+    FormatRedrawPrompt,
+    FormatRedrawDisplay,
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
@@ -61,6 +63,8 @@ impl Debug for Command {
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
+            Self::FormatRedrawPrompt => write!(f, "FormatRedrawPrompt"),
+            Self::FormatRedrawDisplay => write!(f, "FormatRedrawDisplay"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
@@ -81,13 +85,5 @@ impl Command {
     #[allow(dead_code)]
     pub(crate) const fn is_movement(&self) -> bool {
         matches!(self, Self::UserInput(InputEvent::UpdateUpperMark(_)))
-    }
-
-    #[cfg(feature = "dynamic_output")]
-    pub(crate) const fn required_immediate_screen_update(&self) -> bool {
-        matches!(
-            self,
-            Self::SetData(_) | Self::SetPrompt(_) | Self::SendMessage(_) | Self::ShowPrompt(_)
-        )
     }
 }

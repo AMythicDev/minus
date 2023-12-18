@@ -9,6 +9,7 @@ use crate::{
     minus_core::{
         self,
         utils::text::{self, AppendStyle},
+        CommandQueue,
     },
     screen::Screen,
     ExitStrategy, LineNumbers,
@@ -236,11 +237,13 @@ impl PagerState {
         mut out: &mut Stdout,
     ) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;
+        let mut command_queue = CommandQueue::new_zero();
         rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
             handle_event(
                 ev,
                 &mut out,
                 &mut ps,
+                &mut command_queue,
                 &Arc::new(AtomicBool::new(false)),
                 #[cfg(feature = "search")]
                 &Arc::new((Mutex::new(true), Condvar::new())),

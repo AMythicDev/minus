@@ -32,8 +32,6 @@ use std::{
         Arc,
     },
 };
-#[cfg(feature = "dynamic_output")]
-use {super::utils, std::convert::TryInto};
 
 #[cfg(feature = "static_output")]
 use {super::utils::display::write_lines, crossterm::tty::IsTty};
@@ -42,7 +40,7 @@ use {super::utils::display::write_lines, crossterm::tty::IsTty};
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::{utils::display::draw_for_change, RUNMODE};
+use super::{utils::display::draw_for_change, CommandQueue, RUNMODE};
 
 /// The main entry point of minus
 ///
@@ -226,10 +224,19 @@ fn start_reactor(
     is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
+    let mut command_queue = CommandQueue::new();
 
     {
         let mut p = ps.lock();
         draw_full(&mut out_lock, &mut p)?;
+
+        if p.screen.formatted_lines.is_empty() {
+            p.format_lines();
+        }
+
+        if p.displayed_prompt.is_empty() {
+            p.format_prompt();
+        }
 
         if p.follow_output {
             draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
@@ -247,59 +254,23 @@ fn start_reactor(
                 break;
             }
 
-            let event = rx.recv();
+            let next_command = if command_queue.is_empty() {
+                rx.recv()
+            } else {
+                Ok(command_queue.pop_front().unwrap())
+            };
 
-            let mut p = ps.lock();
-
-            match event {
-                Ok(ev) if ev.required_immediate_screen_update() => {
-                    handle_event(
-                        ev,
-                        &mut out_lock,
-                        &mut p,
-                        is_exited,
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                    draw_full(&mut out_lock, &mut p)?;
-                }
-                Ok(Command::UserInput(ev)) => {
-                    let ev = Command::UserInput(ev);
-                    let is_exit_event = ev.is_exit_event();
-                    let is_movement = ev.is_movement();
-                    let is_ignore = ev == Command::UserInput(InputEvent::Ignore);
-                    handle_event(
-                        ev,
-                        &mut out_lock,
-                        &mut p,
-                        is_exited,
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                    if p.message.is_some() {
-                        p.message = None;
-                        p.format_prompt();
-                        utils::display::write_prompt(
-                            &mut out_lock,
-                            &p.displayed_prompt,
-                            p.rows.try_into().unwrap(),
-                        )?;
-                    }
-                    if !is_ignore && !is_exit_event && !is_movement {
-                        draw_full(&mut out_lock, &mut p)?;
-                    }
-                }
-                Ok(ev) => {
-                    handle_event(
-                        ev,
-                        &mut out_lock,
-                        &mut p,
-                        is_exited,
-                        #[cfg(feature = "search")]
-                        input_thread_running,
-                    )?;
-                }
-                Err(_) => {}
+            if let Ok(command) = next_command {
+                let mut p = ps.lock();
+                handle_event(
+                    command,
+                    &mut out_lock,
+                    &mut p,
+                    &mut command_queue,
+                    is_exited,
+                    #[cfg(feature = "search")]
+                    input_thread_running,
+                )?;
             }
         },
         #[cfg(feature = "static_output")]
@@ -316,8 +287,8 @@ fn start_reactor(
                     // Cleanup the screen
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
-                    let exit_strategy = &ps.lock().exit_strategy;
-                    term::cleanup(&mut out_lock, exit_strategy, true)?;
+                    let p = ps.lock();
+                    term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
 
                     let mut rm = RUNMODE.lock();
                     *rm = RunMode::Uninitialized;
@@ -325,23 +296,23 @@ fn start_reactor(
 
                     break;
                 }
+                let next_command = if command_queue.is_empty() {
+                    rx.recv()
+                } else {
+                    Ok(command_queue.pop_front().unwrap())
+                };
 
-                if let Ok(Command::UserInput(inp)) = rx.recv() {
+                if let Ok(command) = next_command {
                     let mut p = ps.lock();
-                    let is_exit_event = Command::UserInput(inp).is_exit_event();
-                    let is_movement = Command::UserInput(inp).is_movement();
-                    let is_ignore = inp == InputEvent::Ignore;
                     handle_event(
-                        Command::UserInput(inp),
+                        command,
                         &mut out_lock,
                         &mut p,
+                        &mut command_queue,
                         is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
-                    if !is_ignore && !is_exit_event && !is_movement {
-                        draw_full(&mut out_lock, &mut p)?;
-                    }
                 }
             }
         }
