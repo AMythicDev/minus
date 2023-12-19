@@ -13,77 +13,9 @@
 #![allow(clippy::doc_markdown)]
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
 
-//! minus is an asynchronous terminal paging library written in Rust.
+//! `minus`: A library for asynchronous terminal [pager], written in Rust.
 //!
-//! ## What is a Pager?
-//! A pager is a program that lets you view and scroll through large amounts
-//! of text using a keyboard in a TTY where no mouse support is available.
-//!
-//! Nowadays most people use a graphical terminals where mouse support is
-//! present but they aren't as reliable as a pager. For example they may not support proper
-//! text searching or line numbering, plus quick navigation
-//! using keyboard is pretty much non-existent. Hence programs like `git`, `man` etc still use a
-//! pager program to display large text outputs.
-//!
-//! Examples of some popular pager include `more` and its successor `less`.
-//!
-//! ## The problem with traditional pagers
-//!
-//! First, traditional pagers like `more` or `less` weren't made for integrating into other applications.
-//! They were meant to be standalone binaries that are executed directly by the users.
-//!
-//! Applications leveraged these pagers by calling them as external programs and passing the data through
-//! the standard input. This method worked for Unix and other Unix-like OSs like Linux and MacOS because
-//! they already came with any of these pagers installed  But it wasn't this easy on Windows, it required
-//! shipping the pager binary along with the applications. Since these programs were originally designed
-//! for Unix and Unix-like OSs, distributing these binaries meant shipping an entire environment like
-//! MinGW or Cygwin so that these can run properly on Windows.
-//!
-//! Recently, some libraries have emerged to solve this issue. They are compiled along with your
-//! application and give you a single binary to distribute. The problem with them is that they
-//! require you to feed the entire data to the pager before the pager can run, this meant that there will
-//! be no output on the terminal until the entire data isn't loaded by the application and passed on to
-//! the pager.
-//!
-//! These could cause long delays before output to the terminal if the data comes from a very large file
-//! or is being downloaded from the internet.
-//!
-//! ## Enter minus
-//! As above described, minus is an asynchronous terminal paging library for Rust. It allows not just
-//! data but also configuration to be fed into itself while it is running.
-//!
-//! minus achieves this by leveraging Rust's amazing concurrency support and no data race guarantees
-//!
-//! minus can be used with any async runtime like [`tokio`], [`async-std`] or native [`threads`] if
-//! you prefer that.
-//! If you want to display only static data, you don't even need to depend on any of the above
-//! ## What is a Pager?
-//!
-//! A pager is a program that lets you view and scroll through large amounts of text using a keyboard
-//! in a TTY where no mouse support is available.
-//!
-//! Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager.
-//! For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty
-//! much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
-//!
-//! ## Features
-//! - Send data as well as configure the pager on the fly
-//! - Supports separate modes for dynamic and static output display
-//! - Highly configurable
-//! - Both keyboard and mouse support
-//! - Key bindings highly inspired by Vim and other modern text editors
-//! - Clutter free line numbering
-//! - Full [regex](https://docs.rs/regex) based searching which also fully takes care of escape
-//! sequences.
-//! - Incremental searching of text as you type
-//! - Tries to be very minimal on dependencies
-//!
-//! # Features
-//! Add minus as a dependency in your `Cargo.toml` file and enable features as you like.
-//! * If you only want a pager to display static data, enable the `static_output` feature
-//! * If you want a pager to display dynamic data and be configurable at runtime, enable the `dynamic_output`
-//! feature
-//! * If you want search support inside the pager, you need to enable the `search` feature
+//! If you want to learn about its motivation and features, please take a look into it's [README].
 //!
 //! # Examples
 //!
@@ -166,16 +98,15 @@
 //! }
 //! ```
 //!
-//! If there are more rows in the terminal than the number of lines in the given
-//! data, `minus` will simply print the data and quit. This only works in static
-//! //! paging since asynchronous paging could still receive more data that makes it
-//! pass the limit.
+//! **Note:**
+//! `minus` doesn't start the pager and just prints the content if the current terminal size can
+//! display all lines.
 //!
 //! ## Standard actions
 //!
 //! Here is the list of default key/mouse actions handled by `minus`.
 //!
-//! **A `[n] key` means that you can precede the key by a integer**.
+//! **A `[n] key` means that you can precede the key by an integer**.
 //!
 //! | Action            | Description                                                                  |
 //! |-------------------|------------------------------------------------------------------------------|
@@ -203,7 +134,6 @@
 //! End-applications are free to change these bindings to better suit their needs.
 //!
 //! ## Key Bindings Available at Search Prompt
-//! Some special key keybindings are defined to facilitate text input while entering a query at the search prompt
 //!
 //! | Key Bindings      | Description                                         |
 //! |-------------------|-----------------------------------------------------|
@@ -224,7 +154,8 @@
 //! [`async-std`]: https://docs.rs/async-std
 //! [`Threads`]: std::thread
 //! [follow-mode]: struct.Pager.html#method.follow_output
-
+//! [pager]: https://de.wikipedia.org/wiki/Pager
+//! [README]: https://github.com/arijit79/minus#motivation
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
 pub mod error;
