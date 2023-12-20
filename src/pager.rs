@@ -1,3 +1,5 @@
+//! Proivdes the [Pager] type
+
 use crate::{error::MinusError, input, minus_core::commands::Command, ExitStrategy, LineNumbers};
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
@@ -5,17 +7,46 @@ use std::fmt;
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
-/// A pager acts as a middleman for communication between the main application
-/// and the user with the core functions of minus
+/// A communicationA bridge between the main application and the pager.
 ///
-/// It consists of a [`crossbeam_channel::Sender`] and  [`crossbeam_channel::Receiver`]
+/// The [Pager] type which is a bridge between your application and running
+/// the running pager. Its the single most important type with which you will be interacting the
+/// most while working with minus. It allows you to send data, configure UI settings and also
+/// configure the key/mouse bindings.
+///
+/// This neat thing about this is that not allows you to trasmits data while the pager is running
+/// but also if the pager hsen't been started. This means that you can preconfigure the pager
+/// before calling the initialization methods which most applications likely want to do.
+///
+/// It consists of a [`crossbeam_channel::Sender`] and [`crossbeam_channel::Receiver`]
 /// pair. When a method like [`set_text`](Pager::set_text) or [`push_str`](Pager::push_str)
-/// is called, the function takes the input. wraps it in the appropriate event
-/// type and transmits it through the sender held inside the this.
+/// is called, the function takes the input. wraps it in the appropriate command
+/// variant and transmits it through the sender held inside the this.
 ///
 /// The receiver part of the channel is continuously polled by the pager for events. Depending
-/// on the type of event that occurs, the pager will either redraw the screen or update
-/// the [PagerState](crate::state::PagerState)
+/// on the type of event that occurs, the pager will perform the required action.
+///
+/// [Pager] also implements the [fmt::Write] trait which means you can directly call [write!] and
+/// [writeln!] macros on it. For example, you can easily do this
+///
+/// ```
+/// use minus::Pager;
+/// use std::fmt::Write;
+///
+/// const WHO: &str = "World";
+/// let mut pager = Pager::new();
+/// writeln!(pager, "Hello {WHO}").unwrap();
+/// ```
+/// This appends `Hello World` to the end of minus's buffer. You can achieve the same using the
+/// [Pager::push_str] function like this
+/// ```
+/// use minus::Pager;
+/// use std::fmt::Write;
+///
+/// const WHO: &str = "World";
+/// let pager = Pager::new();
+/// pager.push_str(format!("Hello {WHO}\n")).unwrap();
+/// ```
 #[derive(Clone)]
 pub struct Pager {
     pub(crate) tx: Sender<Command>,
