@@ -15,7 +15,7 @@
         };
 
         rust-toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
-          extensions = [ "rust-analyzer" ];
+          extensions = [ "rust-src" "rust-analyzer" ];
         };
 
       in
