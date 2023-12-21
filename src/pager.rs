@@ -26,7 +26,7 @@ use crate::search::SearchOpts;
 /// The receiver part of the channel is continuously polled by the pager for events. Depending
 /// on the type of event that occurs, the pager will perform the required action.
 ///
-/// [Pager] also implements the [fmt::Write] trait which means you can directly call [write!] and
+/// [Pager] also implements the [std::fmt::Write] trait which means you can directly call [write!] and
 /// [writeln!] macros on it. For example, you can easily do this
 ///
 /// ```
@@ -155,6 +155,10 @@ impl Pager {
     }
 
     /// Display a temporary message at the prompt area
+    ///
+    /// A message is a piece of text that the main application can ask minus to display at the
+    /// prompt location. The text message is temporary and will get cleared whenever the use
+    /// rdoes a action on the terminal like pressing a key or scrolling using the mouse.
     ///
     /// # Panics
     /// This function panics if the given text contains newline characters.
