@@ -116,13 +116,6 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         }
     }
 
-    {
-        let mut runmode = super::RUNMODE.lock();
-        assert!(runmode.is_uninitialized(), "Failed to set the RUNMODE. This is caused probably because another instance of minus is already running");
-        *runmode = rm;
-        drop(runmode);
-    }
-
     // Setup terminal, adjust line wraps and get rows
     term::setup(&out)?;
 
