@@ -14,8 +14,8 @@
           inherit system overlays;
         };
 
-        rust-toolchain = (pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml).override {
-          extensions = [ "rust-analyzer" ];
+        rust-toolchain = pkgs.rust-bin.stable."1.67.0".default.override {
+          extensions = [ "rust-src" "rust-analyzer" ];
         };
 
       in
