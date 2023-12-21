@@ -1,9 +1,15 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.5.3 [2023-12-22]
+### Fixed
+* [#126](https://github.com/arijit79/minus/issues/126): Fix panic due to `RUNMODE` checking code being duplicated in `minus::minus_core::init::init_core()`.
+
 ## v5.5.2 [2023-12-18]
 ### Fixed
-* Fix bug where search jumps to next match even if the first match is present on the current upper mark line
+* [#120](https://github.com/arijit79/minus/issues/120)
+  [#121](https://github.com/arijit79/minus/pull/121):
+  Fix bug where search jumps to next match even if the first match is present on the current upper mark line
 * Fix screen flickering on some terminals due to unnecessary redraw on `InputEvent::Ignore` command. 
 * Fix clippy warnings
 
