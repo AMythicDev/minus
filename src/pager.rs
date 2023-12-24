@@ -154,10 +154,9 @@ impl Pager {
         Ok(self.tx.send(Command::SetPrompt(text))?)
     }
 
-    /// Display a temporary message at the prompt area
+    /// Send a message to be displayed the prompt area
     ///
-    /// A message is a piece of text that the main application can ask minus to display at the
-    /// prompt location. The text message is temporary and will get cleared whenever the use
+    /// The text message is temporary and will get cleared whenever the use
     /// rdoes a action on the terminal like pressing a key or scrolling using the mouse.
     ///
     /// # Panics
