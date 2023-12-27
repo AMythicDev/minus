@@ -18,14 +18,6 @@ use crate::search::SearchOpts;
 /// but also if the pager hsen't been started. This means that you can preconfigure the pager
 /// before calling the initialization methods which most applications likely want to do.
 ///
-/// It consists of a [`crossbeam_channel::Sender`] and [`crossbeam_channel::Receiver`]
-/// pair. When a method like [`set_text`](Pager::set_text) or [`push_str`](Pager::push_str)
-/// is called, the function takes the input. wraps it in the appropriate command
-/// variant and transmits it through the sender held inside the this.
-///
-/// The receiver part of the channel is continuously polled by the pager for events. Depending
-/// on the type of event that occurs, the pager will perform the required action.
-///
 /// [Pager] also implements the [std::fmt::Write] trait which means you can directly call [write!] and
 /// [writeln!] macros on it. For example, you can easily do this
 ///
@@ -88,11 +80,10 @@ impl Pager {
     /// Appends text to the pager output.
     ///
     /// You can also use [`write!`]/[`writeln!`] macros to append data to the pager.
-    /// The implementation basically calls this function internally.
-    ///
-    /// One difference between using the macros and this function is that this does
-    /// not require `Pager` to be declared mutable while in order to use the macros,
-    /// you need to declare the `Pager` as mutable.
+    /// The implementation basically calls this function internally. One difference
+    /// between using the macros and this function is that this does not require `Pager`
+    /// to be declared mutable while in order to use the macros, you need to declare
+    /// the `Pager` as mutable.
     ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
