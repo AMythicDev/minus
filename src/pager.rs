@@ -28,10 +28,9 @@ use crate::search::SearchOpts;
 /// const WHO: &str = "World";
 /// let mut pager = Pager::new();
 ///
-/// // this appends `Hello World` to the end of minus's buffer
-/// // and this...
+/// // This appends `Hello World` to the end of minus's buffer
 /// writeln!(pager, "Hello {WHO}").unwrap();
-/// // ... equals this
+/// // which is also equivalent to writing this
 /// pager.push_str(format!("Hello {WHO}\n")).unwrap();
 #[derive(Clone)]
 pub struct Pager {
