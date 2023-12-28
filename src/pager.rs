@@ -27,18 +27,12 @@ use crate::search::SearchOpts;
 ///
 /// const WHO: &str = "World";
 /// let mut pager = Pager::new();
-/// writeln!(pager, "Hello {WHO}").unwrap();
-/// ```
-/// This appends `Hello World` to the end of minus's buffer. You can achieve the same using the
-/// [Pager::push_str] function like this
-/// ```
-/// use minus::Pager;
-/// use std::fmt::Write;
 ///
-/// const WHO: &str = "World";
-/// let pager = Pager::new();
+/// // this appends `Hello World` to the end of minus's buffer
+/// // and this...
+/// writeln!(pager, "Hello {WHO}").unwrap();
+/// // ... equals this
 /// pager.push_str(format!("Hello {WHO}\n")).unwrap();
-/// ```
 #[derive(Clone)]
 pub struct Pager {
     pub(crate) tx: Sender<Command>,
