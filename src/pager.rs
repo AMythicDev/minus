@@ -7,7 +7,7 @@ use std::fmt;
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
-/// A communicationA bridge between the main application and the pager.
+/// A communication bridge between the main application and the pager.
 ///
 /// The [Pager] type which is a bridge between your application and running
 /// the running pager. Its the single most important type with which you will be interacting the
