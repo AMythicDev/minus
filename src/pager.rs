@@ -1,3 +1,5 @@
+//! Proivdes the [Pager] type
+
 use crate::{error::MinusError, input, minus_core::commands::Command, ExitStrategy, LineNumbers};
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
@@ -5,17 +7,33 @@ use std::fmt;
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
-/// A pager acts as a middleman for communication between the main application
-/// and the user with the core functions of minus
+/// A communication bridge between the main application and the pager.
 ///
-/// It consists of a [`crossbeam_channel::Sender`] and  [`crossbeam_channel::Receiver`]
-/// pair. When a method like [`set_text`](Pager::set_text) or [`push_str`](Pager::push_str)
-/// is called, the function takes the input. wraps it in the appropriate event
-/// type and transmits it through the sender held inside the this.
+/// The [Pager] type which is a bridge between your application and running
+/// the running pager. Its the single most important type with which you will be interacting the
+/// most while working with minus. It allows you to send data, configure UI settings and also
+/// configure the key/mouse bindings.
 ///
-/// The receiver part of the channel is continuously polled by the pager for events. Depending
-/// on the type of event that occurs, the pager will either redraw the screen or update
-/// the [PagerState](crate::state::PagerState)
+/// You can
+/// - send data and
+/// - set configuration options
+///
+/// before or while the pager is running.
+///
+/// [Pager] also implements the [std::fmt::Write] trait which means you can directly call [write!] and
+/// [writeln!] macros on it. For example, you can easily do this
+///
+/// ```
+/// use minus::Pager;
+/// use std::fmt::Write;
+///
+/// const WHO: &str = "World";
+/// let mut pager = Pager::new();
+///
+/// // This appends `Hello World` to the end of minus's buffer
+/// writeln!(pager, "Hello {WHO}").unwrap();
+/// // which is also equivalent to writing this
+/// pager.push_str(format!("Hello {WHO}\n")).unwrap();
 #[derive(Clone)]
 pub struct Pager {
     pub(crate) tx: Sender<Command>,
@@ -57,11 +75,10 @@ impl Pager {
     /// Appends text to the pager output.
     ///
     /// You can also use [`write!`]/[`writeln!`] macros to append data to the pager.
-    /// The implementation basically calls this function internally.
-    ///
-    /// One difference between using the macros and this function is that this does
-    /// not require `Pager` to be declared mutable while in order to use the macros,
-    /// you need to declare the `Pager` as mutable.
+    /// The implementation basically calls this function internally. One difference
+    /// between using the macros and this function is that this does not require `Pager`
+    /// to be declared mutable while in order to use the macros, you need to declare
+    /// the `Pager` as mutable.
     ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
@@ -123,7 +140,10 @@ impl Pager {
         Ok(self.tx.send(Command::SetPrompt(text))?)
     }
 
-    /// Display a temporary message at the prompt area
+    /// Send a message to be displayed the prompt area
+    ///
+    /// The text message is temporary and will get cleared whenever the use
+    /// rdoes a action on the terminal like pressing a key or scrolling using the mouse.
     ///
     /// # Panics
     /// This function panics if the given text contains newline characters.
