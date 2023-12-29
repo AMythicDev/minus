@@ -14,9 +14,11 @@ use crate::search::SearchOpts;
 /// most while working with minus. It allows you to send data, configure UI settings and also
 /// configure the key/mouse bindings.
 ///
-/// This neat thing about this is that not allows you to trasmits data while the pager is running
-/// but also if the pager hsen't been started. This means that you can preconfigure the pager
-/// before calling the initialization methods which most applications likely want to do.
+/// You can
+/// - send data and
+/// - set configuration options
+///
+/// before or while the pager is running.
 ///
 /// [Pager] also implements the [std::fmt::Write] trait which means you can directly call [write!] and
 /// [writeln!] macros on it. For example, you can easily do this
