@@ -378,29 +378,29 @@ impl PagerState {
                 .map(ToString::to_string)
         };
 
-        let prev_line_count = self.screen.orig_text.lines().count();
-        let old_len_line_number = if prev_line_count == 0 {
-            0
-        } else {
-            prev_line_count.ilog10() + 1
-        };
+        // We check if number of digits in current line count change during this text push. So we
+        // do the following:-
+        // * Count the number of lines we hold currently
+        // * Count its digits
+        // * Push text
+        // * Add number of lines we added to the original line count
+        // * Count the digits again
+        let old_lc = self.screen.orig_text.lines().count();
+        let old_lc_dgts = if old_lc == 0 { 1 } else { old_lc.ilog10() + 1 };
 
         self.screen.orig_text.push_str(text);
 
-        let new_line_count = self.screen.orig_text.lines().count();
-        let new_len_line_number = if new_line_count == 0 {
-            0
-        } else {
-            new_line_count.ilog10() + 1
-        };
+        let new_lc = old_lc + text.lines().count();
+
+        let new_lc_dgts = if new_lc == 0 { 1 } else { new_lc.ilog10() + 1 };
 
         let append_opts = text::FormatOpts {
             text,
             attachment,
             line_numbers: self.line_numbers,
-            len_line_number: new_len_line_number.try_into().unwrap(),
+            len_line_number: new_lc_dgts.try_into().unwrap(),
             formatted_lines_count: self.screen.formatted_lines.len(),
-            lines_count: prev_line_count,
+            lines_count: old_lc,
             prev_unterminated: self.unterminated,
             cols: self.cols,
             #[cfg(feature = "search")]
@@ -422,7 +422,7 @@ impl PagerState {
         }
         self.lines_to_row_map.extend(lines_to_row_map);
 
-        if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
+        if new_lc_dgts != old_lc_dgts && old_lc_dgts != 0 {
             self.format_lines();
             return AppendStyle::FullRedraw;
         }
