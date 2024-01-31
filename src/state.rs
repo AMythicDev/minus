@@ -23,7 +23,6 @@ use std::collections::BTreeSet;
 use std::{
     collections::hash_map::RandomState,
     collections::HashMap,
-    convert::TryInto,
     io::stdout,
     io::Stdout,
     sync::{atomic::AtomicBool, Arc},
@@ -397,7 +396,7 @@ impl PagerState {
             text,
             attachment,
             line_numbers: self.line_numbers,
-            len_line_number: new_lc_dgts.try_into().unwrap(),
+            len_line_number: new_lc_dgts,
             formatted_lines_count: self.screen.formatted_lines.len(),
             lines_count: old_lc,
             prev_unterminated: self.unterminated,

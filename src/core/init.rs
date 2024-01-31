@@ -287,8 +287,7 @@ fn start_reactor(
                     // Cleanup the screen
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
-                    let p = ps.lock();
-                    term::cleanup(&mut out_lock, &p.exit_strategy, true)?;
+                    term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
 
                     let mut rm = RUNMODE.lock();
                     *rm = RunMode::Uninitialized;
