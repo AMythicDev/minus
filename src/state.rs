@@ -386,13 +386,12 @@ impl PagerState {
         // * Add number of lines we added to the original line count
         // * Count the digits again
         let old_lc = self.screen.orig_text.lines().count();
-        let old_lc_dgts = if old_lc == 0 { 1 } else { old_lc.ilog10() + 1 };
+        let old_lc_dgts = minus_core::digits(old_lc);
 
         self.screen.orig_text.push_str(text);
 
         let new_lc = old_lc + text.lines().count();
-
-        let new_lc_dgts = if new_lc == 0 { 1 } else { new_lc.ilog10() + 1 };
+        let new_lc_dgts = minus_core::digits(new_lc);
 
         let append_opts = text::FormatOpts {
             text,
