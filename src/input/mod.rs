@@ -107,14 +107,17 @@ pub enum InputEvent {
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
-    /// `Right`, `Left`, `h` or `l` was pressed
-    UpdateLeftMark(usize),
     /// A number key has been pressed. This inner value is stored as a `char`.
     /// The input loop will append this number to its `count` string variable
     Number(char),
     /// Restore the original prompt
     RestorePrompt,
+    /// Whether to allow Horizontal scrolling
     HorizontalScroll(bool),
+    /// Sets the left mark of Horizontal scrolling
+    ///
+    /// Sent by keys like `l`, `h`, `right`, `left` etc.
+    UpdateLeftMark(usize),
     /// Tells the event hadler to not do anything for this event
     ///
     /// This is extremely useful when you want to execute arbitrary code on events without
@@ -264,6 +267,14 @@ where
 
     map.add_key_events(&["c-s-h"], |_, ps| {
         InputEvent::HorizontalScroll(!ps.line_wrapping)
+    });
+    map.add_key_events(&["h", "left"], |_, ps| {
+        let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+        InputEvent::UpdateLeftMark(ps.left_mark.saturating_sub(position))
+    });
+    map.add_key_events(&["l", "right"], |_, ps| {
+        let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+        InputEvent::UpdateLeftMark(ps.left_mark.saturating_add(position))
     });
     // TODO: Add keybindings for left right scrolling
 

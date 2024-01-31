@@ -30,6 +30,15 @@ impl Screen {
             &self.formatted_lines[start..end]
         }
     }
+
+    // TODO: Optimize this
+    pub(crate) fn max_line_length(&self) -> usize {
+        self.orig_text
+            .lines()
+            .max_by_key(|l| l.len())
+            .unwrap()
+            .len()
+    }
 }
 
 impl Default for Screen {

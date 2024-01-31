@@ -48,7 +48,13 @@ pub fn handle_event(
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
-        Command::UserInput(InputEvent::UpdateLeftMark(lm)) => p.left_mark = lm,
+        Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.line_wrapping => {
+            if lm.saturating_add(p.cols) > p.screen.max_line_length() {
+                return Ok(());
+            }
+            p.left_mark = lm;
+            display::draw_full(out, p)?
+        }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;

@@ -228,6 +228,7 @@ fn start_reactor(
 
     {
         let mut p = ps.lock();
+
         draw_full(&mut out_lock, &mut p)?;
 
         if p.follow_output {

@@ -262,6 +262,7 @@ impl PagerState {
             &self.screen.orig_text,
             self.line_numbers,
             self.cols,
+            self.line_wrapping,
             #[cfg(feature = "search")]
             &self.search_state.search_term,
         );

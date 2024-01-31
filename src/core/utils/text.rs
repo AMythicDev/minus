@@ -347,14 +347,14 @@ pub fn formatted_line<'a>(
     // NOTE: Only relevant when line numbers are active
     // Padding is the space that the actual line text will be shifted to accommodate for
     // line numbers. This is equal to:-
-    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.')
+    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.') + 1 (for 1 space)
     //
     // We reduce this from the number of available columns as this space cannot be used for
     // actual line display when wrapping the lines
-    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
+    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 2;
 
     let cols_avail = if line_numbers {
-        cols.saturating_sub(padding)
+        cols.saturating_sub(padding + 2)
     } else {
         cols
     };
@@ -450,6 +450,7 @@ pub fn make_format_lines(
     text: &String,
     line_numbers: LineNumbers,
     cols: usize,
+    line_wrapping: bool,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> FormatResult {
     let format_opts = FormatOpts {
@@ -462,7 +463,7 @@ pub fn make_format_lines(
         cols,
         #[cfg(feature = "search")]
         search_term,
-        line_wrapping: true,
+        line_wrapping,
     };
 
     format_text_block(format_opts)
