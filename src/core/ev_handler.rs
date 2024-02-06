@@ -336,16 +336,6 @@ mod tests {
             &UIA,
         )
         .unwrap();
-        handle_event(
-            command_queue.pop_front().unwrap(),
-            &mut out,
-            &mut ps,
-            &mut command_queue,
-            &Arc::new(AtomicBool::new(false)),
-            #[cfg(feature = "search")]
-            &UIA,
-        )
-        .unwrap();
         assert_eq!(ps.screen.formatted_lines, vec![TEST_STR.to_string()]);
     }
 
