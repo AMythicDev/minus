@@ -1,4 +1,8 @@
-//! Provides the [`Event`] enum and all its related implementations
+//! Provides the [`Command`] enum and all its related implementations
+//!
+//! This module only declares the [Command] type. To know how they are handled internally see
+//! the [`ev_handler`](super::ev_handler).
+
 use std::fmt::Debug;
 
 use crate::{
@@ -12,23 +16,34 @@ use crate::search::SearchOpts;
 /// Different events that can be encountered while the pager is running
 #[non_exhaustive]
 pub enum Command {
+    // User input
+    UserInput(InputEvent),
+
+    // Data related
     AppendData(String),
     SetData(String),
-    UserInput(InputEvent),
-    SetPrompt(String),
+
+    // Prompt related
     SendMessage(String),
+    ShowPrompt(bool),
+    SetPrompt(String),
+
+    // Screen output configurations
     SetLineNumbers(LineNumbers),
+    FollowOutput(bool),
+
+    // Configuration options
     SetExitStrategy(ExitStrategy),
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
-    ShowPrompt(bool),
-    FollowOutput(bool),
-    FormatRedrawPrompt,
-    FormatRedrawDisplay,
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
+
+    // Internal commands
+    FormatRedrawPrompt,
+    FormatRedrawDisplay,
 }
 
 impl PartialEq for Command {

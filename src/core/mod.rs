@@ -16,9 +16,9 @@ use commands::Command;
 /// requires the text data to be reformatted and repainted on the screen. Hence it can push that
 /// command to this to be executed once it itself has completed executing.
 ///
-/// This also takes into account [RUNMODE] before inserting data. See
-/// [push_back](CommandQueue::push_back) for more on this. The means that it will ensure that
-/// [RUNMODE] is not uninitialized before pushing any data into the queue.
+/// This also takes into account [RUNMODE] before inserting data. The means that it will ensure that
+/// [RUNMODE] is not uninitialized before pushing any data into the queue. Hence it is best used
+/// case is while declaring handlers for [Command::UserInput].
 ///
 /// This is a FIFO type hence the command that enters first gets executed first.
 pub struct CommandQueue(VecDeque<Command>);

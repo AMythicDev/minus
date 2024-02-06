@@ -230,14 +230,6 @@ fn start_reactor(
         let mut p = ps.lock();
         draw_full(&mut out_lock, &mut p)?;
 
-        if p.screen.formatted_lines.is_empty() {
-            p.format_lines();
-        }
-
-        if p.displayed_prompt.is_empty() {
-            p.format_prompt();
-        }
-
         if p.follow_output {
             draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
         }
