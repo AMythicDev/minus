@@ -43,7 +43,7 @@
 
 use std::collections::HashMap;
 
-use crate::LineNumbers;
+use crate::{minus_core, LineNumbers};
 
 #[cfg(feature = "search")]
 use {crate::search, std::collections::BTreeSet};
@@ -71,8 +71,6 @@ pub struct FormatOpts<'a> {
     /// This is equal to the number of lines in [`PagerState::formatted_lines`](crate::state::PagerState::lines). This is used to
     /// calculate the search index of the rows of the line.
     pub formatted_lines_count: usize,
-    /// Number of digits that line numbers occupy.
-    pub len_line_number: usize,
     /// Actual number of columns available for displaying
     pub cols: usize,
     /// Number of lines that are previously unterminated. It is only relevant when there is `attachment` text otherwise
@@ -87,7 +85,9 @@ pub struct FormatOpts<'a> {
 #[derive(Debug)]
 pub struct FormatResult {
     /// Formatted incoming lines
-    pub lines: Vec<String>,
+    pub text: Vec<String>,
+    /// Number of lines that have been formatted from `text`.
+    pub lines_formatted: usize,
     /// Number of rows that are unterminated
     pub num_unterminated: usize,
     /// If search is active, this contains the indices where search matches in the incoming text have been found
@@ -142,19 +142,23 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     #[cfg(feature = "search")]
     let mut append_search_idx = BTreeSet::new();
 
-    let to_format_size = to_format.lines().count();
     let lines = to_format
         .lines()
         .enumerate()
         .map(|(idx, s)| (idx, s.to_string()))
         .collect::<Vec<(usize, String)>>();
 
+    let to_format_size = lines.len();
+
+    let line_number_digits = minus_core::digits(opts.lines_count + to_format_size);
+
     let mut lines_to_row_map = HashMap::new();
 
     // Return if we have nothing to format
     if lines.is_empty() {
         return FormatResult {
-            lines: Vec::with_capacity(0),
+            text: Vec::with_capacity(0),
+            lines_formatted: to_format_size,
             num_unterminated: opts.prev_unterminated,
             #[cfg(feature = "search")]
             append_search_idx,
@@ -178,7 +182,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     let mut first_line = formatted_line(
         &lines.first().unwrap().1,
-        opts.len_line_number,
+        line_number_digits,
         opts.lines_count,
         opts.line_numbers,
         // Reduce formatted index by one if we we are overwriting the last line on the terminal
@@ -202,7 +206,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         .flat_map(|(idx, line)| {
             let fmt_line = formatted_line(
                 line,
-                opts.len_line_number,
+                line_number_digits,
                 opts.lines_count + idx,
                 opts.line_numbers,
                 #[cfg(feature = "search")]
@@ -224,7 +228,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     let last_line = if to_format_size > 1 {
         Some(formatted_line(
             &lines.last().unwrap().1,
-            opts.len_line_number,
+            line_number_digits,
             opts.lines_count + to_format_size - 1,
             opts.line_numbers,
             #[cfg(feature = "search")]
@@ -285,8 +289,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     }
 
     FormatResult {
-        lines: fmtl,
+        text: fmtl,
         num_unterminated: unterminated,
+        lines_formatted: to_format_size,
         #[cfg(feature = "search")]
         append_search_idx,
         lines_to_row_map,
@@ -440,18 +445,10 @@ pub fn make_format_lines(
     cols: usize,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> FormatResult {
-    // Keep it for record and don't call it unless it is really necessory as this is kinda
-    // expensive
-    let line_count = text.lines().count();
-
-    // Calculate len_line_number. This will be 2 if line_count is 50 and 3 if line_count is 100 (etc)
-    let len_line_number = line_count.to_string().len();
-
     let format_opts = FormatOpts {
         text,
         attachment: None,
         line_numbers,
-        len_line_number,
         formatted_lines_count: 0,
         lines_count: 0,
         prev_unterminated: 0,
@@ -470,7 +467,6 @@ mod unterminated {
     const fn get_append_opts_template(text: &str) -> FormatOpts {
         FormatOpts {
             text,
-            len_line_number: 0,
             attachment: None,
             #[cfg(feature = "search")]
             search_term: &None,

@@ -341,7 +341,7 @@ where
     if let Some(pnm) = position_of_next_match {
         upper_mark = *format_result.append_search_idx.iter().nth(pnm).unwrap();
         // Draw the incrementally searched lines from upper mark
-        display::write_text_checked(out, &format_result.lines, so.rows.into(), &mut upper_mark)?;
+        display::write_text_checked(out, &format_result.text, so.rows.into(), &mut upper_mark)?;
     } else {
         reset_screen(out, so)?;
         return Ok(None);
@@ -349,7 +349,7 @@ where
     // Return the results obtained by running incremental search so that they can be stored as a
     // cache.
     Ok(Some(IncrementalSearchCache {
-        formatted_lines: format_result.lines,
+        formatted_lines: format_result.text,
         search_mark: position_of_next_match.unwrap(),
         upper_mark,
         search_idx: format_result.append_search_idx,

@@ -264,7 +264,7 @@ impl PagerState {
         {
             self.search_state.search_idx = format_result.append_search_idx;
         }
-        self.screen.formatted_lines = format_result.lines;
+        self.screen.formatted_lines = format_result.text;
         self.lines_to_row_map = format_result.lines_to_row_map;
 
         self.unterminated = format_result.num_unterminated;
@@ -367,8 +367,14 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
-        let append = self.screen.orig_text.ends_with('\n') || self.screen.orig_text.is_empty();
-        let attachment = if append {
+        // If the last line of self.screen.orig_text is not terminated by than the first line of
+        // the incoming text is part of that line so we also need to take care of that.
+        //
+        // Appropriately in that case we set the last lne of self.screen.orig_text as attachment
+        // text for the FormatOpts.
+        let clean_append =
+            self.screen.orig_text.ends_with('\n') || self.screen.orig_text.is_empty();
+        let attachment = if clean_append {
             None
         } else {
             self.screen
@@ -378,33 +384,16 @@ impl PagerState {
                 .map(ToString::to_string)
         };
 
-        // We check if number of digits in current line count change during this text push. So we
-        // do the following:-
-        // * Count the number of lines we hold currently
-        // * Count its digits
-        // * Push text
-        // * Add number of lines we added to the original line count
-        // * Count the digits again
+        // We check if number of digits in current line count change during this text push.
         let old_lc = self.screen.get_line_count();
         let old_lc_dgts = minus_core::digits(old_lc);
 
         self.screen.orig_text.push_str(text);
 
-        let new_lc = old_lc
-            + text
-                .lines()
-                .count()
-                // NOTE: Reduce one if we are attaching to the last line, otherwise the attaching
-                // line will be counted twice.
-                .saturating_sub(if append { 0 } else { 1 });
-        self.screen.line_count = new_lc;
-        let new_lc_dgts = minus_core::digits(new_lc);
-
         let append_opts = text::FormatOpts {
             text,
             attachment,
             line_numbers: self.line_numbers,
-            len_line_number: new_lc_dgts,
             formatted_lines_count: self.screen.formatted_lines.len(),
             lines_count: old_lc,
             prev_unterminated: self.unterminated,
@@ -415,11 +404,16 @@ impl PagerState {
 
         let append_props = text::format_text_block(append_opts);
 
-        let (fmt_line, num_unterminated, lines_to_row_map) = (
-            append_props.lines,
+        let (fmt_line, num_unterminated, lines_to_row_map, lines_formatted) = (
+            append_props.text,
             append_props.num_unterminated,
             append_props.lines_to_row_map,
+            append_props.lines_formatted,
         );
+
+        let new_lc = old_lc + lines_formatted.saturating_sub(if clean_append { 0 } else { 1 });
+        self.screen.line_count = new_lc;
+        let new_lc_dgts = minus_core::digits(new_lc);
 
         #[cfg(feature = "search")]
         {
