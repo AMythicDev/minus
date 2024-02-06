@@ -4,6 +4,7 @@
 pub struct Screen {
     pub(crate) orig_text: String,
     pub(crate) formatted_lines: Vec<String>,
+    pub(crate) line_count: usize,
 }
 
 impl Screen {
@@ -16,8 +17,8 @@ impl Screen {
     ///
     /// NOTE: This operation might be expensive if the text data is too large.
     #[must_use]
-    pub fn line_count(&self) -> usize {
-        self.orig_text.lines().count()
+    pub fn get_line_count(&self) -> usize {
+        self.line_count
     }
     /// Returns all the text within the bounds
     pub(crate) fn get_formatted_lines_with_bounds(&self, start: usize, end: usize) -> &[String] {
@@ -36,6 +37,7 @@ impl Default for Screen {
         Self {
             orig_text: String::with_capacity(100 * 1024),
             formatted_lines: Vec::with_capacity(500 * 1024),
+            line_count: 0,
         }
     }
 }

@@ -259,6 +259,7 @@ impl PagerState {
             #[cfg(feature = "search")]
             &self.search_state.search_term,
         );
+
         #[cfg(feature = "search")]
         {
             self.search_state.search_idx = format_result.append_search_idx;
@@ -384,12 +385,19 @@ impl PagerState {
         // * Push text
         // * Add number of lines we added to the original line count
         // * Count the digits again
-        let old_lc = self.screen.orig_text.lines().count();
+        let old_lc = self.screen.get_line_count();
         let old_lc_dgts = minus_core::digits(old_lc);
 
         self.screen.orig_text.push_str(text);
 
-        let new_lc = old_lc + text.lines().count();
+        let new_lc = old_lc
+            + text
+                .lines()
+                .count()
+                // NOTE: Reduce one if we are attaching to the last line, otherwise the attaching
+                // line will be counted twice.
+                .saturating_sub(if append { 0 } else { 1 });
+        self.screen.line_count = new_lc;
         let new_lc_dgts = minus_core::digits(new_lc);
 
         let append_opts = text::FormatOpts {

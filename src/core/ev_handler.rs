@@ -33,7 +33,11 @@ pub fn handle_event(
     match ev {
         Command::SetData(text) => {
             p.screen.orig_text = text;
-            command_queue.push_back(Command::FormatRedrawDisplay);
+            p.format_lines();
+            p.screen.line_count = p.screen.orig_text.lines().count();
+            if !p.running.lock().is_uninitialized() {
+                display::draw_full(&mut out, p)?;
+            }
         }
         Command::UserInput(InputEvent::Exit) => {
             p.exit();
@@ -253,7 +257,10 @@ pub fn handle_event(
             } else {
                 p.message = Some(text.to_string());
             }
-            command_queue.push_back(Command::FormatRedrawPrompt);
+            p.format_prompt();
+            if !p.running.lock().is_uninitialized() {
+                display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+            }
         }
         Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
