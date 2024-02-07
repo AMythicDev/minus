@@ -422,7 +422,7 @@ impl PagerState {
         }
         self.lines_to_row_map.extend(lines_to_row_map);
 
-        if new_lc_dgts != old_lc_dgts && old_lc_dgts != 0 {
+        if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
             self.format_lines();
             return AppendStyle::FullRedraw;
         }

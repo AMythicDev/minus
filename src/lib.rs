@@ -241,6 +241,10 @@ impl LineNumbers {
     const fn is_invertible(self) -> bool {
         matches!(self, Self::Enabled | Self::Disabled)
     }
+
+    const fn is_on(&self) -> bool {
+        matches!(self, Self::Enabled | Self::AlwaysOn)
+    }
 }
 
 impl std::ops::Not for LineNumbers {
