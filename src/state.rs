@@ -411,7 +411,7 @@ impl PagerState {
             append_props.lines_formatted,
         );
 
-        let new_lc = old_lc + lines_formatted.saturating_sub(if clean_append { 0 } else { 1 });
+        let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
         self.screen.line_count = new_lc;
         let new_lc_dgts = minus_core::digits(new_lc);
 

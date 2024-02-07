@@ -17,7 +17,7 @@ impl Screen {
     ///
     /// NOTE: This operation might be expensive if the text data is too large.
     #[must_use]
-    pub fn get_line_count(&self) -> usize {
+    pub const fn get_line_count(&self) -> usize {
         self.line_count
     }
     /// Returns all the text within the bounds

@@ -41,7 +41,7 @@
 //!
 //! [`PagerState::lines`]: crate::state::PagerState::lines
 
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::{minus_core, LineNumbers};
 
@@ -315,15 +315,15 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 /// [`PagerState::lines`]: crate::state::PagerState::lines
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::uninlined_format_args)]
-pub fn formatted_line(
-    line: &str,
+pub fn formatted_line<'a>(
+    line: &'a str,
     len_line_number: usize,
     idx: usize,
     line_numbers: LineNumbers,
     #[cfg(feature = "search")] formatted_idx: usize,
-    #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
+    #[cfg(feature = "search")] search_idx: &'a mut BTreeSet<usize>,
     cols: usize,
-    #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
+    #[cfg(feature = "search")] search_term: &'a Option<regex::Regex>,
 ) -> Vec<String> {
     assert!(
         !line.contains('\n'),
@@ -344,30 +344,26 @@ pub fn formatted_line(
 
     // Wrap the line and return an iterator over all the rows
     let mut enumerated_rows = if line_numbers {
-        wrap_str(line, cols.saturating_sub(padding + 2))
-            .into_iter()
-            .enumerate()
+        textwrap::wrap(line, cols.saturating_sub(padding + 2))
     } else {
-        wrap_str(line, cols).into_iter().enumerate()
-    };
+        textwrap::wrap(line, cols)
+    }
+    .into_iter()
+    .enumerate();
 
     // highlight the lines with matching search terms
     // If a match is found, add this line's index to PagerState::search_idx
     #[cfg_attr(not(feature = "search"), allow(unused_mut))]
     #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-    let mut handle_search = |row: String, wrap_idx: usize| {
+    let mut handle_search = |row: &mut Cow<'a, str>, wrap_idx: usize| {
         #[cfg(feature = "search")]
         if let Some(st) = search_term.as_ref() {
-            let (highlighted_row, is_match) = search::highlight_line_matches(&row, st, false);
+            let (highlighted_row, is_match) = search::highlight_line_matches(row, st, false);
             if is_match {
+                *row.to_mut() = highlighted_row;
                 search_idx.insert(formatted_idx + wrap_idx);
             }
-            highlighted_row
-        } else {
-            row
         }
-        #[cfg(not(feature = "search"))]
-        row
     };
 
     if line_numbers {
@@ -377,7 +373,7 @@ pub fn formatted_line(
         // * If minus is run under test, ascii codes for making the numbers bol is not inserted because they add
         // extra difficulty while writing tests
         // * Line number is added only to the first row of a line. This makes a better UI overall
-        let formatter = |row: String, is_first_row: bool, idx: usize| {
+        let formatter = |row: Cow<'_, str>, is_first_row: bool, idx: usize| {
             format!(
                 "{bold}{number: >len$}{reset} {row}",
                 bold = if cfg!(not(test)) && is_first_row {
@@ -405,7 +401,7 @@ pub fn formatted_line(
         let first_row = {
             #[cfg_attr(not(feature = "search"), allow(unused_mut))]
             let mut row = enumerated_rows.next().unwrap().1;
-            row = handle_search(row, 0);
+            handle_search(&mut row, 0);
             formatter(row, true, idx)
         };
         formatted_rows.push(first_row);
@@ -414,7 +410,7 @@ pub fn formatted_line(
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
         let mut rows_left = enumerated_rows
             .map(|(wrap_idx, mut row)| {
-                row = handle_search(row, wrap_idx);
+                handle_search(&mut row, wrap_idx);
                 formatter(row, false, 0)
             })
             .collect::<Vec<String>>();
@@ -425,18 +421,12 @@ pub fn formatted_line(
         // If line numbers aren't active, simply return the rows with search matches highlighted if search is active
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
         enumerated_rows
-            .map(|(wrap_idx, row)| handle_search(row, wrap_idx))
+            .map(|(wrap_idx, mut row)| {
+                handle_search(&mut row, wrap_idx);
+                row.to_string()
+            })
             .collect::<Vec<String>>()
     }
-}
-
-/// Wrap a line of string into a rows of a terminal based on the number of columns
-/// Read the [`textwrap::wrap`] function for more info
-pub fn wrap_str(line: &str, cols: usize) -> Vec<String> {
-    textwrap::wrap(line, cols)
-        .iter()
-        .map(ToString::to_string)
-        .collect::<Vec<String>>()
 }
 
 pub fn make_format_lines(
@@ -649,25 +639,5 @@ third line\n",
         let append_style = format_text_block(fs);
 
         assert_eq!(3, append_style.num_unterminated);
-    }
-}
-
-mod wrapping {
-    // Test wrapping functions
-    #[test]
-    fn test_wrap_str() {
-        let test = {
-            let mut line = String::with_capacity(200);
-            for _ in 1..=200 {
-                line.push('#');
-            }
-            line
-        };
-        let result = super::wrap_str(&test, 80);
-        assert_eq!(result.len(), 3);
-        assert_eq!(
-            (80, 80, 40),
-            (result[0].len(), result[1].len(), result[2].len()),
-        );
     }
 }
