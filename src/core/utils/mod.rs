@@ -16,7 +16,7 @@ pub const fn digits(num: usize) -> usize {
 pub struct LinesRowMap(Vec<usize>);
 
 impl LinesRowMap {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(Vec::new())
     }
 
@@ -24,7 +24,7 @@ impl LinesRowMap {
         Self(Vec::with_capacity(size))
     }
 
-    pub fn append(&mut self, idx: &mut LinesRowMap, clean_append: bool) {
+    pub fn append(&mut self, idx: &mut Self, clean_append: bool) {
         if !clean_append {
             self.0.pop();
         }

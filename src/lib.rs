@@ -242,7 +242,7 @@ impl LineNumbers {
         matches!(self, Self::Enabled | Self::Disabled)
     }
 
-    const fn is_on(&self) -> bool {
+    const fn is_on(self) -> bool {
         matches!(self, Self::Enabled | Self::AlwaysOn)
     }
 }

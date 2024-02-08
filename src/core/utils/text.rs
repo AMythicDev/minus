@@ -185,7 +185,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     // attachment + first line from text, if append is false
 
     let mut first_line = formatted_line(
-        &lines.first().unwrap().1,
+        lines.first().unwrap().1,
         line_number_digits,
         opts.lines_count,
         opts.line_numbers,
@@ -232,7 +232,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     // by seeing whether to_format_len is greater than 1
     let last_line = if to_format_size > 1 {
         Some(formatted_line(
-            &lines.last().unwrap().1,
+            lines.last().unwrap().1,
             line_number_digits,
             opts.lines_count + to_format_size - 1,
             opts.line_numbers,
