@@ -8,7 +8,10 @@ use crate::{
     input::{self, HashedEventRegister},
     minus_core::{
         self,
-        utils::text::{self, AppendStyle},
+        utils::{
+            text::{self, AppendStyle},
+            LinesRowMap,
+        },
         CommandQueue,
     },
     screen::Screen,
@@ -22,7 +25,6 @@ use parking_lot::Mutex;
 use std::collections::BTreeSet;
 use std::{
     collections::hash_map::RandomState,
-    collections::HashMap,
     io::stdout,
     io::Stdout,
     sync::{atomic::AtomicBool, Arc},
@@ -150,11 +152,7 @@ pub struct PagerState {
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
-    /// A `HashMap` that describes where first row of each line in [`PagerState::lines`] in placed
-    /// inside [`PagerState::formatted_lines`].
-    /// This is helpful when we defining keybindings like `[n]G` where `[n]` denotes which line to jump to.
-    /// See [`input::generate_default_bindings`] for exact definition on how it is implemented.
-    pub(crate) lines_to_row_map: HashMap<usize, usize>,
+    pub(crate) lines_to_row_map: LinesRowMap,
     /// Value for follow mode.
     /// See [follow_output](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
@@ -212,7 +210,7 @@ impl PagerState {
             cols,
             rows,
             prefix_num: String::new(),
-            lines_to_row_map: HashMap::new(),
+            lines_to_row_map: LinesRowMap::new(),
             follow_output: false,
         };
 
@@ -404,7 +402,7 @@ impl PagerState {
 
         let append_props = text::format_text_block(append_opts);
 
-        let (fmt_line, num_unterminated, lines_to_row_map, lines_formatted) = (
+        let (fmt_line, num_unterminated, mut lines_to_row_map, lines_formatted) = (
             append_props.text,
             append_props.num_unterminated,
             append_props.lines_to_row_map,
@@ -420,7 +418,8 @@ impl PagerState {
             let mut append_search_idx = append_props.append_search_idx;
             self.search_state.search_idx.append(&mut append_search_idx);
         }
-        self.lines_to_row_map.extend(lines_to_row_map);
+        self.lines_to_row_map
+            .append(&mut lines_to_row_map, clean_append);
 
         if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
             self.format_lines();

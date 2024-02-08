@@ -210,7 +210,7 @@ where
         // and jump to that location.If the line number does not exist, directly jump to the bottom of text.
         let row_to_go = *ps
             .lines_to_row_map
-            .get(&position)
+            .get(position)
             .unwrap_or(&(usize::MAX - 1));
         InputEvent::UpdateUpperMark(row_to_go)
     });

@@ -41,9 +41,11 @@
 //!
 //! [`PagerState::lines`]: crate::state::PagerState::lines
 
-use std::{borrow::Cow, collections::HashMap};
+use std::borrow::Cow;
 
 use crate::{minus_core, LineNumbers};
+
+use super::LinesRowMap;
 
 #[cfg(feature = "search")]
 use {crate::search, std::collections::BTreeSet};
@@ -95,7 +97,7 @@ pub struct FormatResult {
     pub append_search_idx: BTreeSet<usize>,
     /// Map of where first row of each line is placed inside in
     /// [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
-    pub lines_to_row_map: HashMap<usize, usize>,
+    pub lines_to_row_map: LinesRowMap,
 }
 
 /// Makes the text that will be displayed.
@@ -152,7 +154,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     let line_number_digits = minus_core::utils::digits(opts.lines_count + to_format_size);
 
-    let mut lines_to_row_map = HashMap::new();
+    let mut lines_to_row_map = LinesRowMap::new();
 
     // Return if we have nothing to format
     if lines.is_empty() {
@@ -195,7 +197,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         opts.search_term,
     );
 
-    lines_to_row_map.insert(opts.lines_count, formatted_row_count);
+    lines_to_row_map.insert(formatted_row_count, true);
     formatted_row_count += first_line.len();
 
     // Format all other lines except the first and last line
@@ -217,7 +219,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
                 #[cfg(feature = "search")]
                 opts.search_term,
             );
-            lines_to_row_map.insert(opts.lines_count + idx, formatted_row_count);
+            lines_to_row_map.insert(formatted_row_count, true);
             formatted_row_count += fmt_line.len();
             fmt_line
         })
@@ -242,7 +244,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     } else {
         None
     };
-    lines_to_row_map.insert(opts.lines_count + to_format_size - 1, formatted_row_count);
+    lines_to_row_map.insert(formatted_row_count, true);
 
     #[cfg(feature = "search")]
     {
