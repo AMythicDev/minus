@@ -386,7 +386,7 @@ impl PagerState {
 
         // We check if number of digits in current line count change during this text push.
         let old_lc = self.screen.get_line_count();
-        let old_lc_dgts = minus_core::digits(old_lc);
+        let old_lc_dgts = minus_core::utils::digits(old_lc);
 
         self.screen.orig_text.push_str(text);
 
@@ -413,7 +413,7 @@ impl PagerState {
 
         let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
         self.screen.line_count = new_lc;
-        let new_lc_dgts = minus_core::digits(new_lc);
+        let new_lc_dgts = minus_core::utils::digits(new_lc);
 
         #[cfg(feature = "search")]
         {

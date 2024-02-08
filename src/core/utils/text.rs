@@ -150,7 +150,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     let to_format_size = lines.len();
 
-    let line_number_digits = minus_core::digits(opts.lines_count + to_format_size);
+    let line_number_digits = minus_core::utils::digits(opts.lines_count + to_format_size);
 
     let mut lines_to_row_map = HashMap::new();
 
