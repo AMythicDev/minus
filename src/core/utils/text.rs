@@ -202,9 +202,10 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     lines_to_row_map.insert(formatted_row_count, true);
     formatted_row_count += first_line.len();
+    fmtl.append(&mut first_line);
 
     // Format all other lines except the first and last line
-    let mut mid_lines = lines
+    let mid_lines = lines
         .iter()
         .skip(1)
         .take(lines.len().saturating_sub(2))
@@ -225,8 +226,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             lines_to_row_map.insert(formatted_row_count, true);
             formatted_row_count += fmt_line.len();
             fmt_line
-        })
-        .collect::<Vec<String>>();
+        });
+    fmtl.extend(mid_lines);
 
     // Format the last line, only if first line and last line are different. We can check this
     // by seeing whether to_format_len is greater than 1
@@ -287,8 +288,6 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         first_line.len()
     };
 
-    fmtl.append(&mut first_line);
-    fmtl.append(&mut mid_lines);
     if let Some(mut ll) = last_line {
         fmtl.append(&mut ll);
     }
