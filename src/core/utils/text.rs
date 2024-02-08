@@ -150,8 +150,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     let lines = to_format
         .lines()
         .enumerate()
-        .map(|(idx, s)| (idx, s.to_string()))
-        .collect::<Vec<(usize, String)>>();
+        .collect::<Vec<(usize, &str)>>();
 
     let to_format_size = lines.len();
 
@@ -284,8 +283,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         // If tthere are more than 1 line of text, get the last line's size and return it as unterminated
         last_line.as_ref().unwrap().len()
     } else {
-        // If there is only one line, return the size of first line
-        first_line.len()
+        // If there is only one line, return the size fmtl as it will be the size of the first line
+        // anyway
+        fmtl.len()
     };
 
     if let Some(mut ll) = last_line {
