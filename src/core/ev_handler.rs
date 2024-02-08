@@ -264,7 +264,10 @@ pub fn handle_event(
         }
         Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
-            command_queue.push_back(Command::FormatRedrawDisplay);
+            p.format_lines();
+            if !p.running.lock().is_uninitialized() {
+                display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+            }
         }
         Command::FormatRedrawPrompt => {
             p.format_prompt();
