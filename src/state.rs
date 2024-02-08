@@ -402,7 +402,7 @@ impl PagerState {
 
         let append_props = text::format_text_block(append_opts);
 
-        let (fmt_line, num_unterminated, mut lines_to_row_map, lines_formatted) = (
+        let (mut fmt_line, num_unterminated, mut lines_to_row_map, lines_formatted) = (
             append_props.text,
             append_props.num_unterminated,
             append_props.lines_to_row_map,
@@ -434,8 +434,13 @@ impl PagerState {
         self.screen
             .formatted_lines
             .truncate(self.screen.formatted_lines.len() - self.unterminated);
-        self.screen.formatted_lines.append(&mut fmt_line.clone());
         self.unterminated = num_unterminated;
+        if self.running.lock().is_uninitialized() {
+            self.screen.formatted_lines.append(&mut fmt_line);
+            return AppendStyle::NoDraw;
+        }
+
+        self.screen.formatted_lines.append(&mut fmt_line.clone());
 
         AppendStyle::PartialUpdate(fmt_line)
     }

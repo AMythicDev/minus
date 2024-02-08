@@ -57,6 +57,9 @@ pub enum AppendStyle {
 
     /// Redraw the entire screen
     FullRedraw,
+
+    /// No redraws required because the pager display hasen't started
+    NoDraw,
 }
 
 pub struct FormatOpts<'a> {
