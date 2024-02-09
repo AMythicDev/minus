@@ -20,10 +20,6 @@ impl LinesRowMap {
         Self(Vec::new())
     }
 
-    pub fn with_preallocated(size: usize) -> Self {
-        Self(Vec::with_capacity(size))
-    }
-
     pub fn append(&mut self, idx: &mut Self, clean_append: bool) {
         if !clean_append {
             self.0.pop();
