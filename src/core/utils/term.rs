@@ -60,6 +60,7 @@ pub fn cleanup(
     mut out: impl io::Write,
     es: &crate::ExitStrategy,
     cleanup_screen: bool,
+    persist_screen: bool,
 ) -> std::result::Result<(), CleanupError> {
     if cleanup_screen {
         // Reverse order of setup.
@@ -67,8 +68,14 @@ pub fn cleanup(
         terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
         execute!(out, event::DisableMouseCapture)
             .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
-        execute!(out, terminal::LeaveAlternateScreen)
-            .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
+        if !persist_screen {
+            execute!(out, terminal::LeaveAlternateScreen)
+                .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
+        } else {
+            // Clear out the pager line, it's not something you'd want to keep
+            queue!(out, Clear(terminal::ClearType::CurrentLine)).unwrap();
+            out.flush().unwrap();
+        }
     }
 
     if *es == crate::ExitStrategy::ProcessQuit {

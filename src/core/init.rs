@@ -133,6 +133,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
                 stdout(),
                 &crate::ExitStrategy::PagerQuit,
                 true,
+                false,
             ));
             panic_hook(pinfo);
         }));
@@ -169,7 +170,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
-                term::cleanup(out.as_ref(), &crate::ExitStrategy::PagerQuit, true)?;
+                term::cleanup(out.as_ref(), &crate::ExitStrategy::PagerQuit, true, false)?;
             }
             res
         });
@@ -188,7 +189,12 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
-                term::cleanup(out_copy.as_ref(), &crate::ExitStrategy::PagerQuit, true)?;
+                term::cleanup(
+                    out_copy.as_ref(),
+                    &crate::ExitStrategy::PagerQuit,
+                    true,
+                    false,
+                )?;
             }
             res
         });

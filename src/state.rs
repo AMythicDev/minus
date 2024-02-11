@@ -143,6 +143,9 @@ pub struct PagerState {
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     pub(crate) exit_strategy: ExitStrategy,
+    /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
+    /// See [persist_alternate_screen](crate::pager::Pager::persist_alternate_screen) for more info.
+    pub(crate) persist_alternate: bool,
     /// The prompt that should be displayed to the user, formatted with the
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
@@ -194,6 +197,7 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             exit_strategy: ExitStrategy::ProcessQuit,
+            persist_alternate: false,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
