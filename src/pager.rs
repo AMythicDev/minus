@@ -186,6 +186,15 @@ impl Pager {
         Ok(self.tx.send(Command::SetExitStrategy(es))?)
     }
 
+    /// Set if minus persists the alternate screen buffer on exit.
+    ///
+    /// This controls how the pager will behave with regards to clearing the screen when
+    /// the user presses `q` or `Ctrl+C'. If it is set, instead of clearing the screen
+    /// when exited, it will continue to show.
+    pub fn persist_alternate_screen(&self, b: bool) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::PersistAlternate(b))?)
+    }
+
     /// Set whether to display pager if there's less data than
     /// available screen height
     ///

@@ -42,7 +42,7 @@ pub fn handle_event(
         Command::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
-            term::cleanup(&mut out, &p.exit_strategy, true)?;
+            term::cleanup(&mut out, &p.exit_strategy, true, p.persist_alternate)?;
         }
         Command::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
             display::draw_for_change(out, p, &mut um)?;
@@ -274,6 +274,7 @@ pub fn handle_event(
             display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
         }
         Command::SetExitStrategy(es) => p.exit_strategy = es,
+        Command::PersistAlternate(b) => p.persist_alternate = b,
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
@@ -473,6 +474,26 @@ mod tests {
         )
         .unwrap();
         assert_eq!(ps.exit_strategy, ExitStrategy::PagerQuit);
+    }
+
+    #[test]
+    fn set_persist_screen() {
+        let mut ps = PagerState::new().unwrap();
+        let ev = Command::PersistAlternate(true);
+        let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
+
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+            #[cfg(feature = "search")]
+            &UIA,
+        )
+        .unwrap();
+        assert_eq!(ps.persist_alternate, true);
     }
 
     #[test]

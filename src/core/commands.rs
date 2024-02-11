@@ -34,6 +34,7 @@ pub enum Command {
 
     // Configuration options
     SetExitStrategy(ExitStrategy),
+    PersistAlternate(bool),
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     #[cfg(feature = "static_output")]
@@ -70,6 +71,7 @@ impl PartialEq for Command {
 impl Debug for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::PersistAlternate(persist) => write!(f, "PersistAlternate({persist})"),
             Self::SetData(text) => write!(f, "SetData({text:?})"),
             Self::AppendData(text) => write!(f, "AppendData({text:?})"),
             Self::SetPrompt(text) => write!(f, "SetPrompt({text:?})"),
