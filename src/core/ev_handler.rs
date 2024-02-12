@@ -49,7 +49,7 @@ pub fn handle_event(
             p.upper_mark = um;
         }
         Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.line_wrapping => {
-            if lm.saturating_add(p.cols) > p.screen.get_max_line_length() {
+            if lm.saturating_add(p.cols) > p.screen.get_max_line_length() && lm > p.left_mark {
                 return Ok(());
             }
             p.left_mark = lm;

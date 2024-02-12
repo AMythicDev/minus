@@ -238,7 +238,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             lines_to_row_map.insert(formatted_row_count, true);
             formatted_row_count += fmt_line.len();
             if lines.len() > max_line_length {
-                max_line_length = lines.first().unwrap().1.len();
+                max_line_length = line.len();
             }
 
             fmt_line
@@ -266,8 +266,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         None
     };
     lines_to_row_map.insert(formatted_row_count, true);
-    if lines.len() > max_line_length {
-        max_line_length = lines.first().unwrap().1.len();
+    if lines.last().unwrap().1.len() > max_line_length {
+        max_line_length = lines.last().unwrap().1.len();
     }
 
     #[cfg(feature = "search")]
