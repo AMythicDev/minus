@@ -273,6 +273,7 @@ impl PagerState {
         }
         self.screen.formatted_lines = format_result.text;
         self.lines_to_row_map = format_result.lines_to_row_map;
+        self.screen.max_line_length = format_result.max_line_length;
 
         self.unterminated = format_result.num_unterminated;
         self.format_prompt();
@@ -412,15 +413,23 @@ impl PagerState {
 
         let append_props = text::format_text_block(append_opts);
 
-        let (mut fmt_line, num_unterminated, mut lines_to_row_map, lines_formatted) = (
+        let (
+            mut fmt_line,
+            num_unterminated,
+            mut lines_to_row_map,
+            lines_formatted,
+            max_line_length,
+        ) = (
             append_props.text,
             append_props.num_unterminated,
             append_props.lines_to_row_map,
             append_props.lines_formatted,
+            append_props.max_line_length,
         );
 
         let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
         self.screen.line_count = new_lc;
+        self.screen.max_line_length = max_line_length;
         let new_lc_dgts = minus_core::utils::digits(new_lc);
 
         #[cfg(feature = "search")]

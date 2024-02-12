@@ -107,7 +107,7 @@ pub fn draw_for_change(
         ps.line_wrapping,
         ps.left_mark,
         ps.line_numbers.is_on(),
-        ps.screen.line_count(),
+        ps.screen.get_line_count(),
     )?;
 
     ps.upper_mark = *new_upper_mark;
@@ -280,7 +280,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
         ps.line_wrapping,
         ps.left_mark,
         ps.line_numbers.is_on(),
-        ps.screen.line_count(),
+        ps.screen.get_line_count(),
     )
 }
 
@@ -310,7 +310,7 @@ pub fn write_lines_in_horizontal_scroll(
 ) -> crate::Result {
     let line_number_ascii_seq_len = if line_numbers { 8 } else { 0 };
     let line_number_padding = if line_numbers {
-        minus_core::digits(line_count) + LineNumbers::EXTRA_PADDING + 3
+        minus_core::utils::digits(line_count) + LineNumbers::EXTRA_PADDING + 3
     } else {
         0
     };

@@ -5,6 +5,7 @@ pub struct Screen {
     pub(crate) orig_text: String,
     pub(crate) formatted_lines: Vec<String>,
     pub(crate) line_count: usize,
+    pub(crate) max_line_length: usize,
 }
 
 impl Screen {
@@ -31,13 +32,8 @@ impl Screen {
         }
     }
 
-    // TODO: Optimize this
-    pub(crate) fn max_line_length(&self) -> usize {
-        self.orig_text
-            .lines()
-            .max_by_key(|l| l.len())
-            .unwrap()
-            .len()
+    pub(crate) fn get_max_line_length(&self) -> usize {
+        self.max_line_length
     }
 }
 
@@ -47,6 +43,7 @@ impl Default for Screen {
             orig_text: String::with_capacity(100 * 1024),
             formatted_lines: Vec::with_capacity(500 * 1024),
             line_count: 0,
+            max_line_length: 0,
         }
     }
 }

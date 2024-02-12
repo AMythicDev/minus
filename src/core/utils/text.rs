@@ -104,6 +104,7 @@ pub struct FormatResult {
     /// Map of where first row of each line is placed inside in
     /// [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
     pub lines_to_row_map: LinesRowMap,
+    pub max_line_length: usize,
 }
 
 /// Makes the text that will be displayed.
@@ -161,6 +162,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     let mut lines_to_row_map = LinesRowMap::new();
 
+    let mut max_line_length = 0;
+
     // Return if we have nothing to format
     if lines.is_empty() {
         return FormatResult {
@@ -170,6 +173,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             #[cfg(feature = "search")]
             append_search_idx,
             lines_to_row_map,
+            max_line_length,
         };
     }
 
@@ -207,6 +211,10 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     formatted_row_count += first_line.len();
     fmtl.append(&mut first_line);
 
+    if lines.first().unwrap().1.len() > max_line_length {
+        max_line_length = lines.first().unwrap().1.len();
+    }
+
     // Format all other lines except the first and last line
     let mid_lines = lines
         .iter()
@@ -229,6 +237,10 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             );
             lines_to_row_map.insert(formatted_row_count, true);
             formatted_row_count += fmt_line.len();
+            if lines.len() > max_line_length {
+                max_line_length = lines.first().unwrap().1.len();
+            }
+
             fmt_line
         });
     fmtl.extend(mid_lines);
@@ -254,6 +266,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         None
     };
     lines_to_row_map.insert(formatted_row_count, true);
+    if lines.len() > max_line_length {
+        max_line_length = lines.first().unwrap().1.len();
+    }
 
     #[cfg(feature = "search")]
     {
@@ -305,6 +320,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         #[cfg(feature = "search")]
         append_search_idx,
         lines_to_row_map,
+        max_line_length,
     }
 }
 
@@ -351,7 +367,7 @@ pub fn formatted_line<'a>(
     //
     // We reduce this from the number of available columns as this space cannot be used for
     // actual line display when wrapping the lines
-    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 2;
+    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
 
     let cols_avail = if line_numbers {
         cols.saturating_sub(padding + 2)
