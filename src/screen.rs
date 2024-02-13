@@ -6,6 +6,10 @@ pub struct Screen {
     pub(crate) formatted_lines: Vec<String>,
     pub(crate) line_count: usize,
     pub(crate) max_line_length: usize,
+    /// Whether to Line wrap lines
+    ///
+    /// Its negation gives the state of whether horizontal scrolling is allowed.
+    pub(crate) line_wrapping: bool,
 }
 
 impl Screen {
@@ -40,6 +44,7 @@ impl Screen {
 impl Default for Screen {
     fn default() -> Self {
         Self {
+            line_wrapping: true,
             orig_text: String::with_capacity(100 * 1024),
             formatted_lines: Vec::with_capacity(500 * 1024),
             line_count: 0,

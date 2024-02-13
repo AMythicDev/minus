@@ -48,7 +48,7 @@ pub fn handle_event(
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
-        Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.line_wrapping => {
+        Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.screen.line_wrapping => {
             if lm.saturating_add(p.cols) > p.screen.get_max_line_length() && lm > p.left_mark {
                 return Ok(());
             }
@@ -281,7 +281,7 @@ pub fn handle_event(
         }
         Command::SetExitStrategy(es) => p.exit_strategy = es,
         Command::LineWrapping(lw) => {
-            p.line_wrapping = lw;
+            p.screen.line_wrapping = lw;
             p.format_lines();
         }
         #[cfg(feature = "static_output")]

@@ -176,7 +176,7 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
             initial_upper_mark: ps.upper_mark,
             upper_mark: ps.upper_mark,
             initial_formatted_lines: &ps.screen.formatted_lines,
-            line_wrapping: ps.line_wrapping,
+            line_wrapping: ps.screen.line_wrapping,
         }
     }
 }

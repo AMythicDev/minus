@@ -107,8 +107,6 @@ pub struct PagerState {
     /// If the `upper_mark` is 15, then the first row of the terminal is the 16th line of the data
     /// and last row is the 24th line of the data.
     pub upper_mark: usize,
-    /// Whether to Line wrap lines
-    pub(crate) line_wrapping: bool,
     /// The left mark of scrolling
     ///
     /// When this is `> 0`, this amount of text will be truncated from the left side
@@ -199,7 +197,6 @@ impl PagerState {
             unterminated: 0,
             prompt,
             running: &minus_core::RUNMODE,
-            line_wrapping: true,
             left_mark: 0,
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
@@ -262,7 +259,7 @@ impl PagerState {
             &self.screen.orig_text,
             self.line_numbers,
             self.cols,
-            self.line_wrapping,
+            self.screen.line_wrapping,
             #[cfg(feature = "search")]
             &self.search_state.search_term,
         );
@@ -406,7 +403,7 @@ impl PagerState {
             lines_count: old_lc,
             prev_unterminated: self.unterminated,
             cols: self.cols,
-            line_wrapping: self.line_wrapping,
+            line_wrapping: self.screen.line_wrapping,
             #[cfg(feature = "search")]
             search_term: &self.search_state.search_term,
         };

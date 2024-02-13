@@ -266,7 +266,7 @@ where
     });
 
     map.add_key_events(&["c-s-h"], |_, ps| {
-        InputEvent::HorizontalScroll(!ps.line_wrapping)
+        InputEvent::HorizontalScroll(!ps.screen.line_wrapping)
     });
     map.add_key_events(&["h", "left"], |_, ps| {
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
@@ -479,7 +479,7 @@ impl InputClassifier for DefaultInputClassifier {
                 modifiers,
                 ..
             }) if modifiers == KeyModifiers::CONTROL.intersection(KeyModifiers::SHIFT) => {
-                Some(InputEvent::HorizontalScroll(!ps.line_wrapping))
+                Some(InputEvent::HorizontalScroll(!ps.screen.line_wrapping))
             }
 
             Event::Key(KeyEvent {
