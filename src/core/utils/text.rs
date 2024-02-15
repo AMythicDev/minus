@@ -146,44 +146,38 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     //   either documented in their respective section or self-understanable so not discussed here.
     //
     // Now the good stuff...
-    // To format the text we first split the line into three parts: first_line, mid_lines and last_line.
-    // * First we format the first line, and all update the tracking variables. We do this to take
-    //   proper care for the `attachment`.
-    // * Then we format `mid_lines`, while also updating all the tracking variables.
+    // * First, if there's an attachment, we merge it with the actual text to be formatted
+    //   and tweak certain parameters (see below)
+    // * Then  we split the entire text block into two parts: rest_lines and last_line.
+    // * Next we format the rest_lines, and all update the tracking variables.
     // * Next we format the last line and keep it separate to calculate unterminated.
-    // * If there's exactly one line to format, then unterminated is calculated using the first
-    // line only as it is the only line.
+    // * If there's exactly one line to format, it will automatically behave as last_line and there
+    //   will be no rest_lines.
     // * After all the formatting is done, we return the format results.
-    let mut clean_append = true;
 
     // Compute the text to be format and set clean_append
-    let to_format = opts.attachment.as_ref().map_or_else(
-        || opts.text.to_string(),
-        |attached_text| {
-            let mut s = String::with_capacity(opts.text.len() + attached_text.len());
-            s.push_str(attached_text);
-            s.push_str(opts.text);
-            {
-                clean_append = false;
-            }
-            s
-        },
-    );
-
-    // Tweak certain parameters if we are joining the last line of already present text with the first line of
-    // incoming text.
-    //
-    // First reduce line count by 1 if, because the first line of the incoming text should have the same line
-    // number as the last line. Hence all subsequent lines must get a line number less than expected.
-    //
-    // Next subtract the number of rows that the last line occupied from formatted_lines_count since it is
-    // also getting reformatted. This can be easily accomplished by taking help of [`PagerState::unterminated`]
-    // which we get in opts.prev_unterminated.
-    if !clean_append {
+    let to_format;
+    if let Some(ref attached_text) = opts.attachment {
+        // Tweak certain parameters if we are joining the last line of already present text with the first line of
+        // incoming text.
+        //
+        // First reduce line count by 1 if, because the first line of the incoming text should have the same line
+        // number as the last line. Hence all subsequent lines must get a line number less than expected.
+        //
+        // Next subtract the number of rows that the last line occupied from formatted_lines_count since it is
+        // also getting reformatted. This can be easily accomplished by taking help of [`PagerState::unterminated`]
+        // which we get in opts.prev_unterminated.
         opts.lines_count = opts.lines_count.saturating_sub(1);
         opts.formatted_lines_count = opts
             .formatted_lines_count
             .saturating_sub(opts.prev_unterminated);
+        let mut s = String::with_capacity(opts.text.len() + attached_text.len());
+        s.push_str(attached_text);
+        s.push_str(opts.text);
+
+        to_format = s;
+    } else {
+        to_format = opts.text.to_string();
     }
 
     let lines = to_format
@@ -217,34 +211,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
     let mut formatted_row_count = opts.formatted_lines_count;
 
-    let mut first_line = formatted_line(
-        lines.first().unwrap().1,
-        line_number_digits,
-        opts.lines_count,
-        opts.line_numbers,
-        opts.cols,
-        opts.line_wrapping,
-        // Reduce formatted index by one if we we are overwriting the last line on the terminal
-        #[cfg(feature = "search")]
-        formatted_row_count,
-        #[cfg(feature = "search")]
-        &mut fr.append_search_idx,
-        #[cfg(feature = "search")]
-        opts.search_term,
-    );
-
-    fr.lines_to_row_map.insert(formatted_row_count, true);
-    formatted_row_count += first_line.len();
-    fmt_lines.append(&mut first_line);
-
-    if lines.first().unwrap().1.len() > fr.max_line_length {
-        fr.max_line_length = lines.first().unwrap().1.len();
-    }
-
     let mid_lines = lines
         .iter()
-        .skip(1)
-        .take(lines.len().saturating_sub(2))
+        .take(lines.len().saturating_sub(1))
         .flat_map(|(idx, line)| {
             let fmt_line = formatted_line(
                 line,
@@ -270,24 +239,20 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         });
     fmt_lines.extend(mid_lines);
 
-    let last_line = if to_format_size > 1 {
-        Some(formatted_line(
-            lines.last().unwrap().1,
-            line_number_digits,
-            opts.lines_count + to_format_size - 1,
-            opts.line_numbers,
-            opts.cols,
-            opts.line_wrapping,
-            #[cfg(feature = "search")]
-            formatted_row_count,
-            #[cfg(feature = "search")]
-            &mut fr.append_search_idx,
-            #[cfg(feature = "search")]
-            opts.search_term,
-        ))
-    } else {
-        None
-    };
+    let mut last_line = formatted_line(
+        lines.last().unwrap().1,
+        line_number_digits,
+        opts.lines_count + to_format_size - 1,
+        opts.line_numbers,
+        opts.cols,
+        opts.line_wrapping,
+        #[cfg(feature = "search")]
+        formatted_row_count,
+        #[cfg(feature = "search")]
+        &mut fr.append_search_idx,
+        #[cfg(feature = "search")]
+        opts.search_term,
+    );
     fr.lines_to_row_map.insert(formatted_row_count, true);
     if lines.last().unwrap().1.len() > fr.max_line_length {
         fr.max_line_length = lines.last().unwrap().1.len();
@@ -324,18 +289,11 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     fr.num_unterminated = if opts.text.ends_with('\n') {
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
-    } else if to_format_size > 1 {
-        // If tthere are more than 1 line of text, get the last line's size and return it as unterminated
-        last_line.as_ref().unwrap().len()
     } else {
-        // If there is only one line, return the size fmtl as it will be the size of the first line
-        // anyway
-        fmt_lines.len()
+        last_line.len()
     };
 
-    if let Some(mut ll) = last_line {
-        fmt_lines.append(&mut ll);
-    }
+    fmt_lines.append(&mut last_line);
 
     fr.text = fmt_lines;
 
