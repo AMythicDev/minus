@@ -103,10 +103,14 @@ pub struct PagerState {
     /// the terminal.
     /// When `rows - 1` is added to the `upper_mark`, it gives the lower bound of scroll.
     ///
-    /// For example if there are 10 rows is a terminal and the data to display has 50 lines in it/
+    /// For example if there are 10 rows is a terminal and the data to display has 50 lines in it
     /// If the `upper_mark` is 15, then the first row of the terminal is the 16th line of the data
     /// and last row is the 24th line of the data.
     pub upper_mark: usize,
+    /// The left mark of scrolling
+    ///
+    /// When this is `> 0`, this amount of text will be truncated from the left side
+    pub left_mark: usize,
     /// Direction of search
     ///
     /// See [`SearchMode`] for available options
@@ -193,6 +197,7 @@ impl PagerState {
             unterminated: 0,
             prompt,
             running: &minus_core::RUNMODE,
+            left_mark: 0,
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
@@ -254,6 +259,7 @@ impl PagerState {
             &self.screen.orig_text,
             self.line_numbers,
             self.cols,
+            self.screen.line_wrapping,
             #[cfg(feature = "search")]
             &self.search_state.search_term,
         );
@@ -264,6 +270,7 @@ impl PagerState {
         }
         self.screen.formatted_lines = format_result.text;
         self.lines_to_row_map = format_result.lines_to_row_map;
+        self.screen.max_line_length = format_result.max_line_length;
 
         self.unterminated = format_result.num_unterminated;
         self.format_prompt();
@@ -396,21 +403,30 @@ impl PagerState {
             lines_count: old_lc,
             prev_unterminated: self.unterminated,
             cols: self.cols,
+            line_wrapping: self.screen.line_wrapping,
             #[cfg(feature = "search")]
             search_term: &self.search_state.search_term,
         };
 
         let append_props = text::format_text_block(append_opts);
 
-        let (mut fmt_line, num_unterminated, mut lines_to_row_map, lines_formatted) = (
+        let (
+            mut fmt_line,
+            num_unterminated,
+            mut lines_to_row_map,
+            lines_formatted,
+            max_line_length,
+        ) = (
             append_props.text,
             append_props.num_unterminated,
             append_props.lines_to_row_map,
             append_props.lines_formatted,
+            append_props.max_line_length,
         );
 
         let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
         self.screen.line_count = new_lc;
+        self.screen.max_line_length = max_line_length;
         let new_lc_dgts = minus_core::utils::digits(new_lc);
 
         #[cfg(feature = "search")]

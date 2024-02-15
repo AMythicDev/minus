@@ -84,6 +84,9 @@ pub struct FormatOpts<'a> {
     /// Search term if a search is active
     #[cfg(feature = "search")]
     pub search_term: &'a Option<regex::Regex>,
+
+    /// Value of [PagerState::line_wrapping]
+    pub line_wrapping: bool,
 }
 
 /// Properties related to appending of incoming data
@@ -101,6 +104,7 @@ pub struct FormatResult {
     /// Map of where first row of each line is placed inside in
     /// [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
     pub lines_to_row_map: LinesRowMap,
+    pub max_line_length: usize,
 }
 
 /// Makes the text that will be displayed.
@@ -158,6 +162,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     let mut lines_to_row_map = LinesRowMap::new();
 
+    let mut max_line_length = 0;
+
     // Return if we have nothing to format
     if lines.is_empty() {
         return FormatResult {
@@ -167,6 +173,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             #[cfg(feature = "search")]
             append_search_idx,
             lines_to_row_map,
+            max_line_length,
         };
     }
 
@@ -189,12 +196,13 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         line_number_digits,
         opts.lines_count,
         opts.line_numbers,
+        opts.cols,
+        opts.line_wrapping,
         // Reduce formatted index by one if we we are overwriting the last line on the terminal
         #[cfg(feature = "search")]
         formatted_row_count,
         #[cfg(feature = "search")]
         &mut append_search_idx,
-        opts.cols,
         #[cfg(feature = "search")]
         opts.search_term,
     );
@@ -202,6 +210,10 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     lines_to_row_map.insert(formatted_row_count, true);
     formatted_row_count += first_line.len();
     fmtl.append(&mut first_line);
+
+    if lines.first().unwrap().1.len() > max_line_length {
+        max_line_length = lines.first().unwrap().1.len();
+    }
 
     // Format all other lines except the first and last line
     let mid_lines = lines
@@ -214,16 +226,21 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
                 line_number_digits,
                 opts.lines_count + idx,
                 opts.line_numbers,
+                opts.cols,
+                opts.line_wrapping,
                 #[cfg(feature = "search")]
                 formatted_row_count,
                 #[cfg(feature = "search")]
                 &mut append_search_idx,
-                opts.cols,
                 #[cfg(feature = "search")]
                 opts.search_term,
             );
             lines_to_row_map.insert(formatted_row_count, true);
             formatted_row_count += fmt_line.len();
+            if lines.len() > max_line_length {
+                max_line_length = line.len();
+            }
+
             fmt_line
         });
     fmtl.extend(mid_lines);
@@ -236,11 +253,12 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             line_number_digits,
             opts.lines_count + to_format_size - 1,
             opts.line_numbers,
+            opts.cols,
+            opts.line_wrapping,
             #[cfg(feature = "search")]
             formatted_row_count,
             #[cfg(feature = "search")]
             &mut append_search_idx,
-            opts.cols,
             #[cfg(feature = "search")]
             opts.search_term,
         ))
@@ -248,6 +266,9 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         None
     };
     lines_to_row_map.insert(formatted_row_count, true);
+    if lines.last().unwrap().1.len() > max_line_length {
+        max_line_length = lines.last().unwrap().1.len();
+    }
 
     #[cfg(feature = "search")]
     {
@@ -299,6 +320,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         #[cfg(feature = "search")]
         append_search_idx,
         lines_to_row_map,
+        max_line_length,
     }
 }
 
@@ -324,10 +346,11 @@ pub fn formatted_line<'a>(
     len_line_number: usize,
     idx: usize,
     line_numbers: LineNumbers,
-    #[cfg(feature = "search")] formatted_idx: usize,
-    #[cfg(feature = "search")] search_idx: &'a mut BTreeSet<usize>,
     cols: usize,
-    #[cfg(feature = "search")] search_term: &'a Option<regex::Regex>,
+    line_wrapping: bool,
+    #[cfg(feature = "search")] formatted_idx: usize,
+    #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
+    #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> Vec<String> {
     assert!(
         !line.contains('\n'),
@@ -340,17 +363,23 @@ pub fn formatted_line<'a>(
     // NOTE: Only relevant when line numbers are active
     // Padding is the space that the actual line text will be shifted to accommodate for
     // line numbers. This is equal to:-
-    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.')
+    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.') + 1 (for 1 space)
     //
     // We reduce this from the number of available columns as this space cannot be used for
     // actual line display when wrapping the lines
     let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
 
-    // Wrap the line and return an iterator over all the rows
-    let mut enumerated_rows = if line_numbers {
-        textwrap::wrap(line, cols.saturating_sub(padding + 2))
+    let cols_avail = if line_numbers {
+        cols.saturating_sub(padding + 2)
     } else {
-        textwrap::wrap(line, cols)
+        cols
+    };
+
+    // Wrap the line and return an iterator over all the rows
+    let mut enumerated_rows = if line_wrapping {
+        textwrap::wrap(line, cols_avail)
+    } else {
+        vec![Cow::from(line)]
     }
     .into_iter()
     .enumerate();
@@ -437,6 +466,7 @@ pub fn make_format_lines(
     text: &String,
     line_numbers: LineNumbers,
     cols: usize,
+    line_wrapping: bool,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> FormatResult {
     let format_opts = FormatOpts {
@@ -449,6 +479,7 @@ pub fn make_format_lines(
         cols,
         #[cfg(feature = "search")]
         search_term,
+        line_wrapping,
     };
 
     format_text_block(format_opts)
@@ -469,6 +500,7 @@ mod unterminated {
             cols: 80,
             line_numbers: crate::LineNumbers::Disabled,
             prev_unterminated: 0,
+            line_wrapping: true,
         }
     }
 

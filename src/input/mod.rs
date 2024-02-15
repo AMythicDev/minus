@@ -85,6 +85,7 @@
 
 pub(crate) mod definitions;
 pub(crate) mod event_wrapper;
+
 pub use crossterm::event as crossterm_event;
 
 #[cfg(feature = "search")]
@@ -111,6 +112,12 @@ pub enum InputEvent {
     Number(char),
     /// Restore the original prompt
     RestorePrompt,
+    /// Whether to allow Horizontal scrolling
+    HorizontalScroll(bool),
+    /// Sets the left mark of Horizontal scrolling
+    ///
+    /// Sent by keys like `l`, `h`, `right`, `left` etc.
+    UpdateLeftMark(usize),
     /// Tells the event hadler to not do anything for this event
     ///
     /// This is extremely useful when you want to execute arbitrary code on events without
@@ -257,6 +264,19 @@ where
     map.add_mouse_events(&["scroll:down"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
     });
+
+    map.add_key_events(&["c-s-h"], |_, ps| {
+        InputEvent::HorizontalScroll(!ps.screen.line_wrapping)
+    });
+    map.add_key_events(&["h", "left"], |_, ps| {
+        let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+        InputEvent::UpdateLeftMark(ps.left_mark.saturating_sub(position))
+    });
+    map.add_key_events(&["l", "right"], |_, ps| {
+        let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+        InputEvent::UpdateLeftMark(ps.left_mark.saturating_add(position))
+    });
+    // TODO: Add keybindings for left right scrolling
 
     map.add_resize_event(|ev, _| {
         let Event::Resize(cols, rows) = ev else {
@@ -440,6 +460,7 @@ impl InputClassifier for DefaultInputClassifier {
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => Some(InputEvent::UpdateLineNumber(!ps.line_numbers)),
+
             // Quit.
             Event::Key(KeyEvent {
                 code: KeyCode::Char('q'),
@@ -451,6 +472,38 @@ impl InputClassifier for DefaultInputClassifier {
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => Some(InputEvent::Exit),
+
+            // Horizontal scrolling
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('h'),
+                modifiers,
+                ..
+            }) if modifiers == KeyModifiers::CONTROL.intersection(KeyModifiers::SHIFT) => {
+                Some(InputEvent::HorizontalScroll(!ps.screen.line_wrapping))
+            }
+
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('h'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Left,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => Some(InputEvent::UpdateLeftMark(ps.left_mark.saturating_sub(1))),
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('l'),
+                modifiers: KeyModifiers::NONE,
+                ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Right,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => Some(InputEvent::UpdateLeftMark(ps.left_mark.saturating_add(1))),
+
+            // Search
             #[cfg(feature = "search")]
             Event::Key(KeyEvent {
                 code: KeyCode::Char('/'),

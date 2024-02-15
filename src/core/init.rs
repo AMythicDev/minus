@@ -34,7 +34,7 @@ use std::{
 };
 
 #[cfg(feature = "static_output")]
-use {super::utils::display::write_lines, crossterm::tty::IsTty};
+use {super::utils::display::write_raw_lines, crossterm::tty::IsTty};
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -98,7 +98,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     if *RUNMODE.lock() == RunMode::Static {
         // If stdout is not a tty, write everything and quit
         if !out.is_tty() {
-            write_lines(&mut out, &[ps.screen.orig_text], None)?;
+            write_raw_lines(&mut out, &[ps.screen.orig_text], None)?;
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
             drop(rm);
@@ -107,7 +107,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         // If number of lines of text is less than available rows, write everything and quit
         // unless run_no_overflow is set to true
         if ps.screen.formatted_lines_count() <= ps.rows && !ps.run_no_overflow {
-            write_lines(&mut out, &ps.screen.formatted_lines, Some("\r"))?;
+            write_raw_lines(&mut out, &ps.screen.formatted_lines, Some("\r"))?;
             ps.exit();
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
@@ -228,6 +228,7 @@ fn start_reactor(
 
     {
         let mut p = ps.lock();
+
         draw_full(&mut out_lock, &mut p)?;
 
         if p.follow_output {

@@ -48,6 +48,13 @@ pub fn handle_event(
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
+        Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.screen.line_wrapping => {
+            if lm.saturating_add(p.cols) > p.screen.get_max_line_length() && lm > p.left_mark {
+                return Ok(());
+            }
+            p.left_mark = lm;
+            display::draw_full(out, p)?
+        }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
@@ -229,7 +236,6 @@ pub fn handle_event(
             p.format_lines();
             display::draw_full(&mut out, p)?;
         }
-
         Command::AppendData(text) => {
             let prev_unterminated = p.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
@@ -274,6 +280,10 @@ pub fn handle_event(
             display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
         }
         Command::SetExitStrategy(es) => p.exit_strategy = es,
+        Command::LineWrapping(lw) => {
+            p.screen.line_wrapping = lw;
+            p.format_lines();
+        }
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]

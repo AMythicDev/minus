@@ -9,7 +9,7 @@ use crossterm::{
 use std::{cmp::Ordering, convert::TryInto, io::Write};
 
 use super::{term, text::AppendStyle};
-use crate::{error::MinusError, PagerState};
+use crate::{error::MinusError, minus_core, LineNumbers, PagerState};
 
 /// Handles drawing of screen based on movement
 ///
@@ -19,20 +19,20 @@ use crate::{error::MinusError, PagerState};
 /// only that part of the terminal.
 pub fn draw_for_change(
     out: &mut impl Write,
-    p: &mut PagerState,
+    ps: &mut PagerState,
     new_upper_mark: &mut usize,
 ) -> Result<(), MinusError> {
-    let line_count = p.screen.formatted_lines_count();
+    let line_count = ps.screen.formatted_lines_count();
 
     // Reduce one row for prompt/messages
     //
     // NOTE This should be the value of rows that should be used throughout this function.
     // Don't use PagerState::rows, it might lead to wrong output
-    let writable_rows = p.rows.saturating_sub(1);
+    let writable_rows = ps.rows.saturating_sub(1);
 
     // Calculate the lower_bound for current and new upper marks
     // by adding either the rows or line_count depending on the minimality
-    let lower_bound = p.upper_mark.saturating_add(writable_rows.min(line_count));
+    let lower_bound = ps.upper_mark.saturating_add(writable_rows.min(line_count));
     let new_lower_bound = new_upper_mark.saturating_add(writable_rows.min(line_count));
 
     // If the lower_bound is greater than the available line count, we set it to such a value
@@ -41,7 +41,7 @@ pub fn draw_for_change(
         *new_upper_mark = line_count.saturating_sub(writable_rows);
     }
 
-    let delta = new_upper_mark.abs_diff(p.upper_mark);
+    let delta = new_upper_mark.abs_diff(ps.upper_mark);
     // Sometimes the value of delta is too large that we can rather use the value of the writable rows to
     // achieve the same effect with better performance. This means that we have draw to less lines to the terminal
     //
@@ -56,7 +56,7 @@ pub fn draw_for_change(
     // need this value whatever the value of delta be.
     let normalized_delta = delta.min(writable_rows);
 
-    let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
+    let lines = match (*new_upper_mark).cmp(&ps.upper_mark) {
         Ordering::Greater => {
             // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
             // Clear it off and start displaying new dta.
@@ -67,7 +67,7 @@ pub fn draw_for_change(
             term::move_cursor(
                 out,
                 0,
-                p.rows
+                ps.rows
                     .saturating_sub(normalized_delta + 1)
                     .try_into()
                     .unwrap(),
@@ -76,10 +76,10 @@ pub fn draw_for_change(
             queue!(out, Clear(ClearType::CurrentLine))?;
 
             if delta < writable_rows {
-                p.screen
+                ps.screen
                     .get_formatted_lines_with_bounds(lower_bound, new_lower_bound)
             } else {
-                p.screen.get_formatted_lines_with_bounds(
+                ps.screen.get_formatted_lines_with_bounds(
                     *new_upper_mark,
                     new_upper_mark.saturating_add(normalized_delta),
                 )
@@ -92,7 +92,7 @@ pub fn draw_for_change(
             )?;
             term::move_cursor(out, 0, 0, false)?;
 
-            p.screen.get_formatted_lines_with_bounds(
+            ps.screen.get_formatted_lines_with_bounds(
                 *new_upper_mark,
                 new_upper_mark.saturating_add(normalized_delta),
             )
@@ -100,14 +100,20 @@ pub fn draw_for_change(
         Ordering::Equal => return Ok(()),
     };
 
-    for line in lines {
-        writeln!(out, "\r{line}")?;
-    }
+    write_lines(
+        out,
+        lines,
+        ps.cols,
+        ps.screen.line_wrapping,
+        ps.left_mark,
+        ps.line_numbers.is_on(),
+        ps.screen.get_line_count(),
+    )?;
 
-    p.upper_mark = *new_upper_mark;
+    ps.upper_mark = *new_upper_mark;
 
-    if p.show_prompt {
-        super::display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+    if ps.show_prompt {
+        super::display::write_prompt(out, &ps.displayed_prompt, ps.rows.try_into().unwrap())?;
     }
     out.flush()?;
 
@@ -243,7 +249,7 @@ pub fn write_text_checked(
     term::move_cursor(out, 0, 0, false)?;
     term::clear_entire_screen(out, false)?;
 
-    write_lines(out, display_lines, Some("\r"))
+    write_raw_lines(out, display_lines, Some("\r"))
 }
 
 pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
@@ -267,7 +273,73 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
         .screen
         .get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
 
-    write_lines(out, display_lines, Some("\r"))
+    write_lines(
+        out,
+        display_lines,
+        ps.cols,
+        ps.screen.line_wrapping,
+        ps.left_mark,
+        ps.line_numbers.is_on(),
+        ps.screen.get_line_count(),
+    )
+}
+
+pub fn write_lines(
+    out: &mut impl Write,
+    lines: &[String],
+    cols: usize,
+    line_wrapping: bool,
+    left_mark: usize,
+    line_numbers: bool,
+    line_count: usize,
+) -> crate::Result {
+    if !line_wrapping {
+        write_lines_in_horizontal_scroll(out, lines, cols, left_mark, line_numbers, line_count)
+    } else {
+        write_raw_lines(out, lines, Some("\r"))
+    }
+}
+
+pub fn write_lines_in_horizontal_scroll(
+    out: &mut impl Write,
+    lines: &[String],
+    cols: usize,
+    start: usize,
+    line_numbers: bool,
+    line_count: usize,
+) -> crate::Result {
+    let line_number_ascii_seq_len = if line_numbers { 8 } else { 0 };
+    let line_number_padding = if line_numbers {
+        minus_core::utils::digits(line_count) + LineNumbers::EXTRA_PADDING + 3
+    } else {
+        0
+    };
+    let shifted_start = if line_numbers {
+        start + line_number_padding + line_number_ascii_seq_len
+    } else {
+        start
+    };
+
+    for line in lines {
+        let end = shifted_start + cols.min(line.len().saturating_sub(shifted_start))
+            - line_number_padding;
+
+        if start < line.len() {
+            if line_numbers {
+                writeln!(
+                    out,
+                    "\r{}{}",
+                    &line[0..line_number_padding + line_number_ascii_seq_len],
+                    &line[shifted_start..end]
+                )?;
+            } else {
+                writeln!(out, "\r{}", &line[shifted_start..end])?;
+            }
+        } else {
+            writeln!(out, "\r")?;
+        }
+    }
+    Ok(())
 }
 
 /// Write lines to the the output
@@ -276,7 +348,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
 /// `initial` tells any extra text to be inserted before each line. For functions that use this
 /// function over terminals, this should be set to `\r` to avoid broken display.
 /// The `\r` resets the cursor to the start of the line.
-pub fn write_lines(
+pub fn write_raw_lines(
     out: &mut impl Write,
     lines: &[String],
     initial: Option<&str>,

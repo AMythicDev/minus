@@ -164,6 +164,8 @@ pub struct IncrementalSearchOpts<'a> {
     pub initial_formatted_lines: &'a Vec<String>,
     /// Value of [PagerState::upper_mark] before starting of search prompt
     pub initial_upper_mark: usize,
+    /// Value of [PagerState::line_wrapping] before starting of search prompt
+    pub line_wrapping: bool,
 }
 
 impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
@@ -174,6 +176,7 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
             initial_upper_mark: ps.upper_mark,
             upper_mark: ps.upper_mark,
             initial_formatted_lines: &ps.screen.formatted_lines,
+            line_wrapping: ps.screen.line_wrapping,
         }
     }
 }
@@ -329,6 +332,7 @@ where
         incremental_search_options.text,
         incremental_search_options.line_numbers,
         so.cols.into(),
+        incremental_search_options.line_wrapping,
         &so.compiled_regex,
     );
     let position_of_next_match = next_nth_match(
