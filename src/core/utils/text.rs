@@ -89,11 +89,18 @@ pub struct FormatOpts<'a> {
     pub line_wrapping: bool,
 }
 
-/// Properties related to appending of incoming data
+/// Contains the formatted rows along with some basic information about the text formatted
+///
+/// The basic information includes things like the number of lines formatted or the length of
+/// longest line encountered. These are tracked as ach line is being formatted hence we refer to
+/// them as **tracking variables**.
 #[derive(Debug)]
 pub struct FormatResult {
     /// Formatted incoming lines
     pub text: Vec<String>,
+    //
+    // **Tracking variables**
+    //
     /// Number of lines that have been formatted from `text`.
     pub lines_formatted: usize,
     /// Number of rows that are unterminated
@@ -104,28 +111,60 @@ pub struct FormatResult {
     /// Map of where first row of each line is placed inside in
     /// [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
     pub lines_to_row_map: LinesRowMap,
+    /// The length of longest line encountered in the formatted text block
     pub max_line_length: usize,
 }
 
 /// Makes the text that will be displayed.
 #[allow(clippy::too_many_lines)]
 pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
-    // Tells whether the line should go on a new row or should it be appended to the last line
-    // By default it is set to true, unless a last line i.e attachment is not None
-    let mut append = true;
+    // Formatting a text block not only requires us to format each line according to the terminal
+    // configuration and the main applications's preference but also gather some basic information
+    // about the text that we formatted. The basic information that we gather is supplied along
+    // with the formatted lines in the FormatResult's tracking variables.
+    //
+    // This is a high level overview of how the text formatting works.
+    //
+    // For a text block, we hae a couple of things to care about:-
+    // * Each line is formatted using the using the `formatted_line()` function.
+    //   After a line has been formatted using the `formatted_line()` function, calling `.len()` on
+    //   the returned vector will give the number of rows that it would span on the terminal.
+    //   For less confusion, we call this *row span of that line*.
+    // * The first line can have an attachment, in the sense that it can be part of the last line of the
+    //   already present text. In that case the FrmatResult::attachment will hold a `Some(...)`
+    //   value. `clean_append` keeps track of this: it will be false if an attachment is available.
+    // * Formatting of the lines between the first line and last line ie. *middle lines*, is actually
+    //   rather simple: we simply format them
+    // * The last is also similar to the middle lines except for one exception:-
+    //
+    //      If it isn't terminated by a \n then we need to find how many rows it
+    //      will span in the terminal and set it to the `unterminated` count.
+    //
+    //   More on this is described in the unterminated section.
+    //
+    // * We also have more things to take care like `append_search_idx` but most of these
+    //   either documented in their respective section or self-understanable so not discussed here.
+    //
+    // Now the good stuff...
+    // To format the text we first split the line into three parts: first_line, mid_lines and last_line.
+    // * First we format the first line, and all update the tracking variables. We do this to take
+    //   proper care for the `attachment`.
+    // * Then we format `mid_lines`, while also updating all the tracking variables.
+    // * Next we format the last line and keep it separate to calculate unterminated.
+    // * If there's exactly one line to format, then unterminated is calculated using the first
+    // line only as it is the only line.
+    // * After all the formatting is done, we return the format results.
+    let mut clean_append = true;
 
-    // Compute the text to be format
+    // Compute the text to be format and set clean_append
     let to_format = opts.attachment.as_ref().map_or_else(
         || opts.text.to_string(),
         |attached_text| {
-            // If attachment is not none, merge both the lines into one for formatting
-            // Also set append to false, as we are not pushing a new row but rather overwriting a already placed row
-            // in the terminal
             let mut s = String::with_capacity(opts.text.len() + attached_text.len());
             s.push_str(attached_text);
             s.push_str(opts.text);
             {
-                append = false;
+                clean_append = false;
             }
             s
         },
@@ -140,16 +179,12 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     // Next subtract the number of rows that the last line occupied from formatted_lines_count since it is
     // also getting reformatted. This can be easily accomplished by taking help of [`PagerState::unterminated`]
     // which we get in opts.prev_unterminated.
-    if !append {
+    if !clean_append {
         opts.lines_count = opts.lines_count.saturating_sub(1);
         opts.formatted_lines_count = opts
             .formatted_lines_count
             .saturating_sub(opts.prev_unterminated);
     }
-
-    // This will get filled if there is an ongoing search
-    #[cfg(feature = "search")]
-    let mut append_search_idx = BTreeSet::new();
 
     let lines = to_format
         .lines()
@@ -158,38 +193,29 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
     let to_format_size = lines.len();
 
+    let mut fr = FormatResult {
+        text: Vec::with_capacity(0),
+        lines_formatted: to_format_size,
+        num_unterminated: opts.prev_unterminated,
+        #[cfg(feature = "search")]
+        append_search_idx: BTreeSet::new(),
+        lines_to_row_map: LinesRowMap::new(),
+        max_line_length: 0,
+    };
+
     let line_number_digits = minus_core::utils::digits(opts.lines_count + to_format_size);
-
-    let mut lines_to_row_map = LinesRowMap::new();
-
-    let mut max_line_length = 0;
 
     // Return if we have nothing to format
     if lines.is_empty() {
-        return FormatResult {
-            text: Vec::with_capacity(0),
-            lines_formatted: to_format_size,
-            num_unterminated: opts.prev_unterminated,
-            #[cfg(feature = "search")]
-            append_search_idx,
-            lines_to_row_map,
-            max_line_length,
-        };
+        return fr;
     }
 
-    let mut fmtl = Vec::with_capacity(256);
+    // A container for the individual rows to be stored.
+    let mut fmt_lines = Vec::with_capacity(256);
 
     // Number of rows that have been formatted so far
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
     let mut formatted_row_count = opts.formatted_lines_count;
-
-    // To format the text we first split the line into three parts: first line, last line and middle lines.
-    // Then we individually format each of these and finally join each of these components together to form
-    // the entire line, which is ready to be inserted into PagerState::formatted_lines.
-    // At any point, calling .len() on any of these gives the number of rows that the line has occupied on the screen.
-
-    // We need to take care of first line as it can either be itself from the text, if append is true or it can be
-    // attachment + first line from text, if append is false
 
     let mut first_line = formatted_line(
         lines.first().unwrap().1,
@@ -202,20 +228,19 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         #[cfg(feature = "search")]
         formatted_row_count,
         #[cfg(feature = "search")]
-        &mut append_search_idx,
+        &mut fr.append_search_idx,
         #[cfg(feature = "search")]
         opts.search_term,
     );
 
-    lines_to_row_map.insert(formatted_row_count, true);
+    fr.lines_to_row_map.insert(formatted_row_count, true);
     formatted_row_count += first_line.len();
-    fmtl.append(&mut first_line);
+    fmt_lines.append(&mut first_line);
 
-    if lines.first().unwrap().1.len() > max_line_length {
-        max_line_length = lines.first().unwrap().1.len();
+    if lines.first().unwrap().1.len() > fr.max_line_length {
+        fr.max_line_length = lines.first().unwrap().1.len();
     }
 
-    // Format all other lines except the first and last line
     let mid_lines = lines
         .iter()
         .skip(1)
@@ -231,22 +256,20 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
                 #[cfg(feature = "search")]
                 formatted_row_count,
                 #[cfg(feature = "search")]
-                &mut append_search_idx,
+                &mut fr.append_search_idx,
                 #[cfg(feature = "search")]
                 opts.search_term,
             );
-            lines_to_row_map.insert(formatted_row_count, true);
+            fr.lines_to_row_map.insert(formatted_row_count, true);
             formatted_row_count += fmt_line.len();
-            if lines.len() > max_line_length {
-                max_line_length = line.len();
+            if lines.len() > fr.max_line_length {
+                fr.max_line_length = line.len();
             }
 
             fmt_line
         });
-    fmtl.extend(mid_lines);
+    fmt_lines.extend(mid_lines);
 
-    // Format the last line, only if first line and last line are different. We can check this
-    // by seeing whether to_format_len is greater than 1
     let last_line = if to_format_size > 1 {
         Some(formatted_line(
             lines.last().unwrap().1,
@@ -258,16 +281,16 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
             #[cfg(feature = "search")]
             formatted_row_count,
             #[cfg(feature = "search")]
-            &mut append_search_idx,
+            &mut fr.append_search_idx,
             #[cfg(feature = "search")]
             opts.search_term,
         ))
     } else {
         None
     };
-    lines_to_row_map.insert(formatted_row_count, true);
-    if lines.last().unwrap().1.len() > max_line_length {
-        max_line_length = lines.last().unwrap().1.len();
+    fr.lines_to_row_map.insert(formatted_row_count, true);
+    if lines.last().unwrap().1.len() > fr.max_line_length {
+        fr.max_line_length = lines.last().unwrap().1.len();
     }
 
     #[cfg(feature = "search")]
@@ -290,14 +313,15 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         // as these numbers are *relative to current text block*. The actual search index should have been 24, 30.
         //
         // To fix this we basically add the number of items in [`PagerState::formatted_lines`].
-        append_search_idx = append_search_idx
+        fr.append_search_idx = fr
+            .append_search_idx
             .iter()
             .map(|i| opts.formatted_lines_count + i)
             .collect();
     }
 
     // Calculate number of rows which are part of last line and are left unterminated  due to absence of \n
-    let unterminated = if opts.text.ends_with('\n') {
+    fr.num_unterminated = if opts.text.ends_with('\n') {
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
     } else if to_format_size > 1 {
@@ -306,22 +330,16 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     } else {
         // If there is only one line, return the size fmtl as it will be the size of the first line
         // anyway
-        fmtl.len()
+        fmt_lines.len()
     };
 
     if let Some(mut ll) = last_line {
-        fmtl.append(&mut ll);
+        fmt_lines.append(&mut ll);
     }
 
-    FormatResult {
-        text: fmtl,
-        num_unterminated: unterminated,
-        lines_formatted: to_format_size,
-        #[cfg(feature = "search")]
-        append_search_idx,
-        lines_to_row_map,
-        max_line_length,
-    }
+    fr.text = fmt_lines;
+
+    fr
 }
 
 /// Formats the given `line`
