@@ -92,7 +92,7 @@ pub struct FormatOpts<'a> {
 /// Contains the formatted rows along with some basic information about the text formatted
 ///
 /// The basic information includes things like the number of lines formatted or the length of
-/// longest line encountered. These are tracked as ach line is being formatted hence we refer to
+/// longest line encountered. These are tracked as each line is being formatted hence we refer to
 /// them as **tracking variables**.
 #[derive(Debug)]
 pub struct FormatResult {
@@ -211,7 +211,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
     let mut formatted_row_count = opts.formatted_lines_count;
 
-    let mid_lines = lines
+    let resy_lines = lines
         .iter()
         .take(lines.len().saturating_sub(1))
         .flat_map(|(idx, line)| {
@@ -237,7 +237,7 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
 
             fmt_line
         });
-    fmt_lines.extend(mid_lines);
+    fmt_lines.extend(resy_lines);
 
     let mut last_line = formatted_line(
         lines.last().unwrap().1,
@@ -333,7 +333,6 @@ pub fn formatted_line<'a>(
         "Newlines found in appending line {:?}",
         line
     );
-    // Whether line numbers are active
     let line_numbers = matches!(line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
 
     // NOTE: Only relevant when line numbers are active
@@ -417,13 +416,11 @@ pub fn formatted_line<'a>(
 
         #[cfg_attr(not(feature = "search"), allow(unused_mut))]
         #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-        let mut rows_left = enumerated_rows
-            .map(|(wrap_idx, mut row)| {
-                handle_search(&mut row, wrap_idx);
-                formatter(row, false, 0)
-            })
-            .collect::<Vec<String>>();
-        formatted_rows.append(&mut rows_left);
+        let rows_left = enumerated_rows.map(|(wrap_idx, mut row)| {
+            handle_search(&mut row, wrap_idx);
+            formatter(row, false, 0)
+        });
+        formatted_rows.extend(rows_left);
 
         formatted_rows
     } else {
