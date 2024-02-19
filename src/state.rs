@@ -14,7 +14,7 @@ use crate::{
         },
         CommandQueue,
     },
-    screen::Screen,
+    screen::ScreenData,
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
@@ -133,11 +133,7 @@ pub struct PagerState {
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_state: SearchState,
-    pub screen: Screen,
-    /// Unterminated lines
-    /// Keeps track of the number of lines at the last of [PagerState::formatted_lines] which are
-    /// not terminated by a newline
-    pub(crate) unterminated: usize,
+    pub screen: ScreenData,
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
     /// The input classifier to be called when a input is detected
@@ -194,7 +190,6 @@ impl PagerState {
         let mut state = Self {
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
-            unterminated: 0,
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
@@ -202,7 +197,7 @@ impl PagerState {
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
-            screen: Screen::default(),
+            screen: ScreenData::default(),
             displayed_prompt: String::new(),
             show_prompt: true,
             #[cfg(feature = "static_output")]
