@@ -220,7 +220,7 @@ impl<S> HashedEventRegister<S>
 where
     S: BuildHasher,
 {
-    /// Add a key binding that minus should respond to with the callback `cb`
+    /// Add all elemnts of `desc` as key bindings that minus should respond to with the callback `cb`
     ///
     /// # Example
     /// ```
@@ -234,11 +234,11 @@ where
     /// ```
     pub fn add_key_events(
         &mut self,
-        keys: &[&str],
+        desc: &[&str],
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
     ) {
         let v = Arc::new(cb);
-        for k in keys {
+        for k in desc {
             self.0.insert(
                 Event::Key(super::definitions::keydefs::parse_key_event(k)).into(),
                 v.clone(),
@@ -246,7 +246,7 @@ where
         }
     }
 
-    /// Removes the callback associated for the given key bindings
+    /// Removes the callback associated with the all the elements of `desc`.
     ///
     /// ```
     /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
@@ -255,8 +255,8 @@ where
     ///
     /// input_register.remove_key_events(&["down"])
     /// ```
-    pub fn remove_key_events(&mut self, keys: &[&str]) {
-        for k in keys {
+    pub fn remove_key_events(&mut self, desc: &[&str]) {
+        for k in desc {
             self.0
                 .remove(&Event::Key(super::definitions::keydefs::parse_key_event(k)).into());
         }
@@ -268,7 +268,7 @@ impl<S> HashedEventRegister<S>
 where
     S: BuildHasher,
 {
-    /// Add a mouse binding that minus should respond to with the callback `cb`
+    /// Add all elemnts of `desc` as mouse bindings that minus should respond to with the callback `cb`
     ///
     /// # Example
     /// ```
@@ -282,11 +282,11 @@ where
     /// ```
     pub fn add_mouse_events(
         &mut self,
-        keys: &[&str],
+        desc: &[&str],
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
     ) {
         let v = Arc::new(cb);
-        for k in keys {
+        for k in desc {
             self.0.insert(
                 Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into(),
                 v.clone(),
@@ -294,7 +294,7 @@ where
         }
     }
 
-    /// Removes the callback associated for the given mouse bindings
+    /// Removes the callback associated with the all the elements of `desc`.
     ///
     /// ```
     /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
@@ -303,8 +303,8 @@ where
     ///
     /// input_register.remove_mouse_events(&["scroll:down"])
     /// ```
-    pub fn remove_mouse_events(&mut self, keys: &[&str]) {
-        for k in keys {
+    pub fn remove_mouse_events(&mut self, mouse: &[&str]) {
+        for k in mouse {
             self.0
                 .remove(&Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into());
         }
