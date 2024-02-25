@@ -221,7 +221,7 @@ impl Pager {
     ///
     /// Setting this to `true` implicitly disables line wrapping
     ///
-    /// # Error
+    /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
     /// could not be sent to the receiver
     ///
@@ -235,20 +235,43 @@ impl Pager {
         Ok(self.tx.send(Command::LineWrapping(!value))?)
     }
 
-    /// Set a custom input classifer function.
+    /// Set a custom input classifer type.
     ///
+    /// An input classifier type is a type that implements the [InputClassifier]
+    /// trait. It only has one required function, [InputClassifier::classify_input]
+    /// which matches user input events and maps them to a [InputEvent]s.
     /// When the pager encounters a user input, it calls the input classifier with
-    /// the event and [PagerState](crate::state::PagerState) as parameters.
+    /// the event and [PagerState] as parameters.
     ///
-    /// A input classifier is a type implementing the [`InputClassifier`](input::InputClassifier)
-    /// trait. It only has one required function, [`InputClassifier::classify_input`](input::InputClassifier::classify_input)
-    /// which matches user input events and maps them to a [`InputEvent`](input::InputEvent)s.
+    /// Previously, whenever any application wanted to change the default key/mouse bindings
+    /// they neededd to create a new type, implement the [InputClassifier] type by copying and
+    /// pasting the default minus's implementation of it available in the [DefaultInputClassifier]
+    /// and change the parts they wanted to change. This is not only unergonomic but also
+    /// extreemely prone to bugs. Hence a newer and much simpler method was developed.
+    /// This method is still allowed to avoid breaking backwards compatiblity but will be dropped
+    /// in the next major release.
     ///
-    /// See the [`InputHandler`](input::InputClassifier) trait for information about implementing
-    /// it.
+    /// With the newer method, minus already provides a type called [HashedEventRegister]
+    /// which implementing the [InputClassifier] and is based on a
+    /// [HashMap] storing all the key/mouse bindings and its associated callback function.
+    /// This allows easy addition/updation/deletion of the default bindings with simple functions
+    /// like [HashedEventRegister::add_key_events] and [HashedEventRegister::add_mouse_events]
+    ///
+    /// See the [input] module for information about implementing it.
+    ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
     /// could not be sent to the receiver
+    ///
+    /// [HashedEventRegister::add_key_events]: input::HashedEventRegister::add_key_events
+    /// [HashedEventRegister::add_mouse_events]: input::HashedEventRegister::add_mouse_events
+    /// [HashMap]: std::collections::HashMap
+    /// [PagerState]: crate::state::PagerState
+    /// [InputEvent]: input::InputEvent
+    /// [InputClassifier]: input::InputClassifier
+    /// [InputClassifier::classify_input]: input::InputClassifier
+    /// [HashedEventRegister]: input::HashedEventRegister
+    /// [DefaultInputClassifier]: input::DefaultInputClassifier
     pub fn set_input_classifier(
         &self,
         handler: Box<dyn input::InputClassifier + Send + Sync>,
