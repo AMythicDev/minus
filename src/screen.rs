@@ -36,7 +36,7 @@ impl Screen {
         }
     }
 
-    pub(crate) fn get_max_line_length(&self) -> usize {
+    pub fn get_max_line_length(&self) -> usize {
         self.max_line_length
     }
 }
