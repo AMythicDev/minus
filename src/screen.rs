@@ -15,10 +15,11 @@ use regex::Regex;
 type Row = String;
 type Rows = Vec<String>;
 type Line = String;
-type TextBlock = String;
+type TextBlock<'a> = &'a str;
+type OwnedTextBlock = String;
 
 pub struct ScreenData {
-    pub(crate) orig_text: TextBlock,
+    pub(crate) orig_text: OwnedTextBlock,
     pub(crate) formatted_lines: Rows,
     pub(crate) line_count: usize,
     pub(crate) max_line_length: usize,
@@ -117,7 +118,7 @@ impl ScreenData {
 
         let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
         self.line_count = new_lc;
-        self..max_line_length = max_line_length;
+        self.max_line_length = max_line_length;
         let new_lc_dgts = minus_core::utils::digits(new_lc);
 
         #[cfg(feature = "search")]
@@ -138,16 +139,15 @@ impl ScreenData {
         //
         // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
         // that should be truncated from [`self.formatted_lines`] to update the last line
-        self
-            .formatted_lines
-            .truncate(self.screen.formatted_lines.len() - self.unterminated);
+        self.formatted_lines
+            .truncate(self.formatted_lines.len() - self.unterminated);
         self.unterminated = num_unterminated;
         if self.running.lock().is_uninitialized() {
-            self.screen.formatted_lines.append(&mut fmt_line);
+            self.formatted_lines.append(&mut fmt_line);
             return AppendStyle::NoDraw;
         }
 
-        self.screen.formatted_lines.append(&mut fmt_line.clone());
+        self.formatted_lines.append(&mut fmt_line.clone());
 
         AppendStyle::PartialUpdate(fmt_line)
     }
