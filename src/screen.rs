@@ -80,7 +80,7 @@ impl ScreenData {
         let attachment = if clean_append {
             None
         } else {
-            self.orig_text.lines().last().map(ToString::to_string)
+            self.orig_text.lines().last()
         };
 
         // We check if number of digits in current line count change during this text push.
