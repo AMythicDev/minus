@@ -13,9 +13,19 @@
 #![allow(clippy::doc_markdown)]
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
 
-//! `minus`: A library for asynchronous terminal [pager], written in Rust.
+//! `minus`: A library for asynchronous terminal [paging], written in Rust.
 //!
 //! If you want to learn about its motivation and features, please take a look into it's [README].
+//!
+//! # Overview
+//! When getting started with minus, the two most important concepts to get familier with are:-
+//! * The [Pager] type: which acts as a bridge between your application and minus. It is used
+//! to pass data and configure minus before and after starting the pager.
+//! * Initialization functions: This includes the [dynamic_paging] and [page_all] functions which
+//! take a [Pager] as argument. They are responsible for generating the initial state and starting
+//! the pager.
+//!
+//! See the docs for the respective items to learn more on its usage.
 //!
 //! # Examples
 //!
@@ -99,8 +109,8 @@
 //! ```
 //!
 //! **Note:**
-//! `minus` doesn't start the pager and just prints the content if the current terminal size can
-//! display all lines.
+//! In static mode, `minus` doesn't start the pager and just prints the content if the current terminal size can
+//! display all lines. You can of course change this behaviour.
 //!
 //! ## Standard actions
 //!
@@ -131,7 +141,8 @@
 //! | n                 | Go to the next search match                                                  |
 //! | p                 | Go to the next previous match                                                |
 //!
-//! End-applications are free to change these bindings to better suit their needs.
+//! End-applications are free to change these bindings to better suit their needs. See docs for
+//! [Pager::set_input_classifier] function and [input] module.
 //!
 //! ## Key Bindings Available at Search Prompt
 //!
@@ -154,7 +165,7 @@
 //! [`async-std`]: https://docs.rs/async-std
 //! [`Threads`]: std::thread
 //! [follow-mode]: struct.Pager.html#method.follow_output
-//! [pager]: https://de.wikipedia.org/wiki/Pager
+//! [paging]: https://en.wikipedia.org/wiki/Terminal_pager
 //! [README]: https://github.com/arijit79/minus#motivation
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
