@@ -153,6 +153,27 @@ impl ScreenData {
 
         AppendStyle::PartialUpdate(fmt_line)
     }
+
+    pub(crate) fn format_lines(&mut self) {
+        let format_result = make_format_lines(
+            &self.orig_text,
+            self.line_numbers,
+            self.cols,
+            self.line_wrapping,
+            #[cfg(feature = "search")]
+            &self.search_state.search_term,
+        );
+
+        #[cfg(feature = "search")]
+        {
+            self.search_state.search_idx = format_result.append_search_idx;
+        }
+        self.formatted_lines = format_result.text;
+        self.lines_to_row_map = format_result.lines_to_row_map;
+        self.max_line_length = format_result.max_line_length;
+
+        self.unterminated = format_result.num_unterminated;
+    }
 }
 
 /// How should the incoming text be drawn on the screen
