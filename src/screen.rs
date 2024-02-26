@@ -36,7 +36,8 @@ impl Screen {
         }
     }
 
-    pub fn get_max_line_length(&self) -> usize {
+    #[must_use]
+    pub const fn get_max_line_length(&self) -> usize {
         self.max_line_length
     }
 }

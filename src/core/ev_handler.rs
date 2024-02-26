@@ -53,7 +53,7 @@ pub fn handle_event(
                 return Ok(());
             }
             p.left_mark = lm;
-            display::draw_full(out, p)?
+            display::draw_full(out, p)?;
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown

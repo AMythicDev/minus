@@ -221,6 +221,7 @@ pub fn draw_append_text(
 /// This function ensures that upper mark never exceeds a value such that adding upper mark and available rows exceeds
 /// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
 /// text is less than available rows. In this situation, upper mark is always 0.
+#[allow(clippy::too_many_arguments)]
 pub fn write_text_checked(
     out: &mut impl Write,
     lines: &[String],
@@ -306,10 +307,10 @@ pub fn write_lines(
     line_numbers: bool,
     line_count: usize,
 ) -> crate::Result {
-    if !line_wrapping {
-        write_lines_in_horizontal_scroll(out, lines, cols, left_mark, line_numbers, line_count)
-    } else {
+    if line_wrapping {
         write_raw_lines(out, lines, Some("\r"))
+    } else {
+        write_lines_in_horizontal_scroll(out, lines, cols, left_mark, line_numbers, line_count)
     }
 }
 
