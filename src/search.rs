@@ -52,6 +52,7 @@
 
 #![allow(unused_imports)]
 use crate::minus_core::utils::{display, term, text};
+use crate::screen::Screen;
 use crate::{error::MinusError, input::HashedEventRegister};
 use crate::{LineNumbers, PagerState};
 use crossterm::{
@@ -145,31 +146,23 @@ pub struct SearchOpts<'a> {
 /// NOTE: `text` and `initial_formatted_lines` are experimental in this context and are subject to
 /// change. Use them at your own risk.
 pub struct IncrementalSearchOpts<'a> {
-    /// Text to be searched
-    ///
-    /// This holds the original text provided by applications
-    pub text: &'a String,
     /// Current status of line numbering
     pub line_numbers: LineNumbers,
-    /// Reference tp [PagerState::formatted_lines] before starting of search prompt
-    ///
-    /// This contains the wrapped and formatted lines that are to be displayed on the terminal
-    /// screen.
-    pub initial_formatted_lines: &'a Vec<String>,
     /// Value of [PagerState::upper_mark] before starting of search prompt
     pub initial_upper_mark: usize,
-    /// Value of [PagerState::line_wrapping] before starting of search prompt
-    pub line_wrapping: bool,
+    /// Reference to [PagerState::screen]
+    pub screen: &'a Screen,
+    /// Value of [PagerState::upper_mark] before starting of search prompt
+    pub initial_left_mark: usize,
 }
 
 impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
     fn from(ps: &'a PagerState) -> Self {
         Self {
-            text: &ps.screen.orig_text,
             line_numbers: ps.line_numbers,
             initial_upper_mark: ps.upper_mark,
-            initial_formatted_lines: &ps.screen.formatted_lines,
-            line_wrapping: ps.screen.line_wrapping,
+            screen: &ps.screen,
+            initial_left_mark: ps.left_mark,
         }
     }
 }
@@ -281,8 +274,7 @@ where
     if so.incremental_search_options.is_none() {
         return Ok(None);
     }
-    let incremental_search_options = so.incremental_search_options.as_ref().unwrap();
-    let mut initial_upper_mark = incremental_search_options.initial_upper_mark;
+    let iso = so.incremental_search_options.as_ref().unwrap();
 
     // Check if we can continue forward with incremental search
     let should_proceed = so.compiled_regex.is_some() && incremental_search_condition(so);
@@ -291,12 +283,17 @@ where
     // This is an important bit when running incremental search.It reset the terminal screen to
     // display the lines from the same location and in the same way as before the search even
     // started. Basically print it exactly how it looked before pressing `/` or `?`,
-    let mut reset_screen = |out: &mut O, so: &SearchOpts<'_>| -> crate::Result {
+    let reset_screen = |out: &mut O, so: &SearchOpts<'_>| -> crate::Result {
         display::write_text_checked(
             out,
-            incremental_search_options.initial_formatted_lines,
+            &iso.screen.formatted_lines,
+            iso.initial_upper_mark,
             so.rows.into(),
-            &mut initial_upper_mark,
+            so.cols.into(),
+            iso.screen.line_wrapping,
+            iso.initial_left_mark,
+            iso.line_numbers,
+            iso.screen.get_line_count(),
         )?;
         Ok(())
     };
@@ -322,23 +319,30 @@ where
     //
     // PERF: Check if this can be futhur optimized
     let format_result = text::make_format_lines(
-        incremental_search_options.text,
-        incremental_search_options.line_numbers,
+        &iso.screen.orig_text,
+        iso.line_numbers,
         so.cols.into(),
-        incremental_search_options.line_wrapping,
+        iso.screen.line_wrapping,
         &so.compiled_regex,
     );
-    let position_of_next_match = next_nth_match(
-        &format_result.append_search_idx,
-        incremental_search_options.initial_upper_mark,
-        0,
-    );
+    let position_of_next_match =
+        next_nth_match(&format_result.append_search_idx, iso.initial_upper_mark, 0);
     // Get the upper mark. If we can't find one, reset the display
-    let mut upper_mark;
+    let upper_mark;
     if let Some(pnm) = position_of_next_match {
         upper_mark = *format_result.append_search_idx.iter().nth(pnm).unwrap();
         // Draw the incrementally searched lines from upper mark
-        display::write_text_checked(out, &format_result.text, so.rows.into(), &mut upper_mark)?;
+        display::write_text_checked(
+            out,
+            &format_result.text,
+            upper_mark,
+            so.rows.into(),
+            so.cols.into(),
+            iso.screen.line_wrapping,
+            iso.initial_left_mark,
+            iso.line_numbers,
+            iso.screen.get_line_count(),
+        )?;
     } else {
         reset_screen(out, so)?;
         return Ok(None);

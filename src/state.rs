@@ -66,8 +66,8 @@ impl Default for SearchState {
                     .incremental_search_options
                     .as_ref()
                     .unwrap()
-                    .initial_formatted_lines
-                    .len()
+                    .screen
+                    .get_line_count()
                     <= 5000
         });
         Self {

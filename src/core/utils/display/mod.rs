@@ -224,8 +224,13 @@ pub fn draw_append_text(
 pub fn write_text_checked(
     out: &mut impl Write,
     lines: &[String],
+    mut upper_mark: usize,
     rows: usize,
-    upper_mark: &mut usize,
+    cols: usize,
+    line_wrapping: bool,
+    left_mark: usize,
+    line_numbers: LineNumbers,
+    total_line_count: usize,
 ) -> Result<(), MinusError> {
     let line_count = lines.len();
 
@@ -239,17 +244,25 @@ pub fn write_text_checked(
     // If the lower_bound is greater than the available line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if lower_mark > line_count {
-        *upper_mark = line_count.saturating_sub(writable_rows);
+        upper_mark = line_count.saturating_sub(writable_rows);
         lower_mark = upper_mark.saturating_add(writable_rows.min(line_count));
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
-    let display_lines: &[String] = &lines[*upper_mark..lower_mark];
+    let display_lines: &[String] = &lines[upper_mark..lower_mark];
 
     term::move_cursor(out, 0, 0, false)?;
     term::clear_entire_screen(out, false)?;
 
-    write_raw_lines(out, display_lines, Some("\r"))
+    write_lines(
+        out,
+        display_lines,
+        cols,
+        line_wrapping,
+        left_mark,
+        line_numbers.is_on(),
+        total_line_count,
+    )
 }
 
 pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
