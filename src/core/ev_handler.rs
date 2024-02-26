@@ -90,6 +90,7 @@ pub fn handle_event(
             drop(active);
             cvar.notify_one();
 
+            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
             // If we have incremental search cache directly use it and return
             if let Some(incremental_search_result) = search_result.incremental_search_result {
                 p.search_state.search_term = search_result.compiled_regex;
@@ -97,7 +98,6 @@ pub fn handle_event(
                 p.search_state.search_mark = incremental_search_result.search_mark;
                 p.search_state.search_idx = incremental_search_result.search_idx;
                 p.screen.formatted_lines = incremental_search_result.formatted_lines;
-                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 return Ok(());
             }
 
@@ -113,9 +113,6 @@ pub fn handle_event(
                     ));
                     return Ok(());
                 }
-                command_queue
-                    .push_back_unchecked(Command::UserInput(InputEvent::MoveToNextMatch(0)));
-                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 compiled_regex
             } else {
                 return Ok(());
