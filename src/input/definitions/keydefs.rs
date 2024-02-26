@@ -308,4 +308,13 @@ fn test_parse_key_event() {
             state: KeyEventState::NONE,
         }
     );
+    assert_eq!(
+        parse_key_event("c-s-h"),
+        KeyEvent {
+            code: KeyCode::Char('h'),
+            modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        }
+    );
 }

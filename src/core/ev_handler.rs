@@ -232,6 +232,11 @@ pub fn handle_event(
             }
         }
 
+        Command::UserInput(InputEvent::HorizontalScroll(val)) => {
+            p.screen.line_wrapping = val;
+            command_queue.push_back_unchecked(Command::FormatRedrawDisplay);
+        }
+
         Command::FormatRedrawDisplay => {
             p.format_lines();
             display::draw_full(&mut out, p)?;

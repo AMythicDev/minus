@@ -265,7 +265,7 @@ where
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
     });
 
-    map.add_key_events(&["c-s-h"], |_, ps| {
+    map.add_key_events(&["c-s-h", "c-h"], |_, ps| {
         InputEvent::HorizontalScroll(!ps.screen.line_wrapping)
     });
     map.add_key_events(&["h", "left"], |_, ps| {
