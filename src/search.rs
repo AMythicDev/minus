@@ -144,13 +144,7 @@ pub struct SearchOpts<'a> {
 ///
 /// NOTE: `text` and `initial_formatted_lines` are experimental in this context and are subject to
 /// change. Use them at your own risk.
-///
-// WARN: The values of the fields should not be modified at any point otherwise it may lead to
-// unexpected text display while doing a incremental search. One exception to this is
-// `upper_mark` which is modified by the priavte `handle_key_press` function.
 pub struct IncrementalSearchOpts<'a> {
-    /// Current upper mark
-    pub upper_mark: usize,
     /// Text to be searched
     ///
     /// This holds the original text provided by applications
@@ -174,7 +168,6 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
             text: &ps.screen.orig_text,
             line_numbers: ps.line_numbers,
             initial_upper_mark: ps.upper_mark,
-            upper_mark: ps.upper_mark,
             initial_formatted_lines: &ps.screen.formatted_lines,
             line_wrapping: ps.screen.line_wrapping,
         }
@@ -337,7 +330,7 @@ where
     );
     let position_of_next_match = next_nth_match(
         &format_result.append_search_idx,
-        incremental_search_options.upper_mark,
+        incremental_search_options.initial_upper_mark,
         0,
     );
     // Get the upper mark. If we can't find one, reset the display
@@ -397,11 +390,6 @@ where
         // run otherwise set it to the initial upper mark
         so.incremental_search_cache =
             run_incremental_search(out, so, incremental_search_condition)?;
-        if let Some(IncrementalSearchCache { upper_mark, .. }) = so.incremental_search_cache {
-            so.incremental_search_options.as_mut().unwrap().upper_mark = upper_mark;
-        } else if let Some(incremental_search_options) = so.incremental_search_options.as_mut() {
-            incremental_search_options.upper_mark = incremental_search_options.initial_upper_mark;
-        }
 
         // Update prompt
         term::move_cursor(out, 0, so.rows, false)?;
