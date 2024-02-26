@@ -18,11 +18,9 @@
 </p>
 
 ## Motivation
-First, traditional pagers like `more` or `less` weren't made for integrating into other applications. They were meant to
-be standalone binaries that are executed directly by the users.
-
-Applications leveraged these pagers by calling them as external programs and passing the data through the standard
-input.
+Traditional pagers like `more` or `less` weren't made for integrating into other applications. They were meant to
+be standalone binaries that are executed directly by users. However most applications don't adhere to this and 
+exploit these pagers' functionality by calling them as external programs and passing the data through the standard input.
 This method worked for Unix and other Unix-like OSs like Linux and MacOS because they already came with any of these
 pagers installed  But it wasn't this easy on Windows, it required shipping the pager binary along with the applications.
 Since these programs were originally designed for Unix and Unix-like OSs, distributing these binaries meant shipping an
@@ -136,4 +134,4 @@ We are open to discussion and thoughts om improving `minus`. Join us at
 [`tokio`]: https://crates.io/crates/tokio
 [`async-std`]: https://crates.io/crates/async-std
 [`Threads`]: https://doc.rust-lang.org/std/thread/index.html
-[pager]: https://en.wikipedia.org/wiki/Terminal_pager
+[paging]: https://en.wikipedia.org/wiki/Terminal_pager
