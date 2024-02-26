@@ -8,6 +8,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 use parking_lot::{Condvar, Mutex};
 
 use super::utils::display;
+use super::utils::text::AppendStyle;
 use super::CommandQueue;
 use super::{commands::Command, utils::term};
 #[cfg(feature = "search")]
@@ -45,6 +46,18 @@ pub fn handle_event(
             term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
         Command::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
+            let line_count = p.screen.formatted_lines_count();
+            // Reduce one row for prompt/messages
+            let writable_rows = p.rows.saturating_sub(1);
+            // Calculate the lower_mark by adding either the rows or line_count depending
+            // on the minimality
+            let lower_mark = p.upper_mark.saturating_add(writable_rows.min(line_count));
+            // If the lower_bound is greater than the available line count, we set it to such a value
+            // so that the last page can be displayed entirely, i.e never scroll past the last line
+            if lower_mark > line_count {
+                p.upper_mark = line_count.saturating_sub(writable_rows);
+            }
+
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
@@ -244,11 +257,17 @@ pub fn handle_event(
         Command::AppendData(text) => {
             let prev_unterminated = p.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
+            let is_running = !p.running.lock().is_uninitialized();
+            let rows = p.rows;
             let append_style = p.append_str(text.as_str());
-            if !p.running.lock().is_uninitialized() {
+
+            if is_running {
+                if append_style == AppendStyle::FullRedraw {
+                    return display::draw_full(out, p);
+                }
                 display::draw_append_text(
                     out,
-                    p,
+                    rows,
                     prev_unterminated,
                     prev_fmt_lines_count,
                     append_style,

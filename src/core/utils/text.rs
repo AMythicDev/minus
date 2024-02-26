@@ -51,9 +51,10 @@ use super::LinesRowMap;
 use {crate::search, std::collections::BTreeSet};
 
 /// How should the incoming text be drawn on the screen
-pub enum AppendStyle {
+#[derive(Debug, PartialEq, Eq)]
+pub enum AppendStyle<'a> {
     /// Draw only the region that needs to change
-    PartialUpdate(Vec<String>),
+    PartialUpdate(&'a [String]),
 
     /// Redraw the entire screen
     FullRedraw,

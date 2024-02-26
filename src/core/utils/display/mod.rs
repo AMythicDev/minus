@@ -138,7 +138,7 @@ pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), M
 /// Then it will check if there is any message to display.
 ///   - If there is one, it will display it at the prompt site
 ///   - If there isn't one, it will display the prompt in place of it
-pub fn draw_full(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
+pub fn draw_full(out: &mut impl Write, ps: &PagerState) -> Result<(), MinusError> {
     super::term::move_cursor(out, 0, 0, false)?;
     queue!(out, Clear(ClearType::All))?;
 
@@ -155,20 +155,16 @@ pub fn draw_full(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusE
 
 pub fn draw_append_text(
     out: &mut impl Write,
-    ps: &mut PagerState,
+    rows: usize,
     prev_unterminated: usize,
     prev_fmt_lines_count: usize,
     append_style: AppendStyle,
 ) -> Result<(), MinusError> {
-    if matches!(append_style, AppendStyle::FullRedraw) {
-        draw_full(out, ps)?;
-        return Ok(());
-    }
     let AppendStyle::PartialUpdate(fmt_text) = append_style else {
         unreachable!()
     };
 
-    if prev_fmt_lines_count < ps.rows {
+    if prev_fmt_lines_count < rows {
         // Move the cursor to the very next line after the last displayed line
         term::move_cursor(
             out,
@@ -183,7 +179,7 @@ pub fn draw_append_text(
         //      rows - number of lines displayed -1 (for prompt)
         // For example if 20 rows are in total in a terminal
         // and 10 rows are already occupied, then this will be equal to 9
-        let available_rows = ps.rows.saturating_sub(
+        let available_rows = rows.saturating_sub(
             prev_fmt_lines_count
                 .saturating_sub(prev_unterminated)
                 .saturating_add(1),
@@ -266,7 +262,7 @@ pub fn write_text_checked(
     )
 }
 
-pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
+pub fn write_from_pagerstate(out: &mut impl Write, ps: &PagerState) -> Result<(), MinusError> {
     let line_count = ps.screen.formatted_lines_count();
 
     // Reduce one row for prompt/messages
@@ -275,12 +271,6 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
     // Calculate the lower_mark by adding either the rows or line_count depending
     // on the minimality
     let lower_mark = ps.upper_mark.saturating_add(writable_rows.min(line_count));
-
-    // If the lower_bound is greater than the available line count, we set it to such a value
-    // so that the last page can be displayed entirely, i.e never scroll past the last line
-    if lower_mark > line_count {
-        ps.upper_mark = line_count.saturating_sub(writable_rows);
-    }
 
     // Add \r to ensure cursor is placed at the beginning of each row
     let display_lines: &[String] = ps

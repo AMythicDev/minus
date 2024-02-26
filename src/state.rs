@@ -456,8 +456,15 @@ impl PagerState {
             return AppendStyle::NoDraw;
         }
 
-        self.screen.formatted_lines.append(&mut fmt_line.clone());
+        let fmt_lines_len = fmt_line.len();
 
-        AppendStyle::PartialUpdate(fmt_line)
+        self.screen.formatted_lines.append(&mut fmt_line);
+
+        let formatted_line_bound = self.screen.formatted_lines.len() - 1;
+
+        AppendStyle::PartialUpdate(
+            &self.screen.formatted_lines
+                [formatted_line_bound - fmt_lines_len..formatted_line_bound],
+        )
     }
 }
