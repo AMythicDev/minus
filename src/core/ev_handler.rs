@@ -130,17 +130,17 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                p.upper_mark = *p
+                let upper_mark = *p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
                     .unwrap();
+                command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
+                    upper_mark,
+                )));
+                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
             }
-            command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
-                p.upper_mark,
-            )));
-            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
@@ -177,7 +177,7 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                p.upper_mark = *p
+                let upper_mark = *p
                     .search_state
                     .search_idx
                     .iter()
@@ -200,10 +200,10 @@ pub fn handle_event(
                         .unwrap();
                 }
                 command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
-                    p.upper_mark,
+                    upper_mark,
                 )));
+                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
             }
-            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::MoveToPrevMatch(n))
@@ -223,7 +223,10 @@ pub fn handle_event(
             {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
-                    p.upper_mark = *y;
+                    let upper_mark = *y;
+                    command_queue.push_back_unchecked(Command::UserInput(
+                        InputEvent::UpdateUpperMark(upper_mark),
+                    ));
                     command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 }
             }
