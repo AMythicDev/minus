@@ -1,38 +1,105 @@
-//! Working with user events
+//! Working with user keyboard/mouse events
 //!
-//! This module provides various items for working with user events from the terminal.
+//! minus already has a sensible set of default key/mouse bindings so most people do not need to
+//! care about this module. But if you want to add or remove certain key bindings then you need
+//! to rely on this module..
 //!
-//! minus already has a sensible set of default key/mouse bindings so most people do not need to care about this module.
-//! But if you want to add or remove certain key bindings then you need to rely on this module..
+//! This module provides various items for defining registering keyboard/mouse event from the
+//! user's terminal to a predefined action inside minus.
 //!
-//! There are two ways to define inputs in minus
+//! For this document we will call any keyboard/mouse event from the terminal as a **binding**
+//! and its associated predefined action as **callback**.
+//!
+//! There are two ways to define binding in minus
 //!
 //! # Newer (Recommended) Method
-//! This method uses a much improved and ergonomic API for defining the input events. It allows you to add/delete/update
-//! inputs without needing to copy the entire default template into the main application's codebase.
-//! You also don't need to specifically bring in [`crossterm`] as a dependency for working with this.
-//!
-//! ## Example:
+//! This method offers a much improved and ergonomic API for defining bindings and callbacks.
+//! You use the [HashedEventRegister] for registering bindings and their associated callback.
+//! It provides functions like [add_key_events](HashedEventRegister::add_key_events) and
+//! [add_mouse_events](HashedEventRegister::add_mouse_events) which take `&[&str]` as its first
+//! argument and a callback `cb` as its second argument and maps all `&str` in the `&[&str]` to
+//! same callback function `cb`. Each `&str` of the `&[&str]` contains a description of the
+//! key/mouse binding needed to activate it. For example `c-c` means pressing a `Ctrl+c` on the
+//! keyboard. See [Writing Binding Descriptions](#writing-binding-descriptions) to know more on
+//! writing these descriptions.
+//
+//! ## Example
 //! ```
-//! use minus::{input::{InputEvent, HashedEventRegister}, Pager};
+//! use minus::input::{InputEvent, HashedEventRegister, crossterm_event::Event};
 //!
-//! let pager = Pager::new();
 //! let mut input_register = HashedEventRegister::default();
 //!
 //! input_register.add_key_events(&["down"], |_, ps| {
 //!     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(1))
 //! });
 //!
-//! input_register.add_key_events(&["q", "c-c"], |_, _| InputEvent::Exit);
+//! input_register.add_mouse_events(&["scroll:up"], |_, ps| {
+//!     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
+//! });
 //!
-//! pager.set_input_classifier(Box::new(input_register));
+//! input_register.add_resize_event(|ev, _| {
+//!     let (cols, rows) = if let Event::Resize(cols, rows) = ev {
+//!         (cols, rows)
+//!     } else {
+//!        unreachable!();
+//!     };
+//!     InputEvent::UpdateTermArea(cols as usize, rows as usize)
+//! });
 //! ```
 //!
+//! ## Writing Binding Descriptions
+//! ### Defining Keybindings
+//! The general syntax for defining keybindings is `[MODIFIER]-[MODIFIER]-[MODIFIER]-{SINGLE KEY}`
+//!
+//! `MODIFIER`s include or or more of the `Ctrl` `Alt` and `Shift` keys. They are writeen with
+//! the shorthands `c`, `m` and `s` respectively.
+//!
+//! `SINGLE CHAR` includes any key on the keyboard which is not a modifier like `a`, `z`, `1`, `F1`
+//! or `enter`. Each of these pieces are separated by a `-`.
+//!
+//! Here are some examples
+//!
+//! | Key Input    | Mean ing                                   |
+//! |--------------|--------------------------------------------|
+//! | `a`          | A literal `a`                              |
+//! | `Z`          | A `Z`. Matched only when a caps lock is on |
+//! | `c-q`        | `Ctrl+q`                                   |
+//! | `enter`      | `ENTER` key                                |
+//! | `c-m-pageup` | `Ctrl+Alt+PageUp`                          |
+//! | `s-2`        | `Shift+2`                                  |
+//! | `backspace`  | `Backspace` Key                            |
+//! | `left`       | `Left Arrow` key                           |
+//!
+//! ### Defining Mouse Bindings
+//!
+//! The general syntax for defining keybindings is `[MODIFIER]-[MODIFIER]-[MODIFIER]-{MOUSE ACTION}`
+//!
+//! `MODIFIER`s include or or more of the `Ctrl` `Alt` and `Shift` keys which are pressed along
+//! with the mouse action. They are writeen with the shorthands `c`, `m` and `s` respectively.
+//!
+//! `MOUSE ACTION` includes actions like pressing down the left mouse button or taking up the right
+//! mouse button. It also includes scrolling up/down or pressing the middle click.
+//!
+//! Here are some examples
+//!
+//! | Key Input     | Mean ing                                   |
+//! |---------------|--------------------------------------------|
+//! | `left:up`     | Releasing the left mouse button            |
+//! | `right:down`  | Pressing the right mouse button            |
+//! | `c-mid:down`  | Middle click in pressed along with Ctrl key|
+//! | `m-scroll:up` | Scrolled down while pressing the Alt key   |
+//!
+//! **NOTE:** Although minus's description parser can correctly parse almost all if not all the
+//!   events that you can possibly register, not all of them are correctly registered by crossterm
+//!   itself. For example minus corrctly parses `c-s-h` as  `ctrl+shift-h` but crossterm
+//!   categorically recognizes it as `ctrl+h` when reading events from the terminal.
+//!
 //! # Legacy method
-//! This method relies heavily on the [`InputClassifier`] trait and the end-applications needs to bring in the underlying
-//! [`crossterm`] crate to define the inputs.
-//! Also there is no such option to add/remove/update a set of events. You need to manually copy the
-//! [default definitions](DefaultInputClassifier) and make the required modifications yourself in this method.
+//! This method relies heavily on the [`InputClassifier`] trait and end-applications were needed to
+//! manually copy the [default definitions](DefaultInputClassifier) and make the required
+//! modifications yourself in this method. This lead to very messy and error-prone system for
+//! defining bindings and also required application authors to bring in the the underlying
+//! [crossterm](https://docs.rs/crossterm/latest) crate to define the innputs.
 //!
 //! ## Example
 //! ```
@@ -69,6 +136,18 @@
 //!             );
 //! ```
 //!
+//! **NOTE:** Although you can define almost every combination of bindings that crossterm supports,
+//!   not all of them are correctly registered by crossterm itself. For example you can define
+//!   ```text
+//!   Event::Key(KeyEvent {
+//!       code: KeyCode::Char(`h`),
+//!       modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+//!       ..
+//!   })
+//!   ```
+//!   but crossterm will not match to it as crossterm
+//!   recognizes a `ctrl+shift+h` as `ctrl+h` when reading events from the terminal.
+//!
 //! # Custom Actions on User Events
 //!
 //! Sometimes you want to execute arbitrary code when a key/mouse action is pressed like fetching
@@ -81,6 +160,29 @@
 //!     InputEvent::Ignore
 //! });
 //!
+//! ```
+//! It can be used with the legacy method too.
+//! ```text
+//! struct CustomInputClassifier;
+//! impl InputClassifier for CustomInputClassifier {
+//!     fn classify_input(
+//!         &self,
+//!         ev: Event,
+//!         ps: &PagerState
+//!     ) -> Option<InputEvent> {
+//!             match ev {
+//!                 Event::Key(KeyEvent {
+//!                     code: KeyCode::Char('f'),
+//!                     modifiers: KeyModifiers::NONE,
+//!                     ..
+//!                 }) => {
+//!                     fetch_data_from_server(...);
+//!                     InputEvent::Ignore
+//!                 },
+//!                 _ => None
+//!         }
+//!     }
+//! }
 //! ```
 
 pub(crate) mod definitions;
@@ -103,7 +205,8 @@ pub enum InputEvent {
     Exit,
     /// The terminal was resized. Contains the new number of rows.
     UpdateTermArea(usize, usize),
-    /// Sent by movement keys like `Up` `Down`, `PageUp`, 'PageDown', 'g', `G` etc. Contains the new value for the upper mark.
+    /// Sent by movement keys like `Up` `Down`, `PageUp`, 'PageDown', 'g', `G` etc.
+    /// Contains the new value for the upper mark.
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
     UpdateLineNumber(LineNumbers),
@@ -159,7 +262,8 @@ pub enum InputEvent {
 ///
 /// If you are using the newer method for input definition, you don't need to take care of this.
 ///
-/// If you are using the old method, see the sources of [`DefaultInputClassifier`] on how to inplement this trait.
+/// If you are using the legacy method, see the sources of [`DefaultInputClassifier`] on how to
+/// inplement this trait.
 #[allow(clippy::module_name_repetitions)]
 pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
@@ -213,8 +317,9 @@ where
         if position == 0 {
             position = usize::MAX;
         }
-        // Get the exact row number where first row of this line is placed in [`PagerState::formatted_lines`]
-        // and jump to that location.If the line number does not exist, directly jump to the bottom of text.
+        // Get the exact row number where first row of this line is placed in
+        // [`PagerState::formatted_lines`] and jump to that location.If the line number does not
+        // exist, directly jump to the bottom of text.
         let row_to_go = *ps
             .lines_to_row_map
             .get(position)
