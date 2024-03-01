@@ -546,13 +546,11 @@ pub(crate) fn formatted_line<'a>(
 
     // highlight the lines with matching search terms
     // If a match is found, add this line's index to PagerState::search_idx
-    #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-    #[cfg_attr(not(feature = "search"), allow(unused_variables))]
+    #[cfg_attr(not(feature = "search"), allow(unused_mut, unused_variables))]
     let mut handle_search = |row: &mut Cow<'a, str>, wrap_idx: usize| {
         #[cfg(feature = "search")]
         if let Some(st) = search_term.as_ref() {
-            let (highlighted_row, is_match) = search::highlight_line_matches(row, st, false);
-            if is_match {
+            if let Some(highlighted_row) = search::highlight_line_matches(row, st, false) {
                 *row.to_mut() = highlighted_row;
                 search_idx.insert(formatted_idx + wrap_idx);
             }

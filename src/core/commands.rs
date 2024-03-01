@@ -72,13 +72,13 @@ impl PartialEq for Command {
 impl Debug for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SetData(text) => write!(f, "SetData({:?})", text),
-            Self::AppendData(text) => write!(f, "AppendData({:?})", text),
-            Self::SetPrompt(text) => write!(f, "SetPrompt({:?})", text),
-            Self::SendMessage(text) => write!(f, "SendMessage({:?})", text),
-            Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({:?})", ln),
-            Self::LineWrapping(lw) => write!(f, "LineWrapping({:?})", lw),
-            Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({:?})", es),
+            Self::SetData(text) => write!(f, "SetData({text:?})"),
+            Self::AppendData(text) => write!(f, "AppendData({text:?})"),
+            Self::SetPrompt(text) => write!(f, "SetPrompt({text:?})"),
+            Self::SendMessage(text) => write!(f, "SendMessage({text:?})"),
+            Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
+            Self::LineWrapping(lw) => write!(f, "LineWrapping({lw:?})"),
+            Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             Self::FormatRedrawPrompt => write!(f, "FormatRedrawPrompt"),

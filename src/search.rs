@@ -631,13 +631,13 @@ pub(crate) fn highlight_line_matches(
     line: &str,
     query: &regex::Regex,
     accurate: bool,
-) -> (String, bool) {
+) -> Option<String> {
     // Remove all ansi escapes so we can look through it as if it had none
     let stripped_str = ANSI_REGEX.replace_all(line, "");
 
     // if it doesn't match, don't even try. Just return.
     if !query.is_match(&stripped_str) {
-        return (line.to_string(), false);
+        return None;
     }
 
     // sum_width is used to calculate the total width of the ansi escapes
@@ -661,10 +661,10 @@ pub(crate) fn highlight_line_matches(
 
     // The matches of the term you're looking for, so that you can easily determine where
     // the invert attributes will be placed
-    let matches = query
+    let matches: Vec<(usize, usize)> = query
         .find_iter(&stripped_str)
-        .flat_map(|c| [c.start(), c.end()])
-        .collect::<Vec<_>>();
+        .map(|c| (c.start(), c.end()))
+        .collect();
 
     // Highlight all the instances of the search term in the stripped string
     // by inverting their background/foreground colors
@@ -677,8 +677,17 @@ pub(crate) fn highlight_line_matches(
     // inserted_escs_len == the total length of the ascii escapes which have been re-inserted
     // into the stripped string at the point where it is being checked.
     let mut inserted_escs_len = 0;
-    for esc in escapes {
-        let match_count = matches.iter().take_while(|m| **m <= esc.0).count();
+    for esc in &escapes {
+        let match_count: usize = matches.iter()
+            .take_while(|(s, _)| *s <= esc.0)
+            .map(|(_, e)| if *e <= esc.0 {
+                // if the end of the match is at the same point as the escape, the NORMAL should be
+                // inserted before the escape so that the escape isn't immediately negated
+                2
+            } else {
+                1
+            })
+            .sum();
         // Find how many invert|normal markers appear before this escape
 
         // find the number of invert strings and number of uninvert strings that have been
@@ -692,7 +701,7 @@ pub(crate) fn highlight_line_matches(
         // TODO: Add more docs to this
         let mut pos = if !accurate && match_count % 2 == 1 {
             // INFO: Its safe to unwrap here
-            matches.get(match_count).unwrap()
+            matches.get(num_invert).unwrap().1
                 + NORMAL.len()
                 + inserted_escs_len
                 + (num_invert * INVERT.len())
@@ -712,7 +721,30 @@ pub(crate) fn highlight_line_matches(
         inserted_escs_len += esc.1.len();
     }
 
-    (inverted, true)
+    for (idx, (_, end)) in matches.iter().enumerate() {
+        // We know that for every match before this one, there will be an invert and a normal, so
+        // just add those up
+        let preceding = idx * (INVERT.len() + NORMAL.len());
+
+        // then we need to find all of the escapes which would be placed before it in the final
+        // string
+        let escapes: usize = escapes.iter()
+            // we take them while their start position in the stripped string is before the end
+            // position of this match in the final string. We use `<` instead of `<=` b/c we insert
+            // the escapes back into the inverted string after the NORMAL
+            .take_while(|(s, _)| s < end)
+            // then get the total length of the inserted escapes
+            .map(|(_, e)| e.len())
+            .sum();
+
+        // then add up the position in the stripped string, the preceding match INVERT/NORMALs, the
+        // length of the re-inserted escapes, and the length of the single extra INVERT which would
+        // be inserted at the beginning of this match
+        let pos_in_final = end + preceding + escapes + INVERT.len();
+        println!("The position of this escape in the final string is at {pos_in_final}");
+    }
+
+    Some(inverted)
 }
 
 /// Return a index of an element from `search_idx` that will contain a search match and
@@ -1105,21 +1137,21 @@ eros.",
                     noinverse = Attribute::NoReverse
                 );
 
-                assert_eq!(highlight_line_matches(&line, &pat, false).0, result);
+                assert_eq!(highlight_line_matches(&line, &pat, false).unwrap(), result);
             }
 
             #[test]
             fn no_match() {
                 let orig = "no match";
                 let res = highlight_line_matches(orig, &Regex::new("test").unwrap(), false);
-                assert_eq!(res.0, orig.to_string());
+                assert_eq!(res, None);
             }
 
             #[test]
             fn single_match_no_esc() {
                 let res =
-                    highlight_line_matches("this is a test", &Regex::new(" a ").unwrap(), false);
-                assert_eq!(res.0, format!("this is{} a {}test", *INVERT, *NORMAL));
+                    highlight_line_matches("this is a test", &Regex::new(" a ").unwrap(), false).unwrap();
+                assert_eq!(res, format!("this is{} a {}test", *INVERT, *NORMAL));
             }
 
             #[test]
@@ -1128,9 +1160,9 @@ eros.",
                     "test another test",
                     &Regex::new("test").unwrap(),
                     false,
-                );
+                ).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("{i}test{n} another {i}test{n}", i = *INVERT, n = *NORMAL)
                 );
             }
@@ -1143,9 +1175,9 @@ eros.",
                     &format!("{ESC}color{NONE} and test"),
                     &Regex::new("test").unwrap(),
                     false,
-                );
+                ).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("{}color{} and {}test{}", ESC, NONE, *INVERT, *NORMAL)
                 );
             }
@@ -1153,9 +1185,9 @@ eros.",
             #[test]
             fn esc_pair_end_in_match() {
                 let orig = format!("this {ESC}is a te{NONE}st");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this {}is a {}test{}{}", ESC, *INVERT, *NORMAL, NONE)
                 );
             }
@@ -1163,9 +1195,9 @@ eros.",
             #[test]
             fn esc_pair_start_in_match() {
                 let orig = format!("this is a te{ESC}st again{NONE}");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this is a {}test{}{ESC} again{}", *INVERT, *NORMAL, NONE)
                 );
             }
@@ -1173,9 +1205,9 @@ eros.",
             #[test]
             fn esc_pair_around_match() {
                 let orig = format!("this is {ESC}a test again{NONE}");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this is {}a {}test{} again{}", ESC, *INVERT, *NORMAL, NONE)
                 );
             }
@@ -1183,9 +1215,9 @@ eros.",
             #[test]
             fn esc_pair_within_match() {
                 let orig = format!("this is a t{ESC}es{NONE}t again");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this is a {}test{}{ESC}{NONE} again", *INVERT, *NORMAL)
                 );
             }
@@ -1193,9 +1225,9 @@ eros.",
             #[test]
             fn multi_escape_match() {
                 let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!(
                         "this {e}is a {i}test{n}{nn} again {e}yeah{nn} {i}test{n}",
                         e = ESC,
@@ -1214,9 +1246,9 @@ eros.",
                     "{ESC}test{NONE} this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",
                 );
 
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!(
                     "{i}{e}test{n}{nn} this {e}is a {i}te{NONE}st{n} again {e}yeah{nn} {i}test{n}",
                     e = ESC,
@@ -1234,9 +1266,9 @@ eros.",
                     &format!("{ESC}color{NONE} and test"),
                     &Regex::new("test").unwrap(),
                     true,
-                );
+                ).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("{}color{} and {}test{}", ESC, NONE, *INVERT, *NORMAL)
                 );
             }
@@ -1244,9 +1276,9 @@ eros.",
             #[test]
             fn esc_pair_end_in_match() {
                 let orig = format!("this {ESC}is a te{NONE}st");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this {ESC}is a {}te{NONE}st{}", *INVERT, *NORMAL)
                 );
             }
@@ -1254,9 +1286,9 @@ eros.",
             #[test]
             fn esc_pair_start_in_match() {
                 let orig = format!("this is a te{ESC}st again{NONE}");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this is a {}te{ESC}st{} again{NONE}", *INVERT, *NORMAL)
                 );
             }
@@ -1264,9 +1296,9 @@ eros.",
             #[test]
             fn esc_pair_around_match() {
                 let orig = format!("this is {ESC}a test again{NONE}");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this is {ESC}a {}test{} again{NONE}", *INVERT, *NORMAL)
                 );
             }
@@ -1274,9 +1306,9 @@ eros.",
             #[test]
             fn esc_pair_within_match() {
                 let orig = format!("this is a t{ESC}es{NONE}t again");
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!("this is a {}t{ESC}es{NONE}t{} again", *INVERT, *NORMAL)
                 );
             }
@@ -1284,9 +1316,9 @@ eros.",
             #[test]
             fn multi_escape_match() {
                 let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
-                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
+                let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
                 assert_eq!(
-                    res.0,
+                    res,
                     format!(
                         "this {e}is a {i}te{nn}st{n} again {e}yeah{nn} {i}test{n}",
                         e = ESC,
