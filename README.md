@@ -51,8 +51,8 @@ downloaded from the internet.
     Key bindings highly inspired by Vim and other modern text editors
 - Clutter free line numbering
 - Horizontal scrolling
-    Scroll not only up or down but also left and right.
-    **NOTE: ANSI escape codes are broken in when scrolling horizontal scroll which means as you scroll past the line, you may see broken
+    Scroll not only up or down but also left and right.  
+    **NOTE: ANSI escape codes are broken when scrolling horizontally which means as you scroll along the axis, you may see broken
     colors, emphasis etc. This is not a minus-specific problem but rather its how terminals behave and is inherently limited because of their design**
 - Follow output mode  
     This feature ensures that you always see the last line as the data is being pushed onto the pager's buffer.
