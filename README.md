@@ -46,9 +46,14 @@ downloaded from the internet.
     data as it is without starting the pager.
 - Highly configurable  
     You can configure terminal key/mouse mappings, line numbers, bottom prompt line and more with a simple and clean API.
+- Good support for ANSI escape sequences
 - Both keyboard and mouse support  
     Key bindings highly inspired by Vim and other modern text editors
 - Clutter free line numbering
+- Horizontal scrolling
+    Scroll not only up or down but also left and right.
+    **NOTE: ANSI escape codes are broken in when scrolling horizontal scroll which means as you scroll past the line, you may see broken
+    colors, emphasis etc. This is not a minus-specific problem but rather its how terminals behave and is inherently limited because of their design**
 - Follow output mode  
     This feature ensures that you always see the last line as the data is being pushed onto the pager's buffer.
 - Full [regex](https://docs.rs/regex) based searching.  
