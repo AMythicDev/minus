@@ -138,7 +138,7 @@ pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), M
 /// Then it will check if there is any message to display.
 ///   - If there is one, it will display it at the prompt site
 ///   - If there isn't one, it will display the prompt in place of it
-pub fn draw_full(out: &mut impl Write, ps: &PagerState) -> Result<(), MinusError> {
+pub fn draw_full(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
     super::term::move_cursor(out, 0, 0, false)?;
     queue!(out, Clear(ClearType::All))?;
 
@@ -262,7 +262,7 @@ pub fn write_text_checked(
     )
 }
 
-pub fn write_from_pagerstate(out: &mut impl Write, ps: &PagerState) -> Result<(), MinusError> {
+pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
     let line_count = ps.screen.formatted_lines_count();
 
     // Reduce one row for prompt/messages
@@ -271,6 +271,9 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &PagerState) -> Result<()
     // Calculate the lower_mark by adding either the rows or line_count depending
     // on the minimality
     let lower_mark = ps.upper_mark.saturating_add(writable_rows.min(line_count));
+    if lower_mark > line_count {
+        ps.upper_mark = line_count.saturating_sub(writable_rows);
+    }
 
     // Add \r to ensure cursor is placed at the beginning of each row
     let display_lines: &[String] = ps

@@ -460,11 +460,11 @@ impl PagerState {
 
         self.screen.formatted_lines.append(&mut fmt_line);
 
-        let formatted_line_bound = self.screen.formatted_lines.len() - 1;
+        let formatted_line_bound = self.screen.formatted_lines.len();
 
         AppendStyle::PartialUpdate(
             &self.screen.formatted_lines
-                [formatted_line_bound - fmt_lines_len..formatted_line_bound],
+                [formatted_line_bound - fmt_lines_len..formatted_line_bound - 1],
         )
     }
 }
