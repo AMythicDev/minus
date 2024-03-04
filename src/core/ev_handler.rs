@@ -255,7 +255,7 @@ pub fn handle_event(
             display::draw_full(&mut out, p)?;
         }
         Command::AppendData(text) => {
-            let prev_unterminated = p.unterminated;
+            let prev_unterminated = p.screen.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
             let is_running = !p.running.lock().is_uninitialized();
             let rows = p.rows;

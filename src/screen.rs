@@ -64,77 +64,56 @@ impl ScreenData {
         self.max_line_length
     }
 
-    pub(crate) fn append_str(
+    pub(crate) fn push_screen_buf(
         &mut self,
         text: &str,
         line_numbers: LineNumbers,
         cols: u16,
         #[cfg(feature = "search")] search_term: &Option<Regex>,
-    ) -> AppendStyle {
+    ) -> FormatResult {
         // If the last line of self.screen.orig_text is not terminated by than the first line of
         // the incoming text is part of that line so we also need to take care of that.
         //
         // Appropriately in that case we set the last lne of self.screen.orig_text as attachment
         // text for the FormatOpts.
         let clean_append = self.orig_text.ends_with('\n') || self.orig_text.is_empty();
-        let attachment = if clean_append {
-            None
-        } else {
-            self.orig_text.lines().last()
-        };
-
         // We check if number of digits in current line count change during this text push.
         let old_lc = self.get_line_count();
-        let old_lc_dgts = minus_core::utils::digits(old_lc);
 
+        let append_props = {
+            let attachment = if clean_append {
+                None
+            } else {
+                self.orig_text.lines().last()
+            };
+
+            let formatted_lines_count = self.formatted_lines.len();
+
+            let append_opts = FormatOpts {
+                buffer: &mut self.formatted_lines,
+                text,
+                attachment,
+                line_numbers,
+                formatted_lines_count,
+                lines_count: old_lc,
+                prev_unterminated: self.unterminated,
+                cols: cols.into(),
+                line_wrapping: self.line_wrapping,
+                #[cfg(feature = "search")]
+                search_term,
+            };
+            format_text_block(append_opts)
+        };
         self.orig_text.push_str(text);
 
-        let append_opts = FormatOpts {
-            text,
-            attachment,
-            line_numbers,
-            formatted_lines_count: self.formatted_lines.len(),
-            lines_count: old_lc,
-            prev_unterminated: self.unterminated,
-            cols: cols.into(),
-            line_wrapping: self.line_wrapping,
-            #[cfg(feature = "search")]
-            search_term,
-        };
-
-        let append_props = format_text_block(append_opts);
-
-        let (
-            mut fmt_line,
-            num_unterminated,
-            mut lines_to_row_map,
-            lines_formatted,
-            max_line_length,
-        ) = (
-            append_props.text,
+        let (num_unterminated, lines_formatted, max_line_length) = (
             append_props.num_unterminated,
-            append_props.lines_to_row_map,
             append_props.lines_formatted,
             append_props.max_line_length,
         );
 
-        let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
-        self.line_count = new_lc;
+        self.line_count = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
         self.max_line_length = max_line_length;
-        let new_lc_dgts = minus_core::utils::digits(new_lc);
-
-        #[cfg(feature = "search")]
-        {
-            let mut append_search_idx = append_props.append_search_idx;
-            self.search_state.search_idx.append(&mut append_search_idx);
-        }
-        self.lines_to_row_map
-            .append(&mut lines_to_row_map, clean_append);
-
-        if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
-            self.format_lines();
-            return AppendStyle::FullRedraw;
-        }
 
         // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
         // [`self.formatted_lines`]
@@ -144,36 +123,29 @@ impl ScreenData {
         self.formatted_lines
             .truncate(self.formatted_lines.len() - self.unterminated);
         self.unterminated = num_unterminated;
-        if self.running.lock().is_uninitialized() {
-            self.formatted_lines.append(&mut fmt_line);
-            return AppendStyle::NoDraw;
-        }
-
-        self.formatted_lines.append(&mut fmt_line.clone());
-
-        AppendStyle::PartialUpdate(fmt_line)
+        append_props
     }
 
-    pub(crate) fn format_lines(&mut self) {
-        let format_result = make_format_lines(
-            &self.orig_text,
-            self.line_numbers,
-            self.cols,
-            self.line_wrapping,
-            #[cfg(feature = "search")]
-            &self.search_state.search_term,
-        );
-
-        #[cfg(feature = "search")]
-        {
-            self.search_state.search_idx = format_result.append_search_idx;
-        }
-        self.formatted_lines = format_result.text;
-        self.lines_to_row_map = format_result.lines_to_row_map;
-        self.max_line_length = format_result.max_line_length;
-
-        self.unterminated = format_result.num_unterminated;
-    }
+    // pub(crate) fn format_lines(&mut self) {
+    //     let format_result = make_format_lines(
+    //         &self.orig_text,
+    //         self.line_numbers,
+    //         self.cols,
+    //         self.line_wrapping,
+    //         #[cfg(feature = "search")]
+    //         &self.search_state.search_term,
+    //     );
+    //
+    //     #[cfg(feature = "search")]
+    //     {
+    //         self.search_state.search_idx = format_result.append_search_idx;
+    //     }
+    //     self.formatted_lines = format_result.text;
+    //     self.lines_to_row_map = format_result.lines_to_row_map;
+    //     self.max_line_length = format_result.max_line_length;
+    //
+    //     self.unterminated = format_result.num_unterminated;
+    // }
 }
 
 /// How should the incoming text be drawn on the screen
@@ -189,6 +161,8 @@ pub enum AppendStyle {
 }
 
 pub struct FormatOpts<'a> {
+    /// Buffer to insert the text into
+    pub buffer: &'a mut Rows,
     /// Contains the incoming text data
     pub text: TextBlock<'a>,
     /// This is Some when the last line inside minus's present data is unterminated. It contains the last
@@ -222,13 +196,12 @@ pub struct FormatOpts<'a> {
 /// them as **tracking variables**.
 #[derive(Debug)]
 pub struct FormatResult {
-    /// Formatted incoming lines
-    pub text: Rows,
-    //
     // **Tracking variables**
     //
     /// Number of lines that have been formatted from `text`.
     pub lines_formatted: usize,
+    /// Number of rows that have been formatted from `text`.
+    pub rows_formatted: usize,
     /// Number of rows that are unterminated
     pub num_unterminated: usize,
     /// If search is active, this contains the indices where search matches in the incoming text have been found
@@ -239,6 +212,7 @@ pub struct FormatResult {
     pub lines_to_row_map: LinesRowMap,
     /// The length of longest line encountered in the formatted text block
     pub max_line_length: usize,
+    pub clean_append: bool,
 }
 
 /// Makes the text that will be displayed.
@@ -314,13 +288,14 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     let to_format_size = lines.len();
 
     let mut fr = FormatResult {
-        text: Vec::with_capacity(0),
         lines_formatted: to_format_size,
+        rows_formatted: 0,
         num_unterminated: opts.prev_unterminated,
         #[cfg(feature = "search")]
         append_search_idx: BTreeSet::new(),
         lines_to_row_map: LinesRowMap::new(),
         max_line_length: 0,
+        clean_append: opts.attachment.is_some(),
     };
 
     let line_number_digits = minus_core::utils::digits(opts.lines_count + to_format_size);
@@ -330,40 +305,46 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
         return fr;
     }
 
-    // A container for the individual rows to be stored.
-    let mut fmt_lines = Vec::with_capacity(256);
-
     // Number of rows that have been formatted so far
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
     let mut formatted_row_count = opts.formatted_lines_count;
 
-    let resy_lines = lines
-        .iter()
-        .take(lines.len().saturating_sub(1))
-        .flat_map(|(idx, line)| {
-            let fmt_line = formatted_line(
-                line,
-                line_number_digits,
-                opts.lines_count + idx,
-                opts.line_numbers,
-                opts.cols,
-                opts.line_wrapping,
-                #[cfg(feature = "search")]
-                formatted_row_count,
-                #[cfg(feature = "search")]
-                &mut fr.append_search_idx,
-                #[cfg(feature = "search")]
-                opts.search_term,
-            );
-            fr.lines_to_row_map.insert(formatted_row_count, true);
-            formatted_row_count += fmt_line.len();
-            if lines.len() > fr.max_line_length {
-                fr.max_line_length = line.len();
-            }
+    {
+        let line_numbers = opts.line_numbers;
+        let cols = opts.cols;
+        let lines_count = opts.lines_count;
+        let line_wrapping = opts.line_wrapping;
+        let search_term = opts.search_term;
 
-            fmt_line
-        });
-    fmt_lines.extend(resy_lines);
+        let rest_lines =
+            lines
+                .iter()
+                .take(lines.len().saturating_sub(1))
+                .flat_map(|(idx, line)| {
+                    let fmt_line = formatted_line(
+                        line,
+                        line_number_digits,
+                        lines_count + idx,
+                        line_numbers,
+                        cols,
+                        line_wrapping,
+                        #[cfg(feature = "search")]
+                        formatted_row_count,
+                        #[cfg(feature = "search")]
+                        &mut fr.append_search_idx,
+                        #[cfg(feature = "search")]
+                        search_term,
+                    );
+                    fr.lines_to_row_map.insert(formatted_row_count, true);
+                    formatted_row_count += fmt_line.len();
+                    if lines.len() > fr.max_line_length {
+                        fr.max_line_length = line.len();
+                    }
+
+                    fmt_line
+                });
+        opts.buffer.extend(rest_lines);
+    };
 
     let mut last_line = formatted_line(
         lines.last().unwrap().1,
@@ -418,10 +399,8 @@ pub fn format_text_block(mut opts: FormatOpts<'_>) -> FormatResult {
     } else {
         last_line.len()
     };
-
-    fmt_lines.append(&mut last_line);
-
-    fr.text = fmt_lines;
+    opts.buffer.append(&mut last_line);
+    fr.rows_formatted = formatted_row_count - opts.formatted_lines_count;
 
     fr
 }
@@ -568,7 +547,9 @@ pub fn make_format_lines(
     line_wrapping: bool,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> FormatResult {
+    let mut buffer = Vec::with_capacity(256);
     let format_opts = FormatOpts {
+        buffer: &mut buffer,
         text,
         attachment: None,
         line_numbers,

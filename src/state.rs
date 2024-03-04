@@ -25,6 +25,7 @@ use parking_lot::Mutex;
 use std::collections::BTreeSet;
 use std::{
     collections::hash_map::RandomState,
+    convert::TryInto,
     io::stdout,
     io::Stdout,
     sync::{atomic::AtomicBool, Arc},
@@ -267,7 +268,7 @@ impl PagerState {
         self.lines_to_row_map = format_result.lines_to_row_map;
         self.screen.max_line_length = format_result.max_line_length;
 
-        self.unterminated = format_result.num_unterminated;
+        self.screen.unterminated = format_result.num_unterminated;
         self.format_prompt();
     }
 
@@ -367,99 +368,40 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
-        // If the last line of self.screen.orig_text is not terminated by than the first line of
-        // the incoming text is part of that line so we also need to take care of that.
-        //
-        // Appropriately in that case we set the last lne of self.screen.orig_text as attachment
-        // text for the FormatOpts.
-        let clean_append =
-            self.screen.orig_text.ends_with('\n') || self.screen.orig_text.is_empty();
-        let attachment = if clean_append {
-            None
-        } else {
-            self.screen
-                .orig_text
-                .lines()
-                .last()
-                .map(ToString::to_string)
-        };
-
-        // We check if number of digits in current line count change during this text push.
         let old_lc = self.screen.get_line_count();
         let old_lc_dgts = minus_core::utils::digits(old_lc);
-
-        self.screen.orig_text.push_str(text);
-
-        let append_opts = text::FormatOpts {
+        let mut append_result = self.screen.push_screen_buf(
             text,
-            attachment,
-            line_numbers: self.line_numbers,
-            formatted_lines_count: self.screen.formatted_lines.len(),
-            lines_count: old_lc,
-            prev_unterminated: self.unterminated,
-            cols: self.cols,
-            line_wrapping: self.screen.line_wrapping,
-            #[cfg(feature = "search")]
-            search_term: &self.search_state.search_term,
-        };
-
-        let append_props = text::format_text_block(append_opts);
-
-        let (
-            mut fmt_line,
-            num_unterminated,
-            mut lines_to_row_map,
-            lines_formatted,
-            max_line_length,
-        ) = (
-            append_props.text,
-            append_props.num_unterminated,
-            append_props.lines_to_row_map,
-            append_props.lines_formatted,
-            append_props.max_line_length,
+            self.line_numbers,
+            self.cols.try_into().unwrap(),
+            &self.search_state.search_term,
         );
-
-        let new_lc = old_lc + lines_formatted.saturating_sub(usize::from(!clean_append));
-        self.screen.line_count = new_lc;
-        self.screen.max_line_length = max_line_length;
+        let new_lc = self.screen.get_line_count();
         let new_lc_dgts = minus_core::utils::digits(new_lc);
-
         #[cfg(feature = "search")]
         {
-            let mut append_search_idx = append_props.append_search_idx;
+            let mut append_search_idx = append_result.append_search_idx;
             self.search_state.search_idx.append(&mut append_search_idx);
         }
-        self.lines_to_row_map
-            .append(&mut lines_to_row_map, clean_append);
+        self.lines_to_row_map.append(
+            &mut append_result.lines_to_row_map,
+            append_result.clean_append,
+        );
+
+        if self.running.lock().is_uninitialized() {
+            return AppendStyle::NoDraw;
+        }
 
         if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
             self.format_lines();
             return AppendStyle::FullRedraw;
         }
 
-        // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
-        // [`self.formatted_lines`]
-        //
-        // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
-        // that should be truncated from [`self.formatted_lines`] to update the last line
-        self.screen
-            .formatted_lines
-            .truncate(self.screen.formatted_lines.len() - self.unterminated);
-        self.unterminated = num_unterminated;
-        if self.running.lock().is_uninitialized() {
-            self.screen.formatted_lines.append(&mut fmt_line);
-            return AppendStyle::NoDraw;
-        }
-
-        let fmt_lines_len = fmt_line.len();
-
-        self.screen.formatted_lines.append(&mut fmt_line);
-
-        let formatted_line_bound = self.screen.formatted_lines.len();
-
-        AppendStyle::PartialUpdate(
-            &self.screen.formatted_lines
-                [formatted_line_bound - fmt_lines_len..formatted_line_bound - 1],
-        )
+        let total_rows = self.screen.get_line_count();
+        let fmt_lines = &self.screen.get_formatted_lines_with_bounds(
+            total_rows - append_result.rows_formatted,
+            total_rows - 1,
+        );
+        AppendStyle::PartialUpdate(fmt_lines)
     }
 }
