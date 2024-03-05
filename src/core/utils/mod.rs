@@ -1,6 +1,5 @@
 pub mod display;
 pub mod term;
-pub mod text;
 
 /// Return the number of digits in `num`
 pub const fn digits(num: usize) -> usize {

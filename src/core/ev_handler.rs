@@ -7,8 +7,7 @@ use std::sync::{atomic::AtomicBool, Arc};
 #[cfg(feature = "search")]
 use parking_lot::{Condvar, Mutex};
 
-use super::utils::display;
-use super::utils::text::AppendStyle;
+use super::utils::display::{self, AppendStyle};
 use super::CommandQueue;
 use super::{commands::Command, utils::term};
 #[cfg(feature = "search")]
@@ -255,7 +254,7 @@ pub fn handle_event(
             display::draw_full(&mut out, p)?;
         }
         Command::AppendData(text) => {
-            let prev_unterminated = p.unterminated;
+            let prev_unterminated = p.screen.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
             let is_running = !p.running.lock().is_uninitialized();
             let rows = p.rows;
@@ -270,7 +269,7 @@ pub fn handle_event(
                     rows,
                     prev_unterminated,
                     prev_fmt_lines_count,
-                    append_style,
+                    &append_style,
                 )?;
 
                 if p.follow_output {

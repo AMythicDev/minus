@@ -51,9 +51,9 @@
 //! ```
 
 #![allow(unused_imports)]
-use crate::minus_core::utils::{display, term, text};
+use crate::minus_core::utils::{display, term};
 use crate::screen::Screen;
-use crate::{error::MinusError, input::HashedEventRegister};
+use crate::{error::MinusError, input::HashedEventRegister, screen};
 use crate::{LineNumbers, PagerState};
 use crossterm::{
     cursor::{self, MoveTo},
@@ -318,7 +318,7 @@ where
     // format_result.append_search_idx which is after the current upper mark
     //
     // PERF: Check if this can be futhur optimized
-    let format_result = text::make_format_lines(
+    let (buffer, format_result) = screen::make_format_lines(
         &iso.screen.orig_text,
         iso.line_numbers,
         so.cols.into(),
@@ -334,7 +334,7 @@ where
         // Draw the incrementally searched lines from upper mark
         display::write_text_checked(
             out,
-            &format_result.text,
+            &buffer,
             upper_mark,
             so.rows.into(),
             so.cols.into(),
@@ -350,7 +350,7 @@ where
     // Return the results obtained by running incremental search so that they can be stored as a
     // cache.
     Ok(Some(IncrementalSearchCache {
-        formatted_lines: format_result.text,
+        formatted_lines: buffer,
         search_mark: position_of_next_match.unwrap(),
         upper_mark,
         search_idx: format_result.append_search_idx,
