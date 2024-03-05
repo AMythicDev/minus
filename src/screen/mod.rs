@@ -374,7 +374,7 @@ where
         append_search_idx: BTreeSet::new(),
         lines_to_row_map: LinesRowMap::new(),
         max_line_length: 0,
-        clean_append: opts.attachment.is_some(),
+        clean_append: opts.attachment.is_none(),
     };
 
     let line_number_digits = minus_core::utils::digits(opts.lines_count + to_format_size);
