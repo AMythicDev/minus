@@ -9,7 +9,21 @@ use crossterm::{
 use std::{cmp::Ordering, convert::TryInto, io::Write};
 
 use super::term;
-use crate::{error::MinusError, minus_core, screen::AppendStyle, LineNumbers, PagerState};
+use crate::screen::Row;
+use crate::{error::MinusError, minus_core, LineNumbers, PagerState};
+
+/// How should the incoming text be drawn on the screen
+#[derive(Debug, PartialEq, Eq)]
+pub enum AppendStyle<'a> {
+    /// Draw only the region that needs to change
+    PartialUpdate(&'a [Row]),
+
+    /// Redraw the entire screen
+    FullRedraw,
+
+    /// No redraws required because the pager display hasen't started
+    NoDraw,
+}
 
 /// Handles drawing of screen based on movement
 ///

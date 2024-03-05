@@ -6,8 +6,12 @@ use crate::search::{SearchMode, SearchOpts};
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
-    minus_core::{self, utils::LinesRowMap, CommandQueue},
-    screen::{self, AppendStyle, Screen},
+    minus_core::{
+        self,
+        utils::{display::AppendStyle, LinesRowMap},
+        CommandQueue,
+    },
+    screen::{self, Screen},
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};

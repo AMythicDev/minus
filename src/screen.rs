@@ -189,19 +189,6 @@ impl Screen {
 //
 // [`PagerState::lines`]: crate::state::PagerState::lines
 
-/// How should the incoming text be drawn on the screen
-#[derive(Debug, PartialEq, Eq)]
-pub enum AppendStyle<'a> {
-    /// Draw only the region that needs to change
-    PartialUpdate(&'a [Row]),
-
-    /// Redraw the entire screen
-    FullRedraw,
-
-    /// No redraws required because the pager display hasen't started
-    NoDraw,
-}
-
 pub(crate) trait AppendableBuffer {
     fn append_to_buffer(&mut self, other: &mut Rows);
     fn extend_buffer<I>(&mut self, other: I)
