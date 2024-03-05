@@ -52,7 +52,7 @@
 
 #![allow(unused_imports)]
 use crate::minus_core::utils::{display, term};
-use crate::screen::ScreenData;
+use crate::screen::Screen;
 use crate::{error::MinusError, input::HashedEventRegister, screen};
 use crate::{LineNumbers, PagerState};
 use crossterm::{
@@ -151,7 +151,7 @@ pub struct IncrementalSearchOpts<'a> {
     /// Value of [PagerState::upper_mark] before starting of search prompt
     pub initial_upper_mark: usize,
     /// Reference to [PagerState::screen]
-    pub screen: &'a ScreenData,
+    pub screen: &'a Screen,
     /// Value of [PagerState::upper_mark] before starting of search prompt
     pub initial_left_mark: usize,
 }

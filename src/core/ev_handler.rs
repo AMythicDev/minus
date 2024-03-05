@@ -269,7 +269,7 @@ pub fn handle_event(
                     rows,
                     prev_unterminated,
                     prev_fmt_lines_count,
-                    append_style,
+                    &append_style,
                 )?;
 
                 if p.follow_output {

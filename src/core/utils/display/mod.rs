@@ -158,7 +158,7 @@ pub fn draw_append_text(
     rows: usize,
     prev_unterminated: usize,
     prev_fmt_lines_count: usize,
-    append_style: AppendStyle,
+    append_style: &AppendStyle,
 ) -> Result<(), MinusError> {
     let AppendStyle::PartialUpdate(fmt_text) = append_style else {
         unreachable!()

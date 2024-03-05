@@ -7,7 +7,7 @@ use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
     minus_core::{self, utils::LinesRowMap, CommandQueue},
-    screen::{self, AppendStyle, ScreenData},
+    screen::{self, AppendStyle, Screen},
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
@@ -127,7 +127,7 @@ pub struct PagerState {
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_state: SearchState,
-    pub screen: ScreenData,
+    pub screen: Screen,
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
     /// The input classifier to be called when a input is detected
@@ -191,7 +191,7 @@ impl PagerState {
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             message: None,
-            screen: ScreenData::default(),
+            screen: Screen::default(),
             displayed_prompt: String::new(),
             show_prompt: true,
             #[cfg(feature = "static_output")]
@@ -367,6 +367,7 @@ impl PagerState {
             text,
             self.line_numbers,
             self.cols.try_into().unwrap(),
+            #[cfg(feature = "search")]
             &self.search_state.search_term,
         );
         let new_lc = self.screen.get_line_count();

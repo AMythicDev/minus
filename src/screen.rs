@@ -94,6 +94,14 @@ impl Screen {
         // We check if number of digits in current line count change during this text push.
         let old_lc = self.get_line_count();
 
+        // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
+        // [`self.formatted_lines`]
+        //
+        // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
+        // that should be truncated from [`self.formatted_lines`] to update the last line
+        self.formatted_lines
+            .truncate(self.formatted_lines.len() - self.unterminated);
+
         let append_props = {
             let attachment = if clean_append {
                 None
@@ -131,13 +139,6 @@ impl Screen {
             self.max_line_length = max_line_length;
         }
 
-        // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
-        // [`self.formatted_lines`]
-        //
-        // `num_unterminated` is the current number of lines returned by [`self.make_append_str`]
-        // that should be truncated from [`self.formatted_lines`] to update the last line
-        self.formatted_lines
-            .truncate(self.formatted_lines.len() - self.unterminated);
         self.unterminated = num_unterminated;
         append_props
     }
@@ -210,25 +211,25 @@ pub(crate) trait AppendableBuffer {
 
 impl AppendableBuffer for Rows {
     fn append_to_buffer(&mut self, other: &mut Rows) {
-        self.append(other)
+        self.append(other);
     }
     fn extend_buffer<I>(&mut self, other: I)
     where
         I: IntoIterator<Item = Row>,
     {
-        self.extend(other)
+        self.extend(other);
     }
 }
 
 impl AppendableBuffer for &mut Rows {
     fn append_to_buffer(&mut self, other: &mut Rows) {
-        self.append(other)
+        self.append(other);
     }
     fn extend_buffer<I>(&mut self, other: I)
     where
         I: IntoIterator<Item = Row>,
     {
-        self.extend(other)
+        self.extend(other);
     }
 }
 
@@ -335,7 +336,7 @@ where
 
     // Compute the text to be format and set clean_append
     let to_format;
-    if let Some(ref attached_text) = opts.attachment {
+    if let Some(attached_text) = opts.attachment {
         // Tweak certain parameters if we are joining the last line of already present text with the first line of
         // incoming text.
         //
@@ -392,6 +393,7 @@ where
         let cols = opts.cols;
         let lines_count = opts.lines_count;
         let line_wrapping = opts.line_wrapping;
+        #[cfg(feature = "search")]
         let search_term = opts.search_term;
 
         let rest_lines =
@@ -500,7 +502,7 @@ where
 /// [`PagerState::lines`]: crate::state::PagerState::lines
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::uninlined_format_args)]
-pub fn formatted_line<'a>(
+pub(crate) fn formatted_line<'a>(
     line: Line<'a>,
     len_line_number: usize,
     idx: usize,
@@ -643,7 +645,7 @@ pub(crate) fn make_format_lines(
     (buffer, fr)
 }
 
-impl Default for ScreenData {
+impl Default for Screen {
     fn default() -> Self {
         Self {
             line_wrapping: true,
