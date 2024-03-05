@@ -8,8 +8,8 @@ use crossterm::{
 
 use std::{cmp::Ordering, convert::TryInto, io::Write};
 
-use super::{term, text::AppendStyle};
-use crate::{error::MinusError, minus_core, LineNumbers, PagerState};
+use super::term;
+use crate::{error::MinusError, minus_core, screen::AppendStyle, LineNumbers, PagerState};
 
 /// Handles drawing of screen based on movement
 ///

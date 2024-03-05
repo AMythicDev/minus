@@ -6,15 +6,8 @@ use crate::search::{SearchMode, SearchOpts};
 use crate::{
     error::{MinusError, TermError},
     input::{self, HashedEventRegister},
-    minus_core::{
-        self,
-        utils::{
-            text::{self, AppendStyle},
-            LinesRowMap,
-        },
-        CommandQueue,
-    },
-    screen::ScreenData,
+    minus_core::{self, utils::LinesRowMap, CommandQueue},
+    screen::{self, AppendStyle, ScreenData},
     ExitStrategy, LineNumbers,
 };
 use crossterm::{terminal, tty::IsTty};
@@ -251,7 +244,7 @@ impl PagerState {
     }
 
     pub(crate) fn format_lines(&mut self) {
-        let format_result = text::make_format_lines(
+        let (buffer, format_result) = screen::make_format_lines(
             &self.screen.orig_text,
             self.line_numbers,
             self.cols,
@@ -264,7 +257,7 @@ impl PagerState {
         {
             self.search_state.search_idx = format_result.append_search_idx;
         }
-        self.screen.formatted_lines = format_result.text;
+        self.screen.formatted_lines = buffer;
         self.lines_to_row_map = format_result.lines_to_row_map;
         self.screen.max_line_length = format_result.max_line_length;
 

@@ -8,12 +8,11 @@ use std::sync::{atomic::AtomicBool, Arc};
 use parking_lot::{Condvar, Mutex};
 
 use super::utils::display;
-use super::utils::text::AppendStyle;
 use super::CommandQueue;
 use super::{commands::Command, utils::term};
 #[cfg(feature = "search")]
 use crate::search;
-use crate::{error::MinusError, input::InputEvent, PagerState};
+use crate::{error::MinusError, input::InputEvent, screen::AppendStyle, PagerState};
 
 /// Respond based on the type of command
 ///
