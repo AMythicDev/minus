@@ -186,7 +186,7 @@
 //! ```
 
 pub(crate) mod definitions;
-pub(crate) mod event_wrapper;
+pub(crate) mod hashed_event_register;
 
 pub use crossterm::event as crossterm_event;
 
@@ -194,7 +194,7 @@ pub use crossterm::event as crossterm_event;
 use crate::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-pub use event_wrapper::HashedEventRegister;
+pub use hashed_event_register::HashedEventRegister;
 
 /// Events handled by the `minus` pager.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
