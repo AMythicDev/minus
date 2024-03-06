@@ -65,7 +65,7 @@ impl Default for SearchState {
                     .as_ref()
                     .unwrap()
                     .screen
-                    .get_line_count()
+                    .line_count()
                     <= 5000
         });
         Self {
@@ -365,7 +365,7 @@ impl PagerState {
     }
 
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
-        let old_lc = self.screen.get_line_count();
+        let old_lc = self.screen.line_count();
         let old_lc_dgts = minus_core::utils::digits(old_lc);
         let mut append_result = self.screen.push_screen_buf(
             text,
@@ -374,7 +374,7 @@ impl PagerState {
             #[cfg(feature = "search")]
             &self.search_state.search_term,
         );
-        let new_lc = self.screen.get_line_count();
+        let new_lc = self.screen.line_count();
         let new_lc_dgts = minus_core::utils::digits(new_lc);
         #[cfg(feature = "search")]
         {
@@ -395,7 +395,7 @@ impl PagerState {
             return AppendStyle::FullRedraw;
         }
 
-        let total_rows = self.screen.get_line_count();
+        let total_rows = self.screen.line_count();
         let fmt_lines = &self.screen.get_formatted_lines_with_bounds(
             total_rows - append_result.rows_formatted,
             total_rows - 1,

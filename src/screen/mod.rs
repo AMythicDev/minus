@@ -57,7 +57,7 @@ impl Screen {
     }
     /// Get the number of [`Lines`](std::str::Lines) in the text.
     #[must_use]
-    pub const fn get_line_count(&self) -> usize {
+    pub const fn line_count(&self) -> usize {
         self.line_count
     }
     /// Returns all the [Rows] within the bounds
@@ -92,7 +92,7 @@ impl Screen {
         // text for the FormatOpts.
         let clean_append = self.orig_text.ends_with('\n') || self.orig_text.is_empty();
         // We check if number of digits in current line count change during this text push.
-        let old_lc = self.get_line_count();
+        let old_lc = self.line_count();
 
         // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
         // [`self.formatted_lines`]

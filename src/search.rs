@@ -293,7 +293,7 @@ where
             iso.screen.line_wrapping,
             iso.initial_left_mark,
             iso.line_numbers,
-            iso.screen.get_line_count(),
+            iso.screen.line_count(),
         )?;
         Ok(())
     };
@@ -341,7 +341,7 @@ where
             iso.screen.line_wrapping,
             iso.initial_left_mark,
             iso.line_numbers,
-            iso.screen.get_line_count(),
+            iso.screen.line_count(),
         )?;
     } else {
         reset_screen(out, so)?;

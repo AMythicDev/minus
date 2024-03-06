@@ -121,7 +121,7 @@ pub fn draw_for_change(
         ps.screen.line_wrapping,
         ps.left_mark,
         ps.line_numbers.is_on(),
-        ps.screen.get_line_count(),
+        ps.screen.line_count(),
     )?;
 
     ps.upper_mark = *new_upper_mark;
@@ -301,7 +301,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
         ps.screen.line_wrapping,
         ps.left_mark,
         ps.line_numbers.is_on(),
-        ps.screen.get_line_count(),
+        ps.screen.line_count(),
     )
 }
 
