@@ -22,13 +22,13 @@ Traditional pagers like `more` or `less` weren't made for integrating into other
 be standalone binaries that are executed directly by users. However most applications don't adhere to this and 
 exploit these pagers' functionality by calling them as external programs and passing the data through the standard input.
 This method worked for Unix and other Unix-like OSs like Linux and MacOS because they already came with any of these
-pagers installed  But it wasn't this easy on Windows, it required shipping the pager binary along with the applications.
+pagers installed. But it wasn't this easy on Windows; it required shipping the pager binary along with the applications.
 Since these programs were originally designed for Unix and Unix-like OSs, distributing these binaries meant shipping an
 entire environment like MinGW or Cygwin so that these can run properly on Windows.
 
 Recently, some libraries have emerged to solve this issue. They are compiled along with your application and give you a
 single binary to distribute. The problem with them is that they require you to feed the entire data to the pager before
-the pager can run, this meant that there will be no output on the terminal until the entire data isn't loaded by the
+the pager can run, this meant that there will be no output on the terminal until the entire data is loaded by the
 application and passed on to the pager.
 
 These could cause long delays before output to the terminal if the data comes from a very large file or is being
@@ -77,7 +77,7 @@ version = "5.5"
 features = [
     # Enable features you want. For example
     "dynamic_output",
-    "search"
+    "search",
 ]
 ```
 
@@ -99,12 +99,12 @@ See [the docs](https://docs.rs/minus/latest/minus/#examples) for a summary of ex
 Can be seen [in the docs](https://docs.rs/minus/latest/minus/#standard-actions).
 
 ## MSRV
-The latest version of minus requires Rust >= 1.67 to build correctly
+The latest version of minus requires Rust >= 1.67 to build correctly.
 
 ## License
 
 Unless explicitly stated, all works to `minus` are dual licensed under the
-[MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
+[MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE).
 
 ## Contributing
 :warning: Read about our plans on standardizing Git commit messages https://github.com/arijit79/minus/issues/103 :warning:
@@ -134,7 +134,7 @@ And the help from these projects:-
 
 We are open to discussion and thoughts om improving `minus`. Join us at 
 [Discord](https://discord.gg/FKEnDPE6Bv) or
-[Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
+[Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org).
 
 [`tokio`]: https://crates.io/crates/tokio
 [`async-std`]: https://crates.io/crates/async-std
