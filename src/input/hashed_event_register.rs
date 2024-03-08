@@ -231,20 +231,20 @@ where
     /// Prefer using this over [add_key_events](HashedEventRegister::add_key_events).
     ///
     /// # Example
-    /// ```
+    /// ```should_panic
     /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
     ///
     /// let mut input_register = HashedEventRegister::default();
     ///
-    /// input_register.add_key_events(&["down"], |_, ps| {
+    /// input_register.add_key_events_checked(&["down"], |_, ps| {
     ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(1))
-    /// });
+    /// }, false);
     /// ```
     pub fn add_key_events_checked(
         &mut self,
         desc: &[&str],
-        remap: bool,
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+        remap: bool,
     ) {
         let v = Arc::new(cb);
         for k in desc {
@@ -315,26 +315,27 @@ where
     ///
     /// Prefer using this over [add_mouse_events](HashedEventRegister::add_mouse_events).
     /// # Example
-    /// ```
+    /// ```should_panic
     /// use minus::input::{InputEvent, HashedEventRegister};
     ///
     /// let mut input_register = HashedEventRegister::default();
     ///
-    /// input_register.add_mouse_events(&["scroll:down"], |_, ps| {
+    /// input_register.add_mouse_events_checked(&["scroll:down"], |_, ps| {
     ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
-    /// });
+    /// }, false);
     /// ```
     pub fn add_mouse_events_checked(
         &mut self,
         desc: &[&str],
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+        remap: bool,
     ) {
         let v = Arc::new(cb);
         for k in desc {
-            self.0.insert(
-                Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into(),
-                v.clone(),
-            );
+            let def: EventWrapper =
+                Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into();
+            assert!(self.0.contains_key(&def) && remap, "");
+            self.0.insert(def, v.clone());
         }
     }
 
