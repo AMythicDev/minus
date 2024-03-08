@@ -73,7 +73,7 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 ```toml
 [dependencies.minus]
-version = "5.5"
+version = "5.6"
 features = [
     # Enable features you want. For example
     "dynamic_output",
