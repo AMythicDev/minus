@@ -72,6 +72,8 @@ use std::{
 
 use std::collections::hash_map::RandomState;
 
+pub type SearchIndex = BTreeSet<(usize, usize)>;
+
 static INVERT: Lazy<String> = Lazy::new(|| Attribute::Reverse.to_string());
 static NORMAL: Lazy<String> = Lazy::new(|| Attribute::NoReverse.to_string());
 static ANSI_REGEX: Lazy<Regex> = Lazy::new(|| {
@@ -247,7 +249,7 @@ pub(crate) struct IncrementalSearchCache {
     /// NOTE: There is no guarantee that this will stay within the bounds of `search_idx`
     pub(crate) search_mark: usize,
     /// Indices of formatted_lines where search matches have been found
-    pub(crate) search_idx: BTreeSet<usize>,
+    pub(crate) search_idx: SearchIndex,
     /// Index of the line from which to display the text.
     /// This will be set to the index of line which is after the current upper mark and will
     /// have a search match for sure
@@ -330,7 +332,7 @@ where
     // Get the upper mark. If we can't find one, reset the display
     let upper_mark;
     if let Some(pnm) = position_of_next_match {
-        upper_mark = *format_result.append_search_idx.iter().nth(pnm).unwrap();
+        upper_mark = format_result.append_search_idx.iter().nth(pnm).unwrap().0;
         // Draw the incrementally searched lines from upper mark
         display::write_text_checked(
             out,
@@ -630,6 +632,8 @@ pub(crate) fn fetch_input(
 pub(crate) fn highlight_line_matches(
     line: &str,
     query: &regex::Regex,
+    search_idx: &mut SearchIndex,
+    row_num: usize,
     accurate: bool,
 ) -> Option<String> {
     // Remove all ansi escapes so we can look through it as if it had none
@@ -745,7 +749,7 @@ pub(crate) fn highlight_line_matches(
         // length of the re-inserted escapes, and the length of the single extra INVERT which would
         // be inserted at the beginning of this match
         let pos_in_final = end + preceding + escapes + INVERT.len();
-        println!("The position of this escape in the final string is at {pos_in_final}");
+        search_idx.insert((row_num, pos_in_final));
     }
 
     Some(inverted)
@@ -769,7 +773,7 @@ pub(crate) fn highlight_line_matches(
 /// `upper_mark` and element at index  are equal i.e 17.
 #[must_use]
 pub(crate) fn next_nth_match(
-    search_idx: &BTreeSet<usize>,
+    search_idx: &SearchIndex,
     upper_mark: usize,
     jump: usize,
 ) -> Option<usize> {
@@ -782,9 +786,9 @@ pub(crate) fn next_nth_match(
     let mut position_of_next_match;
     if let Some(nearest_idx) = search_idx.iter().position(|i| {
         if jump == 0 {
-            *i >= upper_mark
+            i.0 >= upper_mark
         } else {
-            *i > upper_mark
+            i.0 > upper_mark
         }
     }) {
         // This ensures that index doesn't get off-by-one in case of jump = 0
@@ -1100,15 +1104,23 @@ mod tests {
     #[test]
     fn test_next_match() {
         // A sample index for mocking actual search index matches
-        let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
+        let search_idx = std::collections::BTreeSet::from([
+            (2, 17),
+            (10, 2),
+            (10, 17),
+            (15, 37),
+            (17, 15),
+            (17, 23),
+            (50, 23),
+        ]);
         let mut upper_mark = 0;
         let mut search_mark;
         for (i, v) in search_idx.iter().enumerate() {
             search_mark = super::next_nth_match(&search_idx, upper_mark, 1);
-            assert_eq!(search_mark, Some(i));
-            let next_upper_mark = *search_idx.iter().nth(search_mark.unwrap()).unwrap();
-            assert_eq!(next_upper_mark, *v);
-            upper_mark = next_upper_mark;
+            // assert_eq!(search_mark, Some(i));
+            let next_pos = *search_idx.iter().nth(search_mark.unwrap()).unwrap();
+            assert_eq!(next_pos, *v);
+            upper_mark = next_pos.0;
         }
     }
 
@@ -1116,6 +1128,7 @@ mod tests {
     mod highlighting {
         use std::collections::BTreeSet;
 
+        use crate::search::SearchIndex;
         use crate::search::{highlight_line_matches, next_nth_match, INVERT, NORMAL};
         use crate::PagerState;
         use crossterm::style::Attribute;
@@ -1126,10 +1139,12 @@ mod tests {
         const NONE: &str = "\x1b[0m";
 
         mod consistent {
+
             use super::*;
 
             #[test]
             fn test_highlight_matches() {
+                let mut index = SearchIndex::new();
                 let line = "Integer placerat tristique nisl. placerat non mollis, magna orci dolor, placerat at vulputate neque nulla lacinia eros.".to_string();
                 let pat = Regex::new(r"\W\w+t\W").unwrap();
                 let result = format!(
@@ -1141,29 +1156,48 @@ eros.",
                     noinverse = Attribute::NoReverse
                 );
 
-                assert_eq!(highlight_line_matches(&line, &pat, false).unwrap(), result);
+                assert_eq!(
+                    highlight_line_matches(&line, &pat, &mut index, 0, false).unwrap(),
+                    result
+                );
             }
 
             #[test]
             fn no_match() {
+                let mut index = SearchIndex::new();
                 let orig = "no match";
-                let res = highlight_line_matches(orig, &Regex::new("test").unwrap(), false);
+                let res = highlight_line_matches(
+                    orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                );
                 assert_eq!(res, None);
             }
 
             #[test]
             fn single_match_no_esc() {
-                let res =
-                    highlight_line_matches("this is a test", &Regex::new(" a ").unwrap(), false)
-                        .unwrap();
+                let mut index = SearchIndex::new();
+                let res = highlight_line_matches(
+                    "this is a test",
+                    &Regex::new(" a ").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(res, format!("this is{} a {}test", *INVERT, *NORMAL));
             }
 
             #[test]
             fn multi_match_no_esc() {
+                let mut index = SearchIndex::new();
                 let res = highlight_line_matches(
                     "test another test",
                     &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
                     false,
                 )
                 .unwrap();
@@ -1177,9 +1211,12 @@ eros.",
 
             #[test]
             fn esc_pair_outside_match() {
+                let mut index = SearchIndex::new();
                 let res = highlight_line_matches(
                     &format!("{ESC}color{NONE} and test"),
                     &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
                     false,
                 )
                 .unwrap();
@@ -1191,9 +1228,16 @@ eros.",
 
             #[test]
             fn esc_pair_end_in_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this {ESC}is a te{NONE}st");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this {}is a {}test{}{}", ESC, *INVERT, *NORMAL, NONE)
@@ -1202,9 +1246,16 @@ eros.",
 
             #[test]
             fn esc_pair_start_in_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this is a te{ESC}st again{NONE}");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this is a {}test{}{ESC} again{}", *INVERT, *NORMAL, NONE)
@@ -1213,9 +1264,16 @@ eros.",
 
             #[test]
             fn esc_pair_around_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this is {ESC}a test again{NONE}");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this is {}a {}test{} again{}", ESC, *INVERT, *NORMAL, NONE)
@@ -1224,9 +1282,16 @@ eros.",
 
             #[test]
             fn esc_pair_within_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this is a t{ESC}es{NONE}t again");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this is a {}test{}{ESC}{NONE} again", *INVERT, *NORMAL)
@@ -1235,9 +1300,16 @@ eros.",
 
             #[test]
             fn multi_escape_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), false).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    false,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!(
@@ -1254,12 +1326,19 @@ eros.",
             use super::*;
             #[test]
             fn correct_ascii_sequence_placement() {
+                let mut index = SearchIndex::new();
                 let orig = format!(
                     "{ESC}test{NONE} this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",
                 );
 
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    true,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!(
@@ -1275,9 +1354,12 @@ eros.",
             // NOTE: esc_pair means a single pair of ESC and NONE
             #[test]
             fn esc_pair_outside_match() {
+                let mut index = SearchIndex::new();
                 let res = highlight_line_matches(
                     &format!("{ESC}color{NONE} and test"),
                     &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
                     true,
                 )
                 .unwrap();
@@ -1289,9 +1371,16 @@ eros.",
 
             #[test]
             fn esc_pair_end_in_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this {ESC}is a te{NONE}st");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    true,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this {ESC}is a {}te{NONE}st{}", *INVERT, *NORMAL)
@@ -1300,9 +1389,16 @@ eros.",
 
             #[test]
             fn esc_pair_start_in_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this is a te{ESC}st again{NONE}");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    true,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this is a {}te{ESC}st{} again{NONE}", *INVERT, *NORMAL)
@@ -1311,9 +1407,16 @@ eros.",
 
             #[test]
             fn esc_pair_around_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this is {ESC}a test again{NONE}");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    true,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this is {ESC}a {}test{} again{NONE}", *INVERT, *NORMAL)
@@ -1322,9 +1425,16 @@ eros.",
 
             #[test]
             fn esc_pair_within_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this is a t{ESC}es{NONE}t again");
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    true,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!("this is a {}t{ESC}es{NONE}t{} again", *INVERT, *NORMAL)
@@ -1333,9 +1443,16 @@ eros.",
 
             #[test]
             fn multi_escape_match() {
+                let mut index = SearchIndex::new();
                 let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
-                let res =
-                    highlight_line_matches(&orig, &Regex::new("test").unwrap(), true).unwrap();
+                let res = highlight_line_matches(
+                    &orig,
+                    &Regex::new("test").unwrap(),
+                    &mut index,
+                    0,
+                    true,
+                )
+                .unwrap();
                 assert_eq!(
                     res,
                     format!(

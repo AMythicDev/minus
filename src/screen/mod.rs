@@ -11,7 +11,10 @@ use regex::Regex;
 use std::borrow::Cow;
 
 #[cfg(feature = "search")]
-use {crate::search, std::collections::BTreeSet};
+use {
+    crate::search::{self, SearchIndex},
+    std::collections::BTreeSet,
+};
 
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||
 //  TYPES TO BETTER DESCRIBE THE PURPOSE OF STRINGS
@@ -282,7 +285,7 @@ pub(crate) struct FormatResult {
     pub num_unterminated: usize,
     /// If search is active, this contains the indices where search matches in the incoming text have been found
     #[cfg(feature = "search")]
-    pub append_search_idx: BTreeSet<usize>,
+    pub append_search_idx: SearchIndex,
     /// Map of where first row of each line is placed inside in
     /// [`PagerState::formatted_lines`](crate::state::PagerState::formatted_lines)
     pub lines_to_row_map: LinesRowMap,
@@ -468,7 +471,7 @@ where
         fr.append_search_idx = fr
             .append_search_idx
             .iter()
-            .map(|i| opts.formatted_lines_count + i)
+            .map(|i| (opts.formatted_lines_count + i.0, i.1))
             .collect();
     }
 
@@ -510,7 +513,7 @@ pub(crate) fn formatted_line<'a>(
     cols: usize,
     line_wrapping: bool,
     #[cfg(feature = "search")] formatted_idx: usize,
-    #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
+    #[cfg(feature = "search")] search_idx: &mut SearchIndex,
     #[cfg(feature = "search")] search_term: &Option<regex::Regex>,
 ) -> Rows {
     assert!(
@@ -550,9 +553,10 @@ pub(crate) fn formatted_line<'a>(
     let mut handle_search = |row: &mut Cow<'a, str>, wrap_idx: usize| {
         #[cfg(feature = "search")]
         if let Some(st) = search_term.as_ref() {
-            if let Some(highlighted_row) = search::highlight_line_matches(row, st, false) {
+            if let Some(highlighted_row) =
+                search::highlight_line_matches(row, st, search_idx, formatted_idx + wrap_idx, false)
+            {
                 *row.to_mut() = highlighted_row;
-                search_idx.insert(formatted_idx + wrap_idx);
             }
         }
     };

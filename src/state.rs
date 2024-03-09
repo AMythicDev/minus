@@ -1,7 +1,7 @@
 //! Contains types that hold run-time information of the pager.
 
 #[cfg(feature = "search")]
-use crate::search::{SearchMode, SearchOpts};
+use crate::search::{SearchIndex, SearchMode, SearchOpts};
 
 use crate::{
     error::{MinusError, TermError},
@@ -44,7 +44,7 @@ pub struct SearchState {
     pub(crate) search_term: Option<regex::Regex>,
     /// Lines where searches have a match
     /// In order to avoid duplicate entries of lines, we keep it in a [`BTreeSet`]
-    pub(crate) search_idx: BTreeSet<usize>,
+    pub(crate) search_idx: SearchIndex,
     /// Index of search item currently in focus
     /// It should be 0 even when no search is in action
     pub(crate) search_mark: usize,

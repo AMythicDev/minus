@@ -142,12 +142,13 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                let upper_mark = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
+                    .unwrap()
+                    .0;
                 command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
                     upper_mark,
                 )));
@@ -164,7 +165,7 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceding index
             p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-            if let Some(y) = p
+            if let Some((y, _)) = p
                 .search_state
                 .search_idx
                 .iter()
@@ -189,12 +190,13 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                let upper_mark = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
+                    .unwrap()
+                    .0;
 
                 // Ensure there is enough text available after location corresponding to
                 // position_of_next_match so that we can display a pagefull of data. If not,
@@ -204,12 +206,13 @@ pub fn handle_event(
                     > p.screen.formatted_lines_count().saturating_add(1)
                 {
                     p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-                    p.upper_mark = *p
+                    p.upper_mark = p
                         .search_state
                         .search_idx
                         .iter()
                         .nth(p.search_state.search_mark)
-                        .unwrap();
+                        .unwrap()
+                        .0;
                 }
                 command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
                     upper_mark,
@@ -227,7 +230,7 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceding index
             p.search_state.search_mark = p.search_state.search_mark.saturating_sub(n);
-            if let Some(y) = p
+            if let Some((y, _)) = p
                 .search_state
                 .search_idx
                 .iter()
