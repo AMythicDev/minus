@@ -63,6 +63,7 @@ use crossterm::{
 };
 use once_cell::sync::Lazy;
 use regex::Regex;
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::{
     convert::{TryFrom, TryInto},
@@ -72,7 +73,42 @@ use std::{
 
 use std::collections::hash_map::RandomState;
 
-pub type SearchIndex = BTreeSet<(usize, usize)>;
+#[derive(Debug, PartialOrd, PartialEq, Eq)]
+pub(crate) struct SearchMatch {
+    pub(crate) row: usize,
+    pub(crate) col: usize,
+    pub(crate) shifted_col: usize,
+}
+
+impl SearchMatch {
+    fn new(row: usize, col: usize, shifted_col: usize) -> Self {
+        Self {
+            row,
+            col,
+            shifted_col,
+        }
+    }
+}
+
+impl Ord for SearchMatch {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        if self.row > other.row {
+            Ordering::Greater
+        } else if self.row == other.row {
+            if self.shifted_col > other.shifted_col {
+                Ordering::Greater
+            } else if self.shifted_col < other.shifted_col {
+                Ordering::Less
+            } else {
+                Ordering::Equal
+            }
+        } else {
+            Ordering::Less
+        }
+    }
+}
+
+pub(crate) type SearchIndex = BTreeSet<SearchMatch>;
 
 static INVERT: Lazy<String> = Lazy::new(|| Attribute::Reverse.to_string());
 static NORMAL: Lazy<String> = Lazy::new(|| Attribute::NoReverse.to_string());
@@ -327,12 +363,16 @@ where
         iso.screen.line_wrapping,
         &so.compiled_regex,
     );
-    let position_of_next_match =
-        next_nth_match(&format_result.append_search_idx, iso.initial_upper_mark, 0);
+    let position_of_next_match = next_nth_match(
+        &format_result.append_search_idx,
+        iso.initial_upper_mark,
+        iso.initial_left_mark + (so.cols as usize),
+        0,
+    );
     // Get the upper mark. If we can't find one, reset the display
     let upper_mark;
     if let Some(pnm) = position_of_next_match {
-        upper_mark = format_result.append_search_idx.iter().nth(pnm).unwrap().0;
+        upper_mark = format_result.append_search_idx.iter().nth(pnm).unwrap().row;
         // Draw the incrementally searched lines from upper mark
         display::write_text_checked(
             out,
@@ -749,7 +789,11 @@ pub(crate) fn highlight_line_matches(
         // length of the re-inserted escapes, and the length of the single extra INVERT which would
         // be inserted at the beginning of this match
         let pos_in_final = end + preceding + escapes + INVERT.len();
-        search_idx.insert((row_num, pos_in_final));
+        search_idx.insert(SearchMatch {
+            row: row_num,
+            col: *end,
+            shifted_col: pos_in_final,
+        });
     }
 
     Some(inverted)
@@ -774,7 +818,8 @@ pub(crate) fn highlight_line_matches(
 #[must_use]
 pub(crate) fn next_nth_match(
     search_idx: &SearchIndex,
-    upper_mark: usize,
+    mut upper_mark: usize,
+    right_mark: usize,
     jump: usize,
 ) -> Option<usize> {
     if search_idx.is_empty() {
@@ -783,38 +828,60 @@ pub(crate) fn next_nth_match(
 
     // Find the index of the match that's exactly after the upper_mark.
     // One we find that, we add n-1 to it to get the next nth match after upper_mark
-    let mut position_of_next_match;
-    if let Some(nearest_idx) = search_idx.iter().position(|i| {
-        if jump == 0 {
-            i.0 >= upper_mark
-        } else {
-            i.0 > upper_mark
-        }
-    }) {
-        // This ensures that index doesn't get off-by-one in case of jump = 0
-        if jump == 0 {
-            position_of_next_match = nearest_idx;
-        } else {
-            position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
-        }
+    let jump_indexed = if jump == 0 { 1 } else { jump };
 
-        // If position_of_next_match is goes beyond the length of search_idx
-        // set it to the length of search_idx -1 which corresponds to the index of
-        // last match
-        if position_of_next_match > search_idx.len().saturating_sub(1) {
-            position_of_next_match = search_idx.len().saturating_sub(1);
+    let mut next_match_pos = None;
+    for _ in 0..jump_indexed {
+        if let Some(pos) = search_idx.iter().position(|i| {
+            // TODO: Refactor here
+            if jump == 0 {
+                if i.row == upper_mark {
+                    right_mark <= i.col
+                } else {
+                    i.row >= upper_mark
+                }
+            } else {
+                if i.row == upper_mark {
+                    right_mark < i.col
+                } else {
+                    i.row > upper_mark
+                }
+            }
+        }) {
+            upper_mark = search_idx.iter().nth(pos).unwrap().row;
+            next_match_pos = Some(pos);
+        } else {
+            next_match_pos = None;
         }
-    } else {
-        // If there's no match at all simply set it to the length of search_idx -1 which
-        // corresponds to the index of last match
-        position_of_next_match = search_idx.len().saturating_sub(1);
     }
 
-    Some(position_of_next_match)
+    // if let nearest_idx = {
+    //     // This ensures that index doesn't get off-by-one in case of jump = 0
+    //     if jump == 0 {
+    //         position_of_next_match = nearest_idx;
+    //     } else {
+    //         position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
+    //     }
+    //
+    //     // If position_of_next_match is goes beyond the length of search_idx
+    //     // set it to the length of search_idx -1 which corresponds to the index of
+    //     // last match
+    //     if position_of_next_match > search_idx.len().saturating_sub(1) {
+    //         position_of_next_match = search_idx.len().saturating_sub(1);
+    //     }
+    // } else {
+    //     // If there's no match at all simply set it to the length of search_idx -1 which
+    //     // corresponds to the index of last match
+    //     position_of_next_match = search_idx.len().saturating_sub(1);
+    // }
+
+    next_match_pos
 }
 
 #[cfg(test)]
 mod tests {
+    use super::SearchMatch;
+
     mod input_handling {
         use crate::{
             search::{handle_key_press, InputStatus, SearchOpts},
@@ -1105,22 +1172,33 @@ mod tests {
     fn test_next_match() {
         // A sample index for mocking actual search index matches
         let search_idx = std::collections::BTreeSet::from([
-            (2, 17),
-            (10, 2),
-            (10, 17),
-            (15, 37),
-            (17, 15),
-            (17, 23),
-            (50, 23),
+            SearchMatch::new(2, 17, 17),
+            SearchMatch::new(10, 90, 90),
+            SearchMatch::new(10, 100, 108),
+            SearchMatch::new(15, 37, 37),
+            SearchMatch::new(17, 15, 15),
+            SearchMatch::new(17, 23, 23),
+            SearchMatch::new(50, 23, 28),
         ]);
+
+        let mut search_match_pos = vec![0, 1, 1, 2, 3, 4, 6];
         let mut upper_mark = 0;
+        let mut left_mark = 0;
         let mut search_mark;
-        for (i, v) in search_idx.iter().enumerate() {
-            search_mark = super::next_nth_match(&search_idx, upper_mark, 1);
-            // assert_eq!(search_mark, Some(i));
-            let next_pos = *search_idx.iter().nth(search_mark.unwrap()).unwrap();
-            assert_eq!(next_pos, *v);
-            upper_mark = next_pos.0;
+
+        for _ in 0..search_idx.len() - 1 {
+            search_mark = super::next_nth_match(&search_idx, upper_mark, left_mark + 80, 1);
+            dbg!(search_mark);
+            assert!(search_match_pos.contains(&search_mark.unwrap()));
+            search_match_pos.remove(0);
+
+            let next_pos = search_idx.iter().nth(search_mark.unwrap()).unwrap();
+            if upper_mark != next_pos.row && next_pos.shifted_col < 80 {
+                left_mark = 0;
+            } else {
+                left_mark = next_pos.shifted_col - 80;
+            }
+            upper_mark = next_pos.row;
         }
     }
 
@@ -1463,6 +1541,60 @@ eros.",
                         nn = NONE
                     )
                 );
+            }
+        }
+
+        mod col_indices {
+            use super::*;
+            use crate::search::SearchMatch;
+
+            // NOTE: We only test for column indices in accurate mode however it will yield the
+            // same result in non-accurate (consistent) mode.
+
+            #[test]
+            fn esc_pair_within_match() {
+                let mut index = SearchIndex::new();
+                let orig = format!("this is a t{ESC}es{NONE}t line");
+                highlight_line_matches(&orig, &Regex::new("test").unwrap(), &mut index, 0, true)
+                    .unwrap();
+                assert_eq!(
+                    index.first().unwrap(),
+                    &SearchMatch {
+                        row: 0,
+                        col: 14,
+                        shifted_col: 14 + ESC.len() + NONE.len() + INVERT.len()
+                    }
+                )
+            }
+
+            #[test]
+            fn multi_escape_match() {
+                let mut index = SearchIndex::new();
+                let orig = format!("this {ESC}is a te{NONE}st line {ESC}yeah{NONE} test");
+                highlight_line_matches(&orig, &Regex::new("test").unwrap(), &mut index, 0, true)
+                    .unwrap();
+
+                let mut index_iter = index.iter();
+                assert_eq!(
+                    index_iter.next().unwrap(),
+                    &SearchMatch {
+                        row: 0,
+                        col: 14,
+                        shifted_col: 14 + ESC.len() + NONE.len() + INVERT.len()
+                    }
+                );
+                assert_eq!(
+                    index_iter.next().unwrap(),
+                    &SearchMatch {
+                        row: 0,
+                        col: 29,
+                        shifted_col: 29
+                            + 2 * ESC.len()
+                            + 2 * NONE.len()
+                            + 2 * INVERT.len()
+                            + NORMAL.len()
+                    }
+                )
             }
         }
     }

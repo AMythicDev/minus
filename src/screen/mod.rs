@@ -3,6 +3,7 @@
 //! This module is still a work is progress and is subject to change.
 use crate::{
     minus_core::{self, utils::LinesRowMap},
+    search::SearchMatch,
     LineNumbers,
 };
 #[cfg(feature = "search")]
@@ -471,7 +472,11 @@ where
         fr.append_search_idx = fr
             .append_search_idx
             .iter()
-            .map(|i| (opts.formatted_lines_count + i.0, i.1))
+            .map(|i| SearchMatch {
+                row: i.row + formatted_row_count,
+                col: i.col,
+                shifted_col: i.shifted_col,
+            })
             .collect();
     }
 
