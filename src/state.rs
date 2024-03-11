@@ -386,10 +386,6 @@ impl PagerState {
             append_result.clean_append,
         );
 
-        if self.running.lock().is_uninitialized() {
-            return AppendStyle::NoDraw;
-        }
-
         if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
             self.format_lines();
             return AppendStyle::FullRedraw;

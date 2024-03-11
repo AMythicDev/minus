@@ -20,9 +20,6 @@ pub enum AppendStyle<'a> {
 
     /// Redraw the entire screen
     FullRedraw,
-
-    /// No redraws required because the pager display hasen't started
-    NoDraw,
 }
 
 /// Handles drawing of screen based on movement
