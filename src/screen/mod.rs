@@ -441,6 +441,7 @@ where
         opts.search_term,
     );
     fr.lines_to_row_map.insert(formatted_row_count, true);
+    formatted_row_count += last_line.len();
     if lines.last().unwrap().1.len() > fr.max_line_length {
         fr.max_line_length = lines.last().unwrap().1.len();
     }

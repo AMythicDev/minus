@@ -395,11 +395,10 @@ impl PagerState {
             return AppendStyle::FullRedraw;
         }
 
-        let total_rows = self.screen.line_count();
-        let fmt_lines = &self.screen.get_formatted_lines_with_bounds(
-            total_rows - append_result.rows_formatted,
-            total_rows - 1,
-        );
+        let total_rows = self.screen.formatted_lines_count();
+        let fmt_lines = &self
+            .screen
+            .get_formatted_lines_with_bounds(total_rows - append_result.rows_formatted, total_rows);
         AppendStyle::PartialUpdate(fmt_lines)
     }
 }
