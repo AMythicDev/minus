@@ -1,6 +1,38 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.6.0 [2024-03-05]
+### Fixed
+* [cd2b92](https://github.com/arijit79/minus/commits/cd2b92): Fixed bug where screen jumps to 2nd match when first match is present on the same line where upper mark is present
+* [#120](https://github.com/arijit79/minus/issues/120), [#121](https://github.com/arijit79/minus/issues/121): Fixed screen flickering on WSL/Windows Terminal
+* [3493e76d](https://github.com/commits/3493e76d): Fixed weird search jumps due to updating upper_mark in incremental search
+
+# Performance
+* Include a bunch of changes targeting text appending.
+* Introduced `minus_core::utils::digits` which uses faster algorithm to calculate digits in line numbers
+* [67772fc](https://github.com/commits/67772fc): Improve performance by Only reformatting the entire text when linen numbers are turned on
+* Introduce caching for frequently used analysis about the data like like total line count, total row count, length of the longest line etc
+
+### Docs
+* [#117](https://github.com/pull/117), [#118](https://github.com/pull/118), [#123](https://github.com/pull/123), [#124](https://github.com/pull/124), [#132](https://github.com/pull/132): improvements to documentation in README and lib.rs
+* [53922d348](https://github.com/commits/53922d348): Overhaul docs for input module
+
+### Added
+* [#114](https://github.com/arijit79/minus/pull/114): Added follow mode
+* [#65](https://github.com/arijit79/minus/pull/65): Implement horizontal scrolling
+* [#130](https://github.com/arijit79/minus/pull/130): Added new APIs to the screen module.
+* [36da3ca6](https://github.com/commits/36da3ca6):  Added `add_key_events_checked` and `add_mouse_events_checked` functions in `HashedEventRegister` to prevent accidentally overriding already present bindings.
+* [#112](https://github.com/arijit79/minus/pull/112): Added all the dependencies required to develop minus in the `flake.nix` file.
+
+### Removed
+* Removed the `initial_formatted_lines` and `initial_upper_mark` fields from `IncrementalSearchOpts`
+
+### Changed
+* [#130](https://github.com/arijit79/minus/pull/130): Merge the text module  with screen module.
+* [cb991f1ac8](https://github.com/commits/cb991f1ac8): Use a better colorscheme for the prompt
+* [4611a13](https://github.com/commits/4611a13): Use a Vec style type for `lines_to_row_map` field in `PagerState` which yields better
+  performance
+
 ## v5.5.1 [2023-12-05]
 ### Fixed
 * Version information in README
