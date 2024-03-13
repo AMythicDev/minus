@@ -93,7 +93,7 @@
 //! manually copy the [default definitions](DefaultInputClassifier) and make the required
 //! modifications yourself in this method. This lead to very messy and error-prone system for
 //! defining bindings and also required application authors to bring in the the underlying
-//! [crossterm](https://docs.rs/crossterm/latest) crate to define the inputs.
+//! [crossterm](https://docs.rs/crossterm/latest) crate to define the events.
 //!
 //! ## Example
 //! ```
