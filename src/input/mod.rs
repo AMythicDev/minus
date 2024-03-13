@@ -148,14 +148,14 @@
 //! more data from a server but not necessarily sending it to minus. In these types of scenarios,
 //! the [InputEvent::Ignore] is most likely your true friend. When this is returned by a callback
 //! function, minus will execute your code but not do anything special for the event on its part.
-//! ```no_run
+//! ```no_test
 //! input_register.add_key_events(&["f"], |_, ps| {
 //!     fetch_data_from_server(...);
 //!     InputEvent::Ignore
 //! });
 //! ```
 //! It can be used with the legacy method too.
-//! ```text
+//! ```no_test
 //! struct CustomInputClassifier;
 //! impl InputClassifier for CustomInputClassifier {
 //!     fn classify_input(
