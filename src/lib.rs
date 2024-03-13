@@ -18,7 +18,7 @@
 //! If you want to learn about its motivation and features, please take a look into it's [README].
 //!
 //! # Overview
-//! When getting started with minus, the two most important concepts to get familier with are:-
+//! When getting started with minus, the two most important concepts to get familier with are:
 //! * The [Pager] type: which acts as a bridge between your application and minus. It is used
 //! to pass data and configure minus before and after starting the pager.
 //! * Initialization functions: This includes the [dynamic_paging] and [page_all] functions which
@@ -112,7 +112,7 @@
 //! In static mode, `minus` doesn't start the pager and just prints the content if the current terminal size can
 //! display all lines. You can of course change this behaviour.
 //!
-//! ## Standard actions
+//! ## Default keybindings
 //!
 //! Here is the list of default key/mouse actions handled by `minus`.
 //!

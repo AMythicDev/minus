@@ -31,7 +31,7 @@ pub struct RegexError(
     #[from] regex::Error,
 );
 
-/// Errors that can occur during setup
+/// Errors that can occur during setup.
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum SetupError {
@@ -54,7 +54,7 @@ pub enum SetupError {
     TerminalSize(TermError),
 }
 
-/// Errors that can occur during clean up
+/// Errors that can occur during clean up.
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum CleanupError {
@@ -71,7 +71,7 @@ pub enum CleanupError {
     LeaveAlternateScreen(TermError),
 }
 
-/// Errors that can happen while running
+/// Errors that can happen during runtime.
 #[derive(Debug, thiserror::Error)]
 #[allow(clippy::module_name_repetitions)]
 pub enum MinusError {

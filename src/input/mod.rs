@@ -1,18 +1,12 @@
-//! Working with user keyboard/mouse events
+//! Manage keyboard/mouse-bindings while running `minus`.
 //!
-//! minus already has a sensible set of default key/mouse bindings so most people do not need to
-//! care about this module. But if you want to add or remove certain key bindings then you need
-//! to rely on this module..
-//!
-//! This module provides various items for defining registering keyboard/mouse event from the
-//! user's terminal to a predefined action inside minus.
-//!
-//! For this document we will call any keyboard/mouse event from the terminal as a **binding**
+//! > **Terminology in this module**: We will call any keyboard/mouse event from the terminal as a **binding**
 //! and its associated predefined action as **callback**.
 //!
-//! There are two ways to define binding in minus
+//! There are two ways to define binding in minus as you will see below.
 //!
 //! # Newer (Recommended) Method
+//! ## Description
 //! This method offers a much improved and ergonomic API for defining bindings and callbacks.
 //! You use the [HashedEventRegister] for registering bindings and their associated callback.
 //! It provides functions like [add_key_events](HashedEventRegister::add_key_events) and
@@ -99,7 +93,7 @@
 //! manually copy the [default definitions](DefaultInputClassifier) and make the required
 //! modifications yourself in this method. This lead to very messy and error-prone system for
 //! defining bindings and also required application authors to bring in the the underlying
-//! [crossterm](https://docs.rs/crossterm/latest) crate to define the innputs.
+//! [crossterm](https://docs.rs/crossterm/latest) crate to define the inputs.
 //!
 //! ## Example
 //! ```
@@ -154,12 +148,11 @@
 //! more data from a server but not necessarily sending it to minus. In these types of scenarios,
 //! the [InputEvent::Ignore] is most likely your true friend. When this is returned by a callback
 //! function, minus will execute your code but not do anything special for the event on its part.
-//! ```text
+//! ```no_run
 //! input_register.add_key_events(&["f"], |_, ps| {
 //!     fetch_data_from_server(...);
 //!     InputEvent::Ignore
 //! });
-//!
 //! ```
 //! It can be used with the legacy method too.
 //! ```text
