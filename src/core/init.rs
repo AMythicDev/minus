@@ -8,6 +8,8 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //! the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //! detected, it reacts to it accordingly.
+#[cfg(feature = "static_output")]
+use crate::minus_core::utils::display;
 use crate::{
     error::MinusError,
     input::InputEvent,
@@ -224,10 +226,17 @@ fn start_reactor(
     is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
     let mut out_lock = out.lock();
+    let mut command_queue = CommandQueue::new();
 
-    let mut p = ps.lock();
-    draw_full(&mut out_lock, &mut p)?;
-    drop(p);
+    {
+        let mut p = ps.lock();
+
+        draw_full(&mut out_lock, &mut p)?;
+
+        if p.follow_output {
+            draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
+        }
+    }
 
     let run_mode = *RUNMODE.lock();
     match run_mode {
@@ -240,7 +249,11 @@ fn start_reactor(
                 break;
             }
 
-            let event = rx.recv();
+            let next_command = if command_queue.is_empty() {
+                rx.recv()
+            } else {
+                Ok(command_queue.pop_front().unwrap())
+            };
 
             let mut p = ps.lock();
 
@@ -312,6 +325,48 @@ fn start_reactor(
                 }
             }
         },
+        #[cfg(feature = "static_output")]
+        RunMode::Static => {
+            {
+                let mut p = ps.lock();
+                if p.follow_output {
+                    display::draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
+                }
+            }
+
+            loop {
+                if is_exited.load(Ordering::SeqCst) {
+                    // Cleanup the screen
+                    //
+                    // This is not needed in dynamic paging because this is already handled by handle_event
+                    term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
+
+                    let mut rm = RUNMODE.lock();
+                    *rm = RunMode::Uninitialized;
+                    drop(rm);
+
+                    break;
+                }
+                let next_command = if command_queue.is_empty() {
+                    rx.recv()
+                } else {
+                    Ok(command_queue.pop_front().unwrap())
+                };
+
+                if let Ok(command) = next_command {
+                    let mut p = ps.lock();
+                    handle_event(
+                        command,
+                        &mut out_lock,
+                        &mut p,
+                        &mut command_queue,
+                        is_exited,
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                }
+            }
+        }
         RunMode::Uninitialized => panic!(
             "Static variable RUNMODE set to uninitialized.\
 This is most likely a bug. Please open an issue to the developers"

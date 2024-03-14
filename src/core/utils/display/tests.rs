@@ -1,7 +1,6 @@
 #![allow(clippy::shadow_unrelated)]
 #![allow(clippy::cast_possible_truncation)]
-use super::*;
-
+use super::{draw_for_change, draw_full, write_from_pagerstate, write_prompt};
 use crate::{LineNumbers, PagerState};
 use std::fmt::Write;
 

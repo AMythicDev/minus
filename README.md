@@ -11,52 +11,55 @@
 [![Matrix](https://img.shields.io/matrix/minus:matrix.org?color=%230dbd8b&label=Matrix&style=for-the-badge)](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
 [![Crates.io](https://img.shields.io/crates/l/minus?style=for-the-badge)](https://github.com/arijit79/minus#license)
 
-minus is an asynchronous terminal paging library written in Rust.
+`minus`: A library for asynchronous terminal [paging], written in Rust.
 
 <p align="center">
     <img src="./demo.png"/>
 </p>
 
-## What is a Pager?
-
-A pager is a program that lets you view and scroll through large amounts of text using a keyboard in a TTY where no
-mouse support is available.
-
-Nowadays most people use a graphical terminals where mouse support is present but they aren't as reliable as a pager.
-For example they may not support proper text searching or line numbering, plus quick navigation using keyboard is pretty
-much non-existent. Hence programs like `git`, `man` etc still use a pager program to display large text outputs.
-
-Examples of some popular pager include `more` and its successor `less`.
-
-## The problem with traditional pagers
-
-First, traditional pagers like `more` or `less` weren't made for integrating into other applications. They were meant to
-be standalone binaries that are executed directly by the users.
-
-Applications leveraged these pagers by calling them as external programs and passing the data through the standard
-input.
+## Motivation
+Traditional pagers like `more` or `less` weren't made for integrating into other applications. They were meant to
+be standalone binaries that are executed directly by users. However most applications don't adhere to this and 
+exploit these pagers' functionality by calling them as external programs and passing the data through the standard input.
 This method worked for Unix and other Unix-like OSs like Linux and MacOS because they already came with any of these
-pagers installed  But it wasn't this easy on Windows, it required shipping the pager binary along with the applications.
+pagers installed. But it wasn't this easy on Windows; it required shipping the pager binary along with the applications.
 Since these programs were originally designed for Unix and Unix-like OSs, distributing these binaries meant shipping an
 entire environment like MinGW or Cygwin so that these can run properly on Windows.
 
 Recently, some libraries have emerged to solve this issue. They are compiled along with your application and give you a
 single binary to distribute. The problem with them is that they require you to feed the entire data to the pager before
-the pager can run, this meant that there will be no output on the terminal until the entire data isn't loaded by the
+the pager can run, this meant that there will be no output on the terminal until the entire data is loaded by the
 application and passed on to the pager.
 
 These could cause long delays before output to the terminal if the data comes from a very large file or is being
 downloaded from the internet.
 
-## Enter minus
-
-As above described, minus is an asynchronous terminal paging library for Rust. It allows not just data but also
-configuration to be fed into itself while it is running.
-
-minus achieves this by leveraging Rust's amazing concurrency support and no data race guarantees
-
-minus can be used with any async runtime like [`tokio`], [`async-std`] or native [`threads`] if you prefer that. If you
-want to display only static data, you don't even need to depend on any of the above
+## Features
+- Send data as well as configure the pager on the fly.  
+    This means that your data can be shown on the pager's screen as soon as it is loaded by your application. But not only that,
+    you can also configure the minus while its running.
+- Supports separate modes for dynamic and static output display  
+    This separation of modes allows us to do some cool tricks in static mode. For example in static mode, if the terminal has 
+    enough rows to display all the data at once then minus won't even start the pager and write all the data to the screen and quit. 
+    (Of course this behaviour can be avoided if you don't like it).
+    Similarly, in static mode if the output is piped using the `|` or sent to a file using the `>`/`>>`, minus would simply pass the 
+    data as it is without starting the pager.
+- Highly configurable  
+    You can configure terminal key/mouse mappings, line numbers, bottom prompt line and more with a simple and clean API.
+- Good support for ANSI escape sequences
+- Both keyboard and mouse support  
+    Key bindings highly inspired by Vim and other modern text editors
+- Clutter free line numbering
+- Horizontal scrolling
+    Scroll not only up or down but also left and right.  
+    **NOTE: ANSI escape codes are broken when scrolling horizontally which means as you scroll along the axis, you may see broken
+    colors, emphasis etc. This is not a minus-specific problem but rather its how terminals behave and is inherently limited because of their design**
+- Follow output mode  
+    This feature ensures that you always see the last line as the data is being pushed onto the pager's buffer.
+- Full [regex](https://docs.rs/regex) based searching.  
+	Which also fully takes care of escape sequences. Also supports incremental searching of text as you type.
+- Tries to be very minimal on dependencies.
+- Is designed to be used with [`tokio`], [`async-std`] or native [`threads`] as you like.
 
 ## Features
 - Send data as well as configure the pager on the fly
@@ -85,38 +88,18 @@ version = "5.5.3"
 features = [
     # Enable features you want. For example
     "dynamic_output",
-    "search"
+    "search",
 ]
 ```
 
 ## Examples
 
-All example are available in the `examples` directory and you can run them using `cargo`.
+You can try the provided examples in the `examples` directory by using `cargo`:
+```bash
+cargo run --example <example name> --features=<required-features>
 
-### [`Threads`]:
-
-```rust,no_run
-use minus::{dynamic_paging, MinusError, Pager};
-use std::{
-    fmt::Write, 
-    thread::{spawn, sleep}, 
-    time::Duration
-};
-
-fn main() -> Result<(), MinusError> {
-    // Initialize the pager
-    let mut pager = Pager::new();
-    // Run the pager in a separate thread
-    let pager2 = pager.clone();
-    let pager_thread = spawn(move || dynamic_paging(pager2));
-    
-    for i in 0..=100_u32 {
-        writeln!(pager, "{}", i);
-        sleep(Duration::from_millis(100));
-    }
-    pager_thread.join().unwrap()?;
-    Ok(())
-}
+# for example to try the `dyn_tokio` example
+cargo run --example dyn_tokio --features=dynamic_output,search
 ```
 
 ### [`tokio`]:
@@ -227,12 +210,12 @@ Some special key keybindings are defined to facilitate text input while entering
 Currently these cannot be changed by applications but this may be supported in the future.
 
 ## MSRV
-The latest version of minus requires Rust >= 1.67 to build correctly
+The latest version of minus requires Rust >= 1.67 to build correctly.
 
 ## License
 
 Unless explicitly stated, all works to `minus` are dual licensed under the
-[MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE)
+[MIT License](./LICENSE-MIT) and [Apache License 2.0](./LICENSE-APACHE).
 
 ## Contributing
 :warning: Read about our plans on standardizing Git commit messages https://github.com/arijit79/minus/issues/103 :warning:
@@ -262,10 +245,9 @@ And the help from these projects:-
 
 We are open to discussion and thoughts om improving `minus`. Join us at 
 [Discord](https://discord.gg/FKEnDPE6Bv) or
-[Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org)
+[Matrix](https://matrix.to/#/!hfVLHlAlRLnAMdKdjK:matrix.org?via=matrix.org).
 
 [`tokio`]: https://crates.io/crates/tokio
-
 [`async-std`]: https://crates.io/crates/async-std
-
 [`Threads`]: https://doc.rust-lang.org/std/thread/index.html
+[paging]: https://en.wikipedia.org/wiki/Terminal_pager

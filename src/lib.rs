@@ -13,36 +13,16 @@
 #![allow(clippy::doc_markdown)]
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
 
-//! minus is an asynchronous terminal paging library written in Rust.
+//! `minus`: A library for asynchronous terminal [paging], written in Rust.
 //!
-//! ## What is a Pager?
-//! A pager is a program that lets you view and scroll through large amounts
-//! of text using a keyboard in a TTY where no mouse support is available.
+//! If you want to learn about its motivation and features, please take a look into it's [README].
 //!
-//! Nowadays most people use a graphical terminals where mouse support is
-//! present but they aren't as reliable as a pager. For example they may not support proper
-//! text searching or line numbering, plus quick navigation
-//! using keyboard is pretty much non-existent. Hence programs like `git`, `man` etc still use a
-//! pager program to display large text outputs.
-//!
-//! Examples of some popular pager include `more` and its successor `less`.
-//!
-//! ## The problem with traditional pagers
-//!
-//! First, traditional pagers like `more` or `less` weren't made for integrating into other applications.
-//! They were meant to be standalone binaries that are executed directly by the users.
-//!
-//! Applications leveraged these pagers by calling them as external programs and passing the data through
-//! the standard input. This method worked for Unix and other Unix-like OSs like Linux and MacOS because
-//! they already came with any of these pagers installed  But it wasn't this easy on Windows, it required
-//! shipping the pager binary along with the applications. Since these programs were originally designed
-//! for Unix and Unix-like OSs, distributing these binaries meant shipping an entire environment like
-//! MinGW or Cygwin so that these can run properly on Windows.
-//!
-//! Recently, some libraries have emerged to solve this issue. They are compiled along with your
-//! application and give you a single binary to distribute. The problem with them is that they
-//! require you to feed the entire data to the pager before the pager can run, this meant that there will
-//! be no output on the terminal until the entire data isn't loaded by the application and passed on to
+//! # Overview
+//! When getting started with minus, the two most important concepts to get familier with are:-
+//! * The [Pager] type: which acts as a bridge between your application and minus. It is used
+//! to pass data and configure minus before and after starting the pager.
+//! * Initialization functions: This includes the [dynamic_paging] and [page_all] functions which
+//! take a [Pager] as argument. They are responsible for generating the initial state and starting
 //! the pager.
 //!
 //! These could cause long delays before output to the terminal if the data comes from a very large file
@@ -175,10 +155,9 @@
 //! }
 //! ```
 //!
-//! If there are more rows in the terminal than the number of lines in the given
-//! data, `minus` will simply print the data and quit. This only works in static
-//! //! paging since asynchronous paging could still receive more data that makes it
-//! pass the limit.
+//! **Note:**
+//! In static mode, `minus` doesn't start the pager and just prints the content if the current terminal size can
+//! display all lines. You can of course change this behaviour.
 //!
 //! ## Standard actions
 //!
@@ -208,7 +187,25 @@
 //! | n                 | Go to the next search match                                                                                               |
 //! | p                 | Go to the next previous match                                                                                             |
 //!
-//! End-applications are free to change these bindings to better suit their needs.
+//! End-applications are free to change these bindings to better suit their needs. See docs for
+//! [Pager::set_input_classifier] function and [input] module.
+//!
+//! ## Key Bindings Available at Search Prompt
+//!
+//! | Key Bindings      | Description                                         |
+//! |-------------------|-----------------------------------------------------|
+//! | Esc               | Cancel the search                                   |
+//! | Enter             | Confirm the search query                            |
+//! | Backspace         | Remove the character before the cursor              |
+//! | Delete            | Remove the character under the cursor               |
+//! | Arrow Left        | Move cursor towards left                            |
+//! | Arrow right       | Move cursor towards right                           |
+//! | Ctrl+Arrow left   | Move cursor towards left word by word               |
+//! | Ctrl+Arrow right  | Move cursor towards right word by word              |
+//! | Home              | Move cursor at the beginning pf search query        |
+//! | End               | Move cursor at the end pf search query              |
+//!
+//! Currently these cannot be changed by applications but this may be supported in the future.
 //!
 //! ## Key Bindings Available at Search Prompt
 //! Some special key keybindings are defined to facilitate text input while entering a query at the search prompt
@@ -231,7 +228,9 @@
 //! [`tokio`]: https://docs.rs/tokio
 //! [`async-std`]: https://docs.rs/async-std
 //! [`Threads`]: std::thread
-
+//! [follow-mode]: struct.Pager.html#method.follow_output
+//! [paging]: https://en.wikipedia.org/wiki/Terminal_pager
+//! [README]: https://github.com/arijit79/minus#motivation
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
 pub mod error;
@@ -316,6 +315,10 @@ impl LineNumbers {
     #[allow(dead_code)]
     const fn is_invertible(self) -> bool {
         matches!(self, Self::Enabled | Self::Disabled)
+    }
+
+    const fn is_on(self) -> bool {
+        matches!(self, Self::Enabled | Self::AlwaysOn)
     }
 }
 

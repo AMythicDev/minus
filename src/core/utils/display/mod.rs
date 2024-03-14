@@ -3,7 +3,6 @@
 use crossterm::{
     cursor::MoveTo,
     execute, queue,
-    style::Attribute,
     terminal::{Clear, ClearType},
 };
 
@@ -20,7 +19,7 @@ use crate::{error::MinusError, PagerState};
 /// only that part of the terminal.
 pub fn draw_for_change(
     out: &mut impl Write,
-    p: &mut PagerState,
+    ps: &mut PagerState,
     new_upper_mark: &mut usize,
 ) -> Result<(), MinusError> {
     let line_count = p.screen.formatted_lines_count();
@@ -29,11 +28,11 @@ pub fn draw_for_change(
     //
     // NOTE This should be the value of rows that should be used throughout this function.
     // Don't use PagerState::rows, it might lead to wrong output
-    let writable_rows = p.rows.saturating_sub(1);
+    let writable_rows = ps.rows.saturating_sub(1);
 
     // Calculate the lower_bound for current and new upper marks
     // by adding either the rows or line_count depending on the minimality
-    let lower_bound = p.upper_mark.saturating_add(writable_rows.min(line_count));
+    let lower_bound = ps.upper_mark.saturating_add(writable_rows.min(line_count));
     let new_lower_bound = new_upper_mark.saturating_add(writable_rows.min(line_count));
 
     // If the lower_bound is greater than the available line count, we set it to such a value
@@ -42,7 +41,7 @@ pub fn draw_for_change(
         *new_upper_mark = line_count.saturating_sub(writable_rows);
     }
 
-    let delta = new_upper_mark.abs_diff(p.upper_mark);
+    let delta = new_upper_mark.abs_diff(ps.upper_mark);
     // Sometimes the value of delta is too large that we can rather use the value of the writable rows to
     // achieve the same effect with better performance. This means that we have draw to less lines to the terminal
     //
@@ -57,7 +56,7 @@ pub fn draw_for_change(
     // need this value whatever the value of delta be.
     let normalized_delta = delta.min(writable_rows);
 
-    let lines = match (*new_upper_mark).cmp(&p.upper_mark) {
+    let lines = match (*new_upper_mark).cmp(&ps.upper_mark) {
         Ordering::Greater => {
             // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
             // Clear it off and start displaying new dta.
@@ -68,7 +67,7 @@ pub fn draw_for_change(
             term::move_cursor(
                 out,
                 0,
-                p.rows
+                ps.rows
                     .saturating_sub(normalized_delta + 1)
                     .try_into()
                     .unwrap(),
@@ -101,8 +100,20 @@ pub fn draw_for_change(
         Ordering::Equal => return Ok(()),
     };
 
-    for line in lines {
-        writeln!(out, "\r{line}")?;
+    write_lines(
+        out,
+        lines,
+        ps.cols,
+        ps.screen.line_wrapping,
+        ps.left_mark,
+        ps.line_numbers.is_on(),
+        ps.screen.line_count(),
+    )?;
+
+    ps.upper_mark = *new_upper_mark;
+
+    if ps.show_prompt {
+        super::display::write_prompt(out, &ps.displayed_prompt, ps.rows.try_into().unwrap())?;
     }
 
     p.upper_mark = *new_upper_mark;
@@ -117,14 +128,8 @@ pub fn draw_for_change(
 
 /// Write given text at the prompt site
 pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), MinusError> {
-    write!(
-        out,
-        "{mv}\r{rev}{prompt}{reset}",
-        mv = MoveTo(0, rows),
-        rev = Attribute::Reverse,
-        prompt = text,
-        reset = Attribute::Reset,
-    )?;
+    write!(out, "{mv}\r{prompt}", mv = MoveTo(0, rows), prompt = text)?;
+    out.flush()?;
     Ok(())
 }
 

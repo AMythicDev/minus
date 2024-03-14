@@ -13,7 +13,7 @@ use super::{commands::Command, utils::term};
 use crate::search;
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
-/// Respond based on the type of event
+/// Respond based on the type of command
 ///
 /// It will match the type of event received and based on that, it can take actions like:-
 /// - Mutating fields of [`PagerState`]
@@ -32,6 +32,10 @@ pub fn handle_event(
         Command::SetData(text) => {
             p.screen.orig_text = text;
             p.format_lines();
+            p.screen.line_count = p.screen.orig_text.lines().count();
+            if !p.running.lock().is_uninitialized() {
+                display::draw_full(&mut out, p)?;
+            }
         }
         Command::UserInput(InputEvent::Exit) => {
             p.exit();
@@ -45,17 +49,17 @@ pub fn handle_event(
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
-            p.format_prompt();
+            command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
         }
         Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
             p.cols = c;
             // Readjust the text wrapping for the new number of columns
-            p.format_lines();
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         Command::UserInput(InputEvent::UpdateLineNumber(l)) => {
             p.line_numbers = l;
-            p.format_lines();
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::Search(m)) => {
@@ -162,6 +166,10 @@ pub fn handle_event(
                     p.upper_mark = *y;
                     p.format_prompt();
                 }
+                command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
+                    upper_mark,
+                )));
+                command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
             }
         }
         #[cfg(feature = "search")]
@@ -216,8 +224,11 @@ pub fn handle_event(
             {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
-                    p.upper_mark = *y;
-                    p.format_prompt();
+                    let upper_mark = *y;
+                    command_queue.push_back_unchecked(Command::UserInput(
+                        InputEvent::UpdateUpperMark(upper_mark),
+                    ));
+                    command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 }
             }
         }
@@ -257,6 +268,18 @@ pub fn handle_event(
         Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
             p.format_lines();
+            if !p.running.lock().is_uninitialized() {
+                display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+            }
+        }
+        Command::FormatRedrawPrompt => {
+            p.format_prompt();
+            display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
+        }
+        Command::SetExitStrategy(es) => p.exit_strategy = es,
+        Command::LineWrapping(lw) => {
+            p.screen.line_wrapping = lw;
+            p.format_lines();
         }
         Command::SetExitStrategy(es) => p.exit_strategy = es,
         #[cfg(feature = "static_output")]
@@ -275,7 +298,7 @@ pub fn handle_event(
 mod tests {
     use super::super::commands::Command;
     use super::handle_event;
-    use crate::{ExitStrategy, PagerState};
+    use crate::{minus_core::CommandQueue, ExitStrategy, PagerState, RunMode};
     use std::sync::{atomic::AtomicBool, Arc};
     #[cfg(feature = "search")]
     use {
@@ -291,15 +314,26 @@ mod tests {
 
     // Tests for event emitting functions of Pager
     #[test]
+    #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn set_data() {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
+        #[cfg(feature = "dynamic_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        }
+        #[cfg(feature = "static_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
+        }
+        let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -314,11 +348,13 @@ mod tests {
         let ev1 = Command::AppendData(format!("{TEST_STR}\n"));
         let ev2 = Command::AppendData(TEST_STR.to_string());
         let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev1,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -328,6 +364,7 @@ mod tests {
             ev2,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -340,15 +377,26 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn set_prompt() {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
+        #[cfg(feature = "dynamic_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
+        }
+        #[cfg(feature = "static_output")]
+        {
+            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
+        }
 
         handle_event(
             ev,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -358,15 +406,18 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn send_message() {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -381,11 +432,13 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetRunNoOverflow(false);
         let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -399,11 +452,13 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetExitStrategy(ExitStrategy::PagerQuit);
         let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,
@@ -417,11 +472,13 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::AddExitCallback(Box::new(|| println!("Hello World")));
         let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
             &mut out,
             &mut ps,
+            &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
             #[cfg(feature = "search")]
             &UIA,

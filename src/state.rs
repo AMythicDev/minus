@@ -21,7 +21,6 @@ use parking_lot::Mutex;
 use std::collections::BTreeSet;
 use std::{
     collections::hash_map::RandomState,
-    collections::HashMap,
     convert::TryInto,
     io::stdout,
     io::Stdout,
@@ -189,7 +188,6 @@ impl PagerState {
         let mut state = Self {
             line_numbers: LineNumbers::Disabled,
             upper_mark: 0,
-            unterminated: 0,
             prompt,
             running: &minus_core::RUNMODE,
             exit_strategy: ExitStrategy::ProcessQuit,
@@ -209,7 +207,8 @@ impl PagerState {
             cols,
             rows,
             prefix_num: String::new(),
-            lines_to_row_map: HashMap::new(),
+            lines_to_row_map: LinesRowMap::new(),
+            follow_output: false,
         };
 
         state.format_prompt();
@@ -232,11 +231,13 @@ impl PagerState {
         mut out: &mut Stdout,
     ) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;
+        let mut command_queue = CommandQueue::new_zero();
         rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
             handle_event(
                 ev,
                 &mut out,
                 &mut ps,
+                &mut command_queue,
                 &Arc::new(AtomicBool::new(false)),
                 #[cfg(feature = "search")]
                 &Arc::new((Mutex::new(true), Condvar::new())),
@@ -266,12 +267,16 @@ impl PagerState {
 
     /// Reformat the inputted prompt to how it should be displayed
     pub(crate) fn format_prompt(&mut self) {
-        const SEARCH_BG: &str = "\x1b[34m";
-        const INPUT_BG: &str = "\x1b[33m";
+        const PROMPT_SPEC: &str = "\x1b[2;40;37m";
+        const SEARCH_SPEC: &str = "\x1b[30;44m";
+        const INPUT_SPEC: &str = "\x1b[30;43m";
+        const MSG_SPEC: &str = "\x1b[30;1;41m";
+        const RESET: &str = "\x1b[0m";
+        const FOLLOW_MODE_SPEC: &str = "\x1b[1m";
 
         // Allocate the string. Add extra space in case for the
         // ANSI escape things if we do have characters typed and search showing
-        let mut format_string = String::with_capacity(self.cols + (SEARCH_BG.len() * 2) + 4);
+        let mut format_string = String::with_capacity(self.cols + (SEARCH_SPEC.len() * 5) + 4);
 
         // Get the string that will contain the search index/match indicator
         #[cfg(feature = "search")]
@@ -301,32 +306,39 @@ impl PagerState {
         #[cfg(not(feature = "search"))]
         let search_len = 0;
 
+        let follow_mode_str: &str = if self.follow_output { "[F]" } else { "" };
+
         // Calculate how much extra padding in the middle we need between
         // the prompt/message and the indicators on the right
         let prefix_len = prefix_str.len();
         let extra_space = self
             .cols
-            .saturating_sub(search_len + prefix_len + prompt_str.len());
+            .saturating_sub(search_len + prefix_len + follow_mode_str.len() + prompt_str.len());
         let dsp_prompt: &str = if extra_space == 0 {
-            &prompt_str[..self.cols - search_len - prefix_len]
+            &prompt_str[..self.cols - search_len - prefix_len - follow_mode_str.len()]
         } else {
             prompt_str
         };
 
         // push the prompt/msg
+        if self.message.is_some() {
+            format_string.push_str(MSG_SPEC);
+        } else {
+            format_string.push_str(PROMPT_SPEC);
+        }
         format_string.push_str(dsp_prompt);
         format_string.push_str(&" ".repeat(extra_space));
 
         // add the prefix_num if it exists
         if prefix_len > 0 {
-            format_string.push_str(INPUT_BG);
+            format_string.push_str(INPUT_SPEC);
             format_string.push_str(&prefix_str);
         }
 
         // and add the search indicator stuff if it exists
         #[cfg(feature = "search")]
         if search_len > 0 {
-            format_string.push_str(SEARCH_BG);
+            format_string.push_str(SEARCH_SPEC);
             format_string.push_str(&search_str);
         }
 
@@ -388,15 +400,19 @@ impl PagerState {
             append_props.num_unterminated,
             append_props.lines_to_row_map,
         );
-
+        let new_lc = self.screen.line_count();
+        let new_lc_dgts = minus_core::utils::digits(new_lc);
         #[cfg(feature = "search")]
         {
             let mut append_search_idx = append_props.append_search_idx;
             self.search_state.search_idx.append(&mut append_search_idx);
         }
-        self.lines_to_row_map.extend(lines_to_row_map);
+        self.lines_to_row_map.append(
+            &mut append_result.lines_to_row_map,
+            append_result.clean_append,
+        );
 
-        if new_len_line_number != old_len_line_number && old_len_line_number != 0 {
+        if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
             self.format_lines();
             return AppendStyle::FullRedraw;
         }

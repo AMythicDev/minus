@@ -8,10 +8,10 @@ use crate::search::SearchOpts;
 /// A pager acts as a middleman for communication between the main application
 /// and the user with the core functions of minus
 ///
-/// It consists of a [`crossbeam_channel::Sender`] and  [`crossbeam_channel::Receiver`]
-/// pair. When a method like [`set_text`](Pager::set_text) or [`push_str`](Pager::push_str)
-/// is called, the function takes the input. wraps it in the appropriate event
-/// type and transmits it through the sender held inside the this.
+/// The [Pager] type which is a bridge between your application and running
+/// the running pager. Its the single most important type with which you will be interacting the
+/// most while working with minus. It allows you to send data, configure UI settings and also
+/// configure the key/mouse bindings.
 ///
 /// The receiver part of the channel is continuously polled by the pager for events. Depending
 /// on the type of event that occurs, the pager will either redraw the screen or update
@@ -57,11 +57,10 @@ impl Pager {
     /// Appends text to the pager output.
     ///
     /// You can also use [`write!`]/[`writeln!`] macros to append data to the pager.
-    /// The implementation basically calls this function internally.
-    ///
-    /// One difference between using the macros and this function is that this does
-    /// not require `Pager` to be declared mutable while in order to use the macros,
-    /// you need to declare the `Pager` as mutable.
+    /// The implementation basically calls this function internally. One difference
+    /// between using the macros and this function is that this does not require `Pager`
+    /// to be declared mutable while in order to use the macros, you need to declare
+    /// the `Pager` as mutable.
     ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
@@ -93,7 +92,7 @@ impl Pager {
     /// use minus::{Pager, LineNumbers};
     ///
     /// let pager = Pager::new();
-    /// pager.set_line_numbers(LineNumbers::Enabled).expect("Failed to send data to the pager");
+    /// pager.set_line_numbers(LineNumbers::Enabled).expect("Failed to communicate with the pager");
     /// ```
     pub fn set_line_numbers(&self, l: LineNumbers) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::SetLineNumbers(l))?)
@@ -123,7 +122,10 @@ impl Pager {
         Ok(self.tx.send(Command::SetPrompt(text))?)
     }
 
-    /// Display a temporary message at the prompt area
+    /// Send a message to be displayed the prompt area
+    ///
+    /// The text message is temporary and will get cleared whenever the use
+    /// rdoes a action on the terminal like pressing a key or scrolling using the mouse.
     ///
     /// # Panics
     /// This function panics if the given text contains newline characters.
@@ -160,7 +162,7 @@ impl Pager {
     /// use minus::{Pager, ExitStrategy};
     ///
     /// let pager = Pager::new();
-    /// pager.set_exit_strategy(ExitStrategy::ProcessQuit).expect("Failed to send data to the pager");
+    /// pager.set_exit_strategy(ExitStrategy::ProcessQuit).expect("Failed to communicate with the pager");
     /// ```
     pub fn set_exit_strategy(&self, es: ExitStrategy) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::SetExitStrategy(es))?)
@@ -189,7 +191,7 @@ impl Pager {
     /// use minus::Pager;
     ///
     /// let pager = Pager::new();
-    /// pager.set_run_no_overflow(true).expect("Failed to send data to the pager");
+    /// pager.set_run_no_overflow(true).expect("Failed to communicate with the pager");
     /// ```
     #[cfg(feature = "static_output")]
     #[cfg_attr(docsrs, doc(cfg(feature = "static_output")))]
@@ -202,15 +204,57 @@ impl Pager {
     /// When the pager encounters a user input, it calls the input classifier with
     /// the event and [PagerState](crate::state::PagerState) as parameters.
     ///
-    /// A input classifier is a type implementing the [`InputClassifier`](input::InputClassifier)
-    /// trait. It only has one required function, [`InputClassifier::classify_input`](input::InputClassifier::classify_input)
-    /// which matches user input events and maps them to a [`InputEvent`](input::InputEvent)s.
-    ///
-    /// See the [`InputHandler`](input::InputClassifier) trait for information about implementing
-    /// it.
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
     /// could not be sent to the receiver
+    ///
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new();
+    /// pager.horizontal_scroll(true).expect("Failed to communicate with the pager");
+    /// ```
+    pub fn horizontal_scroll(&self, value: bool) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::LineWrapping(!value))?)
+    }
+
+    /// Set a custom input classifer type.
+    ///
+    /// An input classifier type is a type that implements the [InputClassifier]
+    /// trait. It only has one required function, [InputClassifier::classify_input]
+    /// which matches user input events and maps them to a [InputEvent]s.
+    /// When the pager encounters a user input, it calls the input classifier with
+    /// the event and [PagerState] as parameters.
+    ///
+    /// Previously, whenever any application wanted to change the default key/mouse bindings
+    /// they neededd to create a new type, implement the [InputClassifier] type by copying and
+    /// pasting the default minus's implementation of it available in the [DefaultInputClassifier]
+    /// and change the parts they wanted to change. This is not only unergonomic but also
+    /// extreemely prone to bugs. Hence a newer and much simpler method was developed.
+    /// This method is still allowed to avoid breaking backwards compatiblity but will be dropped
+    /// in the next major release.
+    ///
+    /// With the newer method, minus already provides a type called [HashedEventRegister]
+    /// which implementing the [InputClassifier] and is based on a
+    /// [HashMap] storing all the key/mouse bindings and its associated callback function.
+    /// This allows easy addition/updation/deletion of the default bindings with simple functions
+    /// like [HashedEventRegister::add_key_events] and [HashedEventRegister::add_mouse_events]
+    ///
+    /// See the [input] module for information about implementing it.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// [HashedEventRegister::add_key_events]: input::HashedEventRegister::add_key_events
+    /// [HashedEventRegister::add_mouse_events]: input::HashedEventRegister::add_mouse_events
+    /// [HashMap]: std::collections::HashMap
+    /// [PagerState]: crate::state::PagerState
+    /// [InputEvent]: input::InputEvent
+    /// [InputClassifier]: input::InputClassifier
+    /// [InputClassifier::classify_input]: input::InputClassifier
+    /// [HashedEventRegister]: input::HashedEventRegister
+    /// [DefaultInputClassifier]: input::DefaultInputClassifier
     pub fn set_input_classifier(
         &self,
         handler: Box<dyn input::InputClassifier + Send + Sync>,
@@ -236,7 +280,7 @@ impl Pager {
     /// }
     ///
     /// let pager = Pager::new();
-    /// pager.add_exit_callback(Box::new(hello)).expect("Failed to send data to the pager");
+    /// pager.add_exit_callback(Box::new(hello)).expect("Failed to communicate with the pager");
     /// ```
     pub fn add_exit_callback(
         &self,
