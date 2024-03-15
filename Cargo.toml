@@ -70,3 +70,8 @@ required-features = ["static_output"]
 name = "msg-tokio"
 path = "examples/msg-tokio.rs"
 required-features = ["dynamic_output"]
+
+
+[profile.profiling]
+inherits = "release"
+debug = 1

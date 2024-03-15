@@ -12,6 +12,7 @@
 #![warn(clippy::nursery)]
 #![allow(clippy::doc_markdown)]
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
+#![feature(test)]
 
 //! `minus`: A library for asynchronous terminal [paging], written in Rust.
 //!
