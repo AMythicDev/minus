@@ -27,6 +27,7 @@ regex = { version = "^1", optional = true }
 crossbeam-channel = "^0.5"
 parking_lot = "0.12.1"
 once_cell = { version = "^1.18", features = ["parking_lot"] }
+bytecount = { version = "0.6.7", features = ["runtime-dispatch-simd"] }
 
 [features]
 search = [ "regex" ]

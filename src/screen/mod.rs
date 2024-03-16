@@ -149,7 +149,7 @@ impl Default for Screen {
         Self {
             line_wrapping: true,
             orig_text: String::with_capacity(100 * 1024),
-            formatted_lines: Vec::with_capacity(500 * 1024),
+            formatted_lines: Vec::with_capacity(10_000),
             line_count: 0,
             max_line_length: 0,
             unterminated: 0,
@@ -359,12 +359,8 @@ where
         to_format = opts.text.to_string();
     }
 
-    let lines = to_format
-        .lines()
-        .enumerate()
-        .collect::<Vec<(usize, &str)>>();
-
-    let to_format_size = lines.len();
+    let lines = to_format.lines().enumerate();
+    let to_format_size = calculate_format_sizr(&to_format);
 
     let mut fr = FormatResult {
         lines_formatted: to_format_size,
@@ -380,7 +376,7 @@ where
     let line_number_digits = minus_core::utils::digits(opts.lines_count + to_format_size);
 
     // Return if we have nothing to format
-    if lines.is_empty() {
+    if to_format_size == 0 {
         return fr;
     }
 
@@ -388,63 +384,39 @@ where
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
     let mut formatted_row_count = opts.formatted_lines_count;
 
-    {
-        let line_numbers = opts.line_numbers;
-        let cols = opts.cols;
-        let lines_count = opts.lines_count;
-        let line_wrapping = opts.line_wrapping;
-        #[cfg(feature = "search")]
-        let search_term = opts.search_term;
+    let line_numbers = opts.line_numbers;
+    let cols = opts.cols;
+    let lines_count = opts.lines_count;
+    let line_wrapping = opts.line_wrapping;
+    let mut last_line_row_span = 0;
+    #[cfg(feature = "search")]
+    let search_term = opts.search_term;
 
-        let rest_lines =
-            lines
-                .iter()
-                .take(lines.len().saturating_sub(1))
-                .flat_map(|(idx, line)| {
-                    let fmt_line = formatted_line(
-                        line,
-                        line_number_digits,
-                        lines_count + idx,
-                        line_numbers,
-                        cols,
-                        line_wrapping,
-                        #[cfg(feature = "search")]
-                        formatted_row_count,
-                        #[cfg(feature = "search")]
-                        &mut fr.append_search_idx,
-                        #[cfg(feature = "search")]
-                        search_term,
-                    );
-                    fr.lines_to_row_map.insert(formatted_row_count, true);
-                    formatted_row_count += fmt_line.len();
-                    if lines.len() > fr.max_line_length {
-                        fr.max_line_length = line.len();
-                    }
+    let formatted_lines = lines.flat_map(|(idx, line)| {
+        let fmt_line = formatted_line(
+            line,
+            line_number_digits,
+            lines_count + idx,
+            line_numbers,
+            cols,
+            line_wrapping,
+            #[cfg(feature = "search")]
+            formatted_row_count,
+            #[cfg(feature = "search")]
+            &mut fr.append_search_idx,
+            #[cfg(feature = "search")]
+            search_term,
+        );
+        fr.lines_to_row_map.insert(formatted_row_count, true);
+        formatted_row_count += fmt_line.len();
+        last_line_row_span = fmt_line.len();
+        if line.len() > fr.max_line_length {
+            fr.max_line_length = line.len();
+        }
 
-                    fmt_line
-                });
-        opts.buffer.extend_buffer(rest_lines);
-    };
-
-    let mut last_line = formatted_line(
-        lines.last().unwrap().1,
-        line_number_digits,
-        opts.lines_count + to_format_size - 1,
-        opts.line_numbers,
-        opts.cols,
-        opts.line_wrapping,
-        #[cfg(feature = "search")]
-        formatted_row_count,
-        #[cfg(feature = "search")]
-        &mut fr.append_search_idx,
-        #[cfg(feature = "search")]
-        opts.search_term,
-    );
-    fr.lines_to_row_map.insert(formatted_row_count, true);
-    formatted_row_count += last_line.len();
-    if lines.last().unwrap().1.len() > fr.max_line_length {
-        fr.max_line_length = lines.last().unwrap().1.len();
-    }
+        fmt_line
+    });
+    opts.buffer.extend_buffer(formatted_lines);
 
     #[cfg(feature = "search")]
     {
@@ -478,12 +450,18 @@ where
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
     } else {
-        last_line.len()
+        last_line_row_span
     };
-    opts.buffer.append_to_buffer(&mut last_line);
     fr.rows_formatted = formatted_row_count - opts.formatted_lines_count;
 
     fr
+}
+
+fn calculate_format_sizr(text: &str) -> usize {
+    if text.is_empty() {
+        return 0;
+    }
+    bytecount::count(text.as_bytes(), b'\n') + usize::from(!text.ends_with('\n'))
 }
 
 /// Formats the given `line`
