@@ -64,9 +64,9 @@ pub fn cleanup(
     if cleanup_screen {
         // Reverse order of setup.
         execute!(out, cursor::Show).map_err(|e| CleanupError::ShowCursor(e.into()))?;
-        terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
         execute!(out, event::DisableMouseCapture)
             .map_err(|e| CleanupError::DisableMouseCapture(e.into()))?;
+        terminal::disable_raw_mode().map_err(|e| CleanupError::DisableRawMode(e.into()))?;
         execute!(out, terminal::LeaveAlternateScreen)
             .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
     }
