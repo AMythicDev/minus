@@ -1,6 +1,14 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.6.1 [2024-03-31]
+### Fixed
+* [#133](https://github.com/pull/133): Updated the `flake.nix` file.
+* [#136](https://github.com/pull/136): Fixed weird drawing issues when minus is ran multiple times in a row.
+
+### Docs
+* [#134](https://github.com/pull/134): Improve documentation for `error` and `input` modules.
+
 ## v5.6.0 [2024-03-05]
 ### Fixed
 * [cd2b92](https://github.com/arijit79/minus/commits/cd2b92): Fixed bug where screen jumps to 2nd match when first match is present on the same line where upper mark is present
