@@ -15,7 +15,7 @@ This file documents all changes made to the project and is updated before each r
 * [#120](https://github.com/arijit79/minus/issues/120), [#121](https://github.com/arijit79/minus/issues/121): Fixed screen flickering on WSL/Windows Terminal
 * [3493e76d](https://github.com/commits/3493e76d): Fixed weird search jumps due to updating upper_mark in incremental search
 
-# Performance
+### Performance
 * Include a bunch of changes targeting text appending.
 * Introduced `minus_core::utils::digits` which uses faster algorithm to calculate digits in line numbers
 * [67772fc](https://github.com/commits/67772fc): Improve performance by Only reformatting the entire text when linen numbers are turned on
