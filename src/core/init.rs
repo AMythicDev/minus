@@ -24,6 +24,7 @@ use crate::{
 
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
+use smol_str::ToSmolStr;
 use std::{
     io::{stdout, Stdout},
     panic,
@@ -98,7 +99,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     if *RUNMODE.lock() == RunMode::Static {
         // If stdout is not a tty, write everything and quit
         if !out.is_tty() {
-            write_raw_lines(&mut out, &[ps.screen.orig_text], None)?;
+            write_raw_lines(&mut out, &[ps.screen.orig_text.to_smolstr()], None)?;
             let mut rm = RUNMODE.lock();
             *rm = RunMode::Uninitialized;
             drop(rm);

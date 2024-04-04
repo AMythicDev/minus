@@ -7,6 +7,7 @@ use crate::{
 };
 #[cfg(feature = "search")]
 use regex::Regex;
+use smol_str::{SmolStr, ToSmolStr};
 
 use std::borrow::Cow;
 
@@ -16,8 +17,8 @@ use {crate::search, std::collections::BTreeSet};
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||
 //  TYPES TO BETTER DESCRIBE THE PURPOSE OF STRINGS
 // |||||||||||||||||||||||||||||||||||||||||||||||||||||||
-pub type Row = String;
-pub type Rows = Vec<String>;
+pub type Row = SmolStr;
+pub type Rows = Vec<SmolStr>;
 pub type Line<'a> = &'a str;
 pub type TextBlock<'a> = &'a str;
 pub type OwnedTextBlock = String;
@@ -546,7 +547,7 @@ pub(crate) fn formatted_line<'a>(
         // extra difficulty while writing tests
         // * Line number is added only to the first row of a line. This makes a better UI overall
         let formatter = |row: Cow<'_, str>, is_first_row: bool, idx: usize| {
-            format!(
+            smol_str::format_smolstr!(
                 "{bold}{number: >len$}{reset} {row}",
                 bold = if cfg!(not(test)) && is_first_row {
                     crossterm::style::Attribute::Bold.to_string()
@@ -593,9 +594,9 @@ pub(crate) fn formatted_line<'a>(
         enumerated_rows
             .map(|(wrap_idx, mut row)| {
                 handle_search(&mut row, wrap_idx);
-                row.to_string()
+                row.to_smolstr()
             })
-            .collect::<Vec<String>>()
+            .collect::<Vec<SmolStr>>()
     }
 }
 
