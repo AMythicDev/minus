@@ -403,22 +403,21 @@ impl PagerState {
 mod bench {
     extern crate test;
     use super::PagerState;
-    use smol_str::{SmolStr, ToSmolStr};
     use test::Bencher;
 
-    // #[bench]
-    // fn bench_append_str_chunks(b: &mut Bencher) {
-    //     let mut buffer = "This is a line\n".repeat(20);
-    //     // Remove the last \n from the text block
-    //     buffer.pop();
-    //
-    //     b.iter(|| {
-    //         let mut ps = PagerState::new().unwrap();
-    //         for _ in 0..4_400_000 {
-    //             ps.append_str(&buffer);
-    //         }
-    //     });
-    // }
+    #[bench]
+    fn bench_append_str_chunks(b: &mut Bencher) {
+        let mut buffer = "This is a line\n".repeat(20);
+        // Remove the last \n from the text block
+        buffer.pop();
+
+        b.iter(|| {
+            for _ in 0..4_400_000 {
+                let mut ps = PagerState::new().unwrap();
+                ps.append_str(&buffer);
+            }
+        });
+    }
 
     #[bench]
     fn bench_append_str_big(b: &mut Bencher) {
@@ -432,10 +431,6 @@ mod bench {
         }
 
         b.iter(|| {
-            //     let _t = textwrap::wrap(&buffer, 80)
-            //         .iter()
-            //         .map(|c| c.to_smolstr())
-            //         .collect::<Vec<SmolStr>>();
             let mut ps = PagerState::new().unwrap();
             ps.append_str(&buffer);
         });
