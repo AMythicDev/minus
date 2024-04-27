@@ -1,3 +1,6 @@
+**NOTICE FOR CONTRIBUTORS: I had to change my GitHub username due to certain reasons from `arijit79` and my new username is now `AMythicDev`. Please update your local remote urls
+to avoid future issues**
+
 # minus
 
 <p align="center">
