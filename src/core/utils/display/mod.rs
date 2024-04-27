@@ -206,7 +206,9 @@ pub fn draw_append_text(
         if num_appendable >= 1 {
             crossterm::execute!(out, crossterm::terminal::Clear(ClearType::CurrentLine))?;
         }
-        write!(out, "{}", fmt_text[0..num_appendable].join("\n\r"))?;
+        for line in fmt_text.iter() {
+            write!(out, "{}\n\r", line)?;
+        }
         out.flush()?;
     }
     Ok(())
