@@ -8,7 +8,7 @@
    version="1.1"
    id="svg5"
    sodipodi:docname="minus.svg"
-   inkscape:version="1.1 (c4e8f9ed74, 2021-05-24)"
+   inkscape:version="1.3.2 (091e20ef0f, 2023-11-25)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -25,14 +25,16 @@
      inkscape:document-units="px"
      showgrid="false"
      inkscape:zoom="3.2055507"
-     inkscape:cx="99.514881"
-     inkscape:cy="63.327651"
-     inkscape:window-width="1270"
-     inkscape:window-height="770"
-     inkscape:window-x="5"
-     inkscape:window-y="25"
+     inkscape:cx="99.670862"
+     inkscape:cy="63.327652"
+     inkscape:window-width="1493"
+     inkscape:window-height="885"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1" />
+     inkscape:current-layer="layer1"
+     inkscape:showpageshadow="2"
+     inkscape:deskcolor="#d1d1d1" />
   <defs
      id="defs2">
     <linearGradient
@@ -79,35 +81,6 @@
          offset="0"
          id="stop38655" />
     </linearGradient>
-    <meshgradient
-       inkscape:collect="always"
-       id="meshgradient36287"
-       gradientUnits="userSpaceOnUse"
-       x="2.5354235"
-       y="9.9854555">
-      <meshrow
-         id="meshrow36289">
-        <meshpatch
-           id="meshpatch36291">
-          <stop
-             path="c 9.66329,0  19.3266,0  28.9899,0"
-             style="stop-color:#000000;stop-opacity:1"
-             id="stop36293" />
-          <stop
-             path="c 0,2.76841  0,5.53682  0,8.30523"
-             style="stop-color:#ffffff;stop-opacity:1"
-             id="stop36295" />
-          <stop
-             path="c -9.66329,0  -19.3266,0  -28.9899,0"
-             style="stop-color:#000000;stop-opacity:1"
-             id="stop36297" />
-          <stop
-             path="c 0,-2.76841  0,-5.53682  0,-8.30523"
-             style="stop-color:#ffffff;stop-opacity:1"
-             id="stop36299" />
-        </meshpatch>
-      </meshrow>
-    </meshgradient>
     <radialGradient
        inkscape:collect="always"
        xlink:href="#linearGradient38701"
@@ -142,18 +115,12 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1">
-    <text
-       xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:9.79139px;line-height:1.25;font-family:'DejaVu Sans Mono for Powerline';-inkscape-font-specification:'DejaVu Sans Mono for Powerline, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#00d287;fill-opacity:1;stroke:none;stroke-width:0.97516;stroke-opacity:1"
-       x="2.9208169"
-       y="17.697697"
+    <path
+       d="M 3.3319788,10.559735 H 5.014874 l 0.8510095,3.131524 0.8462286,-3.131524 h 1.6924571 v 7.137962 H 7.1902073 V 11.979678 L 6.4348169,15.10164 H 5.3112931 L 4.5463407,11.979678 v 5.718019 H 3.3319788 Z m 6.5403427,1.783295 h 2.7729525 v 4.278952 h 1.740267 v 1.075715 H 9.4994072 V 16.621982 H 11.244455 V 13.418744 H 9.8723215 Z M 11.244455,9.737411 h 1.400819 v 1.635086 h -1.400819 z m 8.58659,4.484533 v 3.475753 h -1.391257 v -3.26061 q 0,-0.583276 -0.167333,-0.831886 -0.162553,-0.25339 -0.535467,-0.25339 -0.377695,0 -0.597619,0.339448 -0.215143,0.339447 -0.215143,0.941847 v 3.064591 H 15.532969 V 12.34303 h 1.391257 v 0.8032 q 0.14821,-0.444629 0.506781,-0.688457 0.358572,-0.243829 0.865352,-0.243829 0.760172,0 1.147429,0.506781 0.387257,0.502 0.387257,1.501219 z m 1.539466,1.6064 V 12.34303 h 1.400819 v 3.270171 q 0,0.578496 0.162553,0.827105 0.162552,0.24861 0.540247,0.24861 0.377696,0 0.588057,-0.334667 0.215143,-0.334667 0.215143,-0.937067 V 12.34303 h 1.400819 v 5.354667 H 24.27733 v -0.793638 q -0.148209,0.444628 -0.506781,0.688457 -0.35379,0.243828 -0.85579,0.243828 -0.764953,0 -1.156991,-0.506781 -0.387257,-0.506781 -0.387257,-1.501219 z m 9.867886,-3.317981 v 1.223924 q -0.387257,-0.248609 -0.807981,-0.372914 -0.415943,-0.129086 -0.836666,-0.129086 -0.468534,0 -0.707581,0.138648 -0.239048,0.133866 -0.239048,0.4016 0,0.382476 1.023124,0.621524 l 0.05259,0.01434 0.4016,0.09562 q 0.764953,0.181676 1.118743,0.588057 0.358572,0.4016 0.358572,1.090057 0,0.827105 -0.545029,1.243047 -0.540248,0.411162 -1.630305,0.411162 -0.482876,0 -0.989657,-0.08606 -0.506781,-0.08128 -1.027905,-0.248609 v -1.223924 q 0.463753,0.262952 0.941848,0.4016 0.482876,0.138647 0.932286,0.138647 0.492438,0 0.745828,-0.143428 0.253391,-0.143429 0.253391,-0.415943 0,-0.267733 -0.181676,-0.411162 -0.176896,-0.143428 -0.85101,-0.305981 l -0.387257,-0.08606 q -0.8032,-0.181676 -1.171333,-0.568933 -0.368134,-0.387257 -0.368134,-1.037467 0,-0.774514 0.559372,-1.2048 0.559371,-0.430286 1.572933,-0.430286 0.454191,0 0.9036,0.0765 0.454191,0.07171 0.879695,0.219923 z"
        id="text10476"
-       transform="scale(0.92516641,1.0808866)"><tspan
-         sodipodi:role="line"
-         id="tspan10474"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:9.79139px;font-family:'DejaVu Sans Mono for Powerline';-inkscape-font-specification:'DejaVu Sans Mono for Powerline, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#00d287;fill-opacity:1;stroke:none;stroke-width:0.97516;stroke-opacity:1"
-         x="2.9208169"
-         y="17.697697">Minus</tspan></text>
+       style="font-weight:bold;font-size:9.79139px;line-height:1.25;font-family:'DejaVu Sans Mono';-inkscape-font-specification:'DejaVu Sans Mono, Bold';fill:#00d287;stroke-width:0.97516"
+       transform="scale(0.92516641,1.0808866)"
+       aria-label="Minus" />
     <path
        style="mix-blend-mode:normal;fill:none;stroke:url(#linearGradient39141);stroke-width:1.190625;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;opacity:0.99999999"
        d="M 1.3899239,0.69179457 1.1580603,30.35739 7.3618665,24.296308"
