@@ -8,8 +8,9 @@ use crate::{
 #[cfg(feature = "search")]
 use regex::Regex;
 use smol_str::{SmolStr, ToSmolStr};
-
 use std::borrow::Cow;
+
+mod data_source;
 
 #[cfg(feature = "search")]
 use {crate::search, std::collections::BTreeSet};

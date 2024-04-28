@@ -29,6 +29,7 @@ parking_lot = "0.12.1"
 once_cell = { version = "^1.18", features = ["parking_lot"] }
 bytecount = { version = "0.6.7", features = ["runtime-dispatch-simd"] }
 smol_str = "0.2.1"
+arrayvec = "0.7.4"
 
 [features]
 search = [ "regex" ]
