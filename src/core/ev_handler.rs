@@ -12,6 +12,7 @@ use super::CommandQueue;
 use super::{commands::Command, utils::term};
 #[cfg(feature = "search")]
 use crate::search;
+use crate::search::SearchMatch;
 use crate::{error::MinusError, input::InputEvent, PagerState};
 
 /// Respond based on the type of command
@@ -138,16 +139,21 @@ pub fn handle_event(
             if p.search_state.search_term.is_some() =>
         {
             // Move to next search match after the current upper_mark
-            let position_of_next_match =
-                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
+            let position_of_next_match = search::next_nth_match(
+                &p.search_state.search_idx,
+                p.upper_mark,
+                p.left_mark + p.cols,
+                1,
+            );
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                let upper_mark = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
+                    .unwrap()
+                    .row;
                 command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
                     upper_mark,
                 )));
@@ -164,7 +170,7 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceding index
             p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-            if let Some(y) = p
+            if let Some(SearchMatch { row: y, .. }) = p
                 .search_state
                 .search_idx
                 .iter()
@@ -185,16 +191,21 @@ pub fn handle_event(
             if p.search_state.search_term.is_some() =>
         {
             // Move to next nth search match after the current upper_mark
-            let position_of_next_match =
-                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
+            let position_of_next_match = search::next_nth_match(
+                &p.search_state.search_idx,
+                p.upper_mark,
+                p.left_mark + p.cols,
+                n,
+            );
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                let upper_mark = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
+                    .unwrap()
+                    .row;
 
                 // Ensure there is enough text available after location corresponding to
                 // position_of_next_match so that we can display a pagefull of data. If not,
@@ -204,12 +215,13 @@ pub fn handle_event(
                     > p.screen.formatted_lines_count().saturating_add(1)
                 {
                     p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-                    p.upper_mark = *p
+                    p.upper_mark = p
                         .search_state
                         .search_idx
                         .iter()
                         .nth(p.search_state.search_mark)
-                        .unwrap();
+                        .unwrap()
+                        .row;
                 }
                 command_queue.push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(
                     upper_mark,
@@ -227,7 +239,7 @@ pub fn handle_event(
             }
             // Decrement the s_mark and get the preceding index
             p.search_state.search_mark = p.search_state.search_mark.saturating_sub(n);
-            if let Some(y) = p
+            if let Some(SearchMatch { row: y, .. }) = p
                 .search_state
                 .search_idx
                 .iter()
