@@ -57,7 +57,7 @@ use crate::{error::MinusError, input::HashedEventRegister, screen};
 use crate::{LineNumbers, PagerState};
 use crossterm::{
     cursor::{self, MoveTo},
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     style::Attribute,
     terminal::{Clear, ClearType},
 };
@@ -408,6 +408,7 @@ where
     };
 
     match so.ev.as_ref().unwrap() {
+        Event::Key(KeyEvent { kind, .. }) if *kind != KeyEventKind::Press => (),
         // If Esc is pressed, cancel the search and also make sure that the search query is
         // ")cleared
         Event::Key(KeyEvent {
