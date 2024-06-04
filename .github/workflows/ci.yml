@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Check formatting
       run: cargo fmt --all -- --check
 
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Build crate (Static Output)
         run: cargo build --verbose --features=static_output,search
       - name: Build crate (Tokio)
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       # This step helps separate buildtime and runtime errors in tests.
       # Do not build or run doc tests
     - name: Build tests (Static Output)
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     # No terminal available in CI, only check the examples.
     - name: Tokio
       run: cargo check --example=dyn_tokio --features=dynamic_output
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Run documentation tests
         run: cargo test --doc --all-features
 
@@ -92,7 +92,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           profile: minimal
