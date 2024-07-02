@@ -264,6 +264,7 @@ pub fn handle_event(
                 if append_style == AppendStyle::FullRedraw {
                     return display::draw_full(out, p);
                 }
+
                 display::draw_append_text(
                     out,
                     rows,
