@@ -336,24 +336,28 @@ fn event_reader(
             }
         }
 
-        let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
-        let mut guard = ps.lock();
-        // Get the events
-        let input = guard.input_classifier.classify_input(ev, &guard);
-        if let Some(iev) = input {
-            if let InputEvent::Number(n) = iev {
-                guard.prefix_num.push(n);
-                guard.format_prompt();
+        if event::poll(std::time::Duration::from_millis(100))
+            .map_err(|e| MinusError::HandleEvent(e.into()))?
+        {
+            let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
+            let mut guard = ps.lock();
+            // Get the events
+            let input = guard.input_classifier.classify_input(ev, &guard);
+            if let Some(iev) = input {
+                if let InputEvent::Number(n) = iev {
+                    guard.prefix_num.push(n);
+                    guard.format_prompt();
+                } else if !guard.prefix_num.is_empty() {
+                    guard.prefix_num.clear();
+                    guard.format_prompt();
+                }
+                if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Command::UserInput(iev)) {
+                    break;
+                }
             } else if !guard.prefix_num.is_empty() {
                 guard.prefix_num.clear();
                 guard.format_prompt();
             }
-            if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Command::UserInput(iev)) {
-                break;
-            }
-        } else if !guard.prefix_num.is_empty() {
-            guard.prefix_num.clear();
-            guard.format_prompt();
         }
     }
     Result::<(), MinusError>::Ok(())
