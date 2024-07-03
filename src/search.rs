@@ -406,7 +406,6 @@ where
         )?;
         Ok(())
     };
-
     match so.ev.as_ref().unwrap() {
         Event::Key(KeyEvent { kind, .. }) if *kind != KeyEventKind::Press => (),
         // If Esc is pressed, cancel the search and also make sure that the search query is
@@ -533,20 +532,20 @@ where
             so.cursor_position = so.string.len().saturating_add(1).try_into().unwrap();
             term::move_cursor(out, so.cursor_position, so.rows, true)?;
         }
-
-        Event::Key(event) => {
+        Event::Key(KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::NONE,
+            ..
+        }) => {
             // For any character key, without a modifier, insert it into so.string before
             // current cursor position and update the line
-            if let KeyCode::Char(c) = event.code {
-                so.string
-                    .insert(so.cursor_position.saturating_sub(1).into(), c);
-
-                populate_word_index(so);
-                refresh_display(out, so)?;
-                so.cursor_position = so.cursor_position.saturating_add(1);
-                term::move_cursor(out, so.cursor_position, so.rows, false)?;
-                out.flush()?;
-            }
+            so.string
+                .insert(so.cursor_position.saturating_sub(1).into(), *c);
+            populate_word_index(so);
+            refresh_display(out, so)?;
+            so.cursor_position = so.cursor_position.saturating_add(1);
+            term::move_cursor(out, so.cursor_position, so.rows, false)?;
+            out.flush()?;
         }
         _ => return Ok(()),
     }

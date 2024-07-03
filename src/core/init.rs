@@ -330,10 +330,7 @@ fn event_reader(
         #[cfg(feature = "search")]
         {
             let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
-            let mut active = lock.lock();
-            if !*active {
-                cvar.wait(&mut active);
-            }
+            let _guard = cvar.wait_while(&mut lock.lock(), |pending| !*pending);
         }
 
         if event::poll(std::time::Duration::from_millis(100))
@@ -344,17 +341,14 @@ fn event_reader(
             // Get the events
             let input = guard.input_classifier.classify_input(ev, &guard);
             if let Some(iev) = input {
-                if let InputEvent::Number(n) = iev {
-                    guard.prefix_num.push(n);
-                    guard.format_prompt();
-                } else if !guard.prefix_num.is_empty() {
+                if !matches!(iev, InputEvent::Number(_)) {
                     guard.prefix_num.clear();
                     guard.format_prompt();
                 }
                 if let Err(TrySendError::Disconnected(_)) = evtx.try_send(Command::UserInput(iev)) {
                     break;
                 }
-            } else if !guard.prefix_num.is_empty() {
+            } else {
                 guard.prefix_num.clear();
                 guard.format_prompt();
             }

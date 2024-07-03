@@ -82,6 +82,10 @@ pub fn handle_event(
             p.line_numbers = l;
             command_queue.push_back(Command::FormatRedrawDisplay);
         }
+        Command::UserInput(InputEvent::Number(n)) => {
+            p.prefix_num.push(n);
+            command_queue.push_back(Command::FormatRedrawPrompt);
+        }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
@@ -95,7 +99,7 @@ pub fn handle_event(
             let mut active = lock.lock();
             *active = false;
             drop(active);
-            // let string = search::fetch_input(&mut out, p.search_mode, p.rows)?;
+            cvar.notify_one();
             let search_result = search::fetch_input(&mut out, p)?;
             let mut active = lock.lock();
             *active = true;
