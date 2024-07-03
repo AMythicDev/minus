@@ -330,7 +330,7 @@ fn event_reader(
         #[cfg(feature = "search")]
         {
             let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
-            let _guard = cvar.wait_while(&mut lock.lock(), |pending| !*pending);
+            cvar.wait_while(&mut lock.lock(), |pending| !*pending);
         }
 
         if event::poll(std::time::Duration::from_millis(100))
