@@ -233,7 +233,7 @@ pub fn draw_append_text(
 #[allow(clippy::too_many_arguments)]
 pub fn write_text_checked(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[Row],
     mut upper_mark: usize,
     rows: usize,
     cols: usize,
@@ -259,7 +259,7 @@ pub fn write_text_checked(
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
-    let display_lines: &[String] = &lines[upper_mark..lower_mark];
+    let display_lines = &lines[upper_mark..lower_mark];
 
     term::move_cursor(out, 0, 0, false)?;
     term::clear_entire_screen(out, false)?;
@@ -289,7 +289,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
     }
 
     // Add \r to ensure cursor is placed at the beginning of each row
-    let display_lines: &[String] = ps
+    let display_lines = ps
         .screen
         .get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
 
@@ -306,7 +306,7 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
 
 pub fn write_lines(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[Row],
     cols: usize,
     line_wrapping: bool,
     left_mark: usize,
@@ -322,7 +322,7 @@ pub fn write_lines(
 
 pub fn write_lines_in_horizontal_scroll(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[Row],
     cols: usize,
     start: usize,
     line_numbers: bool,
@@ -370,7 +370,7 @@ pub fn write_lines_in_horizontal_scroll(
 /// The `\r` resets the cursor to the start of the line.
 pub fn write_raw_lines(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[Row],
     initial: Option<&str>,
 ) -> Result<(), MinusError> {
     for line in lines {

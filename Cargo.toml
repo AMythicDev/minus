@@ -27,6 +27,9 @@ regex = { version = "^1", optional = true }
 crossbeam-channel = "^0.5"
 parking_lot = "0.12.1"
 once_cell = { version = "^1.18", features = ["parking_lot"] }
+bytecount = { version = "0.6.7", features = ["runtime-dispatch-simd"] }
+smol_str = "0.2.1"
+arrayvec = "0.7.4"
 
 [features]
 search = [ "regex" ]
@@ -70,3 +73,8 @@ required-features = ["static_output"]
 name = "msg-tokio"
 path = "examples/msg-tokio.rs"
 required-features = ["dynamic_output"]
+
+
+[profile.profiling]
+inherits = "release"
+debug = 1

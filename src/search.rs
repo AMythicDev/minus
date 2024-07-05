@@ -52,7 +52,7 @@
 
 #![allow(unused_imports)]
 use crate::minus_core::utils::{display, term};
-use crate::screen::Screen;
+use crate::screen::{Row, Screen};
 use crate::{error::MinusError, input::HashedEventRegister, screen};
 use crate::{LineNumbers, PagerState};
 use crossterm::{
@@ -242,7 +242,7 @@ impl FetchInputResult {
 /// A cache for storing all the new data obtained by running incremental search
 pub(crate) struct IncrementalSearchCache {
     /// Lines to be displayed with highlighted search matches
-    pub(crate) formatted_lines: Vec<String>,
+    pub(crate) formatted_lines: Vec<Row>,
     /// Index from `search_idx` where a search match after current upper mark may be found
     /// NOTE: There is no guarantee that this will stay within the bounds of `search_idx`
     pub(crate) search_mark: usize,
