@@ -346,14 +346,40 @@ pub fn write_lines_in_horizontal_scroll(
 
         if start < line.len() {
             if line_numbers {
+                // make sure "line_number_padding + line_number_ascii_seq_len" not overflow
+                let first_end = (line_number_padding + line_number_ascii_seq_len).min(line.len());
+                // make sure "shifted_start" not downflow
+                let second_start = shifted_start.min(line.len() - 1).max(0);
+                // make sure end not overflow
+                let second_end = end.min(line.len());
+ 
+                // check char boundary, for example "▲" takes up 3 bytes,
+                // we must promise that second_start points to the first
+                // byte or the fourth byte;
+                let mut i = second_start;
+                while i < second_end && line.is_char_boundary(i) == false {
+                    i += 1;
+                }
+                let second_start = i;
                 writeln!(
                     out,
                     "\r{}{}",
-                    &line[0..line_number_padding + line_number_ascii_seq_len],
-                    &line[shifted_start..end]
+                    &line[0..first_end],
+                    &line[second_start..second_end]
                 )?;
             } else {
-                writeln!(out, "\r{}", &line[shifted_start..end])?;
+                // make sure "shifted_start" not overflow
+                let resolved_start = shifted_start.min(line.len() - 1);
+                // make sure end not overflow
+                let resolved_end = end.min(line.len());
+
+                // check char boundary like above
+                let mut i = resolved_start;
+                while i < resolved_end && line.is_char_boundary(i) == false {
+                    i += 1;
+                }
+                let resolved_start = i;
+                writeln!(out, "\r{}", &line[resolved_start..resolved_end])?;
             }
         } else {
             writeln!(out, "\r")?;
