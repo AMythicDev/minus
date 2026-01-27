@@ -886,7 +886,6 @@ mod tests {
             }
 
             press_key(&mut out, &mut search_opts, KeyCode::Enter);
-            // assert_eq!(search_opts.word_index, EXPECTED_WORD_INDICES);
             assert_eq!(&search_opts.string, QUERY_STRING);
             assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
