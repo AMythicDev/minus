@@ -156,12 +156,10 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
 #[allow(clippy::fallible_impl_from)]
 impl<'a> From<&'a PagerState> for SearchOpts<'a> {
     fn from(ps: &'a PagerState) -> Self {
-        let search_char = if ps.search_state.search_mode == SearchMode::Forward {
-            '/'
-        } else if ps.search_state.search_mode == SearchMode::Reverse {
-            '?'
-        } else {
-            unreachable!();
+        let search_char = match ps.search_state.search_mode {
+            SearchMode::Forward => '/',
+            SearchMode::Reverse => '?',
+            SearchMode::Unknown => unreachable!(),
         };
 
         let incremental_search_options = IncrementalSearchOpts::from(ps);
@@ -170,7 +168,7 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             ev: None,
             string: String::with_capacity(200),
             input_status: InputStatus::Active,
-            cursor_position: 1,
+            cursor_position: 0,
             search_char,
             rows: ps.rows.try_into().unwrap(),
             cols: ps.cols.try_into().unwrap(),
@@ -535,6 +533,9 @@ where
         }) => {
             // For any character key, without a modifier, insert it into so.string before
             // current cursor position and update the line
+
+            let orig_num_graphemes = so.string.graphemes(true).count();
+
             let c = *c;
             let insert_byte_idx = so
                 .string
@@ -543,7 +544,12 @@ where
                 .map_or_else(|| so.string.len(), |(idx, _)| idx);
 
             so.string.insert(insert_byte_idx, c);
-            so.cursor_position = u16::try_from(so.string.graphemes(true).count()).unwrap();
+            let new_num_graphemes = so.string.graphemes(true).count();
+            println!(
+                "orig was {orig_num_graphemes}, but new is {new_num_graphemes}. cursor is {}",
+                so.cursor_position
+            );
+            so.cursor_position += u16::try_from(new_num_graphemes - orig_num_graphemes).unwrap();
 
             // This won't panic 'cause it's guaranteed to return 1..=4. Don't know why it returns a
             // usize instead of a u8, though.
@@ -569,10 +575,9 @@ pub(crate) fn fetch_input(
     ps: &PagerState,
 ) -> Result<FetchInputResult, MinusError> {
     // Set the search character to show at column 0
-    let search_char = if ps.search_state.search_mode == SearchMode::Forward {
-        '/'
-    } else {
-        '?'
+    let search_char = match ps.search_state.search_mode {
+        SearchMode::Forward => '/',
+        SearchMode::Unknown | SearchMode::Reverse => '?',
     };
 
     // Initial setup
@@ -1060,8 +1065,7 @@ mod tests {
 
         #[test]
         fn backspace_while_moving_right() {
-            let (mut so, _, _, _) = pretest_setup_forward_search();
-            let mut out = Vec::with_capacity(1000);
+            let (mut so, mut out, _, _) = pretest_setup_forward_search();
 
             press_key(&mut out, &mut so, KeyCode::Home);
 
@@ -1080,9 +1084,7 @@ mod tests {
 
         #[test]
         fn backspace_every_other_going_backwards() {
-            panic!();
-            let (mut so, _, _, _) = pretest_setup_forward_search();
-            let mut out = Vec::with_capacity(1000);
+            let (mut so, mut out, _, _) = pretest_setup_forward_search();
 
             let mut graphemes = QUERY_STRING.graphemes(true).count();
             let mut cursor = u16::try_from(graphemes).unwrap();
@@ -1108,11 +1110,41 @@ mod tests {
                 assert_str_eq!(so.string, expected_str);
             }
         }
+
+        #[test]
+        fn inserting_char_while_not_at_end_keeps_cursor_position() {
+            let (mut so, mut out, _, _) = pretest_setup_forward_search();
+            let mut current_pos = so.cursor_position;
+
+            for _ in 0..10 {
+                press_key(&mut out, &mut so, KeyCode::Left);
+            }
+            current_pos -= 10;
+            assert_eq!(so.cursor_position, current_pos);
+
+            press_key(&mut out, &mut so, KeyCode::Char('!'));
+            current_pos += 1;
+            assert_eq!(so.cursor_position, current_pos);
+
+            for _ in 0..4 {
+                press_key(&mut out, &mut so, KeyCode::Right);
+            }
+            current_pos += 4;
+            assert_eq!(so.cursor_position, current_pos);
+
+            press_key(&mut out, &mut so, KeyCode::Char('a'));
+            current_pos += 1;
+            assert_eq!(so.cursor_position, current_pos);
+
+            // the cursor position shouldn't change if we then place a combining umlaut after an a,
+            // since they're now considered one grapheme.
+            press_key(&mut out, &mut so, KeyCode::Char('\u{0308}'));
+            assert_eq!(so.cursor_position, current_pos);
+        }
     }
 
     #[test]
     fn test_next_match() {
-        panic!();
         // A sample index for mocking actual search index matches
         let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
         let mut upper_mark = 0;
