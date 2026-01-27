@@ -1,4 +1,3 @@
-#![cfg_attr(docsrs, doc(cfg(feature = "search")))]
 //! Text searching functionality
 //!
 //! Text searching inside minus is quite advanced than other terminal pagers. It is highly
@@ -50,13 +49,12 @@
 //! pager.set_incremental_search_condition(Box::new(|_| true)).unwrap();
 //! ```
 
-#![allow(unused_imports)]
 use crate::minus_core::utils::{display, term};
 use crate::screen::Screen;
 use crate::{LineNumbers, PagerState};
-use crate::{error::MinusError, input::HashedEventRegister, screen};
+use crate::{error::MinusError, screen};
 use crossterm::{
-    cursor::{self, MoveTo},
+    cursor,
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     style::Attribute,
     terminal::{Clear, ClearType},
@@ -69,8 +67,7 @@ use std::{
     sync::LazyLock,
     time::Duration,
 };
-
-use std::collections::hash_map::RandomState;
+use unicode_segmentation::UnicodeSegmentation;
 
 static INVERT: LazyLock<String> = LazyLock::new(|| Attribute::Reverse.to_string());
 static NORMAL: LazyLock<String> = LazyLock::new(|| Attribute::NoReverse.to_string());
@@ -79,12 +76,7 @@ static ANSI_REGEX: LazyLock<Regex> = LazyLock::new(|| {
         .unwrap()
 });
 
-static WORD: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"([\w_]+)|([-?~@#!$%^&*()-+={}\[\]:;\\|'/?<>.,"]+)|\W"#).unwrap()
-});
-
 #[derive(Clone, Copy, Debug, Default, Eq)]
-#[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 #[allow(clippy::module_name_repetitions)]
 /// Defines modes in which the search can run
 pub enum SearchMode {
@@ -123,8 +115,6 @@ pub struct SearchOpts<'a> {
     pub cursor_position: u16,
     /// Direction of search. See [SearchMode].
     pub search_mode: SearchMode,
-    /// Column numbers where each new word start
-    pub word_index: Vec<u16>,
     /// Search character, either `/` or `?` depending on [SearchMode]
     pub search_char: char,
     /// Number of rows available in the terminal
@@ -181,7 +171,6 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             string: String::with_capacity(200),
             input_status: InputStatus::Active,
             cursor_position: 1,
-            word_index: Vec::with_capacity(200),
             search_char,
             rows: ps.rows.try_into().unwrap(),
             cols: ps.cols.try_into().unwrap(),
@@ -356,7 +345,7 @@ where
 /// Respond to keyboard events
 ///
 /// This souuld be called exactly once for each event by [fetch_input]
-#[allow(clippy::too_many_lines)]
+#[expect(clippy::too_many_lines)]
 fn handle_key_press<O, F>(
     out: &mut O,
     so: &mut SearchOpts<'_>,
@@ -366,21 +355,10 @@ where
     O: Write,
     F: Fn(&SearchOpts<'_>) -> bool,
 {
-    // Bounds between which our cursor can move
-    const FIRST_AVAILABLE_COLUMN: u16 = 1;
-    let last_available_column: u16 = so.string.len().saturating_add(1).try_into().unwrap();
-
     // If no event is present, abort
     if so.ev.is_none() {
         return Ok(());
     }
-
-    let populate_word_index = |so: &mut SearchOpts<'_>| {
-        so.word_index = WORD
-            .find_iter(&so.string)
-            .map(|c| c.start().saturating_add(1).try_into().unwrap())
-            .collect::<Vec<u16>>();
-    };
 
     let refresh_display = |out: &mut O, so: &mut SearchOpts<'_>| -> Result<(), MinusError> {
         // Cache the compiled regex if the regex is valid
@@ -402,8 +380,9 @@ where
         )?;
         Ok(())
     };
+
     match so.ev.as_ref().unwrap() {
-        Event::Key(KeyEvent { kind, .. }) if *kind != KeyEventKind::Press => (),
+        Event::Key(KeyEvent { kind, .. }) if *kind != KeyEventKind::Press => return Ok(()),
         // If Esc is pressed, cancel the search and also make sure that the search query is
         // ")cleared
         Event::Key(KeyEvent {
@@ -413,6 +392,7 @@ where
         }) => {
             so.string.clear();
             so.input_status = InputStatus::Cancelled;
+            return Ok(());
         }
         Event::Key(KeyEvent {
             code: KeyCode::Backspace,
@@ -421,37 +401,53 @@ where
         }) => {
             // On backspace, remove the last character just before the cursor from the so.string
             // But if we are at very first character, do nothing.
-            if so.cursor_position == FIRST_AVAILABLE_COLUMN {
+            if so.cursor_position == 0 {
                 return Ok(());
             }
+
+            let max_idx = so.string.graphemes(true).count();
+            let cursor_pos = usize::from(so.cursor_position);
+            if let Some((idx, s)) = so
+                .string
+                .grapheme_indices(true)
+                .nth_back(max_idx - cursor_pos)
+            {
+                let num_chars = s.chars().count();
+                for _ in 0..num_chars {
+                    so.string.remove(idx);
+                }
+            }
+
             so.cursor_position = so.cursor_position.saturating_sub(1);
-            so.string
-                .remove(so.cursor_position.saturating_sub(1).into());
-            populate_word_index(so);
             // Update the line
             refresh_display(out, so)?;
-            term::move_cursor(out, so.cursor_position, so.rows, false)?;
-            out.flush()?;
         }
         Event::Key(KeyEvent {
             code: KeyCode::Delete,
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
+            let max_idx = so.string.graphemes(true).count();
+            let cursor_pos = usize::from(so.cursor_position);
+
             // On delete, remove the character under the cursor from the so.string
             // But if we are at the column right after the last character, do nothing.
-            if so.cursor_position >= last_available_column {
+            if cursor_pos >= max_idx {
                 return Ok(());
             }
-            so.cursor_position = so.cursor_position.saturating_sub(1);
-            so.string
-                .remove(<u16 as Into<usize>>::into(so.cursor_position));
-            populate_word_index(so);
-            so.cursor_position = so.cursor_position.saturating_add(1);
+
+            // we want to do cursor_pos + 1 'cause we're handling the delete key, not backspace. So
+            // we won't remove any characters if you're at the very end of the string.
+            if let Some(idx_back) = max_idx.checked_sub(cursor_pos + 1)
+            // we want to do nth_back since it's much more likely that someone's cursor will be at
+            // the end of the string instead of the front
+                && let Some((idx, _)) = so.string.char_indices().nth_back(idx_back)
+            {
+                so.string.remove(idx);
+            }
+
             // Update the line
             refresh_display(out, so)?;
-            term::move_cursor(out, so.cursor_position, so.rows, false)?;
-            out.flush()?;
         }
         Event::Key(KeyEvent {
             code: KeyCode::Enter,
@@ -465,68 +461,72 @@ where
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            if so.cursor_position == FIRST_AVAILABLE_COLUMN {
+            if so.cursor_position == 0 {
                 return Ok(());
             }
             so.cursor_position = so.cursor_position.saturating_sub(1);
-            term::move_cursor(out, so.cursor_position, so.rows, true)?;
         }
         Event::Key(KeyEvent {
             code: KeyCode::Left,
             modifiers: KeyModifiers::CONTROL,
             ..
         }) => {
-            // Find the column number where a word starts which is exactly before the current
-            // cursor position
-            // If we can't find any such column, jump to the very first available column
-            so.cursor_position = *so
-                .word_index
-                .iter()
-                .rfind(|c| c < &&so.cursor_position)
-                .unwrap_or(&FIRST_AVAILABLE_COLUMN);
-            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+            // here, we're going through the words, and accumulating how many graphemes they take
+            // up. Once we reach the word where our cursor currently resides, set our cursor to the
+            // beginning of the word's grapheme count and stop iterating.
+            let mut acc = 0;
+            for s in so.string.split_word_bounds() {
+                let graphemes = s.graphemes(true).count();
+                if acc + graphemes >= usize::from(so.cursor_position) {
+                    so.cursor_position = u16::try_from(acc).unwrap();
+                    break;
+                }
+
+                acc += graphemes;
+            }
         }
         Event::Key(KeyEvent {
             code: KeyCode::Right,
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            if so.cursor_position >= last_available_column {
+            let last_available_idx = so.string.graphemes(true).count();
+            if usize::from(so.cursor_position) >= last_available_idx {
                 return Ok(());
             }
+
             so.cursor_position = so.cursor_position.saturating_add(1);
-            term::move_cursor(out, so.cursor_position, so.rows, true)?;
         }
         Event::Key(KeyEvent {
             code: KeyCode::Right,
             modifiers: KeyModifiers::CONTROL,
             ..
         }) => {
-            // Find the column number where a word starts which is exactly after the current
-            // cursor position
-            // If we can't find any such column, jump to the very last available column
-            so.cursor_position = *so
-                .word_index
-                .iter()
-                .find(|c| c > &&so.cursor_position)
-                .unwrap_or(&last_available_column);
-            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+            // here, we're going through the words, and accumulating how many graphemes they take
+            // up. Once we reach the word where our cursor currently resides, set our cursor to the
+            // end of the word's grapheme count and stop iterating.
+            let mut acc = 0;
+            for s in so.string.split_word_bounds() {
+                acc += s.graphemes(true).count();
+                if acc > usize::from(so.cursor_position) {
+                    so.cursor_position = u16::try_from(acc).unwrap();
+                    break;
+                }
+            }
         }
         Event::Key(KeyEvent {
             code: KeyCode::Home,
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            so.cursor_position = 1;
-            term::move_cursor(out, 1, so.rows, true)?;
+            so.cursor_position = 0;
         }
         Event::Key(KeyEvent {
             code: KeyCode::End,
             modifiers: KeyModifiers::NONE,
             ..
         }) => {
-            so.cursor_position = so.string.len().saturating_add(1).try_into().unwrap();
-            term::move_cursor(out, so.cursor_position, so.rows, true)?;
+            so.cursor_position = so.string.graphemes(true).count().try_into().unwrap();
         }
         Event::Key(KeyEvent {
             code: KeyCode::Char(c),
@@ -535,17 +535,26 @@ where
         }) => {
             // For any character key, without a modifier, insert it into so.string before
             // current cursor position and update the line
-            so.string
-                .insert(so.cursor_position.saturating_sub(1).into(), *c);
-            populate_word_index(so);
+            let c = *c;
+            let insert_byte_idx = so
+                .string
+                .grapheme_indices(true)
+                .nth(usize::from(so.cursor_position))
+                .map_or_else(|| so.string.len(), |(idx, _)| idx);
+
+            so.string.insert(insert_byte_idx, c);
+            so.cursor_position = u16::try_from(so.string.graphemes(true).count()).unwrap();
+
+            // This won't panic 'cause it's guaranteed to return 1..=4. Don't know why it returns a
+            // usize instead of a u8, though.
+            // populate_word_index(so);
             refresh_display(out, so)?;
-            so.cursor_position = so.cursor_position.saturating_add(1);
-            term::move_cursor(out, so.cursor_position, so.rows, false)?;
-            out.flush()?;
         }
         _ => return Ok(()),
     }
-    Ok(())
+
+    term::move_cursor(out, so.cursor_position + 1, so.rows, false)?;
+    out.flush().map_err(MinusError::from)
 }
 
 /// Fetch the search query
@@ -555,7 +564,6 @@ where
 /// set to either [InputStatus::Cancelled] or [InputStatus::Confirmed] by pressing `Esc` or
 /// `Enter` respectively.
 /// Finally we return
-#[cfg(feature = "search")]
 pub(crate) fn fetch_input(
     out: &mut impl std::io::Write,
     ps: &PagerState,
@@ -781,7 +789,9 @@ mod tests {
             event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers},
             terminal::{Clear, ClearType},
         };
+        use pretty_assertions::{assert_eq, assert_str_eq};
         use std::{convert::TryInto, io::Write};
+        use unicode_segmentation::UnicodeSegmentation;
 
         fn new_search_opts(sm: SearchMode) -> SearchOpts<'static> {
             let search_char = match sm {
@@ -794,8 +804,7 @@ mod tests {
                 ev: None,
                 string: String::with_capacity(200),
                 input_status: InputStatus::Active,
-                cursor_position: 1,
-                word_index: Vec::with_capacity(200),
+                cursor_position: 0,
                 search_char,
                 rows: 25,
                 cols: 100,
@@ -815,35 +824,46 @@ mod tests {
             })
         }
 
+        const QUERY_STRING: &str =
+            "this is@complex-text_seärch?query🤣with\u{8205} 🖐🏼complex emojis";
+        const EXPECTED_WORD_INDICES: [u16; 18] = [
+            0, 4, 5, 7, 8, 15, 16, 27, 28, 33, 34, 38, 39, 40, 41, 48, 49, 55,
+        ];
+
         fn pretest_setup_forward_search() -> (SearchOpts<'static>, Vec<u8>, u16, &'static str) {
-            const QUERY_STRING: &str = "this is@complex-text_search?query"; // length = 33
-            #[allow(clippy::cast_possible_truncation)]
-            let last_movable_column: u16 = (QUERY_STRING.len() as u16) + 1; // 34
+            let last_movable_column = u16::try_from(QUERY_STRING.graphemes(true).count()).unwrap();
 
             let mut search_opts = new_search_opts(SearchMode::Forward);
             let mut out = Vec::with_capacity(1500);
 
-            for c in QUERY_STRING.chars() {
-                search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            for (i, c) in QUERY_STRING.graphemes(true).enumerate() {
+                for c in c.chars() {
+                    press_key(&mut out, &mut search_opts, KeyCode::Char(c));
+                }
+                assert_eq!(usize::from(search_opts.cursor_position), i + 1);
             }
             assert_eq!(search_opts.cursor_position, last_movable_column);
             (search_opts, out, last_movable_column, QUERY_STRING)
+        }
+
+        fn press_key(out: &mut Vec<u8>, so: &mut SearchOpts<'_>, code: KeyCode) {
+            so.ev = Some(make_event_from_keycode(code));
+            handle_key_press(out, so, |_| false).unwrap();
         }
 
         #[test]
         fn input_sequential_text() {
             let mut search_opts = new_search_opts(SearchMode::Forward);
             let mut out = Vec::with_capacity(1500);
-            for (i, c) in "text search matches".chars().enumerate() {
-                search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            for (i, c) in "text search matches".graphemes(true).enumerate() {
+                for c in c.chars() {
+                    press_key(&mut out, &mut search_opts, KeyCode::Char(c));
+                }
                 assert_eq!(search_opts.input_status, InputStatus::Active);
-                assert_eq!(search_opts.cursor_position as usize, i + 2);
+                assert_eq!(search_opts.cursor_position as usize, i + 1);
             }
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Enter));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
-            assert_eq!(search_opts.word_index, vec![1, 5, 6, 12, 13]);
+            press_key(&mut out, &mut search_opts, KeyCode::Enter);
+            // assert_eq!(search_opts.word_index, vec![0, 4, 5, 11, 12]);
             assert_eq!(&search_opts.string, "text search matches");
             assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
@@ -852,16 +872,17 @@ mod tests {
         fn input_complex_sequential_text() {
             let mut search_opts = new_search_opts(SearchMode::Forward);
             let mut out = Vec::with_capacity(1500);
-            for (i, c) in "this is@complex-text_search?query".chars().enumerate() {
-                search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            for (i, c) in QUERY_STRING.graphemes(true).enumerate() {
+                for c in c.chars() {
+                    press_key(&mut out, &mut search_opts, KeyCode::Char(c));
+                }
                 assert_eq!(search_opts.input_status, InputStatus::Active);
-                assert_eq!(search_opts.cursor_position as usize, i + 2);
+                assert_eq!(search_opts.cursor_position as usize, i + 1);
             }
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Enter));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
-            assert_eq!(search_opts.word_index, vec![1, 5, 6, 8, 9, 16, 17, 28, 29]);
-            assert_eq!(&search_opts.string, "this is@complex-text_search?query");
+
+            press_key(&mut out, &mut search_opts, KeyCode::Enter);
+            // assert_eq!(search_opts.word_index, EXPECTED_WORD_INDICES);
+            assert_eq!(&search_opts.string, QUERY_STRING);
             assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
 
@@ -870,35 +891,29 @@ mod tests {
             // Setup
             let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
 
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
-            assert_eq!(search_opts.cursor_position as usize, 1);
+            press_key(&mut out, &mut search_opts, KeyCode::Home);
+            assert_eq!(search_opts.cursor_position as usize, 0);
 
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::End));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            press_key(&mut out, &mut search_opts, KeyCode::End);
             assert_eq!(search_opts.cursor_position, last_movable_column);
         }
 
         #[test]
         fn basic_left_arrow_movement() {
-            const FIRST_MOVABLE_COLUMN: u16 = 1;
             let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
-            let query_string_length = last_movable_column - 1;
 
             // We are currently at the very next column to the last char
 
             // Check functionality of left arrow key
             // Pressing left arrow moves the cursor towards the beginning of string until it
             // reaches the first char after which pressing it further would not have any effect
-            for i in (FIRST_MOVABLE_COLUMN..=query_string_length).rev() {
-                search_opts.ev = Some(make_event_from_keycode(KeyCode::Left));
-                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            for i in (0..last_movable_column).rev() {
+                press_key(&mut out, &mut search_opts, KeyCode::Left);
                 assert_eq!(search_opts.cursor_position, i);
             }
             // Pressing Left arrow any more will not make any effect
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Left));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
-            assert_eq!(search_opts.cursor_position, FIRST_MOVABLE_COLUMN);
+            press_key(&mut out, &mut search_opts, KeyCode::Left);
+            assert_eq!(search_opts.cursor_position, 0);
         }
 
         #[test]
@@ -906,36 +921,28 @@ mod tests {
             // Setup
             let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
             // Go to the 1st char
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            press_key(&mut out, &mut search_opts, KeyCode::Home);
 
             // Check functionality of right arrow key
             // Pressing right arrow moves the cursor towards the end of string until it
             // reaches the very next column to the last char after which pressing it further would not have any effect
-            for i in 2..=last_movable_column {
-                search_opts.ev = Some(make_event_from_keycode(KeyCode::Right));
-                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            for i in 1..=last_movable_column {
+                press_key(&mut out, &mut search_opts, KeyCode::Right);
                 assert_eq!(search_opts.cursor_position, i);
             }
             // Pressing right arrow any more will not make any effect
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Right));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            press_key(&mut out, &mut search_opts, KeyCode::Right);
             assert_eq!(search_opts.cursor_position, last_movable_column);
         }
 
         #[test]
         fn right_jump_by_word() {
-            const JUMP_COLUMNS: [u16; 10] = [1, 5, 6, 8, 9, 16, 17, 28, 29, LAST_MOVABLE_COLUMN];
             // Setup
-            let (mut search_opts, mut out, _last_movable_column, _) =
-                pretest_setup_forward_search();
-            // LAST_MOVABLE_COLUMN = _last_movable_column = 34
-            #[allow(clippy::items_after_statements)]
-            const LAST_MOVABLE_COLUMN: u16 = 34;
+            let (mut search_opts, mut out, last_movable_column, _) = pretest_setup_forward_search();
+            // let jump_columns: [u16; 10] = [0, 4, 5, 7, 8, 15, 16, 27, 28, last_movable_column];
 
             // Go to the 1st char
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Home));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            press_key(&mut out, &mut search_opts, KeyCode::Home);
 
             let ev = Event::Key(KeyEvent {
                 code: KeyCode::Right,
@@ -945,7 +952,7 @@ mod tests {
             });
 
             // Jump right word by word
-            for i in &JUMP_COLUMNS[1..] {
+            for i in &EXPECTED_WORD_INDICES[1..] {
                 search_opts.ev = Some(ev.clone());
                 handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
                 assert_eq!(search_opts.cursor_position, *i);
@@ -954,18 +961,13 @@ mod tests {
             // to the last char
             search_opts.ev = Some(ev);
             handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
-            assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
+            assert_eq!(search_opts.cursor_position, last_movable_column);
         }
 
         #[test]
         fn left_jump_by_word() {
-            const JUMP_COLUMNS: [u16; 10] = [1, 5, 6, 8, 9, 16, 17, 28, 29, LAST_MOVABLE_COLUMN];
             // Setup
-            let (mut search_opts, mut out, _last_movable_column, _) =
-                pretest_setup_forward_search();
-            // LAST_MOVABLE_COLUMN = _last_movable_column = 34
-            #[allow(clippy::items_after_statements)]
-            const LAST_MOVABLE_COLUMN: u16 = 34;
+            let (mut search_opts, mut out, _, _) = pretest_setup_forward_search();
 
             // We are currently at the very next column to the last char
             let ev = Event::Key(KeyEvent {
@@ -976,23 +978,26 @@ mod tests {
             });
 
             // Jump right word by word
-            for i in (JUMP_COLUMNS[..(JUMP_COLUMNS.len() - 1)]).iter().rev() {
+            for i in (EXPECTED_WORD_INDICES[..(EXPECTED_WORD_INDICES.len() - 1)])
+                .iter()
+                .rev()
+            {
                 search_opts.ev = Some(ev.clone());
                 handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
                 assert_eq!(search_opts.cursor_position, *i);
             }
+
             // Pressing ctrl+left will not do anything and keep the cursor at the very first column
             search_opts.ev = Some(ev);
             handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
-            assert_eq!(search_opts.cursor_position, JUMP_COLUMNS[0]);
+            assert_eq!(search_opts.cursor_position, EXPECTED_WORD_INDICES[0]);
         }
 
         #[test]
         fn esc_key() {
             let (mut search_opts, mut out, _, _) = pretest_setup_forward_search();
 
-            search_opts.ev = Some(make_event_from_keycode(KeyCode::Esc));
-            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            press_key(&mut out, &mut search_opts, KeyCode::Esc);
             assert_eq!(search_opts.input_status, InputStatus::Cancelled);
         }
 
@@ -1005,16 +1010,16 @@ mod tests {
 
             // Try to recreate the behaviour of handle_key_press when new char is entered
             let mut string = String::with_capacity(query_string.len());
-            let mut cursor_position: u16 = 1;
+            let mut cursor_position: u16;
             for c in query_string.chars() {
                 string.push(c);
-                cursor_position = cursor_position.saturating_add(1);
+                cursor_position = u16::try_from(string.graphemes(true).count()).unwrap();
                 write!(
                     result_out,
                     "{move_to_prompt}\r{clear_line}/{string}{move_to_position}",
                     move_to_prompt = MoveTo(0, search_opts.rows),
                     clear_line = Clear(ClearType::CurrentLine),
-                    move_to_position = MoveTo(cursor_position, search_opts.rows),
+                    move_to_position = MoveTo(cursor_position + 1, search_opts.rows),
                 )
                 .unwrap();
             }
@@ -1023,42 +1028,91 @@ mod tests {
 
         #[test]
         fn backward_sequential_text_input_screen_data() {
-            const QUERY_STRING: &str = "this is@complex-text_search?query"; // length = 33
-            #[allow(clippy::cast_possible_truncation)]
-            const LAST_MOVABLE_COLUMN: u16 = (QUERY_STRING.len() as u16) + 1; // 34
+            let last_movable_column: u16 = QUERY_STRING.graphemes(true).count().try_into().unwrap();
 
             let mut search_opts = new_search_opts(SearchMode::Reverse);
             let mut out = Vec::with_capacity(1500);
 
             for c in QUERY_STRING.chars() {
-                search_opts.ev = Some(make_event_from_keycode(KeyCode::Char(c)));
-                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+                press_key(&mut out, &mut search_opts, KeyCode::Char(c));
             }
-            assert_eq!(search_opts.cursor_position, LAST_MOVABLE_COLUMN);
+            assert_eq!(search_opts.cursor_position, last_movable_column);
 
             let mut result_out = Vec::with_capacity(1500);
 
             // Try to recreate the behaviour of handle_key_press when new char is entered
             let mut string = String::with_capacity(QUERY_STRING.len());
-            let mut cursor_position: u16 = 1;
+            let mut cursor_position: u16;
             for c in QUERY_STRING.chars() {
                 string.push(c);
-                cursor_position = cursor_position.saturating_add(1);
+                cursor_position = u16::try_from(string.graphemes(true).count()).unwrap();
                 write!(
                     result_out,
                     "{move_to_prompt}\r{clear_line}?{string}{move_to_position}",
                     move_to_prompt = MoveTo(0, search_opts.rows),
                     clear_line = Clear(ClearType::CurrentLine),
-                    move_to_position = MoveTo(cursor_position, search_opts.rows),
+                    move_to_position = MoveTo(cursor_position + 1, search_opts.rows),
                 )
                 .unwrap();
             }
             assert_eq!(out, result_out);
         }
+
+        #[test]
+        fn backspace_while_moving_right() {
+            let (mut so, _, _, _) = pretest_setup_forward_search();
+            let mut out = Vec::with_capacity(1000);
+
+            press_key(&mut out, &mut so, KeyCode::Home);
+
+            let orig_graphemes = QUERY_STRING.graphemes(true).count();
+            for i in 0..orig_graphemes {
+                press_key(&mut out, &mut so, KeyCode::Right);
+                assert_eq!(so.cursor_position, 1);
+
+                press_key(&mut out, &mut so, KeyCode::Backspace);
+                assert_eq!(so.string.graphemes(true).count(), orig_graphemes - (i + 1));
+            }
+
+            assert_eq!(so.cursor_position, 0);
+            assert_eq!(so.string, "");
+        }
+
+        #[test]
+        fn backspace_every_other_going_backwards() {
+            panic!();
+            let (mut so, _, _, _) = pretest_setup_forward_search();
+            let mut out = Vec::with_capacity(1000);
+
+            let mut graphemes = QUERY_STRING.graphemes(true).count();
+            let mut cursor = u16::try_from(graphemes).unwrap();
+            for i in (0..graphemes).rev() {
+                if i % 2 == 0 {
+                    press_key(&mut out, &mut so, KeyCode::Left);
+                    cursor -= 1;
+                } else {
+                    press_key(&mut out, &mut so, KeyCode::Backspace);
+                    cursor -= 1;
+                    graphemes -= 1;
+                }
+
+                assert_eq!(so.cursor_position, cursor);
+                assert_eq!(so.string.graphemes(true).count(), graphemes);
+                let expected_str = QUERY_STRING
+                    .graphemes(true)
+                    .enumerate()
+                    .filter(|(g_idx, _)| *g_idx < i || (g_idx % 2 == 0))
+                    .map(|(_, g)| g)
+                    .collect::<String>();
+
+                assert_str_eq!(so.string, expected_str);
+            }
+        }
     }
 
     #[test]
     fn test_next_match() {
+        panic!();
         // A sample index for mocking actual search index matches
         let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
         let mut upper_mark = 0;
@@ -1072,12 +1126,9 @@ mod tests {
         }
     }
 
-    #[allow(clippy::trivial_regex)]
+    #[expect(clippy::trivial_regex)]
     mod highlighting {
-        use std::collections::BTreeSet;
-
-        use crate::PagerState;
-        use crate::search::{INVERT, NORMAL, highlight_line_matches, next_nth_match};
+        use crate::search::{INVERT, NORMAL, highlight_line_matches};
         use crossterm::style::Attribute;
         use regex::Regex;
 
