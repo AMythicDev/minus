@@ -268,20 +268,17 @@ impl Pager {
     /// Automatically quit when all content fits on one screen in dynamic paging mode.
     ///
     /// When this is set to `true`, minus will automatically exit the pager and preserve
-    /// the output on the terminal screen (similar to `less -F`) after all application-side
-    /// [`Pager`] instances have been dropped and the content fits within the available rows.
+    /// the output on the terminal screen (similar to `less -F`) once the end of output
+    /// is signalled **and** the content fits within the available rows.  If the content
+    /// does not fit the pager remains open until the user quits manually.
     ///
-    /// This is intended for *buffering* use cases where the caller does not know the
-    /// number of output lines in advance.  The typical pattern is:
+    /// The end of output can be signalled in two ways:
     ///
-    /// 1. Create a [`Pager`] and call `set_quit_if_one_screen(true)`.
-    /// 2. Spawn a thread or async task that runs [`dynamic_paging`](crate::dynamic_paging).
-    /// 3. Send all data via the original [`Pager`] handle.
-    /// 4. **Drop** the [`Pager`] handle to signal that no more data will be sent.
-    ///    If the total content fits on one screen the pager exits automatically and
-    ///    the text is preserved on the terminal.  If the content does not fit, the
-    ///    pager remains open until the user quits.
-    /// 5. Join the pager thread.
+    /// - **Explicitly** — call [`Pager::end_of_output`] when you have finished sending
+    ///   data.  This is the preferred approach when the caller needs to keep the [`Pager`]
+    ///   handle alive after signalling (e.g. to receive later notifications).
+    /// - **Implicitly** — simply drop all application-side [`Pager`] clones.  When the
+    ///   last clone is dropped the signal is sent automatically.
     ///
     /// The content is always preserved on the terminal after an automatic quit,
     /// regardless of the configured [`ExitStrategy`](crate::ExitStrategy).
@@ -291,6 +288,72 @@ impl Pager {
     /// # Errors
     /// Returns [`Err(MinusError::Communication)`](MinusError::Communication) if the
     /// configuration message could not be delivered to the pager.
+    ///
+    /// # Example — explicit signal
+    /// ```no_run
+    /// # #[cfg(feature = "dynamic_output")]
+    /// # {
+    /// use minus::{Pager, dynamic_paging};
+    ///
+    /// let pager = Pager::new();
+    /// pager.set_quit_if_one_screen(true).unwrap();
+    ///
+    /// let pager2 = pager.clone();
+    /// let t = std::thread::spawn(move || dynamic_paging(pager2));
+    ///
+    /// pager.push_str("Hello\nWorld\n").unwrap();
+    ///
+    /// // Explicitly signal that no more data will be sent.
+    /// // The pager handle is still alive after this call.
+    /// pager.end_of_output().unwrap();
+    ///
+    /// // If the two lines fit on one screen the pager has already exited.
+    /// t.join().unwrap().unwrap();
+    /// # }
+    /// ```
+    ///
+    /// # Example — implicit signal (drop-based)
+    /// ```no_run
+    /// # #[cfg(feature = "dynamic_output")]
+    /// # {
+    /// use minus::{Pager, dynamic_paging};
+    ///
+    /// let pager = Pager::new();
+    /// pager.set_quit_if_one_screen(true).unwrap();
+    ///
+    /// let pager2 = pager.clone();
+    /// let t = std::thread::spawn(move || dynamic_paging(pager2));
+    ///
+    /// pager.push_str("Hello\nWorld\n").unwrap();
+    ///
+    /// // Dropping the last application-side clone signals end-of-output.
+    /// drop(pager);
+    ///
+    /// t.join().unwrap().unwrap();
+    /// # }
+    /// ```
+    #[cfg(feature = "dynamic_output")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "dynamic_output")))]
+    pub fn set_quit_if_one_screen(&self, val: bool) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::SetQuitIfOneScreen(val))?)
+    }
+
+    /// Signal that the application has finished sending output.
+    ///
+    /// When [`set_quit_if_one_screen`](Pager::set_quit_if_one_screen) is enabled, calling
+    /// this method checks whether all buffered content fits on one screen and, if so,
+    /// exits the pager automatically while preserving the content on the terminal.
+    /// If the content does not fit the pager remains open and the user can quit manually.
+    ///
+    /// This is the explicit counterpart to the implicit drop-based signal: it lets you
+    /// mark the end of output while still holding the [`Pager`] handle (e.g. when the
+    /// caller needs to keep the handle for other purposes).
+    ///
+    /// Calling this method when `set_quit_if_one_screen` is `false` is a no-op.
+    ///
+    /// # Errors
+    /// Returns [`Err(MinusError::Communication)`](MinusError::Communication) if the
+    /// signal could not be delivered to the pager.
     ///
     /// # Example
     /// ```no_run
@@ -305,18 +368,16 @@ impl Pager {
     /// let t = std::thread::spawn(move || dynamic_paging(pager2));
     ///
     /// pager.push_str("Hello\nWorld\n").unwrap();
+    /// pager.end_of_output().unwrap();
     ///
-    /// // Signal "no more data" by dropping the last application-side handle.
-    /// drop(pager);
-    ///
-    /// // If the two lines fit on one screen the pager has already exited.
+    /// // The pager handle is still usable here if needed.
     /// t.join().unwrap().unwrap();
     /// # }
     /// ```
     #[cfg(feature = "dynamic_output")]
     #[cfg_attr(docsrs, doc(cfg(feature = "dynamic_output")))]
-    pub fn set_quit_if_one_screen(&self, val: bool) -> Result<(), MinusError> {
-        Ok(self.tx.send(Command::SetQuitIfOneScreen(val))?)
+    pub fn end_of_output(&self) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::CheckQuitIfOneScreen)?)
     }
 
     /// Whether to allow scrolling horizontally
