@@ -39,6 +39,10 @@ pub enum Command {
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
+    #[cfg(feature = "dynamic_output")]
+    SetQuitIfOneScreen(bool),
+    #[cfg(feature = "dynamic_output")]
+    CheckQuitIfOneScreen,
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 
@@ -60,6 +64,10 @@ impl PartialEq for Command {
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
             #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
+            #[cfg(feature = "dynamic_output")]
+            (Self::SetQuitIfOneScreen(d1), Self::SetQuitIfOneScreen(d2)) => d1 == d2,
+            #[cfg(feature = "dynamic_output")]
+            (Self::CheckQuitIfOneScreen, Self::CheckQuitIfOneScreen) => true,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
             #[cfg(feature = "search")]
@@ -88,6 +96,10 @@ impl Debug for Command {
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
             #[cfg(feature = "static_output")]
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
+            #[cfg(feature = "dynamic_output")]
+            Self::SetQuitIfOneScreen(val) => write!(f, "SetQuitIfOneScreen({val:?})"),
+            #[cfg(feature = "dynamic_output")]
+            Self::CheckQuitIfOneScreen => write!(f, "CheckQuitIfOneScreen"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
         }
