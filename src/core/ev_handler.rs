@@ -608,7 +608,11 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         ps.quit_if_one_screen = true;
         // In tests, rows = 10. Fill more than 10 lines so the content overflows.
-        let big_text: String = (0..20).map(|i| format!("line {i}\n")).collect();
+        let big_text: String = (0..20).fold(String::new(), |mut s, i| {
+            use std::fmt::Write;
+            let _ = writeln!(s, "line {i}");
+            s
+        });
         ps.screen.orig_text = big_text;
         ps.format_lines();
 
