@@ -1,7 +1,7 @@
 //! Contains types that hold run-time information of the pager.
 
 #[cfg(feature = "search")]
-use crate::search::{SearchMode, SearchOpts};
+use crate::search::{SearchMode, SearchOpts, next_nth_match};
 
 use crate::{
     ExitStrategy, LineNumbers,
@@ -254,6 +254,8 @@ impl PagerState {
         #[cfg(feature = "search")]
         {
             self.search_state.search_idx = format_result.append_search_idx;
+            self.search_state.search_mark =
+                next_nth_match(&self.search_state.search_idx, self.upper_mark, 0).unwrap_or(0);
         }
         self.screen.formatted_lines = buffer;
         self.lines_to_row_map = format_result.lines_to_row_map;
