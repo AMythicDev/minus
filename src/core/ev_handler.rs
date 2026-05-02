@@ -176,11 +176,9 @@ pub fn handle_event(
             {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
-                    p.upper_mark = *y;
+                    command_queue
+                        .push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(*y)));
                     command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
-                    command_queue.push_back_unchecked(Command::UserInput(
-                        InputEvent::UpdateUpperMark(p.upper_mark),
-                    ));
                 }
             }
         }
@@ -193,7 +191,7 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                let mut upper_mark = *p
                     .search_state
                     .search_idx
                     .iter()
@@ -208,7 +206,7 @@ pub fn handle_event(
                     > p.screen.formatted_lines_count().saturating_add(1)
                 {
                     p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-                    p.upper_mark = *p
+                    upper_mark = *p
                         .search_state
                         .search_idx
                         .iter()
@@ -239,10 +237,8 @@ pub fn handle_event(
             {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
-                    let upper_mark = *y;
-                    command_queue.push_back_unchecked(Command::UserInput(
-                        InputEvent::UpdateUpperMark(upper_mark),
-                    ));
+                    command_queue
+                        .push_back_unchecked(Command::UserInput(InputEvent::UpdateUpperMark(*y)));
                     command_queue.push_back_unchecked(Command::FormatRedrawPrompt);
                 }
             }
