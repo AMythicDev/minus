@@ -37,12 +37,15 @@ impl LinesRowMap {
         self.0.get(ln)
     }
 
-    #[allow(dead_code)]
-    pub fn row_to_line(&self, row: usize) -> Option<usize> {
-        match self.0.binary_search(&row) {
-            Ok(line) => Some(line),
-            Err(0) => None,
-            Err(next_line) => Some(next_line - 1),
+    pub(crate) fn row_to_line(&self, row: usize) -> Option<usize> {
+        if self.0.is_empty() {
+            return None;
         }
+
+        Some(match self.0.binary_search(&row) {
+            Ok(idx) => idx,
+            Err(0) => 0,
+            Err(idx) => idx.saturating_sub(1),
+        })
     }
 }
