@@ -400,6 +400,129 @@ fn incremental_preview<'a>(
     }
 }
 
+fn line_matches_query(line: &str, query: &Regex) -> bool {
+    let stripped = ANSI_REGEX.replace_all(line, "");
+    query.is_match(stripped.as_ref())
+}
+
+fn incremental_preview(
+    iso: &IncrementalSearchOpts<'_>,
+    query: &Regex,
+    cols: usize,
+    rows: usize,
+) -> Option<(Vec<String>, usize)> {
+    fn preview_line(
+        iso: &IncrementalSearchOpts<'_>,
+        query: &Regex,
+        cols: usize,
+        line_number_digits: usize,
+        line_idx: usize,
+        line: &str,
+        visible_lines: &mut Vec<String>,
+        upper_mark: &mut Option<usize>,
+        writable_rows: usize,
+        wrapped: bool,
+    ) -> Option<()> {
+        // Skip all lines that don't have any match
+        if upper_mark.is_none() && !line_matches_query(line, query) {
+            return Some(());
+        }
+
+        let row_start = *iso.lines_to_row_map.get(line_idx).unwrap_or(&0);
+        let mut search_idx = BTreeSet::new();
+        let mut formatted_rows = screen::formatted_line(
+            line,
+            line_number_digits,
+            line_idx,
+            iso.line_numbers,
+            cols,
+            iso.screen.line_wrapping,
+            row_start,
+            &mut search_idx,
+            Some(query),
+        );
+
+        if upper_mark.is_none() {
+            let match_row = *search_idx
+                .iter()
+                .find(|idx| wrapped || **idx >= iso.initial_upper_mark)?;
+            let skip_rows = match_row.saturating_sub(row_start);
+            *upper_mark = Some(match_row);
+            visible_lines.extend(formatted_rows.drain(skip_rows..));
+        } else {
+            visible_lines.append(&mut formatted_rows);
+        }
+
+        if visible_lines.len() >= writable_rows {
+            visible_lines.truncate(writable_rows);
+        }
+
+        Some(())
+    }
+
+    let writable_rows = rows.saturating_sub(1);
+    if writable_rows == 0 {
+        return None;
+    }
+
+    let start_line_idx = iso.lines_to_row_map.row_to_line(iso.initial_upper_mark)?;
+    let line_number_digits = crate::minus_core::utils::digits(iso.screen.line_count());
+    let mut visible_lines = Vec::with_capacity(writable_rows);
+    let mut upper_mark = None;
+
+    for (line_idx, line) in iso
+        .screen
+        .orig_text
+        .lines()
+        .enumerate()
+        .skip(start_line_idx)
+    {
+        preview_line(
+            iso,
+            query,
+            cols,
+            line_number_digits,
+            line_idx,
+            line,
+            &mut visible_lines,
+            &mut upper_mark,
+            writable_rows,
+            false,
+        )?;
+        if visible_lines.len() >= writable_rows {
+            break;
+        }
+    }
+
+    if upper_mark.is_none() {
+        for (line_idx, line) in iso
+            .screen
+            .orig_text
+            .lines()
+            .enumerate()
+            .take(start_line_idx)
+        {
+            preview_line(
+                iso,
+                query,
+                cols,
+                line_number_digits,
+                line_idx,
+                line,
+                &mut visible_lines,
+                &mut upper_mark,
+                writable_rows,
+                true,
+            )?;
+            if visible_lines.len() >= writable_rows {
+                break;
+            }
+        }
+    }
+
+    upper_mark.map(|upper_mark| (visible_lines, upper_mark))
+}
+
 /// Runs the incremental search
 ///
 /// It will return if `Ok(SomeIncrementalSearchCache)` if there was a successful run of incremental
@@ -1318,6 +1441,16 @@ mod tests {
             super::nth_match(&search_idx, 100, 1, SearchMode::Forward),
             Some(4)
         );
+    }
+
+    #[test]
+    fn test_next_match_wraps_to_top() {
+        let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
+
+        assert_eq!(super::next_nth_match(&search_idx, 60, 1), Some(0));
+        assert_eq!(super::next_nth_match(&search_idx, 60, 3), Some(2));
+        assert_eq!(super::next_nth_match(&search_idx, 50, 1), Some(0));
+        assert_eq!(super::next_nth_match(&search_idx, 50, 0), Some(4));
     }
 
     #[allow(clippy::trivial_regex)]
