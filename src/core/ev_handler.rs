@@ -131,11 +131,10 @@ pub fn handle_event(
                 }
                 compiled_regex
             } else {
-                return Ok(());
+                unreachable!();
             };
 
-            // Format the lines, this will automatically generate the PagerState.search_idx
-            p.format_lines();
+            command_queue.push_back_unchecked(Command::FormatRedrawDisplay);
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))

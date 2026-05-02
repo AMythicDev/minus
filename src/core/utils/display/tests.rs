@@ -562,7 +562,7 @@ mod draw_for_change_tests {
         ps.upper_mark = 80;
 
         let mut res = Vec::new();
-        write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
+        write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0)).unwrap();
         for line in &ps.screen.formatted_lines[20..29] {
             writeln!(res, "\r{line}").unwrap();
         }
@@ -583,7 +583,7 @@ mod draw_for_change_tests {
         ps.upper_mark = 60;
 
         let mut res = Vec::new();
-        write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0),).unwrap();
+        write!(res, "{}{}", ScrollDown(9), MoveTo(0, 0)).unwrap();
         for line in &ps.screen.formatted_lines[50..59] {
             writeln!(res, "\r{line}").unwrap();
         }

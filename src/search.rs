@@ -1188,7 +1188,7 @@ eros.",
 
             #[test]
             fn multi_escape_match() {
-                let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
+                let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test");
                 let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), false);
                 assert_eq!(
                     res.0,
@@ -1279,7 +1279,7 @@ eros.",
 
             #[test]
             fn multi_escape_match() {
-                let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test",);
+                let orig = format!("this {ESC}is a te{NONE}st again {ESC}yeah{NONE} test");
                 let res = highlight_line_matches(&orig, &Regex::new("test").unwrap(), true);
                 assert_eq!(
                     res.0,
