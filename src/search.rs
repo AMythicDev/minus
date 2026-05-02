@@ -51,7 +51,7 @@
 //! ```
 
 #![allow(unused_imports)]
-use crate::minus_core::utils::{display, term};
+use crate::minus_core::utils::{LinesRowMap, display, term};
 use crate::screen::Screen;
 use crate::{LineNumbers, PagerState};
 use crate::{error::MinusError, input::HashedEventRegister, screen};
@@ -138,9 +138,6 @@ pub struct SearchOpts<'a> {
 }
 
 /// Options to control incremental search
-///
-/// NOTE: `text` and `initial_formatted_lines` are experimental in this context and are subject to
-/// change. Use them at your own risk.
 pub struct IncrementalSearchOpts<'a> {
     /// Current status of line numbering
     pub line_numbers: LineNumbers,
@@ -148,6 +145,8 @@ pub struct IncrementalSearchOpts<'a> {
     pub initial_upper_mark: usize,
     /// Reference to [PagerState::screen]
     pub screen: &'a Screen,
+    /// Cached map from logical lines to formatted rows.
+    pub lines_to_row_map: &'a LinesRowMap,
     /// Value of [PagerState::upper_mark] before starting of search prompt
     pub initial_left_mark: usize,
 }
@@ -158,6 +157,7 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
             line_numbers: ps.line_numbers,
             initial_upper_mark: ps.upper_mark,
             screen: &ps.screen,
+            lines_to_row_map: &ps.lines_to_row_map,
             initial_left_mark: ps.left_mark,
         }
     }
@@ -237,17 +237,135 @@ impl FetchInputResult {
 
 /// A cache for storing all the new data obtained by running incremental search
 pub(crate) struct IncrementalSearchCache {
-    /// Lines to be displayed with highlighted search matches
-    pub(crate) formatted_lines: Vec<String>,
-    /// Index from `search_idx` where a search match after current upper mark may be found
-    /// NOTE: There is no guarantee that this will stay within the bounds of `search_idx`
-    pub(crate) search_mark: usize,
     /// Indices of formatted_lines where search matches have been found
     pub(crate) search_idx: BTreeSet<usize>,
     /// Index of the line from which to display the text.
     /// This will be set to the index of line which is after the current upper mark and will
     /// have a search match for sure
     pub(crate) upper_mark: usize,
+}
+
+fn line_matches_query(line: &str, query: &Regex) -> bool {
+    let stripped = ANSI_REGEX.replace_all(line, "");
+    query.is_match(stripped.as_ref())
+}
+
+fn incremental_preview(
+    iso: &IncrementalSearchOpts<'_>,
+    query: &Regex,
+    cols: usize,
+    rows: usize,
+) -> Option<(Vec<String>, usize)> {
+    fn preview_line(
+        iso: &IncrementalSearchOpts<'_>,
+        query: &Regex,
+        cols: usize,
+        line_number_digits: usize,
+        line_idx: usize,
+        line: &str,
+        visible_lines: &mut Vec<String>,
+        upper_mark: &mut Option<usize>,
+        writable_rows: usize,
+        wrapped: bool,
+    ) -> Option<()> {
+        // Skip all lines that don't have any match
+        if upper_mark.is_none() && !line_matches_query(line, query) {
+            return Some(());
+        }
+
+        let row_start = *iso.lines_to_row_map.get(line_idx).unwrap_or(&0);
+        let mut search_idx = BTreeSet::new();
+        let mut formatted_rows = screen::formatted_line(
+            line,
+            line_number_digits,
+            line_idx,
+            iso.line_numbers,
+            cols,
+            iso.screen.line_wrapping,
+            row_start,
+            &mut search_idx,
+            Some(query),
+        );
+
+        if upper_mark.is_none() {
+            let match_row = *search_idx
+                .iter()
+                .find(|idx| wrapped || **idx >= iso.initial_upper_mark)?;
+            let skip_rows = match_row.saturating_sub(row_start);
+            *upper_mark = Some(match_row);
+            visible_lines.extend(formatted_rows.drain(skip_rows..));
+        } else {
+            visible_lines.append(&mut formatted_rows);
+        }
+
+        if visible_lines.len() >= writable_rows {
+            visible_lines.truncate(writable_rows);
+        }
+
+        Some(())
+    }
+
+    let writable_rows = rows.saturating_sub(1);
+    if writable_rows == 0 {
+        return None;
+    }
+
+    let start_line_idx = iso.lines_to_row_map.row_to_line(iso.initial_upper_mark)?;
+    let line_number_digits = crate::minus_core::utils::digits(iso.screen.line_count());
+    let mut visible_lines = Vec::with_capacity(writable_rows);
+    let mut upper_mark = None;
+
+    for (line_idx, line) in iso
+        .screen
+        .orig_text
+        .lines()
+        .enumerate()
+        .skip(start_line_idx)
+    {
+        preview_line(
+            iso,
+            query,
+            cols,
+            line_number_digits,
+            line_idx,
+            line,
+            &mut visible_lines,
+            &mut upper_mark,
+            writable_rows,
+            false,
+        )?;
+        if visible_lines.len() >= writable_rows {
+            break;
+        }
+    }
+
+    if upper_mark.is_none() {
+        for (line_idx, line) in iso
+            .screen
+            .orig_text
+            .lines()
+            .enumerate()
+            .take(start_line_idx)
+        {
+            preview_line(
+                iso,
+                query,
+                cols,
+                line_number_digits,
+                line_idx,
+                line,
+                &mut visible_lines,
+                &mut upper_mark,
+                writable_rows,
+                true,
+            )?;
+            if visible_lines.len() >= writable_rows {
+                break;
+            }
+        }
+    }
+
+    upper_mark.map(|upper_mark| (visible_lines, upper_mark))
 }
 
 /// Runs the incremental search
@@ -310,46 +428,35 @@ where
         return Ok(None);
     }
 
-    // Format the text with search highlights and get the index of the element in
-    // format_result.append_search_idx which is after the current upper mark
-    //
-    // PERF: Check if this can be futhur optimized
-    let (buffer, format_result) = screen::make_format_lines(
-        &iso.screen.orig_text,
-        iso.line_numbers,
-        so.cols.into(),
-        iso.screen.line_wrapping,
-        so.compiled_regex.as_ref(),
-    );
-    let position_of_next_match =
-        next_nth_match(&format_result.append_search_idx, iso.initial_upper_mark, 0);
-    // Get the upper mark. If we can't find one, reset the display
-    let upper_mark;
-    if let Some(pnm) = position_of_next_match {
-        upper_mark = *format_result.append_search_idx.iter().nth(pnm).unwrap();
-        // Draw the incrementally searched lines from upper mark
-        display::write_text_checked(
-            out,
-            &buffer,
-            upper_mark,
-            so.rows.into(),
-            so.cols.into(),
-            iso.screen.line_wrapping,
-            iso.initial_left_mark,
-            iso.line_numbers,
-            iso.screen.line_count(),
-        )?;
-    } else {
+    let query = so.compiled_regex.as_ref().unwrap();
+
+    let Some((visible_lines, upper_mark)) =
+        incremental_preview(iso, query, so.cols.into(), so.rows.into())
+    else {
         reset_screen(out, so)?;
         return Ok(None);
-    }
+    };
+
+    // Draw the incrementally searched lines from upper mark
+    display::write_text_checked(
+        out,
+        &visible_lines,
+        0,
+        so.rows.into(),
+        so.cols.into(),
+        iso.screen.line_wrapping,
+        iso.initial_left_mark,
+        iso.line_numbers,
+        iso.screen.line_count(),
+    )?;
+
     // Return the results obtained by running incremental search so that they can be stored as a
     // cache.
+    let mut search_idx = BTreeSet::new();
+    search_idx.insert(upper_mark);
     Ok(Some(IncrementalSearchCache {
-        formatted_lines: buffer,
-        search_mark: position_of_next_match.unwrap(),
         upper_mark,
-        search_idx: format_result.append_search_idx,
+        search_idx,
     }))
 }
 
@@ -720,8 +827,7 @@ pub(crate) fn highlight_line_matches(
 /// `Some(3)` which is index of 34.
 ///
 /// If `jump` causes the index to overflow the length of the `search_idx`, the function will set it
-/// to the index of last element in `search_idx`.Also if search_idx is empty, this will simply
-/// return None.
+/// to wrap to the start of `search_idx`. Also if search_idx is empty, this will simply return None.
 ///
 /// Setting `jump` equal to 0 causes a slight change in behaviour: it will also return the index of
 /// element if that element is equal to the current upper mark. In the above example lets say that
@@ -738,33 +844,21 @@ pub(crate) fn next_nth_match(
     }
 
     // Find the index of the match that's exactly after the upper_mark.
-    // One we find that, we add n-1 to it to get the next nth match after upper_mark
-    let mut position_of_next_match;
-    if let Some(nearest_idx) = search_idx.iter().position(|i| {
+    // If there isn't one, wrap to the first match in the file.
+    let nearest_idx = search_idx.iter().position(|i| {
         if jump == 0 {
             *i >= upper_mark
         } else {
             *i > upper_mark
         }
-    }) {
-        // This ensures that index doesn't get off-by-one in case of jump = 0
-        if jump == 0 {
-            position_of_next_match = nearest_idx;
-        } else {
-            position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
-        }
+    });
 
-        // If position_of_next_match is goes beyond the length of search_idx
-        // set it to the length of search_idx -1 which corresponds to the index of
-        // last match
-        if position_of_next_match > search_idx.len().saturating_sub(1) {
-            position_of_next_match = search_idx.len().saturating_sub(1);
-        }
+    let start_idx = nearest_idx.unwrap_or(0);
+    let position_of_next_match = if jump == 0 {
+        start_idx
     } else {
-        // If there's no match at all simply set it to the length of search_idx -1 which
-        // corresponds to the index of last match
-        position_of_next_match = search_idx.len().saturating_sub(1);
-    }
+        start_idx.saturating_add(jump).saturating_sub(1) % search_idx.len()
+    };
 
     Some(position_of_next_match)
 }
@@ -1070,6 +1164,16 @@ mod tests {
             assert_eq!(next_upper_mark, *v);
             upper_mark = next_upper_mark;
         }
+    }
+
+    #[test]
+    fn test_next_match_wraps_to_top() {
+        let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
+
+        assert_eq!(super::next_nth_match(&search_idx, 60, 1), Some(0));
+        assert_eq!(super::next_nth_match(&search_idx, 60, 3), Some(2));
+        assert_eq!(super::next_nth_match(&search_idx, 50, 1), Some(0));
+        assert_eq!(super::next_nth_match(&search_idx, 50, 0), Some(4));
     }
 
     #[allow(clippy::trivial_regex)]

@@ -36,4 +36,16 @@ impl LinesRowMap {
     pub fn get(&self, ln: usize) -> Option<&usize> {
         self.0.get(ln)
     }
+
+    pub(crate) fn row_to_line(&self, row: usize) -> Option<usize> {
+        if self.0.is_empty() {
+            return None;
+        }
+
+        Some(match self.0.binary_search(&row) {
+            Ok(idx) => idx,
+            Err(0) => 0,
+            Err(idx) => idx.saturating_sub(1),
+        })
+    }
 }
