@@ -26,14 +26,16 @@ thiserror = "^2"
 regex = { version = "^1", optional = true }
 crossbeam-channel = "^0.5"
 parking_lot = "0.12.1"
+unicode-segmentation = { version = "1", optional = true }
 
 [features]
-search = [ "regex" ]
+search = [ "regex", "unicode-segmentation" ]
 static_output = []
 dynamic_output = []
 
 [dev-dependencies]
 tokio = { version = "^1.0", features = ["rt", "macros", "rt-multi-thread", "time"] }
+pretty_assertions = "1"
 
 [[example]]
 name = "dyn_tokio"
