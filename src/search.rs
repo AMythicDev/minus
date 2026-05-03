@@ -16,13 +16,14 @@
 //! and then reuses those results when the search query is confirmed by pressing `Enter`. This
 //! approach eliminates the need to re run the search of text after confirming the query.
 //!
-//! Running Incremental search can be controlled by a function. The function should take
-//! reference to [SearchOpts] as the only argument and return a bool as output. This way we can impose a
-//! condition so that incremental search does not get really resource intensive for really vague queries
-//! This also allows applications can control whether they want incremental search to run.
-//! By default minus uses a default condition where incremental search runs only when length of search
-//! query is greater than 1 and number of screen lines (lines obtained after taking care of wrapping,
-//! mapped to a single row on the terminal) is greater than 5000.
+//! Running Incremental search can be controlled by a function. The function should take reference
+//! to [SearchOpts] and `&str` containing the currently entered query as arguments and return a bool
+//! as output. This way we can impose a condition so that incremental search does not get really
+//! resource intensive for really vague queries This also allows applications can control whether
+//! they want incremental search to run. By default minus uses a default condition where incremental
+//! search runs only when length of search query is greater than 1 and number of screen lines (lines
+//! obtained after taking care of wrapping, mapped to a single row on the terminal) is greater than
+//! 5000.
 //!
 //! Applications can override this condition with the help of
 //! [`Pager::set_incremental_search_condition`](crate::pager::Pager::set_incremental_search_condition) function.
@@ -33,21 +34,21 @@
 //! use minus::{Pager, search::SearchOpts};
 //!
 //! let pager = Pager::new();
-//! pager.set_incremental_search_condition(Box::new(|so: &SearchOpts| so.string.len() > 1)).unwrap();
+//! pager.set_incremental_search_condition(Box::new(|_, line: &str| line.len() > 1)).unwrap();
 //! ```
 //! To completely disable incremental search, set the condition to false
 //! ```
 //! use minus::{Pager, search::SearchOpts};
 //!
 //! let pager = Pager::new();
-//! pager.set_incremental_search_condition(Box::new(|_| false)).unwrap();
+//! pager.set_incremental_search_condition(Box::new(|_, _| false)).unwrap();
 //! ```
 //! Similarly to always run incremental search, set the condition to true
 //! ```
 //! use minus::{Pager, search::SearchOpts};
 //!
 //! let pager = Pager::new();
-//! pager.set_incremental_search_condition(Box::new(|_| true)).unwrap();
+//! pager.set_incremental_search_condition(Box::new(|_, _| true)).unwrap();
 //! ```
 
 use crate::minus_core::utils::{LinesRowMap, display, term};
