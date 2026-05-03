@@ -26,6 +26,7 @@ thiserror = "^2"
 regex = { version = "^1", optional = true }
 crossbeam-channel = "^0.5"
 parking_lot = "0.12.1"
+rustyline = { version = "18.0.0", default-features = false, features = ["custom-bindings"] }
 
 [features]
 search = [ "regex" ]

@@ -51,14 +51,15 @@ pub struct SearchState {
     ///
     /// If the function returns a `false`, the incremental search is cancelled.
     pub(crate) incremental_search_condition:
-        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+        Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>,
 }
 
 #[cfg(feature = "search")]
 impl Default for SearchState {
     fn default() -> Self {
-        let incremental_search_condition = Box::new(|so: &SearchOpts| {
-            so.string.len() > 1
+        let incremental_search_condition = Box::new(|so: &SearchOpts, line: &str| {
+            line.len() > 1
+                // TODO: Do perf tests after [pr:#159] and check if this can be lifted off
                 && so
                     .incremental_search_options
                     .as_ref()
