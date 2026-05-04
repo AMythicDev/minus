@@ -65,6 +65,7 @@ use regex::Regex;
 use std::collections::BTreeSet;
 use std::{
     convert::{TryFrom, TryInto},
+    fmt,
     io::Write,
     sync::LazyLock,
     time::Duration,
@@ -619,21 +620,27 @@ pub(crate) fn fetch_input(
     Ok(fetch_input_result)
 }
 
-/// Highlights the search match
-///
-/// The first return value returns the line that has all the search matches highlighted
-/// The second tells whether a search match was actually found
-pub(crate) fn highlight_line_matches(
-    line: &str,
-    query: &regex::Regex,
+pub(crate) fn highlight_matches_args<'a, 'b>(
+    line: &'a str,
+    query: &'b Regex,
     accurate: bool,
-) -> (String, bool) {
-    // Remove all ansi escapes so we can look through it as if it had none
+) -> HighlightMatchesArgs<'a, 'b> {
+    let stripped_str = ANSI_REGEX.replace_all(line, "");
+    let is_match = query.is_match(&stripped_str);
+    HighlightMatchesArgs {
+        line,
+        query,
+        accurate,
+        is_match,
+    }
+}
+
+fn highlight_line_matches_ansi(line: &str, query: &regex::Regex, accurate: bool) -> String {
     let stripped_str = ANSI_REGEX.replace_all(line, "");
 
     // if it doesn't match, don't even try. Just return.
     if !query.is_match(&stripped_str) {
-        return (line.to_string(), false);
+        return line.to_string();
     }
 
     // sum_width is used to calculate the total width of the ansi escapes
@@ -708,7 +715,52 @@ pub(crate) fn highlight_line_matches(
         inserted_escs_len += esc.1.len();
     }
 
-    (inverted, true)
+    inverted
+}
+
+/// Highlights the search match
+///
+/// The first return value returns the line that has all the search matches highlighted
+/// The second tells whether a search match was actually found
+#[cfg_attr(not(test), allow(dead_code))]
+pub(crate) fn highlight_line_matches(
+    line: &str,
+    query: &regex::Regex,
+    accurate: bool,
+) -> (String, bool) {
+    let highlighted = highlight_matches_args(line, query, accurate);
+    (highlighted.to_string(), highlighted.is_match)
+}
+
+pub(crate) struct HighlightMatchesArgs<'a, 'b> {
+    line: &'a str,
+    query: &'b Regex,
+    accurate: bool,
+    is_match: bool,
+}
+
+impl fmt::Display for HighlightMatchesArgs<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.is_match {
+            return f.write_str(self.line);
+        }
+
+        if !ANSI_REGEX.is_match(self.line) {
+            let mut last = 0;
+            for matched in self.query.find_iter(self.line) {
+                f.write_str(&self.line[last..matched.start()])?;
+                write!(f, "{}{}{}", *INVERT, matched.as_str(), *NORMAL)?;
+                last = matched.end();
+            }
+            return f.write_str(&self.line[last..]);
+        }
+
+        f.write_str(&highlight_line_matches_ansi(
+            self.line,
+            self.query,
+            self.accurate,
+        ))
+    }
 }
 
 /// Return a index of an element from `search_idx` that will contain a search match and
@@ -720,8 +772,7 @@ pub(crate) fn highlight_line_matches(
 /// `Some(3)` which is index of 34.
 ///
 /// If `jump` causes the index to overflow the length of the `search_idx`, the function will set it
-/// to the index of last element in `search_idx`.Also if search_idx is empty, this will simply
-/// return None.
+/// to wrap to the start of `search_idx`. Also if search_idx is empty, this will simply return None.
 ///
 /// Setting `jump` equal to 0 causes a slight change in behaviour: it will also return the index of
 /// element if that element is equal to the current upper mark. In the above example lets say that
@@ -738,33 +789,21 @@ pub(crate) fn next_nth_match(
     }
 
     // Find the index of the match that's exactly after the upper_mark.
-    // One we find that, we add n-1 to it to get the next nth match after upper_mark
-    let mut position_of_next_match;
-    if let Some(nearest_idx) = search_idx.iter().position(|i| {
+    // If there isn't one, wrap to the first match in the file.
+    let nearest_idx = search_idx.iter().position(|i| {
         if jump == 0 {
             *i >= upper_mark
         } else {
             *i > upper_mark
         }
-    }) {
-        // This ensures that index doesn't get off-by-one in case of jump = 0
-        if jump == 0 {
-            position_of_next_match = nearest_idx;
-        } else {
-            position_of_next_match = nearest_idx.saturating_add(jump).saturating_sub(1);
-        }
+    });
 
-        // If position_of_next_match is goes beyond the length of search_idx
-        // set it to the length of search_idx -1 which corresponds to the index of
-        // last match
-        if position_of_next_match > search_idx.len().saturating_sub(1) {
-            position_of_next_match = search_idx.len().saturating_sub(1);
-        }
+    let start_idx = nearest_idx.unwrap_or(0);
+    let position_of_next_match = if jump == 0 {
+        start_idx
     } else {
-        // If there's no match at all simply set it to the length of search_idx -1 which
-        // corresponds to the index of last match
-        position_of_next_match = search_idx.len().saturating_sub(1);
-    }
+        start_idx.saturating_add(jump).saturating_sub(1) % search_idx.len()
+    };
 
     Some(position_of_next_match)
 }
