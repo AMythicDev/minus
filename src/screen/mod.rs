@@ -29,7 +29,7 @@ pub(crate) struct FormattedRow<'a> {
     padding: usize,
 }
 
-impl<'a> FormattedRow<'a> {
+impl FormattedRow<'_> {
     fn raw_row(&self) -> &str {
         &self.row
     }
@@ -83,7 +83,11 @@ impl fmt::Display for SearchFormattedRow<'_, '_> {
             write!(
                 f,
                 "{}",
-                search::highlight_matches_args(self.row.raw_row(), self.search_term.unwrap(), false)
+                search::highlight_matches_args(
+                    self.row.raw_row(),
+                    self.search_term.unwrap(),
+                    false
+                )
             )
         } else {
             f.write_str(self.row.raw_row())
@@ -516,18 +520,17 @@ where
     fr
 }
 
-pub(crate) fn format_line<'a>(
-    line: Line<'a>,
+pub(crate) fn format_line(
+    line: Line<'_>,
     len_line_number: usize,
     line_number: usize,
     show_line_numbers: LineNumbers,
     cols: usize,
     line_wrapping: bool,
-) -> impl Iterator<Item = FormattedRow<'a>> {
+) -> impl Iterator<Item = FormattedRow<'_>> {
     assert!(
         !line.contains('\n'),
-        "Newlines found in appending line {:?}",
-        line
+        "Newlines found in appending line {line:?}",
     );
     let line_numbers = matches!(
         show_line_numbers,
@@ -558,17 +561,15 @@ pub(crate) fn format_line<'a>(
     .into_iter()
     .enumerate();
 
-    enumerated_rows.map(move |(i, row)| {
-        FormattedRow {
-            row,
-            show_line_numbers: line_numbers,
-            line_number: if line_numbers && i == 0 {
-                Some(line_number)
-            } else {
-                None
-            },
-            padding,
-        }
+    enumerated_rows.map(move |(i, row)| FormattedRow {
+        row,
+        show_line_numbers: line_numbers,
+        line_number: if line_numbers && i == 0 {
+            Some(line_number)
+        } else {
+            None
+        },
+        padding,
     })
 }
 
@@ -642,9 +643,9 @@ where
 /// - `cols`: Number of columns in the terminal
 /// - `search_term`: Contains the regex if a search is active
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::uninlined_format_args)]
-pub(crate) fn formatted_line<'a>(
-    line: Line<'a>,
+#[allow(dead_code)]
+pub(crate) fn formatted_line(
+    line: Line<'_>,
     len_line_number: usize,
     idx: usize,
     line_numbers: LineNumbers,
