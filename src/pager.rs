@@ -389,12 +389,11 @@ impl fmt::Write for Pager {
 
 #[cfg(test)]
 mod tests {
-
-    #[test]
     #[cfg(feature = "dynamic_output")]
+    #[test]
     fn basic_dynamic_paging() {
         use super::*;
-        use crate::{RunMode, input::InputEvent, minus_core::RUNMODE};
+        use crate::{RunMode, error::SetupError, input::InputEvent, minus_core::RUNMODE};
 
         // Need to reset this since this test is run in the same process as other tests and they
         // change the runmode, which causes this test to fail since everything assumes the runmode
@@ -409,7 +408,17 @@ mod tests {
 
         pager.tx.send(Command::UserInput(InputEvent::Exit)).unwrap();
 
-        pager_thread.join().unwrap().unwrap();
+        let join_result = pager_thread.join().unwrap();
+
+        // FIX: Allow CI runs to pass where a terminal is not available
+        if !matches!(join_result, Ok(()))
+            || !matches!(
+                join_result,
+                Err(MinusError::Setup(SetupError::InvalidTerminal))
+            )
+        {
+            join_result.unwrap();
+        }
 
         *RUNMODE.lock() = RunMode::Uninitialized;
     }
