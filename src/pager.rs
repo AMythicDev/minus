@@ -412,7 +412,7 @@ mod tests {
 
         // FIX: Allow CI runs to pass where a terminal is not available
         if !matches!(join_result, Ok(()))
-            || !matches!(
+            && !matches!(
                 join_result,
                 Err(MinusError::Setup(SetupError::InvalidTerminal))
             )
