@@ -203,33 +203,18 @@ impl Default for Screen {
 // [`PagerState::lines`]: crate::state::PagerState::lines
 
 pub(crate) trait AppendableBuffer {
-    fn append_to_buffer(&mut self, other: &mut Rows);
-    fn extend_buffer<I>(&mut self, other: I)
-    where
-        I: IntoIterator<Item = Row>;
+    fn push_row(&mut self, row: Row);
 }
 
 impl AppendableBuffer for Rows {
-    fn append_to_buffer(&mut self, other: &mut Rows) {
-        self.append(other);
-    }
-    fn extend_buffer<I>(&mut self, other: I)
-    where
-        I: IntoIterator<Item = Row>,
-    {
-        self.extend(other);
+    fn push_row(&mut self, row: Row) {
+        self.push(row);
     }
 }
 
 impl AppendableBuffer for &mut Rows {
-    fn append_to_buffer(&mut self, other: &mut Rows) {
-        self.append(other);
-    }
-    fn extend_buffer<I>(&mut self, other: I)
-    where
-        I: IntoIterator<Item = Row>,
-    {
-        self.extend(other);
+    fn push_row(&mut self, row: Row) {
+        self.push(row);
     }
 }
 
@@ -386,89 +371,68 @@ where
     // Whenever a line is formatted, this will be incremented to te number of rows that the formatted line has occupied
     let mut formatted_row_count = opts.formatted_lines_count;
 
-    {
-        let line_numbers = opts.line_numbers;
-        let cols = opts.cols;
-        let lines_count = opts.lines_count;
-        let line_wrapping = opts.line_wrapping;
+    let (last_idx, last_line_text) = lines.last().copied().unwrap();
+    for (idx, line) in lines.iter().take(lines.len().saturating_sub(1)) {
+        fr.lines_to_row_map.insert(formatted_row_count, true);
+        fr.max_line_length = fr.max_line_length.max(line.len());
+
+        let rows = format_line(
+            line,
+            line_number_digits,
+            opts.lines_count + idx,
+            opts.line_numbers,
+            opts.cols,
+            opts.line_wrapping,
+        );
+
         #[cfg(feature = "search")]
-        let search_term = opts.search_term;
+        let rows = format_search_rows(rows, opts.search_term);
 
-        let rest_lines =
-            lines
-                .iter()
-                .take(lines.len().saturating_sub(1))
-                .flat_map(|(idx, line)| {
-                    let fmt_line = formatted_line(
-                        line,
-                        line_number_digits,
-                        lines_count + idx,
-                        line_numbers,
-                        cols,
-                        line_wrapping,
-                        #[cfg(feature = "search")]
-                        formatted_row_count,
-                        #[cfg(feature = "search")]
-                        &mut fr.append_search_idx,
-                        #[cfg(feature = "search")]
-                        search_term,
-                    );
-                    fr.lines_to_row_map.insert(formatted_row_count, true);
-                    formatted_row_count += fmt_line.len();
-                    if lines.len() > fr.max_line_length {
-                        fr.max_line_length = line.len();
-                    }
+        #[cfg(feature = "search")]
+        {
+            formatted_row_count += collect_rows(
+                &mut opts.buffer,
+                rows,
+                formatted_row_count,
+                &mut fr.append_search_idx,
+            );
+        }
 
-                    fmt_line
-                });
-        opts.buffer.extend_buffer(rest_lines);
-    };
+        #[cfg(not(feature = "search"))]
+        {
+            formatted_row_count += collect_rows(&mut opts.buffer, rows);
+        }
+    }
 
-    let mut last_line = formatted_line(
-        lines.last().unwrap().1,
+    let last_line = format_line(
+        last_line_text,
         line_number_digits,
-        opts.lines_count + to_format_size - 1,
+        opts.lines_count + last_idx,
         opts.line_numbers,
         opts.cols,
         opts.line_wrapping,
-        #[cfg(feature = "search")]
-        formatted_row_count,
-        #[cfg(feature = "search")]
-        &mut fr.append_search_idx,
-        #[cfg(feature = "search")]
-        opts.search_term,
     );
+    #[cfg(feature = "search")]
+    let last_line = format_search_rows(last_line, opts.search_term);
+
+    let last_line_rows = last_line.size_hint().1.unwrap();
+
     fr.lines_to_row_map.insert(formatted_row_count, true);
-    formatted_row_count += last_line.len();
-    if lines.last().unwrap().1.len() > fr.max_line_length {
-        fr.max_line_length = lines.last().unwrap().1.len();
-    }
+    fr.max_line_length = fr.max_line_length.max(last_line_text.len());
 
     #[cfg(feature = "search")]
     {
-        // NOTE: VERY IMPORTANT BLOCK TO GET PROPER SEARCH INDEX
-        // Here is the current scenario: suppose you have text block like this (markers are present to denote where a
-        // new line begins).
-        //
-        // * This is line one row one
-        //   This is line one row two
-        //   This is line one row three
-        // * This is line two row one
-        //   This is line two row two
-        //   This is line two row three
-        //   This is line two row four
-        //
-        // and suppose a match is found at line 1 row 2 and line 2 row 4. So the index generated will be [1, 6].
-        // Let's say this text block is going to be appended to [PagerState::formatted_lines] from index 23.
-        // Now if directly append this generated index to [`PagerState::search_idx`], it will probably be wrong
-        // as these numbers are *relative to current text block*. The actual search index should have been 24, 30.
-        //
-        // To fix this we basically add the number of items in [`PagerState::formatted_lines`].
-        fr.append_search_idx = fr
-            .append_search_idx
-            .iter()
-            .map(|i| opts.formatted_lines_count + i)
-            .collect();
+        formatted_row_count += collect_rows(
+            &mut opts.buffer,
+            last_line,
+            formatted_row_count,
+            &mut fr.append_search_idx,
+        );
+    }
+
+    #[cfg(not(feature = "search"))]
+    {
+        formatted_row_count += collect_rows(&mut opts.buffer, last_line);
     }
 
     // Calculate number of rows which are part of last line and are left unterminated  due to absence of \n
@@ -476,12 +440,137 @@ where
         // If the last line ends with \n, then the line is complete so nothing is left as unterminated
         0
     } else {
-        last_line.len()
+        last_line_rows
     };
-    opts.buffer.append_to_buffer(&mut last_line);
     fr.rows_formatted = formatted_row_count - opts.formatted_lines_count;
 
     fr
+}
+
+pub(crate) fn format_line<'a>(
+    line: Line<'a>,
+    len_line_number: usize,
+    line_number: usize,
+    show_line_numbers: LineNumbers,
+    cols: usize,
+    line_wrapping: bool,
+) -> impl Iterator<Item = String> {
+    assert!(
+        !line.contains('\n'),
+        "Newlines found in appending line {:?}",
+        line
+    );
+    let line_numbers = matches!(
+        show_line_numbers,
+        LineNumbers::Enabled | LineNumbers::AlwaysOn
+    );
+
+    // NOTE: Only relevant when line numbers are active
+    // Padding is the space that the actual line text will be shifted to accommodate for
+    // line numbers. This is equal to:-
+    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.') + 1 (for 1 space)
+    //
+    // We reduce this from the number of available columns as this space cannot be used for
+    // actual line display when wrapping the lines
+    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
+
+    let cols_avail = if line_numbers {
+        cols.saturating_sub(padding + 2)
+    } else {
+        cols
+    };
+
+    // Wrap the line and return an iterator over all the rows
+    let enumerated_rows = if line_wrapping {
+        textwrap::wrap(line, cols_avail)
+    } else {
+        vec![Cow::from(line)]
+    }
+    .into_iter()
+    .enumerate();
+
+    let formatter = move |row: Cow<'_, str>, is_first_row: bool, idx: usize| {
+        format!(
+            "{bold}{number: >len$}{reset} {row}",
+            bold = if cfg!(not(test)) && is_first_row {
+                crossterm::style::Attribute::Bold.to_string()
+            } else {
+                String::new()
+            },
+            number = if is_first_row {
+                (idx + 1).to_string() + "."
+            } else {
+                String::new()
+            },
+            len = padding,
+            reset = if cfg!(not(test)) && is_first_row {
+                crossterm::style::Attribute::Reset.to_string()
+            } else {
+                String::new()
+            },
+            row = row
+        )
+    };
+
+    enumerated_rows.map(move |(i, row)| {
+        if line_numbers && i == 0 {
+            formatter(row, true, line_number)
+        } else if line_numbers {
+            formatter(row, false, 0)
+        } else {
+            row.to_string()
+        }
+    })
+}
+
+#[cfg(feature = "search")]
+pub(crate) fn format_search_rows<'a>(
+    rows: impl Iterator<Item = String> + 'a,
+    search_term: Option<&'a Regex>,
+) -> impl Iterator<Item = (String, bool)> + 'a {
+    rows.map(move |row| {
+        if let Some(st) = search_term {
+            search::highlight_line_matches(&row, st, false)
+        } else {
+            (row, false)
+        }
+    })
+}
+
+#[cfg(feature = "search")]
+fn collect_rows<B, I>(
+    buffer: &mut B,
+    rows: I,
+    formatted_idx: usize,
+    search_idx: &mut BTreeSet<usize>,
+) -> usize
+where
+    B: AppendableBuffer,
+    I: IntoIterator<Item = (String, bool)>,
+{
+    let mut row_count = 0;
+    for (wrap_idx, (row, is_match)) in rows.into_iter().enumerate() {
+        if is_match {
+            search_idx.insert(formatted_idx + wrap_idx);
+        }
+        buffer.push_row(row);
+        row_count = wrap_idx + 1;
+    }
+    row_count
+}
+
+#[cfg(not(feature = "search"))]
+fn collect_rows<B, I>(buffer: &mut B, rows: I) -> usize
+where
+    B: AppendableBuffer,
+    I: IntoIterator<Item = String>,
+{
+    let mut row_count = 0;
+    for row in rows {
+        buffer.push_row(row);
+        row_count += 1;
+    }
+    row_count
 }
 
 /// Formats the given `line`
@@ -510,111 +599,28 @@ pub(crate) fn formatted_line<'a>(
     #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
     #[cfg(feature = "search")] search_term: Option<&regex::Regex>,
 ) -> Rows {
-    assert!(
-        !line.contains('\n'),
-        "Newlines found in appending line {:?}",
-        line
+    let rows = format_line(
+        line,
+        len_line_number,
+        idx,
+        line_numbers,
+        cols,
+        line_wrapping,
     );
-    let line_numbers = matches!(line_numbers, LineNumbers::Enabled | LineNumbers::AlwaysOn);
+    let mut formatted_rows = Vec::with_capacity(256);
 
-    // NOTE: Only relevant when line numbers are active
-    // Padding is the space that the actual line text will be shifted to accommodate for
-    // line numbers. This is equal to:-
-    // LineNumbers::EXTRA_PADDING + len_line_number + 1 (for '.') + 1 (for 1 space)
-    //
-    // We reduce this from the number of available columns as this space cannot be used for
-    // actual line display when wrapping the lines
-    let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
-
-    let cols_avail = if line_numbers {
-        cols.saturating_sub(padding + 2)
-    } else {
-        cols
-    };
-
-    // Wrap the line and return an iterator over all the rows
-    let mut enumerated_rows = if line_wrapping {
-        textwrap::wrap(line, cols_avail)
-    } else {
-        vec![Cow::from(line)]
+    #[cfg(feature = "search")]
+    {
+        let rows = format_search_rows(rows, search_term);
+        collect_rows(&mut formatted_rows, rows, formatted_idx, search_idx);
     }
-    .into_iter()
-    .enumerate();
 
-    // highlight the lines with matching search terms
-    // If a match is found, add this line's index to PagerState::search_idx
-    #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-    #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-    let mut handle_search = |row: &mut Cow<'a, str>, wrap_idx: usize| {
-        #[cfg(feature = "search")]
-        if let Some(st) = search_term.as_ref() {
-            let (highlighted_row, is_match) = search::highlight_line_matches(row, st, false);
-            if is_match {
-                *row.to_mut() = highlighted_row;
-                search_idx.insert(formatted_idx + wrap_idx);
-            }
-        }
-    };
-
-    if line_numbers {
-        let mut formatted_rows = Vec::with_capacity(256);
-
-        // Formatter for only when line numbers are active
-        // * If minus is run under test, ascii codes for making the numbers bol is not inserted because they add
-        // extra difficulty while writing tests
-        // * Line number is added only to the first row of a line. This makes a better UI overall
-        let formatter = |row: Cow<'_, str>, is_first_row: bool, idx: usize| {
-            format!(
-                "{bold}{number: >len$}{reset} {row}",
-                bold = if cfg!(not(test)) && is_first_row {
-                    crossterm::style::Attribute::Bold.to_string()
-                } else {
-                    String::new()
-                },
-                number = if is_first_row {
-                    (idx + 1).to_string() + "."
-                } else {
-                    String::new()
-                },
-                len = padding,
-                reset = if cfg!(not(test)) && is_first_row {
-                    crossterm::style::Attribute::Reset.to_string()
-                } else {
-                    String::new()
-                },
-                row = row
-            )
-        };
-
-        // First format the first row separate from other rows, then the subsequent rows and finally join them
-        // This is because only the first row contains the line number and not the subsequent rows
-        let first_row = {
-            #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-            let mut row = enumerated_rows.next().unwrap().1;
-            handle_search(&mut row, 0);
-            formatter(row, true, idx)
-        };
-        formatted_rows.push(first_row);
-
-        #[cfg_attr(not(feature = "search"), allow(unused_mut))]
-        #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-        let rows_left = enumerated_rows.map(|(wrap_idx, mut row)| {
-            handle_search(&mut row, wrap_idx);
-            formatter(row, false, 0)
-        });
-        formatted_rows.extend(rows_left);
-
-        formatted_rows
-    } else {
-        // If line numbers aren't active, simply return the rows with search matches highlighted if search is active
-        #[cfg_attr(not(feature = "search"), allow(unused_variables))]
-        enumerated_rows
-            .map(|(wrap_idx, mut row)| {
-                handle_search(&mut row, wrap_idx);
-                row.to_string()
-            })
-            .collect::<Vec<String>>()
+    #[cfg(not(feature = "search"))]
+    {
+        collect_rows(&mut formatted_rows, rows);
     }
+
+    formatted_rows
 }
 
 pub(crate) fn make_format_lines(
