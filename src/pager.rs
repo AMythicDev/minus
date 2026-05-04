@@ -318,7 +318,7 @@ impl Pager {
     #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
     pub fn set_incremental_search_condition(
         &self,
-        cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+        cb: Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>,
     ) -> crate::Result {
         self.tx.send(Command::IncrementalSearchCondition(cb))?;
         Ok(())

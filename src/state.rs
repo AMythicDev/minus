@@ -1,7 +1,7 @@
 //! Contains types that hold run-time information of the pager.
 
 #[cfg(feature = "search")]
-use crate::search::{SearchMode, SearchOpts};
+use crate::search::{SearchMode, SearchOpts, next_nth_match};
 
 use crate::{
     ExitStrategy, LineNumbers,
@@ -51,14 +51,15 @@ pub struct SearchState {
     ///
     /// If the function returns a `false`, the incremental search is cancelled.
     pub(crate) incremental_search_condition:
-        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+        Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>,
 }
 
 #[cfg(feature = "search")]
 impl Default for SearchState {
     fn default() -> Self {
-        let incremental_search_condition = Box::new(|so: &SearchOpts| {
-            so.string.len() > 1
+        let incremental_search_condition = Box::new(|so: &SearchOpts, line: &str| {
+            line.len() > 1
+                // TODO: Do perf tests after [pr:#159] and check if this can be lifted off
                 && so
                     .incremental_search_options
                     .as_ref()
@@ -254,6 +255,8 @@ impl PagerState {
         #[cfg(feature = "search")]
         {
             self.search_state.search_idx = format_result.append_search_idx;
+            self.search_state.search_mark =
+                next_nth_match(&self.search_state.search_idx, self.upper_mark, 0).unwrap_or(0);
         }
         self.screen.formatted_lines = buffer;
         self.lines_to_row_map = format_result.lines_to_row_map;

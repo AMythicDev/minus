@@ -40,7 +40,7 @@ pub enum Command {
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
-    IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
+    IncrementalSearchCondition(Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>),
 
     // Internal commands
     FormatRedrawPrompt,
