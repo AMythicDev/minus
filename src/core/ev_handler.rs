@@ -131,7 +131,7 @@ pub fn handle_event(
                 }
                 compiled_regex
             } else {
-                unreachable!();
+                return Ok(());
             };
 
             command_queue.push_back_unchecked(Command::FormatRedrawDisplay);
