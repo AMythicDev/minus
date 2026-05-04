@@ -8,7 +8,7 @@ use crate::{
 #[cfg(feature = "search")]
 use regex::Regex;
 
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt};
 
 #[cfg(feature = "search")]
 use {crate::search, std::collections::BTreeSet};
@@ -21,6 +21,75 @@ pub type Rows = Vec<String>;
 pub type Line<'a> = &'a str;
 pub type TextBlock<'a> = &'a str;
 pub type OwnedTextBlock = String;
+
+pub(crate) struct FormattedRow<'a> {
+    row: Cow<'a, str>,
+    show_line_numbers: bool,
+    line_number: Option<usize>,
+    padding: usize,
+}
+
+impl<'a> FormattedRow<'a> {
+    fn raw_row(&self) -> &str {
+        &self.row
+    }
+
+    fn fmt_prefix(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.show_line_numbers {
+            return Ok(());
+        }
+
+        match self.line_number {
+            Some(line_number) => {
+                let line_number = line_number + 1;
+                let number_width = minus_core::utils::digits(line_number) + 1;
+                let left_padding = self.padding.saturating_sub(number_width);
+
+                write!(f, "{:left_padding$}", "")?;
+                if cfg!(not(test)) {
+                    write!(f, "{}", crossterm::style::Attribute::Bold)?;
+                }
+                write!(f, "{line_number}.")?;
+                if cfg!(not(test)) {
+                    write!(f, "{}", crossterm::style::Attribute::Reset)?;
+                }
+                f.write_str(" ")
+            }
+            None => write!(f, "{:>width$} ", "", width = self.padding),
+        }
+    }
+}
+
+impl fmt::Display for FormattedRow<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.fmt_prefix(f)?;
+        f.write_str(self.raw_row())
+    }
+}
+
+#[cfg(feature = "search")]
+pub(crate) struct SearchFormattedRow<'a, 'b> {
+    row: FormattedRow<'a>,
+    search_term: Option<&'b Regex>,
+    is_match: bool,
+}
+
+#[cfg(feature = "search")]
+impl fmt::Display for SearchFormattedRow<'_, '_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.row.fmt_prefix(f)?;
+
+        if self.is_match {
+            write!(
+                f,
+                "{}",
+                search::highlight_matches_args(self.row.raw_row(), self.search_term.unwrap(), false)
+            )
+        } else {
+            f.write_str(self.row.raw_row())
+        }
+    }
+}
 
 // ||||||||||||||||||||||||||||||||||||||||||||||
 //  SCREEN TYPE AND ITS REKATED FUNCTIONS
@@ -454,7 +523,7 @@ pub(crate) fn format_line<'a>(
     show_line_numbers: LineNumbers,
     cols: usize,
     line_wrapping: bool,
-) -> impl Iterator<Item = String> {
+) -> impl Iterator<Item = FormattedRow<'a>> {
     assert!(
         !line.contains('\n'),
         "Newlines found in appending line {:?}",
@@ -489,56 +558,40 @@ pub(crate) fn format_line<'a>(
     .into_iter()
     .enumerate();
 
-    let formatter = move |row: Cow<'_, str>, is_first_row: bool, idx: usize| {
-        format!(
-            "{bold}{number: >len$}{reset} {row}",
-            bold = if cfg!(not(test)) && is_first_row {
-                crossterm::style::Attribute::Bold.to_string()
-            } else {
-                String::new()
-            },
-            number = if is_first_row {
-                (idx + 1).to_string() + "."
-            } else {
-                String::new()
-            },
-            len = padding,
-            reset = if cfg!(not(test)) && is_first_row {
-                crossterm::style::Attribute::Reset.to_string()
-            } else {
-                String::new()
-            },
-            row = row
-        )
-    };
-
     enumerated_rows.map(move |(i, row)| {
-        if line_numbers && i == 0 {
-            formatter(row, true, line_number)
-        } else if line_numbers {
-            formatter(row, false, 0)
-        } else {
-            row.to_string()
+        FormattedRow {
+            row,
+            show_line_numbers: line_numbers,
+            line_number: if line_numbers && i == 0 {
+                Some(line_number)
+            } else {
+                None
+            },
+            padding,
         }
     })
 }
 
 #[cfg(feature = "search")]
 pub(crate) fn format_search_rows<'a>(
-    rows: impl Iterator<Item = String> + 'a,
+    rows: impl Iterator<Item = FormattedRow<'a>> + 'a,
     search_term: Option<&'a Regex>,
-) -> impl Iterator<Item = (String, bool)> + 'a {
+) -> impl Iterator<Item = (SearchFormattedRow<'a, 'a>, bool)> + 'a {
     rows.map(move |row| {
-        if let Some(st) = search_term {
-            search::highlight_line_matches(&row, st, false)
-        } else {
-            (row, false)
-        }
+        let is_match = search_term.is_some_and(|st| st.is_match(row.raw_row()));
+        (
+            SearchFormattedRow {
+                row,
+                search_term,
+                is_match,
+            },
+            is_match,
+        )
     })
 }
 
 #[cfg(feature = "search")]
-fn collect_rows<B, I>(
+fn collect_rows<B, I, D>(
     buffer: &mut B,
     rows: I,
     formatted_idx: usize,
@@ -546,28 +599,30 @@ fn collect_rows<B, I>(
 ) -> usize
 where
     B: AppendableBuffer,
-    I: IntoIterator<Item = (String, bool)>,
+    I: IntoIterator<Item = (D, bool)>,
+    D: fmt::Display,
 {
     let mut row_count = 0;
     for (wrap_idx, (row, is_match)) in rows.into_iter().enumerate() {
         if is_match {
             search_idx.insert(formatted_idx + wrap_idx);
         }
-        buffer.push_row(row);
+        buffer.push_row(row.to_string());
         row_count = wrap_idx + 1;
     }
     row_count
 }
 
 #[cfg(not(feature = "search"))]
-fn collect_rows<B, I>(buffer: &mut B, rows: I) -> usize
+fn collect_rows<B, I, D>(buffer: &mut B, rows: I) -> usize
 where
     B: AppendableBuffer,
-    I: IntoIterator<Item = String>,
+    I: IntoIterator<Item = D>,
+    D: fmt::Display,
 {
     let mut row_count = 0;
     for row in rows {
-        buffer.push_row(row);
+        buffer.push_row(row.to_string());
         row_count += 1;
     }
     row_count
