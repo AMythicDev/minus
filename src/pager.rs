@@ -393,7 +393,7 @@ mod tests {
     #[test]
     fn basic_dynamic_paging() {
         use super::*;
-        use crate::{RunMode, error::SetupError, input::InputEvent, minus_core::RUNMODE};
+        use crate::{RunMode, input::InputEvent, minus_core::RUNMODE};
 
         // Need to reset this since this test is run in the same process as other tests and they
         // change the runmode, which causes this test to fail since everything assumes the runmode
@@ -404,24 +404,16 @@ mod tests {
         pager.follow_output(true).unwrap();
 
         let pager2 = pager.clone();
-        let pager_thread = std::thread::spawn(move || crate::dynamic_pager::dynamic_paging(pager2));
 
-        // Let the pager to initialize before sending a **USER INPUT**.
-        std::thread::sleep(std::time::Duration::from_millis(50));
-        pager.tx.send(Command::UserInput(InputEvent::Exit)).unwrap();
+        std::thread::scope(|s| {
+            s.spawn(move || crate::dynamic_pager::dynamic_paging(pager2));
+            s.spawn(move || {
+                // Let the pager to initialize before sending a **USER INPUT**.
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                pager.tx.send(Command::UserInput(InputEvent::Exit)).unwrap();
+            });
+        });
 
-        let join_result = pager_thread.join().unwrap();
-
-        // FIX: Allow CI runs to pass where a terminal is not available
-        if !matches!(join_result, Ok(()))
-            && !matches!(
-                join_result,
-                Err(MinusError::Setup(SetupError::InvalidTerminal))
-            )
-        {
-            join_result.unwrap();
-        }
-
-        *RUNMODE.lock() = RunMode::Uninitialized;
+        assert_eq!(*RUNMODE.lock(), RunMode::Uninitialized);
     }
 }
