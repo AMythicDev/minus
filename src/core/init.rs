@@ -129,14 +129,14 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
             // HACK: In test we don't care about the cleanup code so just use a separate buffer
             // for panic handler.
             #[cfg(test)]
-            let mut out3 = Vec::new();
+            let mut out2 = Vec::new();
             #[cfg(not(test))]
-            let mut out3 = stdout();
+            let mut out2 = stdout();
 
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will (probably?) cause an immediate abort
             drop(term::cleanup(
-                &mut out3,
+                &mut out2,
                 &crate::ExitStrategy::PagerQuit,
                 true,
             ));
@@ -158,6 +158,11 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         let is_exited3 = is_exited.clone();
         let is_exited4 = is_exited.clone();
 
+        #[cfg(test)]
+        let mut out2 = Vec::new();
+        #[cfg(not(test))]
+        let mut out2 = stdout();
+
         let t1 = s.spawn(move || {
             let res = event_reader(
                 &evtx,
@@ -177,7 +182,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
             let res = start_reactor(
                 &rx,
                 &ps_mutex,
-                &mut out,
+                &mut out2,
                 #[cfg(feature = "search")]
                 &input_thread_running,
                 &is_exited4,
@@ -193,9 +198,9 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         let r1 = t1.join().unwrap();
         let r2 = t2.join().unwrap();
 
-        // if r1.is_err() || r2.is_err() {
-        //     term::cleanup(*out, &crate::ExitStrategy::PagerQuit, true)?;
-        // }
+        if r1.is_err() || r2.is_err() {
+            term::cleanup(&mut out, &crate::ExitStrategy::PagerQuit, true)?;
+        }
 
         r1?;
         r2?;
