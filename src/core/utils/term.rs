@@ -57,7 +57,7 @@ pub fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> {
 ///
 /// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 pub fn cleanup(
-    mut out: impl io::Write,
+    out: &mut impl io::Write,
     es: &crate::ExitStrategy,
     cleanup_screen: bool,
 ) -> std::result::Result<(), CleanupError> {

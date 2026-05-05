@@ -1129,7 +1129,10 @@ mod tests {
         ps.append_str("alpha\nbeta\nalpha\n");
 
         let mut so = crate::search::SearchOpts::from(&ps);
-        so.compiled_regex = Some(Regex::new("alpha").unwrap());
+        #[allow(clippy::trivial_regex)]
+        {
+            so.compiled_regex = Some(Regex::new("alpha").unwrap());
+        }
         so.incremental_search_cache = Some(crate::search::IncrementalSearchCache {
             formatted_lines: vec!["x".repeat(64), "y".repeat(64), "z".repeat(64)],
             search_mark: 0,

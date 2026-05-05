@@ -406,6 +406,8 @@ mod tests {
         let pager2 = pager.clone();
         let pager_thread = std::thread::spawn(move || crate::dynamic_pager::dynamic_paging(pager2));
 
+        // Let the pager to initialize before sending a **USER INPUT**.
+        std::thread::sleep(std::time::Duration::from_millis(50));
         pager.tx.send(Command::UserInput(InputEvent::Exit)).unwrap();
 
         let join_result = pager_thread.join().unwrap();

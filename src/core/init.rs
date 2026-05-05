@@ -8,8 +8,6 @@
 //! * The [`start_reactor`] function displays the displays the output and also polls
 //!   the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //!   detected, it reacts to it accordingly.
-#[cfg(feature = "static_output")]
-use crate::minus_core::utils::display;
 use crate::{
     Pager, PagerState,
     error::MinusError,
@@ -25,7 +23,7 @@ use crate::{
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
 use std::{
-    io::{Stdout, stdout},
+    io::Write,
     panic,
     sync::{
         Arc,
@@ -33,8 +31,8 @@ use std::{
     },
 };
 
-#[cfg(feature = "static_output")]
-use {super::utils::display::write_raw_lines, crossterm::tty::IsTty};
+#[cfg(not(test))]
+use std::io::stdout;
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -77,28 +75,29 @@ use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::too_many_lines)]
 pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
-    #[allow(unused_mut)]
+    #[cfg(not(test))]
     let mut out = stdout();
+    #[cfg(test)]
+    let mut out = Vec::new();
+
     // Is the event reader running
     #[cfg(feature = "search")]
     let input_thread_running = Arc::new((Mutex::new(true), Condvar::new()));
 
-    {
-        let mut runmode = super::RUNMODE.lock();
-        assert_eq!(
-            *runmode,
-            RunMode::Uninitialized,
-            "Failed to set the RUNMODE. This is caused probably because another instance of minus is already running"
-        );
-        *runmode = rm;
-    }
+    assert_eq!(
+        *super::RUNMODE.lock(),
+        RunMode::Uninitialized,
+        "Failed to set the RUNMODE. This is caused probably because another instance of minus is already running"
+    );
 
     #[allow(unused_mut)]
     let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx, &mut out)?;
+    *super::RUNMODE.lock() = rm;
 
     // Static mode checks
-    #[cfg(feature = "static_output")]
+    #[cfg(all(feature = "static_output", not(test)))]
     if *RUNMODE.lock() == RunMode::Static {
+        use {super::utils::display::write_raw_lines, crossterm::tty::IsTty};
         // If stdout is not a tty, write everything and quit
         if !out.is_tty() {
             write_raw_lines(&mut out, &[ps.screen.orig_text], None)?;
@@ -116,6 +115,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     }
 
     // Setup terminal, adjust line wraps and get rows
+    #[cfg(not(test))]
     term::setup(&out)?;
 
     // Has the user quit
@@ -126,10 +126,17 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         let panic_hook = panic::take_hook();
         panic::set_hook(Box::new(move |pinfo| {
             is_exited2.store(true, std::sync::atomic::Ordering::SeqCst);
+            // HACK: In test we don't care about the cleanup code so just use a separate buffer
+            // for panic handler.
+            #[cfg(test)]
+            let mut out3 = Vec::new();
+            #[cfg(not(test))]
+            let mut out3 = stdout();
+
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will (probably?) cause an immediate abort
             drop(term::cleanup(
-                stdout(),
+                &mut out3,
                 &crate::ExitStrategy::PagerQuit,
                 true,
             ));
@@ -141,7 +148,6 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
     let evtx = pager.tx.clone();
     let rx = pager.rx.clone();
-    let out = stdout();
 
     let p1 = ps_mutex.clone();
 
@@ -149,8 +155,6 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     let input_thread_running2 = input_thread_running.clone();
 
     std::thread::scope(|s| -> crate::Result {
-        let out = Arc::new(out);
-        let out_copy = out.clone();
         let is_exited3 = is_exited.clone();
         let is_exited4 = is_exited.clone();
 
@@ -166,7 +170,6 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
             if res.is_err() {
                 is_exited3.store(true, std::sync::atomic::Ordering::SeqCst);
                 *RUNMODE.lock() = RunMode::Uninitialized;
-                term::cleanup(out.as_ref(), &crate::ExitStrategy::PagerQuit, true)?;
             }
             res
         });
@@ -174,7 +177,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
             let res = start_reactor(
                 &rx,
                 &ps_mutex,
-                &out_copy,
+                &mut out,
                 #[cfg(feature = "search")]
                 &input_thread_running,
                 &is_exited4,
@@ -183,13 +186,16 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
             if res.is_err() {
                 is_exited4.store(true, std::sync::atomic::Ordering::SeqCst);
                 *RUNMODE.lock() = RunMode::Uninitialized;
-                term::cleanup(out_copy.as_ref(), &crate::ExitStrategy::PagerQuit, true)?;
             }
             res
         });
 
         let r1 = t1.join().unwrap();
         let r2 = t2.join().unwrap();
+
+        // if r1.is_err() || r2.is_err() {
+        //     term::cleanup(*out, &crate::ExitStrategy::PagerQuit, true)?;
+        // }
 
         r1?;
         r2?;
@@ -213,11 +219,10 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 fn start_reactor(
     rx: &Receiver<Command>,
     ps: &Arc<Mutex<PagerState>>,
-    out: &Stdout,
+    mut out_lock: impl Write,
     #[cfg(feature = "search")] input_thread_running: &Arc<(Mutex<bool>, Condvar)>,
     is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
-    let mut out_lock = out.lock();
     let mut command_queue = CommandQueue::new();
 
     {
@@ -235,6 +240,7 @@ fn start_reactor(
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
             if is_exited.load(Ordering::SeqCst) {
+                term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
@@ -262,13 +268,6 @@ fn start_reactor(
         },
         #[cfg(feature = "static_output")]
         RunMode::Static => {
-            {
-                let mut p = ps.lock();
-                if p.follow_output {
-                    display::draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
-                }
-            }
-
             loop {
                 if is_exited.load(Ordering::SeqCst) {
                     // Cleanup the screen

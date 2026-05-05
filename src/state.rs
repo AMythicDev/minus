@@ -22,8 +22,7 @@ use std::collections::BTreeSet;
 use std::{
     collections::hash_map::RandomState,
     convert::TryInto,
-    io::Stdout,
-    io::stdout,
+    io::{Write, stdout},
     sync::{Arc, atomic::AtomicBool},
 };
 
@@ -223,7 +222,7 @@ impl PagerState {
     /// to process the events
     pub(crate) fn generate_initial_state(
         rx: &Receiver<Command>,
-        mut out: &mut Stdout,
+        mut out: &mut impl Write,
     ) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;
         let mut command_queue = CommandQueue::new_zero();

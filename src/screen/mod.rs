@@ -305,7 +305,7 @@ pub(crate) struct ReusableRows<'a> {
 }
 
 impl<'a> ReusableRows<'a> {
-    pub(crate) fn new(rows: &'a mut Rows) -> Self {
+    pub(crate) const fn new(rows: &'a mut Rows) -> Self {
         Self { rows, used: 0 }
     }
 

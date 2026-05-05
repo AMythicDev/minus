@@ -45,6 +45,8 @@ pub enum Command {
     // Internal commands
     FormatRedrawPrompt,
     FormatRedrawDisplay,
+    RedrawDisplay,
+    SetUpperMark(usize),
 }
 
 impl PartialEq for Command {
@@ -64,6 +66,10 @@ impl PartialEq for Command {
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
+            (Self::FormatRedrawPrompt, Self::FormatRedrawPrompt) => true,
+            (Self::FormatRedrawDisplay, Self::FormatRedrawDisplay) => true,
+            (Self::RedrawDisplay, Self::RedrawDisplay) => true,
+            (Self::SetUpperMark(a), Self::SetUpperMark(b)) => a == b,
             _ => false,
         }
     }
@@ -90,6 +96,7 @@ impl Debug for Command {
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
+            _ => write!(f, "Internal"),
         }
     }
 }

@@ -8,8 +8,8 @@ use std::sync::{Arc, atomic::AtomicBool};
 use parking_lot::{Condvar, Mutex};
 
 use super::CommandQueue;
+use super::commands::Command;
 use super::utils::display::{self, AppendStyle};
-use super::{commands::Command, utils::term};
 #[cfg(feature = "search")]
 use crate::search;
 use crate::{PagerState, error::MinusError, input::InputEvent};
@@ -33,31 +33,17 @@ pub fn handle_event(
     match ev {
         Command::SetData(text) => {
             p.screen.orig_text = text;
-            p.format_lines();
             p.screen.line_count = p.screen.orig_text.lines().count();
-            if !p.running.lock().is_uninitialized() {
-                display::draw_full(&mut out, p)?;
-            }
+            command_queue.push_back(Command::FormatRedrawDisplay);
         }
         Command::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
-            term::cleanup(&mut out, &p.exit_strategy, true)?;
         }
-        Command::UserInput(InputEvent::UpdateUpperMark(mut um)) => {
-            let line_count = p.screen.formatted_lines_count();
-            // Reduce one row for prompt/messages
-            let writable_rows = p.rows.saturating_sub(1);
-            // Calculate the lower_mark by adding either the rows or line_count depending
-            // on the minimality
-            let lower_mark = p.upper_mark.saturating_add(writable_rows.min(line_count));
-            // If the lower_bound is greater than the available line count, we set it to such a value
-            // so that the last page can be displayed entirely, i.e never scroll past the last line
-            if lower_mark > line_count {
-                p.upper_mark = line_count.saturating_sub(writable_rows);
+        Command::UserInput(InputEvent::UpdateUpperMark(mut um)) | Command::SetUpperMark(mut um) => {
+            if !p.running.lock().is_uninitialized() {
+                display::draw_for_change(out, p, &mut um)?;
             }
-
-            display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
         Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.screen.line_wrapping => {
@@ -65,7 +51,7 @@ pub fn handle_event(
                 return Ok(());
             }
             p.left_mark = lm;
-            display::draw_full(out, p)?;
+            command_queue.push_back(Command::RedrawDisplay);
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
@@ -248,9 +234,13 @@ pub fn handle_event(
             command_queue.push_back_unchecked(Command::FormatRedrawDisplay);
         }
 
-        Command::FormatRedrawDisplay => {
-            p.format_lines();
-            display::draw_full(&mut out, p)?;
+        Command::FormatRedrawDisplay | Command::RedrawDisplay => {
+            if ev == Command::FormatRedrawDisplay {
+                p.format_lines();
+            }
+            if !p.running.lock().is_uninitialized() {
+                display::draw_full(&mut out, p)?;
+            }
         }
         Command::AppendData(text) => {
             let prev_unterminated = p.screen.unterminated;
@@ -331,7 +321,7 @@ pub fn handle_event(
 mod tests {
     use super::super::commands::Command;
     use super::handle_event;
-    use crate::{ExitStrategy, PagerState, RunMode, minus_core::CommandQueue};
+    use crate::{ExitStrategy, PagerState, minus_core::CommandQueue};
     #[cfg(feature = "search")]
     use parking_lot::{Condvar, Mutex};
     #[cfg(feature = "search")]
@@ -351,18 +341,22 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         let ev = Command::SetData(TEST_STR.to_string());
         let mut out = Vec::new();
-        #[cfg(feature = "dynamic_output")]
-        {
-            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
-        }
-        #[cfg(feature = "static_output")]
-        {
-            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
-        }
         let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
             ev,
+            &mut out,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+            #[cfg(feature = "search")]
+            &UIA,
+        )
+        .unwrap();
+
+        // The actual formatting happens here
+        handle_event(
+            command_queue.pop_front().unwrap(),
             &mut out,
             &mut ps,
             &mut command_queue,
@@ -415,14 +409,6 @@ mod tests {
         let ev = Command::SetPrompt(TEST_STR.to_string());
         let mut out = Vec::new();
         let mut command_queue = CommandQueue::new_zero();
-        #[cfg(feature = "dynamic_output")]
-        {
-            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
-        }
-        #[cfg(feature = "static_output")]
-        {
-            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
-        }
 
         handle_event(
             ev,
@@ -441,14 +427,6 @@ mod tests {
     #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
     fn send_message() {
         let mut ps = PagerState::new().unwrap();
-        #[cfg(feature = "dynamic_output")]
-        {
-            *crate::minus_core::RUNMODE.lock() = RunMode::Dynamic;
-        }
-        #[cfg(feature = "static_output")]
-        {
-            *crate::minus_core::RUNMODE.lock() = RunMode::Static;
-        }
         let ev = Command::SendMessage(TEST_STR.to_string());
         let mut out = Vec::new();
         let mut command_queue = CommandQueue::new_zero();
