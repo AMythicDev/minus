@@ -1165,7 +1165,14 @@ mod tests {
             .unwrap()
             .unwrap();
 
-        assert_eq!(result.formatted_lines, vec!["alpha", "beta", "alpha"]);
+        assert_eq!(
+            result.formatted_lines,
+            vec![
+                format!("{i}alpha{n}", i = *super::INVERT, n = *super::NORMAL),
+                "beta".to_string(),
+                format!("{i}alpha{n}", i = *super::INVERT, n = *super::NORMAL)
+            ]
+        );
         assert_eq!(result.formatted_lines.as_ptr(), previous_vec_ptr);
         assert_eq!(result.formatted_lines[0].as_ptr(), previous_row0_ptr);
         assert_eq!(result.formatted_lines[1].as_ptr(), previous_row1_ptr);
