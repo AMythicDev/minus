@@ -116,7 +116,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
     // Setup terminal, adjust line wraps and get rows
     #[cfg(not(test))]
-    term::setup(&out)?;
+    term::setup(&mut out)?;
 
     // Has the user quit
     let is_exited = Arc::new(AtomicBool::new(false));
@@ -174,7 +174,6 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
             if res.is_err() {
                 is_exited3.store(true, std::sync::atomic::Ordering::SeqCst);
-                *RUNMODE.lock() = RunMode::Uninitialized;
             }
             res
         });
@@ -190,7 +189,6 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
             if res.is_err() {
                 is_exited4.store(true, std::sync::atomic::Ordering::SeqCst);
-                *RUNMODE.lock() = RunMode::Uninitialized;
             }
             res
         });
@@ -199,6 +197,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         let r2 = t2.join().unwrap();
 
         if r1.is_err() || r2.is_err() {
+            *RUNMODE.lock() = RunMode::Uninitialized;
             term::cleanup(&mut out, &crate::ExitStrategy::PagerQuit, true)?;
         }
 

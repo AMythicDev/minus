@@ -25,9 +25,7 @@ use std::io;
 /// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
-pub fn setup(stdout: &io::Stdout) -> std::result::Result<(), SetupError> {
-    let mut out = stdout.lock();
-
+pub fn setup(out: &mut io::Stdout) -> std::result::Result<(), SetupError> {
     if out.is_tty() {
         Ok(())
     } else {
