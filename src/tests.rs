@@ -221,6 +221,44 @@ mod pager_append_str {
         );
         assert_eq!(ps.screen.orig_text, TEST.to_string());
     }
+
+    #[test]
+    fn format_lines_reuses_existing_rows_when_shrinking() {
+        let mut ps = PagerState::new().unwrap();
+        ps.screen.formatted_lines = vec!["x".repeat(64), "y".repeat(64), "z".repeat(64)];
+        let vec_ptr = ps.screen.formatted_lines.as_ptr();
+        let row0_ptr = ps.screen.formatted_lines[0].as_ptr();
+        let row1_ptr = ps.screen.formatted_lines[1].as_ptr();
+
+        ps.screen.orig_text = "short\nlines".to_string();
+        ps.format_lines();
+
+        assert_eq!(ps.screen.formatted_lines, vec!["short", "lines"]);
+        assert_eq!(ps.screen.formatted_lines.as_ptr(), vec_ptr);
+        assert_eq!(ps.screen.formatted_lines[0].as_ptr(), row0_ptr);
+        assert_eq!(ps.screen.formatted_lines[1].as_ptr(), row1_ptr);
+    }
+
+    #[test]
+    fn format_lines_reuses_existing_rows_when_growing_within_capacity() {
+        let mut ps = PagerState::new().unwrap();
+        let mut formatted_lines = Vec::with_capacity(4);
+        formatted_lines.push("x".repeat(64));
+        formatted_lines.push("y".repeat(64));
+        ps.screen.formatted_lines = formatted_lines;
+
+        let vec_ptr = ps.screen.formatted_lines.as_ptr();
+        let row0_ptr = ps.screen.formatted_lines[0].as_ptr();
+        let row1_ptr = ps.screen.formatted_lines[1].as_ptr();
+
+        ps.screen.orig_text = "one\ntwo\nthree".to_string();
+        ps.format_lines();
+
+        assert_eq!(ps.screen.formatted_lines, vec!["one", "two", "three"]);
+        assert_eq!(ps.screen.formatted_lines.as_ptr(), vec_ptr);
+        assert_eq!(ps.screen.formatted_lines[0].as_ptr(), row0_ptr);
+        assert_eq!(ps.screen.formatted_lines[1].as_ptr(), row1_ptr);
+    }
 }
 
 // Test exit callbacks function

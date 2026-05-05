@@ -276,18 +276,57 @@ impl Default for Screen {
 // [`PagerState::lines`]: crate::state::PagerState::lines
 
 pub(crate) trait AppendableBuffer {
-    fn push_row(&mut self, row: Row);
+    fn push_fmt<D>(&mut self, row: D)
+    where
+        D: fmt::Display;
 }
 
 impl AppendableBuffer for Rows {
-    fn push_row(&mut self, row: Row) {
-        self.push(row);
+    fn push_fmt<D>(&mut self, row: D)
+    where
+        D: fmt::Display,
+    {
+        self.push(row.to_string());
     }
 }
 
 impl AppendableBuffer for &mut Rows {
-    fn push_row(&mut self, row: Row) {
-        self.push(row);
+    fn push_fmt<D>(&mut self, row: D)
+    where
+        D: fmt::Display,
+    {
+        self.push(row.to_string());
+    }
+}
+
+pub(crate) struct ReusableRows<'a> {
+    rows: &'a mut Rows,
+    used: usize,
+}
+
+impl<'a> ReusableRows<'a> {
+    pub(crate) fn new(rows: &'a mut Rows) -> Self {
+        Self { rows, used: 0 }
+    }
+
+    pub(crate) fn finish(self) {
+        self.rows.truncate(self.used);
+    }
+}
+
+impl AppendableBuffer for &mut ReusableRows<'_> {
+    fn push_fmt<D>(&mut self, row: D)
+    where
+        D: fmt::Display,
+    {
+        if self.used == self.rows.len() {
+            self.rows.push(String::new());
+        }
+
+        let slot = &mut self.rows[self.used];
+        slot.clear();
+        fmt::write(slot, format_args!("{row}")).unwrap();
+        self.used += 1;
     }
 }
 
@@ -608,7 +647,7 @@ where
         if is_match {
             search_idx.insert(formatted_idx + wrap_idx);
         }
-        buffer.push_row(row.to_string());
+        buffer.push_fmt(row);
         row_count = wrap_idx + 1;
     }
     row_count
@@ -623,7 +662,7 @@ where
 {
     let mut row_count = 0;
     for row in rows {
-        buffer.push_row(row.to_string());
+        buffer.push_fmt(row);
         row_count += 1;
     }
     row_count
@@ -679,16 +718,17 @@ pub(crate) fn formatted_line(
     formatted_rows
 }
 
-pub(crate) fn make_format_lines(
+pub(crate) fn format_lines_into(
+    buffer: &mut Rows,
     text: &String,
     line_numbers: LineNumbers,
     cols: usize,
     line_wrapping: bool,
     #[cfg(feature = "search")] search_term: Option<&regex::Regex>,
-) -> (Rows, FormatResult) {
-    let mut buffer = Vec::with_capacity(256);
+) -> FormatResult {
+    let mut reusable_rows = ReusableRows::new(buffer);
     let format_opts = FormatOpts {
-        buffer: &mut buffer,
+        buffer: &mut reusable_rows,
         text,
         attachment: None,
         line_numbers,
@@ -701,7 +741,8 @@ pub(crate) fn make_format_lines(
         line_wrapping,
     };
     let fr = format_text_block(format_opts);
-    (buffer, fr)
+    reusable_rows.finish();
+    fr
 }
 
 #[cfg(test)]

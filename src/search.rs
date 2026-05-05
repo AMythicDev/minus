@@ -263,15 +263,19 @@ fn run_incremental_search<'a, F, O>(
     out: &mut O,
     so: &'a SearchOpts<'a>,
     incremental_search_condition: F,
+    mut buffer: Vec<String>,
 ) -> crate::Result<Option<IncrementalSearchCache>>
 where
     O: Write,
     F: Fn(&'a SearchOpts) -> bool,
 {
-    if so.incremental_search_options.is_none() {
+    let Some(iso) = so.incremental_search_options.as_ref() else {
         return Ok(None);
-    }
-    let iso = so.incremental_search_options.as_ref().unwrap();
+    };
+    let screen = iso.screen;
+    let line_numbers = iso.line_numbers;
+    let initial_upper_mark = iso.initial_upper_mark;
+    let initial_left_mark = iso.initial_left_mark;
 
     // Check if we can continue forward with incremental search
     let should_proceed = so.compiled_regex.is_some() && incremental_search_condition(so);
@@ -283,14 +287,14 @@ where
     let reset_screen = |out: &mut O, so: &SearchOpts<'_>| -> crate::Result {
         display::write_text_checked(
             out,
-            &iso.screen.formatted_lines,
-            iso.initial_upper_mark,
+            &screen.formatted_lines,
+            initial_upper_mark,
             so.rows.into(),
             so.cols.into(),
-            iso.screen.line_wrapping,
-            iso.initial_left_mark,
-            iso.line_numbers,
-            iso.screen.line_count(),
+            screen.line_wrapping,
+            initial_left_mark,
+            line_numbers,
+            screen.line_count(),
         )?;
         Ok(())
     };
@@ -315,15 +319,16 @@ where
     // format_result.append_search_idx which is after the current upper mark
     //
     // PERF: Check if this can be futhur optimized
-    let (buffer, format_result) = screen::make_format_lines(
-        &iso.screen.orig_text,
-        iso.line_numbers,
+    let format_result = screen::format_lines_into(
+        &mut buffer,
+        &screen.orig_text,
+        line_numbers,
         so.cols.into(),
-        iso.screen.line_wrapping,
+        screen.line_wrapping,
         so.compiled_regex.as_ref(),
     );
     let position_of_next_match =
-        next_nth_match(&format_result.append_search_idx, iso.initial_upper_mark, 0);
+        next_nth_match(&format_result.append_search_idx, initial_upper_mark, 0);
     // Get the upper mark. If we can't find one, reset the display
     let upper_mark;
     if let Some(pnm) = position_of_next_match {
@@ -335,10 +340,10 @@ where
             upper_mark,
             so.rows.into(),
             so.cols.into(),
-            iso.screen.line_wrapping,
-            iso.initial_left_mark,
-            iso.line_numbers,
-            iso.screen.line_count(),
+            screen.line_wrapping,
+            initial_left_mark,
+            line_numbers,
+            screen.line_count(),
         )?;
     } else {
         reset_screen(out, so)?;
@@ -389,8 +394,12 @@ where
 
         // Run incremental search and update the upper mark if incremental search had a successful
         // run otherwise set it to the initial upper mark
+        let buffer = so
+            .incremental_search_cache
+            .take()
+            .map_or_else(|| Vec::with_capacity(256), |cache| cache.formatted_lines);
         so.incremental_search_cache =
-            run_incremental_search(out, so, incremental_search_condition)?;
+            run_incremental_search(out, so, incremental_search_condition, buffer)?;
 
         // Update prompt
         term::move_cursor(out, 0, so.rows, false)?;
@@ -1109,6 +1118,60 @@ mod tests {
             assert_eq!(next_upper_mark, *v);
             upper_mark = next_upper_mark;
         }
+    }
+
+    #[test]
+    fn incremental_search_reuses_cached_formatted_lines_buffer() {
+        use regex::Regex;
+
+        let mut ps = crate::PagerState::new().unwrap();
+        ps.search_state.search_mode = crate::search::SearchMode::Forward;
+        ps.append_str("alpha\nbeta\nalpha\n");
+
+        let mut so = crate::search::SearchOpts::from(&ps);
+        so.compiled_regex = Some(Regex::new("alpha").unwrap());
+        so.incremental_search_cache = Some(crate::search::IncrementalSearchCache {
+            formatted_lines: vec!["x".repeat(64), "y".repeat(64), "z".repeat(64)],
+            search_mark: 0,
+            search_idx: std::collections::BTreeSet::new(),
+            upper_mark: 0,
+        });
+
+        let previous_vec_ptr = so
+            .incremental_search_cache
+            .as_ref()
+            .unwrap()
+            .formatted_lines
+            .as_ptr();
+        let previous_row0_ptr = so
+            .incremental_search_cache
+            .as_ref()
+            .unwrap()
+            .formatted_lines[0]
+            .as_ptr();
+        let previous_row1_ptr = so
+            .incremental_search_cache
+            .as_ref()
+            .unwrap()
+            .formatted_lines[1]
+            .as_ptr();
+
+        let mut out = Vec::new();
+        let buffer = so
+            .incremental_search_cache
+            .take()
+            .map_or_else(|| Vec::with_capacity(256), |cache| cache.formatted_lines);
+        let result = super::run_incremental_search(&mut out, &so, |_| true, buffer)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(result.formatted_lines, vec!["alpha", "beta", "alpha"]);
+        assert_eq!(result.formatted_lines.as_ptr(), previous_vec_ptr);
+        assert_eq!(result.formatted_lines[0].as_ptr(), previous_row0_ptr);
+        assert_eq!(result.formatted_lines[1].as_ptr(), previous_row1_ptr);
+        assert_eq!(result.search_mark, 0);
+        assert_eq!(result.upper_mark, 0);
+        assert_eq!(result.search_idx, std::collections::BTreeSet::from([0, 2]));
     }
 
     #[allow(clippy::trivial_regex)]

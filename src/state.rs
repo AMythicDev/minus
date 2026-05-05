@@ -242,7 +242,8 @@ impl PagerState {
     }
 
     pub(crate) fn format_lines(&mut self) {
-        let (buffer, format_result) = screen::make_format_lines(
+        let format_result = screen::format_lines_into(
+            &mut self.screen.formatted_lines,
             &self.screen.orig_text,
             self.line_numbers,
             self.cols,
@@ -255,7 +256,6 @@ impl PagerState {
         {
             self.search_state.search_idx = format_result.append_search_idx;
         }
-        self.screen.formatted_lines = buffer;
         self.lines_to_row_map = format_result.lines_to_row_map;
         self.screen.max_line_length = format_result.max_line_length;
 
