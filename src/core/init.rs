@@ -258,10 +258,10 @@ fn start_reactor(
             };
 
             let mut p = ps.lock();
-            if let Ok(Command::Internal(ic)) = next_command {
-                use crate::minus_core::ev_handler::handle_internal_command;
+            if let Ok(Command::Io(ic)) = next_command {
+                use crate::minus_core::ev_handler::handle_io_command;
 
-                handle_internal_command(
+                handle_io_command(
                     ic,
                     &mut out_lock,
                     &mut p,
@@ -296,10 +296,10 @@ fn start_reactor(
 
                 let mut p = ps.lock();
 
-                if let Ok(Command::Internal(ic)) = next_command {
-                    use crate::minus_core::ev_handler::handle_internal_command;
+                if let Ok(Command::Io(ic)) = next_command {
+                    use crate::minus_core::ev_handler::handle_io_command;
 
-                    handle_internal_command(
+                    handle_io_command(
                         ic,
                         &mut out_lock,
                         &mut p,

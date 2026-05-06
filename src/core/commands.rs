@@ -15,7 +15,7 @@ use crate::{
 use crate::search::SearchOpts;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum InternalCommand {
+pub enum IoCommand {
     RedrawPrompt,
     RedrawDisplay,
     /// Append text to the screen
@@ -58,7 +58,7 @@ pub enum Command {
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 
-    Internal(InternalCommand),
+    Io(IoCommand),
 }
 
 impl PartialEq for Command {
@@ -78,7 +78,7 @@ impl PartialEq for Command {
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
-            (Self::Internal(a), Self::Internal(b)) => a == b,
+            (Self::Io(a), Self::Io(b)) => a == b,
             _ => false,
         }
     }
@@ -103,7 +103,7 @@ impl Debug for Command {
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
-            Self::Internal(c) => write!(f, "Internal({c:?})"),
+            Self::Io(c) => write!(f, "Internal({c:?})"),
         }
     }
 }

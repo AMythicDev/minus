@@ -8,7 +8,7 @@ use std::sync::{Arc, atomic::AtomicBool};
 use parking_lot::{Condvar, Mutex};
 
 use super::CommandQueue;
-use super::commands::{Command, InternalCommand};
+use super::commands::{Command, IoCommand};
 use super::utils::display::{self, AppendStyle};
 #[cfg(feature = "search")]
 use crate::search;
@@ -33,51 +33,51 @@ pub fn handle_event(
             p.screen.orig_text = text;
             p.screen.line_count = p.screen.orig_text.lines().count();
             p.format_lines();
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
         }
         Command::UserInput(InputEvent::UpdateUpperMark(um)) => {
-            command_queue.push_back(Command::Internal(InternalCommand::SetUpperMark(um)));
+            command_queue.push_back(Command::Io(IoCommand::SetUpperMark(um)));
         }
         Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.screen.line_wrapping => {
             if lm.saturating_add(p.cols) > p.screen.get_max_line_length() && lm > p.left_mark {
                 return;
             }
             p.left_mark = lm;
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
             p.format_prompt();
-            command_queue.push_back_unchecked(Command::Internal(InternalCommand::RedrawPrompt));
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
         Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
             p.cols = c;
             p.format_lines();
             // Readjust the text wrapping for the new number of columns
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::UpdateLineNumber(l)) => {
             p.line_numbers = l;
             p.format_lines();
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Number(n)) => {
             p.prefix_num.push(n);
             p.format_prompt();
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::Search(m)) => {
             p.search_mode = m;
             p.search_state.search_mode = m;
             p.search_state.search_mark = 0;
-            command_queue.push_back(Command::Internal(InternalCommand::FetchSearchQuery));
+            command_queue.push_back(Command::Io(IoCommand::FetchSearchQuery));
         }
         #[cfg(feature = "search")]
         Command::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
@@ -94,11 +94,9 @@ pub fn handle_event(
                     .iter()
                     .nth(p.search_state.search_mark)
                     .unwrap();
-                command_queue.push_back_unchecked(Command::Internal(
-                    InternalCommand::SetUpperMark(upper_mark),
-                ));
+                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
                 p.format_prompt();
-                command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
             }
         }
         #[cfg(feature = "search")]
@@ -121,7 +119,7 @@ pub fn handle_event(
                 if *y < p.upper_mark {
                     command_queue.push_back(Command::UserInput(InputEvent::UpdateUpperMark(*y)));
                     p.format_prompt();
-                    command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
                 }
             }
         }
@@ -159,7 +157,7 @@ pub fn handle_event(
                 command_queue
                     .push_back(Command::UserInput(InputEvent::UpdateUpperMark(upper_mark)));
                 p.format_prompt();
-                command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
             }
         }
         #[cfg(feature = "search")]
@@ -180,9 +178,9 @@ pub fn handle_event(
             {
                 // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
                 if *y < p.upper_mark {
-                    command_queue.push_back(Command::Internal(InternalCommand::SetUpperMark(*y)));
+                    command_queue.push_back(Command::Io(IoCommand::SetUpperMark(*y)));
                     p.format_prompt();
-                    command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
                 }
             }
         }
@@ -190,7 +188,7 @@ pub fn handle_event(
         Command::UserInput(InputEvent::HorizontalScroll(val)) => {
             p.screen.line_wrapping = val;
             p.format_lines();
-            command_queue.push_back_unchecked(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
 
         Command::AppendData(text) => {
@@ -199,20 +197,20 @@ pub fn handle_event(
             let append_style = p.append_str(text.as_str());
 
             if append_style == AppendStyle::FullRedraw {
-                command_queue.push_back(Command::Internal(InternalCommand::RedrawDisplay));
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
                 return;
             }
 
-            command_queue.push_back(Command::Internal(InternalCommand::DrawAppendedText(
+            command_queue.push_back(Command::Io(IoCommand::DrawAppendedText(
                 prev_unterminated,
                 prev_fmt_lines_count,
                 append_style,
             )));
 
             if p.follow_output {
-                command_queue.push_back_unchecked(Command::Internal(
-                    InternalCommand::SetUpperMark(p.screen.formatted_lines_count()),
-                ));
+                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(
+                    p.screen.formatted_lines_count(),
+                )));
             }
         }
 
@@ -223,12 +221,12 @@ pub fn handle_event(
                 p.message = Some(text.clone());
             }
             p.format_prompt();
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
         Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
             p.format_lines();
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::SetExitStrategy(es) => p.exit_strategy = es,
         Command::LineWrapping(lw) => {
@@ -249,10 +247,10 @@ pub fn handle_event(
                 p.screen.formatted_lines_count(),
             )));
             p.format_prompt();
-            command_queue.push_back(Command::Internal(InternalCommand::RedrawPrompt));
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
         Command::UserInput(_) => {}
-        Command::Internal(_) => unreachable!(),
+        Command::Io(_) => unreachable!(),
     }
 }
 
@@ -261,8 +259,8 @@ pub fn handle_event(
     allow(unused_variables),
     allow(clippy::needless_pass_by_ref_mut)
 )]
-pub fn handle_internal_command(
-    internal_command: InternalCommand,
+pub fn handle_io_command(
+    internal_command: IoCommand,
     mut out: &mut impl Write,
     p: &mut PagerState,
     command_queue: &mut CommandQueue,
@@ -272,21 +270,17 @@ pub fn handle_internal_command(
         return Ok(());
     }
     match internal_command {
-        InternalCommand::RedrawPrompt => {
+        IoCommand::RedrawPrompt => {
             display::write_prompt(out, &p.displayed_prompt, p.rows.try_into().unwrap())?;
         }
-        InternalCommand::RedrawDisplay => {
+        IoCommand::RedrawDisplay => {
             display::draw_full(&mut out, p)?;
         }
-        InternalCommand::SetUpperMark(mut um) => {
+        IoCommand::SetUpperMark(mut um) => {
             display::draw_for_change(out, p, &mut um)?;
             p.upper_mark = um;
         }
-        InternalCommand::DrawAppendedText(
-            prev_unterminated,
-            prev_fmt_lines_count,
-            append_style,
-        ) => {
+        IoCommand::DrawAppendedText(prev_unterminated, prev_fmt_lines_count, append_style) => {
             let AppendStyle::PartialUpdate(bounds) = append_style else {
                 unreachable!();
             };
@@ -300,7 +294,7 @@ pub fn handle_internal_command(
             )?;
         }
         #[cfg(feature = "search")]
-        InternalCommand::FetchSearchQuery => {
+        IoCommand::FetchSearchQuery => {
             // Pause the main user input thread, read search query and then restart the main input thread
             let (lock, cvar) = (&user_input_active.0, &user_input_active.1);
             let mut active = lock.lock();
@@ -313,7 +307,7 @@ pub fn handle_internal_command(
             drop(active);
             cvar.notify_one();
 
-            command_queue.push_back_unchecked(Command::Internal(InternalCommand::RedrawPrompt));
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
             // If we have incremental search cache directly use it and return
             if let Some(incremental_search_result) = search_result.incremental_search_result {
                 p.search_state.search_term = search_result.compiled_regex;
@@ -331,7 +325,7 @@ pub fn handle_internal_command(
             } else if !search_result.string.is_empty() {
                 let compiled_regex = regex::Regex::new(&search_result.string).ok();
                 if compiled_regex.is_none() {
-                    command_queue.push_back_unchecked(Command::SendMessage(
+                    command_queue.push_back(Command::SendMessage(
                         "Invalid regular expression. Press Enter".to_string(),
                     ));
                     return Ok(());
@@ -342,7 +336,7 @@ pub fn handle_internal_command(
             };
 
             p.format_lines();
-            command_queue.push_back_unchecked(Command::Internal(InternalCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
     }
     Ok(())

@@ -43,22 +43,13 @@ impl CommandQueue {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
-    /// Store `value` only if [RUNMODE] is not unintialized.
-    ///
-    /// # Panics
-    /// This function will panic if it is called in an environment where [RUNMODE] is
-    /// uninitialized.
+
+    /// Store `value` for processing later
     pub fn push_back(&mut self, value: Command) {
         self.0.push_back(value);
     }
-    /// Store `value` without checking [RUNMODE].
-    ///
-    /// This is only meant to be used as an optimization over [push_back](CommandQueue::push_back)
-    /// when it is absolutely sure that [RUNMODE] isn't uninitialized. Hence calling this in an
-    /// enviroment where [RUNMODE] is uninitialized can lead to unexpect slowdowns.
-    pub fn push_back_unchecked(&mut self, value: Command) {
-        self.0.push_back(value);
-    }
+
+    /// Pop the next commands for processing
     pub fn pop_front(&mut self) -> Option<Command> {
         self.0.pop_front()
     }
