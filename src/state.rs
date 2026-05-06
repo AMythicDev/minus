@@ -9,6 +9,7 @@ use crate::{
     input::{self, HashedEventRegister},
     minus_core::{
         self, CommandQueue,
+        hooks::Hooks,
         utils::{LinesRowMap, display::AppendStyle},
     },
     screen::{self, Screen},
@@ -134,6 +135,8 @@ pub struct PagerState {
     pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
+    /// Callbacks for hooks
+    pub(crate) hooks: Hooks,
     /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
     /// See [`ExitStrategy`] for available options
     pub(crate) exit_strategy: ExitStrategy,
@@ -185,6 +188,7 @@ impl PagerState {
             exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
+            hooks: Hooks::new(),
             message: None,
             screen: Screen::default(),
             displayed_prompt: String::new(),
@@ -349,7 +353,7 @@ impl PagerState {
         }
     }
 
-    pub(crate) fn append_str(&'_ mut self, text: &str) -> AppendStyle {
+    pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
         let old_lc = self.screen.line_count();
         let old_lc_dgts = minus_core::utils::digits(old_lc);
         let mut append_result = self.screen.push_screen_buf(

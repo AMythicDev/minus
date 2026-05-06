@@ -9,6 +9,7 @@ use parking_lot::{Condvar, Mutex};
 
 use super::CommandQueue;
 use super::commands::{Command, IoCommand};
+use super::hooks::Hook;
 use super::utils::display::{self, AppendStyle};
 #[cfg(feature = "search")]
 use crate::search;
@@ -36,6 +37,7 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
+            p.hooks.run_hooks(Hook::PrePagerExit);
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
         }
@@ -278,6 +280,10 @@ pub fn handle_io_command(
         }
         IoCommand::SetUpperMark(mut um) => {
             display::draw_for_change(out, p, &mut um)?;
+            let line_count = p.screen.formatted_lines_count();
+            if um >= line_count.saturating_sub(p.rows.saturating_sub(1)) && line_count > p.rows {
+                p.hooks.run_hooks(Hook::EofReached);
+            }
             p.upper_mark = um;
         }
         IoCommand::DrawAppendedText(prev_unterminated, prev_fmt_lines_count, append_style) => {
