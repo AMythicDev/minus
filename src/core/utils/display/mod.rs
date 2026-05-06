@@ -14,9 +14,9 @@ use crate::{LineNumbers, PagerState, error::MinusError, minus_core};
 
 /// How should the incoming text be drawn on the screen
 #[derive(Debug, PartialEq, Eq)]
-pub enum AppendStyle<'a> {
+pub enum AppendStyle {
     /// Draw only the region that needs to change
-    PartialUpdate(&'a [Row]),
+    PartialUpdate((usize, usize)),
 
     /// Redraw the entire screen
     FullRedraw,
@@ -169,12 +169,8 @@ pub fn draw_append_text(
     rows: usize,
     prev_unterminated: usize,
     prev_fmt_lines_count: usize,
-    append_style: &AppendStyle,
+    fmt_text: &[Row],
 ) -> Result<(), MinusError> {
-    let AppendStyle::PartialUpdate(fmt_text) = append_style else {
-        unreachable!()
-    };
-
     if prev_fmt_lines_count < rows {
         // Move the cursor to the very next line after the last displayed line
         term::move_cursor(

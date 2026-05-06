@@ -8,13 +8,29 @@ use std::fmt::Debug;
 use crate::{
     ExitStrategy, LineNumbers,
     input::{InputClassifier, InputEvent},
+    minus_core::utils::display::AppendStyle,
 };
 
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum InternalCommand {
+    RedrawPrompt,
+    RedrawDisplay,
+    /// Append text to the screen
+    ///
+    /// First item corresponds to the value of unterminated lines before the text is formatted while
+    /// the second value corresponds to the total number of rows before formatting.
+    DrawAppendedText(usize, usize, AppendStyle),
+    SetUpperMark(usize),
+    #[cfg(feature = "search")]
+    FetchSearchQuery,
+}
+
 /// Different events that can be encountered while the pager is running
 #[non_exhaustive]
+#[allow(private_interfaces)]
 pub enum Command {
     // User input
     UserInput(InputEvent),
@@ -42,11 +58,7 @@ pub enum Command {
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 
-    // Internal commands
-    FormatRedrawPrompt,
-    FormatRedrawDisplay,
-    RedrawDisplay,
-    SetUpperMark(usize),
+    Internal(InternalCommand),
 }
 
 impl PartialEq for Command {
@@ -66,10 +78,7 @@ impl PartialEq for Command {
             | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
-            (Self::FormatRedrawPrompt, Self::FormatRedrawPrompt) => true,
-            (Self::FormatRedrawDisplay, Self::FormatRedrawDisplay) => true,
-            (Self::RedrawDisplay, Self::RedrawDisplay) => true,
-            (Self::SetUpperMark(a), Self::SetUpperMark(b)) => a == b,
+            (Self::Internal(a), Self::Internal(b)) => a == b,
             _ => false,
         }
     }
@@ -87,8 +96,6 @@ impl Debug for Command {
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
-            Self::FormatRedrawPrompt => write!(f, "FormatRedrawPrompt"),
-            Self::FormatRedrawDisplay => write!(f, "FormatRedrawDisplay"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
@@ -96,19 +103,7 @@ impl Debug for Command {
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
-            _ => write!(f, "Internal"),
+            Self::Internal(c) => write!(f, "Internal({c:?})"),
         }
-    }
-}
-
-impl Command {
-    #[allow(dead_code)]
-    pub(crate) const fn is_exit_event(&self) -> bool {
-        matches!(self, Self::UserInput(InputEvent::Exit))
-    }
-
-    #[allow(dead_code)]
-    pub(crate) const fn is_movement(&self) -> bool {
-        matches!(self, Self::UserInput(InputEvent::UpdateUpperMark(_)))
     }
 }

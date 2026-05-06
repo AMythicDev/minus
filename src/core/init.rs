@@ -91,7 +91,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     );
 
     #[allow(unused_mut)]
-    let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx, &mut out)?;
+    let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx)?;
     *super::RUNMODE.lock() = rm;
 
     // Static mode checks
@@ -257,17 +257,20 @@ fn start_reactor(
                 Ok(command_queue.pop_front().unwrap())
             };
 
-            if let Ok(command) = next_command {
-                let mut p = ps.lock();
-                handle_event(
-                    command,
+            let mut p = ps.lock();
+            if let Ok(Command::Internal(ic)) = next_command {
+                use crate::minus_core::ev_handler::handle_internal_command;
+
+                handle_internal_command(
+                    ic,
                     &mut out_lock,
                     &mut p,
                     &mut command_queue,
-                    is_exited,
                     #[cfg(feature = "search")]
                     input_thread_running,
                 )?;
+            } else if let Ok(command) = next_command {
+                handle_event(command, &mut p, &mut command_queue, is_exited);
             }
         },
         #[cfg(feature = "static_output")]
@@ -291,17 +294,21 @@ fn start_reactor(
                     Ok(command_queue.pop_front().unwrap())
                 };
 
-                if let Ok(command) = next_command {
-                    let mut p = ps.lock();
-                    handle_event(
-                        command,
+                let mut p = ps.lock();
+
+                if let Ok(Command::Internal(ic)) = next_command {
+                    use crate::minus_core::ev_handler::handle_internal_command;
+
+                    handle_internal_command(
+                        ic,
                         &mut out_lock,
                         &mut p,
                         &mut command_queue,
-                        is_exited,
                         #[cfg(feature = "search")]
                         input_thread_running,
                     )?;
+                } else if let Ok(command) = next_command {
+                    handle_event(command, &mut p, &mut command_queue, is_exited);
                 }
             }
         }

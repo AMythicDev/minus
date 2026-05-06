@@ -14,15 +14,13 @@ use crate::{
     screen::{self, Screen},
 };
 use crossterm::{terminal, tty::IsTty};
-#[cfg(feature = "search")]
-use parking_lot::Condvar;
 use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
     collections::hash_map::RandomState,
     convert::TryInto,
-    io::{Write, stdout},
+    io::stdout,
     sync::{Arc, atomic::AtomicBool},
 };
 
@@ -220,23 +218,17 @@ impl PagerState {
     /// # Errors
     /// This function will return an error if it could not create the default [`PagerState`] or fails
     /// to process the events
-    pub(crate) fn generate_initial_state(
-        rx: &Receiver<Command>,
-        mut out: &mut impl Write,
-    ) -> Result<Self, MinusError> {
+    pub(crate) fn generate_initial_state(rx: &Receiver<Command>) -> Result<Self, MinusError> {
         let mut ps = Self::new()?;
         let mut command_queue = CommandQueue::new_zero();
-        rx.try_iter().try_for_each(|ev| -> Result<(), MinusError> {
+        rx.try_iter().for_each(|ev| {
             handle_event(
                 ev,
-                &mut out,
                 &mut ps,
                 &mut command_queue,
                 &Arc::new(AtomicBool::new(false)),
-                #[cfg(feature = "search")]
-                &Arc::new((Mutex::new(true), Condvar::new())),
-            )
-        })?;
+            );
+        });
         Ok(ps)
     }
 
@@ -357,7 +349,7 @@ impl PagerState {
         }
     }
 
-    pub(crate) fn append_str(&'_ mut self, text: &str) -> AppendStyle<'_> {
+    pub(crate) fn append_str(&'_ mut self, text: &str) -> AppendStyle {
         let old_lc = self.screen.line_count();
         let old_lc_dgts = minus_core::utils::digits(old_lc);
         let mut append_result = self.screen.push_screen_buf(
@@ -385,9 +377,6 @@ impl PagerState {
         }
 
         let total_rows = self.screen.formatted_lines_count();
-        let fmt_lines = &self
-            .screen
-            .get_formatted_lines_with_bounds(total_rows - append_result.rows_formatted, total_rows);
-        AppendStyle::PartialUpdate(fmt_lines)
+        AppendStyle::PartialUpdate((total_rows - append_result.rows_formatted, total_rows))
     }
 }
