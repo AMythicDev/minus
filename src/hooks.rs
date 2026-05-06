@@ -32,6 +32,7 @@ pub struct Hooks {
 }
 
 impl Hooks {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -44,11 +45,11 @@ impl Hooks {
     }
 
     pub fn remove_callback(&mut self, hook: Hook, id: CallbackId) -> bool {
-        if let Some(cbs) = self.hooks.get_mut(&hook) {
-            if let Some(pos) = cbs.iter().position(|(cb_id, _)| *cb_id == id) {
-                cbs.remove(pos);
-                return true;
-            }
+        if let Some(cbs) = self.hooks.get_mut(&hook)
+            && let Some(pos) = cbs.iter().position(|(cb_id, _)| *cb_id == id)
+        {
+            _ = cbs.remove(pos);
+            return true;
         }
         false
     }

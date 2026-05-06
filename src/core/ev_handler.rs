@@ -9,11 +9,10 @@ use parking_lot::{Condvar, Mutex};
 
 use super::CommandQueue;
 use super::commands::{Command, IoCommand};
-use super::hooks::Hook;
 use super::utils::display::{self, AppendStyle};
 #[cfg(feature = "search")]
 use crate::search;
-use crate::{PagerState, error::MinusError, input::InputEvent};
+use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 
 /// Respond based on the type of command
 ///

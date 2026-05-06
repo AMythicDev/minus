@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 
 pub mod commands;
 pub mod ev_handler;
-pub mod hooks;
 #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
 pub mod init;
 pub mod utils;

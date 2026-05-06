@@ -11,6 +11,7 @@
 use crate::{
     Pager, PagerState,
     error::MinusError,
+    hooks::Hook,
     input::InputEvent,
     minus_core::{
         RunMode,
@@ -38,7 +39,7 @@ use std::io::stdout;
 use parking_lot::Condvar;
 use parking_lot::Mutex;
 
-use super::{CommandQueue, RUNMODE, hooks::Hook, utils::display::draw_for_change};
+use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 
 /// The main entry point of minus
 ///

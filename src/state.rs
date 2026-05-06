@@ -6,10 +6,10 @@ use crate::search::{SearchMode, SearchOpts};
 use crate::{
     ExitStrategy, LineNumbers,
     error::{MinusError, TermError},
+    hooks::Hooks,
     input::{self, HashedEventRegister},
     minus_core::{
         self, CommandQueue,
-        hooks::Hooks,
         utils::{LinesRowMap, display::AppendStyle},
     },
     screen::{self, Screen},

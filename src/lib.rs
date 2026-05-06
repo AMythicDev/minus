@@ -189,6 +189,7 @@
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
 pub mod error;
+pub mod hooks;
 pub mod input;
 #[path = "core/mod.rs"]
 mod minus_core;
