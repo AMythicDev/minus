@@ -235,6 +235,27 @@ pub fn handle_event(
         }
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
+        #[cfg(feature = "dynamic_output")]
+        Command::SetQuitIfOneScreen(val) => p.quit_if_one_screen = val,
+        #[cfg(feature = "dynamic_output")]
+        Command::CheckQuitIfOneScreen => {
+            if p.quit_if_one_screen {
+                let writable_rows = p.rows.saturating_sub(1);
+                if p.screen.formatted_lines_count() <= writable_rows {
+                    p.exit();
+                    is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
+                    // Restore terminal without calling process::exit yet
+                    term::cleanup(&mut out, &crate::ExitStrategy::PagerQuit, true)?;
+                    // Write content to the main screen so it is preserved
+                    display::write_raw_lines(&mut out, &p.screen.formatted_lines, None)?;
+                    out.flush().map_err(MinusError::Draw)?;
+                    // Respect the configured exit strategy
+                    if p.exit_strategy == crate::ExitStrategy::ProcessQuit {
+                        std::process::exit(0);
+                    }
+                }
+            }
+        }
         #[cfg(feature = "search")]
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
@@ -470,5 +491,86 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert_eq!(ps.exit_callbacks.len(), 1);
+    }
+
+    #[test]
+    #[cfg(feature = "dynamic_output")]
+    fn set_quit_if_one_screen() {
+        let mut ps = PagerState::new().unwrap();
+        let ev = Command::SetQuitIfOneScreen(true);
+        let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
+
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+            #[cfg(feature = "search")]
+            &UIA,
+        )
+        .unwrap();
+        assert!(ps.quit_if_one_screen);
+    }
+
+    /// When `quit_if_one_screen` is false (the default), `CheckQuitIfOneScreen`
+    /// should be a no-op.
+    #[test]
+    #[cfg(feature = "dynamic_output")]
+    fn check_quit_if_one_screen_noop_when_disabled() {
+        let mut ps = PagerState::new().unwrap();
+        // quit_if_one_screen defaults to false
+        let ev = Command::CheckQuitIfOneScreen;
+        let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
+        let is_exited = Arc::new(AtomicBool::new(false));
+
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut command_queue,
+            &is_exited,
+            #[cfg(feature = "search")]
+            &UIA,
+        )
+        .unwrap();
+        // is_exited must not have been set
+        assert!(!is_exited.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    /// When `quit_if_one_screen` is true but the content overflows the screen,
+    /// `CheckQuitIfOneScreen` should also be a no-op.
+    #[test]
+    #[cfg(feature = "dynamic_output")]
+    fn check_quit_if_one_screen_noop_when_overflow() {
+        let mut ps = PagerState::new().unwrap();
+        ps.quit_if_one_screen = true;
+        // In tests, rows = 10. Fill more than 10 lines so the content overflows.
+        let big_text: String = (0..20).fold(String::new(), |mut s, i| {
+            use std::fmt::Write;
+            let _ = writeln!(s, "line {i}");
+            s
+        });
+        ps.screen.orig_text = big_text;
+        ps.format_lines();
+
+        let ev = Command::CheckQuitIfOneScreen;
+        let mut out = Vec::new();
+        let mut command_queue = CommandQueue::new_zero();
+        let is_exited = Arc::new(AtomicBool::new(false));
+
+        handle_event(
+            ev,
+            &mut out,
+            &mut ps,
+            &mut command_queue,
+            &is_exited,
+            #[cfg(feature = "search")]
+            &UIA,
+        )
+        .unwrap();
+        assert!(!is_exited.load(std::sync::atomic::Ordering::SeqCst));
     }
 }

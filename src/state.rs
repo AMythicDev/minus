@@ -84,6 +84,7 @@ impl Default for SearchState {
 /// Various fields are made public so that their values can be accessed while implementing the
 /// trait.
 #[allow(clippy::module_name_repetitions)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct PagerState {
     /// Configuration for line numbers. See [`LineNumbers`]
     pub line_numbers: LineNumbers,
@@ -146,6 +147,9 @@ pub struct PagerState {
     /// Do we want to page if there is no overflow
     #[cfg(feature = "static_output")]
     pub(crate) run_no_overflow: bool,
+    /// Whether to automatically quit when content fits on one screen in dynamic paging mode
+    #[cfg(feature = "dynamic_output")]
+    pub(crate) quit_if_one_screen: bool,
     pub(crate) lines_to_row_map: LinesRowMap,
     /// Value for follow mode.
     /// See [follow_output](crate::pager::Pager::follow_output) for more info on follow mode.
@@ -191,6 +195,8 @@ impl PagerState {
             show_prompt: true,
             #[cfg(feature = "static_output")]
             run_no_overflow: false,
+            #[cfg(feature = "dynamic_output")]
+            quit_if_one_screen: false,
             #[cfg(feature = "search")]
             search_mode: SearchMode::default(),
             #[cfg(feature = "search")]

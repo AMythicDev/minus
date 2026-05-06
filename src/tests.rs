@@ -364,4 +364,23 @@ mod emit_events {
 
         assert_eq!(Command::AddExitCallback(func), pager.rx.try_recv().unwrap());
     }
+
+    #[test]
+    #[cfg(feature = "dynamic_output")]
+    fn set_quit_if_one_screen() {
+        let pager = Pager::new();
+        pager.set_quit_if_one_screen(true).unwrap();
+        assert_eq!(
+            Command::SetQuitIfOneScreen(true),
+            pager.rx.try_recv().unwrap()
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "dynamic_output")]
+    fn end_of_output() {
+        let pager = Pager::new();
+        pager.end_of_output().unwrap();
+        assert_eq!(Command::CheckQuitIfOneScreen, pager.rx.try_recv().unwrap());
+    }
 }
