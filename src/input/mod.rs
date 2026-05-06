@@ -297,7 +297,7 @@ where
         let half_screen = ps.rows / 2;
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(half_screen))
     });
-    map.add_key_events(&["g"], |_, _| InputEvent::UpdateUpperMark(0));
+    map.add_key_events(&["g", "home"], |_, _| InputEvent::UpdateUpperMark(0));
 
     map.add_key_events(&["s-g", "G"], |_, ps| {
         let mut position = ps
@@ -328,6 +328,7 @@ where
     map.add_key_events(&["c-l"], |_, ps| {
         InputEvent::UpdateLineNumber(!ps.line_numbers)
     });
+    map.add_key_events(&["end"], |_, _| InputEvent::UpdateUpperMark(usize::MAX - 1));
     #[cfg(feature = "search")]
     {
         map.add_key_events(&["/"], |_, _| InputEvent::Search(SearchMode::Forward));
@@ -343,7 +344,7 @@ where
                 InputEvent::Ignore
             }
         });
-        map.add_key_events(&["p"], |_, ps| {
+        map.add_key_events(&["p", "s-n"], |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
             if ps.search_state.search_mode == SearchMode::Forward {

@@ -158,7 +158,8 @@
 //! | ?                   | Start backward search                                                        |
 //! | Esc                 | Cancel search input                                                          |
 //! | n                   | Go to the next search match                                                  |
-//! | p                   | Go to the next previous match                                                |
+//! | N                   | Go to the next previous match                                                |
+//! | p                   | Go to the next previous match (alternate keybinding)                            |
 //!
 //! End-applications are free to change these bindings to better suit their needs. See docs for
 //! [Pager::set_input_classifier] function and [input] module.
