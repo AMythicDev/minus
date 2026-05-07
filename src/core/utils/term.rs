@@ -56,7 +56,6 @@ pub fn setup(out: &mut io::Stdout) -> std::result::Result<(), SetupError> {
 /// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 pub fn cleanup(
     out: &mut impl io::Write,
-    es: &crate::ExitStrategy,
     cleanup_screen: bool,
 ) -> std::result::Result<(), CleanupError> {
     if cleanup_screen {
@@ -68,12 +67,7 @@ pub fn cleanup(
         execute!(out, terminal::LeaveAlternateScreen)
             .map_err(|e| CleanupError::LeaveAlternateScreen(e.into()))?;
     }
-
-    if *es == crate::ExitStrategy::ProcessQuit {
-        std::process::exit(0);
-    } else {
-        Ok(())
-    }
+    Ok(())
 }
 
 /// Moves the terminal cursor to given x, y coordinates

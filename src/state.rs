@@ -4,8 +4,9 @@
 use crate::search::{SearchMode, SearchOpts};
 
 use crate::{
-    ExitStrategy, LineNumbers,
+    LineNumbers,
     error::{MinusError, TermError},
+    hooks::Hooks,
     input::{self, HashedEventRegister},
     minus_core::{
         self, CommandQueue,
@@ -134,9 +135,8 @@ pub struct PagerState {
     pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
-    /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
-    /// See [`ExitStrategy`] for available options
-    pub(crate) exit_strategy: ExitStrategy,
+    /// Callbacks for hooks
+    pub(crate) hooks: Hooks,
     /// The prompt that should be displayed to the user, formatted with the
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
@@ -182,9 +182,9 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
+            hooks: Hooks::new(),
             message: None,
             screen: Screen::default(),
             displayed_prompt: String::new(),
@@ -342,6 +342,12 @@ impl PagerState {
         self.displayed_prompt = format_string;
     }
 
+    pub(crate) fn run_hooks(&mut self, hook: crate::hooks::Hook) {
+        let mut hooks = std::mem::take(&mut self.hooks);
+        hooks.run_hooks(hook, self);
+        self.hooks = hooks;
+    }
+
     /// Runs the exit callbacks
     pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {
@@ -349,7 +355,7 @@ impl PagerState {
         }
     }
 
-    pub(crate) fn append_str(&'_ mut self, text: &str) -> AppendStyle {
+    pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
         let old_lc = self.screen.line_count();
         let old_lc_dgts = minus_core::utils::digits(old_lc);
         let mut append_result = self.screen.push_screen_buf(

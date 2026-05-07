@@ -1,6 +1,12 @@
 //! Proivdes the [Pager] type
 
-use crate::{ExitStrategy, LineNumbers, error::MinusError, input, minus_core::commands::Command};
+use crate::{
+    ExitStrategy, LineNumbers,
+    error::MinusError,
+    hooks::{Hook, HookCallback},
+    input,
+    minus_core::commands::Command,
+};
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
@@ -304,6 +310,33 @@ impl Pager {
         cb: Box<dyn FnMut() + Send + Sync + 'static>,
     ) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::AddExitCallback(cb))?)
+    }
+
+    /// Add a function to be called when a specific [`Hook`] is triggered
+    ///
+    /// The `id` parameter is a unique identifier for the callback. If you don't care about the
+    /// `id`, pass `0` and minus will automatically assign a unique ID.
+    ///
+    /// # Panics
+    /// This function will panic if a callback with the same `id` is already registered for the
+    /// given `hook`.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    pub fn add_hook(&self, hook: Hook, id: u64, cb: HookCallback) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::AddHook(hook, id, cb))?)
+    }
+
+    /// Remove a callback
+    ///
+    /// This function will return `false` if the callback is not found.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    pub fn remove_hook(&self, hook: Hook, id: u64) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::RemoveHook(hook, id))?)
     }
 
     /// Override the condition for running incremental search

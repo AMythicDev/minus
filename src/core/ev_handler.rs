@@ -10,9 +10,10 @@ use parking_lot::{Condvar, Mutex};
 use super::CommandQueue;
 use super::commands::{Command, IoCommand};
 use super::utils::display::{self, AppendStyle};
+use crate::ExitStrategy;
 #[cfg(feature = "search")]
 use crate::search;
-use crate::{PagerState, error::MinusError, input::InputEvent};
+use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 
 /// Respond based on the type of command
 ///
@@ -36,6 +37,7 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
+            p.run_hooks(Hook::PrePagerExit);
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
         }
@@ -228,7 +230,21 @@ pub fn handle_event(
             p.format_lines();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
-        Command::SetExitStrategy(es) => p.exit_strategy = es,
+        Command::SetExitStrategy(es) => {
+            p.hooks.remove_callback(Hook::PostPagerExit, 1);
+            if es == ExitStrategy::ProcessQuit {
+                p.hooks.add_callback(
+                    Hook::PostPagerExit,
+                    1,
+                    Box::new(|_| {
+                        std::process::exit(1);
+                    }),
+                );
+            } else {
+                p.hooks
+                    .add_callback(Hook::PostPagerExit, 1, Box::new(|_| {}));
+            }
+        }
         Command::LineWrapping(lw) => {
             p.screen.line_wrapping = lw;
             p.format_lines();
@@ -239,6 +255,10 @@ pub fn handle_event(
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
+        Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
+        Command::RemoveHook(hook, id) => {
+            p.hooks.remove_callback(hook, id);
+        }
         Command::ShowPrompt(show) => p.show_prompt = show,
         Command::FollowOutput(follow_output)
         | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
@@ -278,6 +298,10 @@ pub fn handle_io_command(
         }
         IoCommand::SetUpperMark(mut um) => {
             display::draw_for_change(out, p, &mut um)?;
+            let line_count = p.screen.formatted_lines_count();
+            if um >= line_count.saturating_sub(p.rows.saturating_sub(1)) && line_count > p.rows {
+                p.run_hooks(Hook::EofReached);
+            }
             p.upper_mark = um;
         }
         IoCommand::DrawAppendedText(prev_unterminated, prev_fmt_lines_count, append_style) => {
@@ -346,7 +370,7 @@ pub fn handle_io_command(
 mod tests {
     use super::super::commands::Command;
     use super::handle_event;
-    use crate::{ExitStrategy, PagerState, minus_core::CommandQueue};
+    use crate::{PagerState, minus_core::CommandQueue};
     use std::sync::{Arc, atomic::AtomicBool};
 
     const TEST_STR: &str = "This is some sample text";
@@ -440,21 +464,6 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert!(!ps.run_no_overflow);
-    }
-
-    #[test]
-    fn set_exit_strategy() {
-        let mut ps = PagerState::new().unwrap();
-        let ev = Command::SetExitStrategy(ExitStrategy::PagerQuit);
-        let mut command_queue = CommandQueue::new_zero();
-
-        handle_event(
-            ev,
-            &mut ps,
-            &mut command_queue,
-            &Arc::new(AtomicBool::new(false)),
-        );
-        assert_eq!(ps.exit_strategy, ExitStrategy::PagerQuit);
     }
 
     #[test]
