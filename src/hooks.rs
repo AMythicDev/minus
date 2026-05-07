@@ -1,6 +1,16 @@
 //! Manages and runs callbacks for events happening in minus.
+//!
+//! ## Note on Thread Blacking
+//!
+//! Callbacks registered for hooks are run on the same thread as the pager.
+//! This means that if you add a long-running task in a callback, it will block the pager
+//! from rendering, scrolling and responding to events. Hence you should avoid adding
+//! long-running tasks in callbacks. If you have a long running task, you should run it on a
+//! separate thread.
 
 use std::collections::HashMap;
+
+use crate::PagerState;
 
 /// Events that can have callbacks registered
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
@@ -17,17 +27,13 @@ pub enum Hook {
     PostPagerExit,
 }
 
-/// Unique ID for a callback
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Default)]
-pub struct CallbackId(u64);
-
 /// A callback that can be executed on a hook
-pub type HookCallback = Box<dyn FnMut() + Send + Sync + 'static>;
+pub type HookCallback = Box<dyn FnMut(&PagerState) + Send + Sync + 'static>;
 
 /// Stores callbacks for all hooks
 #[derive(Default)]
 pub struct Hooks {
-    hooks: HashMap<Hook, Vec<(CallbackId, HookCallback)>>,
+    hooks: HashMap<Hook, Vec<(u64, HookCallback)>>,
     next_id: u64,
 }
 
@@ -37,14 +43,20 @@ impl Hooks {
         Self::default()
     }
 
-    pub fn add_callback(&mut self, hook: Hook, cb: HookCallback) -> CallbackId {
-        let id = CallbackId(self.next_id);
-        self.next_id += 1;
-        self.hooks.entry(hook).or_default().push((id, cb));
-        id
+    pub fn add_callback(&mut self, hook: Hook, mut id: u64, cb: HookCallback) {
+        if id == 0 {
+            id = self.next_id;
+            self.next_id += 1;
+        }
+
+        let callbacks = self.hooks.entry(hook).or_default();
+        if callbacks.iter().any(|(cb_id, _)| *cb_id == id) {
+            panic!("Callback ID {id} already exists for hook {hook:?}");
+        }
+        callbacks.push((id, cb));
     }
 
-    pub fn remove_callback(&mut self, hook: Hook, id: CallbackId) -> bool {
+    pub fn remove_callback(&mut self, hook: Hook, id: u64) -> bool {
         if let Some(cbs) = self.hooks.get_mut(&hook)
             && let Some(pos) = cbs.iter().position(|(cb_id, _)| *cb_id == id)
         {
@@ -54,10 +66,10 @@ impl Hooks {
         false
     }
 
-    pub fn run_hooks(&mut self, hook: Hook) {
+    pub fn run_hooks(&mut self, hook: Hook, pager_state: &PagerState) {
         if let Some(cbs) = self.hooks.get_mut(&hook) {
             for (_, cb) in cbs {
-                cb();
+                cb(pager_state);
             }
         }
     }

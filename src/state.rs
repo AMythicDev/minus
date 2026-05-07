@@ -346,6 +346,12 @@ impl PagerState {
         self.displayed_prompt = format_string;
     }
 
+    pub(crate) fn run_hooks(&mut self, hook: crate::hooks::Hook) {
+        let mut hooks = std::mem::take(&mut self.hooks);
+        hooks.run_hooks(hook, self);
+        self.hooks = hooks;
+    }
+
     /// Runs the exit callbacks
     pub(crate) fn exit(&mut self) {
         for func in &mut self.exit_callbacks {

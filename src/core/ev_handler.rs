@@ -36,7 +36,7 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
-            p.hooks.run_hooks(Hook::PrePagerExit);
+            p.run_hooks(Hook::PrePagerExit);
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
         }
@@ -240,6 +240,10 @@ pub fn handle_event(
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
+        Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
+        Command::RemoveHook(hook, id) => {
+            p.hooks.remove_callback(hook, id);
+        }
         Command::ShowPrompt(show) => p.show_prompt = show,
         Command::FollowOutput(follow_output)
         | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
@@ -281,7 +285,7 @@ pub fn handle_io_command(
             display::draw_for_change(out, p, &mut um)?;
             let line_count = p.screen.formatted_lines_count();
             if um >= line_count.saturating_sub(p.rows.saturating_sub(1)) && line_count > p.rows {
-                p.hooks.run_hooks(Hook::EofReached);
+                p.run_hooks(Hook::EofReached);
             }
             p.upper_mark = um;
         }

@@ -94,7 +94,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     #[allow(unused_mut)]
     let mut ps = crate::state::PagerState::generate_initial_state(&pager.rx)?;
     *super::RUNMODE.lock() = rm;
-    ps.hooks.run_hooks(Hook::PrePagerStart);
+    ps.run_hooks(Hook::PrePagerStart);
 
     // Static mode checks
     #[cfg(all(feature = "static_output", not(test)))]
@@ -235,7 +235,7 @@ fn start_reactor(
         let mut p = ps.lock();
 
         draw_full(&mut out_lock, &mut p)?;
-        p.hooks.run_hooks(Hook::PostPagerStart);
+        p.run_hooks(Hook::PostPagerStart);
 
         if p.follow_output {
             draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
@@ -248,7 +248,8 @@ fn start_reactor(
         RunMode::Dynamic => loop {
             if is_exited.load(Ordering::SeqCst) {
                 term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
-                ps.lock().hooks.run_hooks(Hook::PostPagerExit);
+                let mut p = ps.lock();
+                p.run_hooks(Hook::PostPagerExit);
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
@@ -285,7 +286,8 @@ fn start_reactor(
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
                     term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
-                    ps.lock().hooks.run_hooks(Hook::PostPagerExit);
+                    let mut p = ps.lock();
+                    p.run_hooks(Hook::PostPagerExit);
 
                     let mut rm = RUNMODE.lock();
                     *rm = RunMode::Uninitialized;

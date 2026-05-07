@@ -6,6 +6,7 @@
 use std::fmt::Debug;
 
 use crate::{
+    hooks::{Hook, HookCallback},
     ExitStrategy, LineNumbers,
     input::{InputClassifier, InputEvent},
     minus_core::utils::display::AppendStyle,
@@ -53,6 +54,8 @@ pub enum Command {
     SetExitStrategy(ExitStrategy),
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
+    AddHook(Hook, u64, HookCallback),
+    RemoveHook(Hook, u64),
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
@@ -75,7 +78,9 @@ impl PartialEq for Command {
             #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
-            | (Self::AddExitCallback(_), Self::AddExitCallback(_)) => true,
+            | (Self::AddExitCallback(_), Self::AddExitCallback(_))
+            | (Self::AddHook(..), Self::AddHook(..)) => true,
+            (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
             (Self::Io(a), Self::Io(b)) => a == b,
@@ -99,6 +104,8 @@ impl Debug for Command {
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
+            Self::AddHook(h, id, _) => write!(f, "AddHook({h:?}, {id})"),
+            Self::RemoveHook(h, id) => write!(f, "RemoveHook({h:?}, {id})"),
             #[cfg(feature = "static_output")]
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
