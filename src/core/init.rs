@@ -248,8 +248,7 @@ fn start_reactor(
         RunMode::Dynamic => loop {
             if is_exited.load(Ordering::SeqCst) {
                 term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
-                let mut p = ps.lock();
-                p.run_hooks(Hook::PostPagerExit);
+                ps.lock().run_hooks(Hook::PostPagerExit);
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
                 drop(rm);
@@ -286,8 +285,7 @@ fn start_reactor(
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
                     term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
-                    let mut p = ps.lock();
-                    p.run_hooks(Hook::PostPagerExit);
+                    ps.lock().run_hooks(Hook::PostPagerExit);
 
                     let mut rm = RUNMODE.lock();
                     *rm = RunMode::Uninitialized;

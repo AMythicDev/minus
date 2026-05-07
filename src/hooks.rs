@@ -32,31 +32,32 @@ pub type HookCallback = Box<dyn FnMut(&PagerState) + Send + Sync + 'static>;
 
 /// Stores callbacks for all hooks
 #[derive(Default)]
-pub struct Hooks {
+pub(crate) struct Hooks {
     hooks: HashMap<Hook, Vec<(u64, HookCallback)>>,
     next_id: u64,
 }
 
 impl Hooks {
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
-    pub fn add_callback(&mut self, hook: Hook, mut id: u64, cb: HookCallback) {
+    pub(crate) fn add_callback(&mut self, hook: Hook, mut id: u64, cb: HookCallback) {
         if id == 0 {
             id = self.next_id;
             self.next_id += 1;
         }
 
         let callbacks = self.hooks.entry(hook).or_default();
-        if callbacks.iter().any(|(cb_id, _)| *cb_id == id) {
-            panic!("Callback ID {id} already exists for hook {hook:?}");
-        }
+        assert!(
+            !callbacks.iter().any(|(cb_id, _)| *cb_id == id),
+            "Callback ID {id} already exists for hook {hook:?}"
+        );
         callbacks.push((id, cb));
     }
 
-    pub fn remove_callback(&mut self, hook: Hook, id: u64) -> bool {
+    pub(crate) fn remove_callback(&mut self, hook: Hook, id: u64) -> bool {
         if let Some(cbs) = self.hooks.get_mut(&hook)
             && let Some(pos) = cbs.iter().position(|(cb_id, _)| *cb_id == id)
         {
@@ -66,7 +67,7 @@ impl Hooks {
         false
     }
 
-    pub fn run_hooks(&mut self, hook: Hook, pager_state: &PagerState) {
+    pub(crate) fn run_hooks(&mut self, hook: Hook, pager_state: &PagerState) {
         if let Some(cbs) = self.hooks.get_mut(&hook) {
             for (_, cb) in cbs {
                 cb(pager_state);

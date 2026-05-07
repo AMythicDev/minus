@@ -6,8 +6,8 @@
 use std::fmt::Debug;
 
 use crate::{
-    hooks::{Hook, HookCallback},
     ExitStrategy, LineNumbers,
+    hooks::{Hook, HookCallback},
     input::{InputClassifier, InputEvent},
     minus_core::utils::display::AppendStyle,
 };

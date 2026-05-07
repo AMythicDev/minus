@@ -1,9 +1,9 @@
 //! Proivdes the [Pager] type
 
 use crate::{
-    hooks::{Hook, HookCallback},
     ExitStrategy, LineNumbers,
     error::MinusError,
+    hooks::{Hook, HookCallback},
     input,
     minus_core::commands::Command,
 };
@@ -324,12 +324,7 @@ impl Pager {
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
     /// could not be sent to the receiver
-    pub fn add_hook(
-        &self,
-        hook: Hook,
-        id: u64,
-        cb: HookCallback,
-    ) -> Result<(), MinusError> {
+    pub fn add_hook(&self, hook: Hook, id: u64, cb: HookCallback) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::AddHook(hook, id, cb))?)
     }
 
