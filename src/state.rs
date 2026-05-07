@@ -4,7 +4,7 @@
 use crate::search::{SearchMode, SearchOpts};
 
 use crate::{
-    ExitStrategy, LineNumbers,
+    LineNumbers,
     error::{MinusError, TermError},
     hooks::Hooks,
     input::{self, HashedEventRegister},
@@ -137,9 +137,6 @@ pub struct PagerState {
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
     pub(crate) hooks: Hooks,
-    /// The behaviour to do when user quits the program using `q` or `Ctrl+C`
-    /// See [`ExitStrategy`] for available options
-    pub(crate) exit_strategy: ExitStrategy,
     /// The prompt that should be displayed to the user, formatted with the
     /// current search index and number of matches (if the search feature is enabled),
     /// and the current numbers inputted to scroll
@@ -185,7 +182,6 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            exit_strategy: ExitStrategy::ProcessQuit,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),

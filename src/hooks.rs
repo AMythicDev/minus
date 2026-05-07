@@ -24,6 +24,9 @@ pub enum Hook {
     /// Fired just before the pager exits due to [`InputEvent::Exit`](crate::input::InputEvent::Exit).
     PrePagerExit,
     /// Fired after the terminal UI is cleared up and main screen is restored.
+    ///
+    /// For this hook, start your IDs from 2 because 1 is occupied for the
+    /// [ExitStrategy](crate::ExitStrategy).
     PostPagerExit,
 }
 

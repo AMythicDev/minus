@@ -137,11 +137,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will (probably?) cause an immediate abort
-            drop(term::cleanup(
-                &mut out2,
-                &crate::ExitStrategy::PagerQuit,
-                true,
-            ));
+            drop(term::cleanup(&mut out2, true));
             panic_hook(pinfo);
         }));
     }
@@ -200,7 +196,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
         if r1.is_err() || r2.is_err() {
             *RUNMODE.lock() = RunMode::Uninitialized;
-            term::cleanup(&mut out, &crate::ExitStrategy::PagerQuit, true)?;
+            term::cleanup(&mut out, true)?;
         }
 
         r1?;
@@ -247,7 +243,7 @@ fn start_reactor(
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
             if is_exited.load(Ordering::SeqCst) {
-                term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
+                term::cleanup(&mut out_lock, true)?;
                 ps.lock().run_hooks(Hook::PostPagerExit);
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
@@ -284,7 +280,7 @@ fn start_reactor(
                     // Cleanup the screen
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
-                    term::cleanup(&mut out_lock, &ps.lock().exit_strategy, true)?;
+                    term::cleanup(&mut out_lock, true)?;
                     ps.lock().run_hooks(Hook::PostPagerExit);
 
                     let mut rm = RUNMODE.lock();
