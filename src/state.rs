@@ -187,7 +187,7 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            event_register: HashedEventRegister::default(),
+            input_register: HashedEventRegister::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,
