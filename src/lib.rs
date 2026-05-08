@@ -162,7 +162,7 @@
 //! | p                   | Go to the next previous match (alternate keybinding)                            |
 //!
 //! End-applications are free to change these bindings to better suit their needs. See docs for
-//! [Pager::set_input_classifier] function and [input] module.
+//! `map_*` and `clear_*` functions in [Pager] on how to customize them.
 //!
 //! ## Key Bindings Available at Search Prompt
 //!

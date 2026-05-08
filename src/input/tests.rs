@@ -9,7 +9,7 @@ use crossterm::event::{
 // versions
 // TODO: Remove this later in favour of how handle_event should actually be called
 fn handle_input(ev: Event, p: &PagerState) -> Option<InputEvent> {
-    p.input_classifier.classify_input(ev, p)
+    p.input_register.classify_input(ev, p)
 }
 
 // Keyboard navigation
@@ -202,7 +202,7 @@ fn test_restore_prompt() {
         // therefore upper_mark += 1
         assert_eq!(
             Some(InputEvent::RestorePrompt),
-            pager.input_classifier.classify_input(ev, &pager)
+            pager.input_register.classify_input(ev, &pager)
         );
     }
 }
@@ -405,11 +405,11 @@ fn test_search_bindings() {
         });
 
         assert_eq!(
-            pager.input_classifier.classify_input(next_event, &pager),
+            pager.input_register.classify_input(next_event, &pager),
             Some(InputEvent::MoveToNextMatch(1))
         );
         assert_eq!(
-            pager.input_classifier.classify_input(prev_event, &pager),
+            pager.input_register.classify_input(prev_event, &pager),
             Some(InputEvent::MoveToPrevMatch(1))
         );
     }
@@ -431,11 +431,11 @@ fn test_search_bindings() {
         });
 
         assert_eq!(
-            pager.input_classifier.classify_input(next_event, &pager),
+            pager.input_register.classify_input(next_event, &pager),
             Some(InputEvent::MoveToPrevMatch(1))
         );
         assert_eq!(
-            pager.input_classifier.classify_input(prev_event, &pager),
+            pager.input_register.classify_input(prev_event, &pager),
             Some(InputEvent::MoveToNextMatch(1))
         );
     }

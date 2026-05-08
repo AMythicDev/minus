@@ -10,9 +10,9 @@ use parking_lot::{Condvar, Mutex};
 use super::CommandQueue;
 use super::commands::{Command, IoCommand};
 use super::utils::display::{self, AppendStyle};
-use crate::ExitStrategy;
 #[cfg(feature = "search")]
 use crate::search;
+use crate::{ExitStrategy, minus_core::commands::InputType};
 use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 
 /// Respond based on the type of command
@@ -253,7 +253,6 @@ pub fn handle_event(
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
-        Command::SetInputClassifier(clf) => p.input_classifier = clf,
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
         Command::RemoveHook(hook, id) => {
@@ -269,6 +268,18 @@ pub fn handle_event(
             p.format_prompt();
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
+        Command::AddInputBinding(et, cb) => match et {
+            InputType::Key(desc) => p.input_register.map_keys_ev(desc, cb),
+            InputType::Mouse(desc) => p.input_register.map_mouse_ev(desc, cb),
+            InputType::Resize => p.input_register.map_resize(cb),
+            InputType::Wild => p.input_register.map_wild_event(cb),
+        },
+        Command::RemoveInputBinding(et) => match et {
+            InputType::Key(desc) => p.input_register.clear_keys(&desc),
+            InputType::Mouse(desc) => p.input_register.clear_mouse(&desc),
+            InputType::Resize => p.input_register.clear_resize(),
+            InputType::Wild => p.input_register.clear_wild_event(),
+        },
         Command::UserInput(_) => {}
         Command::Io(_) => unreachable!(),
     }

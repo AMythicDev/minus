@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use crate::{
     ExitStrategy, LineNumbers,
     hooks::{Hook, HookCallback},
-    input::{InputClassifier, InputEvent},
+    input::{self, InputEvent, hashed_event_register::EventWrapper},
     minus_core::utils::display::AppendStyle,
 };
 
@@ -27,6 +27,14 @@ pub enum IoCommand {
     SetUpperMark(usize),
     #[cfg(feature = "search")]
     FetchSearchQuery,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum InputType {
+    Key(Vec<EventWrapper>),
+    Mouse(Vec<EventWrapper>),
+    Resize,
+    Wild,
 }
 
 /// Different events that can be encountered while the pager is running
@@ -52,7 +60,6 @@ pub enum Command {
 
     // Configuration options
     SetExitStrategy(ExitStrategy),
-    SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     AddHook(Hook, u64, HookCallback),
     RemoveHook(Hook, u64),
@@ -60,6 +67,10 @@ pub enum Command {
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
+
+    // Input
+    AddInputBinding(InputType, input::InputEventBoxed),
+    RemoveInputBinding(InputType),
 
     Io(IoCommand),
 }
@@ -77,12 +88,13 @@ impl PartialEq for Command {
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
             #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
-            (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
-            | (Self::AddExitCallback(_), Self::AddExitCallback(_))
+            (Self::AddExitCallback(_), Self::AddExitCallback(_))
             | (Self::AddHook(..), Self::AddHook(..)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
+            (Self::AddInputBinding(et_a, _), Self::AddInputBinding(et_b, _)) => et_a == et_b,
+            (Self::RemoveInputBinding(et_a), Self::RemoveInputBinding(et_b)) => et_a == et_b,
             (Self::Io(a), Self::Io(b)) => a == b,
             _ => false,
         }
@@ -99,7 +111,6 @@ impl Debug for Command {
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
             Self::LineWrapping(lw) => write!(f, "LineWrapping({lw:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
-            Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
@@ -109,6 +120,8 @@ impl Debug for Command {
             #[cfg(feature = "static_output")]
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
+            Self::AddInputBinding(et, _) => write!(f, "AddInputBinding({et:?})"),
+            Self::RemoveInputBinding(et) => write!(f, "RemoveInputBinding({et:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
             Self::Io(c) => write!(f, "Internal({c:?})"),
         }

@@ -1,16 +1,14 @@
 //! Provides the [`HashedEventRegister`] and related items
 //!
-//! This module holds the [`HashedEventRegister`] which is a [`HashMap`] that stores events and their associated
-//! callbacks. When the user does an action on the terminal, the event is scanned and matched against this register.
-//! If their is a match related to that event, the associated callback is called
+//! This module holds the [`HashedEventRegister`] which is a [`HashMap`] that stores events and
+//! their associated callbacks. When the user does an action on the terminal, the event is scanned
+//! and matched against this register. If their is a match related to that event, the associated
+//! callback is called
 
-use super::{InputClassifier, InputEvent};
+use super::InputEvent;
 use crate::PagerState;
 use crossterm::event::{Event, MouseEvent};
-use std::{
-    collections::HashMap, collections::hash_map::RandomState, hash::BuildHasher, hash::Hash,
-    sync::Arc,
-};
+use std::{collections::HashMap, collections::hash_map::RandomState, hash::Hash, sync::Arc};
 
 /// A convenient type for the return type of [`HashedEventRegister::get`]
 type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Sync>;
@@ -19,8 +17,8 @@ type EventReturnType = Arc<dyn Fn(Event, &PagerState) -> InputEvent + Send + Syn
 // EVENTWRAPPER TYPE
 // //////////////////////////////
 
-#[derive(Clone, Eq)]
-enum EventWrapper {
+#[derive(Clone, Debug, Eq)]
+pub enum EventWrapper {
     ExactMatchEvent(Event),
     WildEvent,
 }
@@ -89,44 +87,24 @@ impl Hash for EventWrapper {
 /// Each item is a key value pair, where the key is a event and it's value is a callback. When a
 /// event occurs, it is matched inside and when the related match is found, it's related callback
 /// is called.
-pub struct HashedEventRegister<S>(HashMap<EventWrapper, EventReturnType, S>);
+pub struct HashedEventRegister(HashMap<EventWrapper, EventReturnType, RandomState>);
 
-impl HashedEventRegister<RandomState> {
-    /// Create a new [HashedEventRegister] with the default hasher
-    #[must_use]
-    pub fn with_default_hasher() -> Self {
-        Self::new(RandomState::new())
-    }
-}
-
-impl Default for HashedEventRegister<RandomState> {
+impl Default for HashedEventRegister {
     /// Create a new [HashedEventRegister] with the default hasher and insert the default bindings
     fn default() -> Self {
-        let mut event_register = Self::new(RandomState::new());
+        let mut event_register = Self::new();
         super::generate_default_bindings(&mut event_register);
         event_register
-    }
-}
-
-impl<S> InputClassifier for HashedEventRegister<S>
-where
-    S: BuildHasher,
-{
-    fn classify_input(&self, ev: Event, ps: &crate::PagerState) -> Option<InputEvent> {
-        self.get(&ev).map(|c| c(ev, ps))
     }
 }
 
 // ####################
 // GENERAL FUNCTIONS
 // ####################
-impl<S> HashedEventRegister<S>
-where
-    S: BuildHasher,
-{
+impl HashedEventRegister {
     /// Create a new HashedEventRegister with the Hasher `s`
-    pub fn new(s: S) -> Self {
-        Self(HashMap::with_hasher(s))
+    pub fn new() -> Self {
+        Self(HashMap::new())
     }
 
     /// Adds a callback to handle all events that failed to match
@@ -138,7 +116,7 @@ where
     ///
     /// This is also helpful when you need to do some action, like sending a message when the user
     /// presses wrong keyboard/mouse buttons.
-    pub fn insert_wild_event_matcher(
+    pub fn map_wild_event(
         &mut self,
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
     ) {
@@ -152,24 +130,7 @@ where
     }
 
     /// Adds a callback for handling resize events
-    ///
-    /// # Example
-    /// These are from the original sources
-    /// ```
-    /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event::Event};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.add_resize_event(|ev, _| {
-    ///     let (cols, rows) = if let Event::Resize(cols, rows) = ev {
-    ///         (cols, rows)
-    ///     } else {
-    ///         unreachable!();
-    ///     };
-    ///     InputEvent::UpdateTermArea(cols as usize, rows as usize)
-    /// });
-    /// ```
-    pub fn add_resize_event(
+    pub fn map_resize(
         &mut self,
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
     ) {
@@ -181,35 +142,27 @@ where
     }
 
     /// Removes the currently active resize event callback
-    pub fn remove_resize_event(&mut self) {
+    pub fn clear_resize(&mut self) {
         self.0
             .remove(&EventWrapper::ExactMatchEvent(Event::Resize(0, 0)));
+    }
+
+    /// Removes the currently active wild event callback
+    pub fn clear_wild_event(&mut self) {
+        self.0.remove(&EventWrapper::WildEvent);
+    }
+
+    pub(crate) fn classify_input(&self, ev: Event, ps: &crate::PagerState) -> Option<InputEvent> {
+        self.get(&ev).map(|c| c(ev, ps))
     }
 }
 
 // ###############################
 // KEYBOARD SPECIFIC FUNCTIONS
 // ###############################
-impl<S> HashedEventRegister<S>
-where
-    S: BuildHasher,
-{
+impl HashedEventRegister {
     /// Add all elemnts of `desc` as key bindings that minus should respond to with the callback `cb`
-    ///
-    /// You should prefer using the [add_key_events_checked](HashedEventRegister::add_key_events_checked)
-    /// over this one.
-    ///
-    /// # Example
-    /// ```
-    /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.add_key_events(&["down"], |_, ps| {
-    ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(1))
-    /// });
-    /// ```
-    pub fn add_key_events(
+    pub fn map_keys(
         &mut self,
         desc: &[&str],
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
@@ -223,53 +176,21 @@ where
         }
     }
 
-    /// Add all elemnts of `desc` as key bindings that minus should respond to with the callback `cb`.
-    ///
-    /// Prefer using this over [add_key_events](HashedEventRegister::add_key_events).
-    ///
-    /// # Panics
-    ///
-    /// This will panic if you the keybinding has been previously defined, unless the `remap`
-    /// is set to true. This helps preventing accidental overrides of your keybindings.
-    ///
-    /// # Example
-    /// ```should_panic
-    /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.add_key_events_checked(&["down"], |_, ps| {
-    ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(1))
-    /// }, false);
-    /// ```
-    pub fn add_key_events_checked(
+    pub fn map_keys_ev(
         &mut self,
-        desc: &[&str],
+        desc: Vec<EventWrapper>,
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
-        remap: bool,
     ) {
         let v = Arc::new(cb);
         for k in desc {
-            let def: EventWrapper =
-                Event::Key(super::definitions::keydefs::parse_key_event(k)).into();
-            assert!(self.0.contains_key(&def) && remap, "");
-            self.0.insert(def, v.clone());
+            self.0.insert(k, v.clone());
         }
     }
 
     /// Removes the callback associated with the all the elements of `desc`.
-    ///
-    /// ```
-    /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.remove_key_events(&["down"])
-    /// ```
-    pub fn remove_key_events(&mut self, desc: &[&str]) {
+    pub fn clear_keys(&mut self, desc: &[EventWrapper]) {
         for k in desc {
-            self.0
-                .remove(&Event::Key(super::definitions::keydefs::parse_key_event(k)).into());
+            self.0.remove(k);
         }
     }
 }
@@ -277,26 +198,9 @@ where
 // ###############################
 // MOUSE SPECIFIC FUNCTIONS
 // ###############################
-impl<S> HashedEventRegister<S>
-where
-    S: BuildHasher,
-{
+impl HashedEventRegister {
     /// Add all elemnts of `desc` as mouse bindings that minus should respond to with the callback `cb`
-    ///
-    /// You should prefer using the [add_mouse_events_checked](HashedEventRegister::add_mouse_events_checked)
-    /// over this one.
-    ///
-    /// # Example
-    /// ```
-    /// use minus::input::{InputEvent, HashedEventRegister};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.add_mouse_events(&["scroll:down"], |_, ps| {
-    ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
-    /// });
-    /// ```
-    pub fn add_mouse_events(
+    pub fn map_mouse(
         &mut self,
         desc: &[&str],
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
@@ -310,52 +214,21 @@ where
         }
     }
 
-    /// Add all elemnts of `desc` as mouse bindings that minus should respond to with the callback `cb`.
-    ///
-    /// Prefer using this over [add_mouse_events](HashedEventRegister::add_mouse_events).
-    ///
-    /// # Panics
-    /// This will panic if you the keybinding has been previously defined, unless the `remap`
-    /// is set to true. This helps preventing accidental overrides of your keybindings.
-    ///
-    /// # Example
-    /// ```should_panic
-    /// use minus::input::{InputEvent, HashedEventRegister};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.add_mouse_events_checked(&["scroll:down"], |_, ps| {
-    ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
-    /// }, false);
-    /// ```
-    pub fn add_mouse_events_checked(
+    pub fn map_mouse_ev(
         &mut self,
-        desc: &[&str],
+        desc: Vec<EventWrapper>,
         cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
-        remap: bool,
     ) {
         let v = Arc::new(cb);
         for k in desc {
-            let def: EventWrapper =
-                Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into();
-            assert!(self.0.contains_key(&def) && remap, "");
-            self.0.insert(def, v.clone());
+            self.0.insert(k, v.clone());
         }
     }
 
     /// Removes the callback associated with the all the elements of `desc`.
-    ///
-    /// ```
-    /// use minus::input::{InputEvent, HashedEventRegister, crossterm_event};
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    ///
-    /// input_register.remove_mouse_events(&["scroll:down"])
-    /// ```
-    pub fn remove_mouse_events(&mut self, mouse: &[&str]) {
+    pub fn clear_mouse(&mut self, mouse: &[EventWrapper]) {
         for k in mouse {
-            self.0
-                .remove(&Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into());
+            self.0.remove(k);
         }
     }
 }

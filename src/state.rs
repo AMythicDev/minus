@@ -7,7 +7,7 @@ use crate::{
     LineNumbers,
     error::{MinusError, TermError},
     hooks::Hooks,
-    input::{self, HashedEventRegister},
+    input::HashedEventRegister,
     minus_core::{
         self, CommandQueue,
         utils::{LinesRowMap, display::AppendStyle},
@@ -19,7 +19,6 @@ use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
-    collections::hash_map::RandomState,
     convert::TryInto,
     io::stdout,
     sync::{Arc, atomic::AtomicBool},
@@ -77,13 +76,6 @@ impl Default for SearchState {
 
 /// Holds all information and configuration about the pager during
 /// its run time.
-///
-/// This type is exposed so that end-applications can implement the
-/// [`InputClassifier`](input::InputClassifier) trait which requires the `PagerState` to be passed
-/// as a parameter
-///
-/// Various fields are made public so that their values can be accessed while implementing the
-/// trait.
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
     /// Configuration for line numbers. See [`LineNumbers`]
@@ -131,8 +123,8 @@ pub struct PagerState {
     pub screen: Screen,
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
-    /// The input classifier to be called when a input is detected
-    pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
+    /// Callbacks to run when inputs from user are received
+    pub(crate) input_register: HashedEventRegister,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
@@ -182,7 +174,7 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
+            input_register: HashedEventRegister::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,
