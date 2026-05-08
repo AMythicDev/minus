@@ -19,7 +19,6 @@ use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
-    collections::hash_map::RandomState,
     convert::TryInto,
     io::stdout,
     sync::{Arc, atomic::AtomicBool},
@@ -131,8 +130,8 @@ pub struct PagerState {
     pub screen: Screen,
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
-    /// The input classifier to be called when a input is detected
-    pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
+    /// Callbacks to run when inputs from user are received
+    pub(crate) event_register: HashedEventRegister,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
@@ -182,7 +181,8 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
+            exit_strategy: ExitStrategy::ProcessQuit,
+            event_register: HashedEventRegister::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,

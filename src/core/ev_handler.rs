@@ -253,7 +253,6 @@ pub fn handle_event(
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
-        Command::SetInputClassifier(clf) => p.input_classifier = clf,
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
         Command::RemoveHook(hook, id) => {
@@ -271,6 +270,15 @@ pub fn handle_event(
         }
         Command::UserInput(_) => {}
         Command::Io(_) => unreachable!(),
+        // TODO: Work on this
+        Command::AddKeyBinding(desc, cb, remap) => {
+            p.event_register.add_key_events_checked(&desc, cb, remap)
+        }
+        Command::AddMouseBinding(desc, cb, remap) => {
+            p.event_register.add_mouse_events_checked(&desc, cb, remap)
+        }
+        Command::RemoveKeyBinding(desc) => p.event_register.remove_key_events(&desc),
+        Command::RemoveMouseBinding(desc) => p.event_register.remove_mouse_events(&desc),
     }
 }
 

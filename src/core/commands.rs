@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use crate::{
     ExitStrategy, LineNumbers,
     hooks::{Hook, HookCallback},
-    input::{InputClassifier, InputEvent},
+    input::{InputEvent, InputEventBoxed},
     minus_core::utils::display::AppendStyle,
 };
 
@@ -52,7 +52,6 @@ pub enum Command {
 
     // Configuration options
     SetExitStrategy(ExitStrategy),
-    SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     AddHook(Hook, u64, HookCallback),
     RemoveHook(Hook, u64),
@@ -60,6 +59,12 @@ pub enum Command {
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
+
+    // Input
+    AddKeyBinding(Vec<String>, InputEventBoxed, bool),
+    RemoveKeyBinding(Vec<String>),
+    AddMouseBinding(Vec<String>, InputEventBoxed, bool),
+    RemoveMouseBinding(Vec<String>),
 
     Io(IoCommand),
 }
@@ -77,12 +82,18 @@ impl PartialEq for Command {
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
             #[cfg(feature = "static_output")]
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
-            (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
-            | (Self::AddExitCallback(_), Self::AddExitCallback(_))
+            (Self::AddExitCallback(_), Self::AddExitCallback(_))
             | (Self::AddHook(..), Self::AddHook(..)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
+            (Self::AddKeyBinding(a_desc, _, a_remap), Self::AddKeyBinding(b_desc, _, b_remap))
+            | (
+                Self::AddMouseBinding(a_desc, _, a_remap),
+                Self::AddMouseBinding(b_desc, _, b_remap),
+            ) => a_desc == b_desc && a_remap == b_remap,
+            (Self::RemoveKeyBinding(a), Self::RemoveKeyBinding(b))
+            | (Self::RemoveMouseBinding(a), Self::RemoveMouseBinding(b)) => a == b,
             (Self::Io(a), Self::Io(b)) => a == b,
             _ => false,
         }
@@ -99,7 +110,6 @@ impl Debug for Command {
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
             Self::LineWrapping(lw) => write!(f, "LineWrapping({lw:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
-            Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
@@ -110,6 +120,12 @@ impl Debug for Command {
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
+            Self::AddKeyBinding(desc, _, remap) => write!(f, "AddKeyBinding({desc:?}, {remap})"),
+            Self::AddMouseBinding(desc, _, remap) => {
+                write!(f, "AddMouseBinding({desc:?}, {remap})")
+            }
+            Self::RemoveKeyBinding(desc) => write!(f, "RemoveKeyBinding({desc:?})"),
+            Self::RemoveMouseBinding(desc) => write!(f, "RemoveMouseBinding({desc:?})"),
             Self::Io(c) => write!(f, "Internal({c:?})"),
         }
     }
