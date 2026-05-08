@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use crate::{
     ExitStrategy, LineNumbers,
     hooks::{Hook, HookCallback},
-    input::{InputEvent, InputEventBoxed},
+    input::{self, InputEvent, hashed_event_register::EventWrapper},
     minus_core::utils::display::AppendStyle,
 };
 
@@ -27,6 +27,14 @@ pub enum IoCommand {
     SetUpperMark(usize),
     #[cfg(feature = "search")]
     FetchSearchQuery,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum InputType {
+    Key(Vec<EventWrapper>),
+    Mouse(Vec<EventWrapper>),
+    Resize,
+    Wild,
 }
 
 /// Different events that can be encountered while the pager is running
@@ -61,10 +69,8 @@ pub enum Command {
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
 
     // Input
-    AddKeyBinding(Vec<String>, InputEventBoxed, bool),
-    RemoveKeyBinding(Vec<String>),
-    AddMouseBinding(Vec<String>, InputEventBoxed, bool),
-    RemoveMouseBinding(Vec<String>),
+    AddInputBinding(InputType, input::InputEventBoxed),
+    RemoveInputBinding(InputType),
 
     Io(IoCommand),
 }
@@ -87,13 +93,8 @@ impl PartialEq for Command {
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
-            (Self::AddKeyBinding(a_desc, _, a_remap), Self::AddKeyBinding(b_desc, _, b_remap))
-            | (
-                Self::AddMouseBinding(a_desc, _, a_remap),
-                Self::AddMouseBinding(b_desc, _, b_remap),
-            ) => a_desc == b_desc && a_remap == b_remap,
-            (Self::RemoveKeyBinding(a), Self::RemoveKeyBinding(b))
-            | (Self::RemoveMouseBinding(a), Self::RemoveMouseBinding(b)) => a == b,
+            (Self::AddInputBinding(et_a, _), Self::AddInputBinding(et_b, _)) => et_a == et_b,
+            (Self::RemoveInputBinding(et_a), Self::RemoveInputBinding(et_b)) => et_a == et_b,
             (Self::Io(a), Self::Io(b)) => a == b,
             _ => false,
         }
@@ -119,13 +120,9 @@ impl Debug for Command {
             #[cfg(feature = "static_output")]
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
+            Self::AddInputBinding(et, _) => write!(f, "AddInputBinding({et:?})"),
+            Self::RemoveInputBinding(et) => write!(f, "RemoveInputBinding({et:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
-            Self::AddKeyBinding(desc, _, remap) => write!(f, "AddKeyBinding({desc:?}, {remap})"),
-            Self::AddMouseBinding(desc, _, remap) => {
-                write!(f, "AddMouseBinding({desc:?}, {remap})")
-            }
-            Self::RemoveKeyBinding(desc) => write!(f, "RemoveKeyBinding({desc:?})"),
-            Self::RemoveMouseBinding(desc) => write!(f, "RemoveMouseBinding({desc:?})"),
             Self::Io(c) => write!(f, "Internal({c:?})"),
         }
     }

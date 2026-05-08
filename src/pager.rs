@@ -4,8 +4,9 @@ use crate::{
     ExitStrategy, LineNumbers,
     error::MinusError,
     hooks::{Hook, HookCallback},
-    input,
-    minus_core::commands::Command,
+    input::{InputEvent, definitions, hashed_event_register::EventWrapper},
+    minus_core::commands::{Command, InputType},
+    state::PagerState,
 };
 use crossbeam_channel::{Receiver, Sender};
 use crossterm::event::Event;
@@ -242,21 +243,172 @@ impl Pager {
         Ok(self.tx.send(Command::LineWrapping(!value))?)
     }
 
-    pub fn add_key_events<C, I, S>(&self, desc: I, cb: C, remap: bool) -> Result<(), MinusError>
+    /// Map key bindings to a callback
+    ///
+    /// This function maps a list of key descriptions to a callback function.
+    ///
+    /// # Panics
+    /// This function panics if any item of `desc` does not follow the syntax for defining key
+    /// events as described in the [input](crate::input) module.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    /// use minus::input::InputEvent;
+    ///
+    /// let pager = Pager::new();
+    /// pager.map_keys(vec!["c-c", "q"], |_, _| InputEvent::Exit).unwrap();
+    /// ```
+    pub fn map_keys<C, I, S>(&self, desc: I, cb: C) -> Result<(), MinusError>
     where
         I: IntoIterator<Item = S>,
-        S: Into<String>,
+        S: AsRef<str>,
         C: Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
     {
-        let desc_strs = desc.into_iter().map(Into::into).collect::<Vec<String>>();
+        let desc_strs = desc
+            .into_iter()
+            .map(|s| Event::Key(definitions::keydefs::parse_key_event(s.as_ref())).into())
+            .collect::<Vec<EventWrapper>>();
+        Ok(self.tx.send(Command::AddInputBinding(
+            InputType::Key(desc_strs),
+            Box::new(cb),
+        ))?)
+    }
+
+    /// Map mouse bindings to a callback
+    ///
+    /// This function maps a list of mouse descriptions to a callback function.
+    ///
+    /// # Panics
+    /// This function panics if any item of `desc` does not follow the syntax for defining mouse
+    /// events as described in the [input](crate::input) module.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    /// use minus::input::InputEvent;
+    ///
+    /// let pager = Pager::new();
+    /// pager.map_mouses(vec!["scroll:up"], |_, ps| {
+    ///     InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(5))
+    /// }).unwrap();
+    /// ```
+    pub fn map_mouses<C, I, S>(&self, desc: I, cb: C) -> Result<(), MinusError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+        C: Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    {
+        let desc_strs = desc
+            .into_iter()
+            .map(|s| Event::Mouse(definitions::mousedefs::parse_mouse_event(s.as_ref())).into())
+            .collect::<Vec<EventWrapper>>();
+        Ok(self.tx.send(Command::AddInputBinding(
+            InputType::Mouse(desc_strs),
+            Box::new(cb),
+        ))?)
+    }
+
+    /// Map resize event to a callback
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    /// use minus::input::InputEvent;
+    /// use minus::input::crossterm_event::Event;
+    ///
+    /// let pager = Pager::new();
+    /// pager.map_resize(|ev, _| {
+    ///     let Event::Resize(cols, rows) = ev else { unreachable!() };
+    ///     InputEvent::UpdateTermArea(cols as usize, rows as usize)
+    /// }).unwrap();
+    /// ```
+    pub fn map_resize<C>(&self, cb: C) -> Result<(), MinusError>
+    where
+        C: Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    {
         Ok(self
             .tx
-            .send(Command::AddKeyBinding(desc_strs, Box::new(cb), remap))?)
+            .send(Command::AddInputBinding(InputType::Resize, Box::new(cb)))?)
+    }
 
-    /// Adds a function that will be called when the user quits the pager
+    /// Map all events that fail to match any other binding to a callback
     ///
-    /// Multiple functions can be stored for calling when the user quits. These functions
-    /// run sequentially in the order they were added
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    /// use minus::input::InputEvent;
+    ///
+    /// let pager = Pager::new();
+    /// pager.map_wild_event(|_, _| InputEvent::Ignore).unwrap();
+    /// ```
+    pub fn map_wild_event<C>(&self, cb: C) -> Result<(), MinusError>
+    where
+        C: Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    {
+        Ok(self
+            .tx
+            .send(Command::AddInputBinding(InputType::Wild, Box::new(cb)))?)
+    }
+
+    /// Clear key bindings
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    /// use minus::input::crossterm_event::{Event, KeyEvent, KeyCode, KeyModifiers};
+    ///
+    /// let pager = Pager::new();
+    /// pager.clear_keys(vec![Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)).into()]).unwrap();
+    /// ```
+    pub fn clear_keys(&self, desc: Vec<EventWrapper>) -> Result<(), MinusError> {
+        Ok(self
+            .tx
+            .send(Command::RemoveInputBinding(InputType::Key(desc)))?)
+    }
+
+    /// Clear mouse bindings
+    ///
+    /// # Panics
+    /// This function panics if any item of `desc` does not follow the syntax for defining mouse
+    /// events as described in the [input](crate::input) module.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    ///
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// // let pager = Pager::new();
+    /// // pager.clear_mouse(vec![...]).unwrap();
+    /// ```
+    pub fn clear_mouse(&self, desc: Vec<EventWrapper>) -> Result<(), MinusError> {
+        Ok(self
+            .tx
+            .send(Command::RemoveInputBinding(InputType::Mouse(desc)))?)
+    }
+
+    /// Clear resize event callback
     ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
@@ -266,18 +418,30 @@ impl Pager {
     /// ```
     /// use minus::Pager;
     ///
-    /// fn hello() {
-    ///     println!("Hello");
-    /// }
+    /// let pager = Pager::new();
+    /// pager.clear_resize().unwrap();
+    /// ```
+    pub fn clear_resize(&self) -> Result<(), MinusError> {
+        Ok(self
+            .tx
+            .send(Command::RemoveInputBinding(InputType::Resize))?)
+    }
+
+    /// Clear wild event callback
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
     ///
     /// let pager = Pager::new();
-    /// pager.add_exit_callback(Box::new(hello)).expect("Failed to communicate with the pager");
+    /// pager.clear_wild_event().unwrap();
     /// ```
-    pub fn add_exit_callback(
-        &self,
-        cb: Box<dyn FnMut() + Send + Sync + 'static>,
-    ) -> Result<(), MinusError> {
-        Ok(self.tx.send(Command::AddExitCallback(cb))?)
+    pub fn clear_wild_event(&self) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::RemoveInputBinding(InputType::Wild))?)
     }
 
     /// Add a function to be called when a specific [`Hook`] is triggered
@@ -351,17 +515,44 @@ impl Pager {
         Ok(())
     }
 
+    /// Adds a function that will be called when the user quits the pager
+    ///
+    /// Multiple functions can be stored for calling when the user quits. These functions
+    /// run sequentially in the order they were added
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// fn hello() {
+    ///     println!("Hello");
+    /// }
+    ///
+    /// let pager = Pager::new();
+    /// pager.add_exit_callback(Box::new(hello)).expect("Failed to communicate with the pager");
+    /// ```
+    pub fn add_exit_callback(
+        &self,
+        cb: Box<dyn FnMut() + Send + Sync + 'static>,
+    ) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::AddExitCallback(cb))?)
+    }
+
     /// Configures follow output
     ///
     /// When set to true, minus ensures that the user's screen always follows the end part of the
     /// output. By default it is turned off.
     ///
-    /// This is similar to [InputEvent::FollowOutput](crate::input::InputEvent::FollowOutput) except that
-    /// this is used to control it from the application's side.
+    /// This is similar to [InputEvent::FollowOutput] except that this is used to control it from
+    /// the application's side.
     ///
     /// # Errors
-    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
-    /// could not be sent to the mus's receiving end
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if
+    /// the data could not be sent to the mus's receiving end
     ///
     /// # Example
     /// ```

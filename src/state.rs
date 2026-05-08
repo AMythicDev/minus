@@ -76,13 +76,6 @@ impl Default for SearchState {
 
 /// Holds all information and configuration about the pager during
 /// its run time.
-///
-/// This type is exposed so that end-applications can implement the
-/// [`InputClassifier`](input::InputClassifier) trait which requires the `PagerState` to be passed
-/// as a parameter
-///
-/// Various fields are made public so that their values can be accessed while implementing the
-/// trait.
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
     /// Configuration for line numbers. See [`LineNumbers`]
@@ -131,7 +124,7 @@ pub struct PagerState {
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
     /// Callbacks to run when inputs from user are received
-    pub(crate) event_register: HashedEventRegister,
+    pub(crate) input_register: HashedEventRegister,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
@@ -182,7 +175,7 @@ impl PagerState {
             running: &minus_core::RUNMODE,
             left_mark: 0,
             exit_strategy: ExitStrategy::ProcessQuit,
-            event_register: HashedEventRegister::default(),
+            input_register: HashedEventRegister::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,
