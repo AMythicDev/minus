@@ -7,7 +7,7 @@ use crate::{
     LineNumbers,
     error::{MinusError, TermError},
     hooks::Hooks,
-    input::{self, HashedEventRegister},
+    input::HashedEventRegister,
     minus_core::{
         self, CommandQueue,
         utils::{LinesRowMap, display::AppendStyle},
@@ -174,7 +174,6 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            exit_strategy: ExitStrategy::ProcessQuit,
             input_register: HashedEventRegister::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
