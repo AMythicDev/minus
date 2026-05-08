@@ -344,7 +344,7 @@ fn event_reader(
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
             let mut guard = ps.lock();
             // Get the events
-            let input = guard.input_classifier.classify_input(ev, &guard);
+            let input = guard.event_register.classify_input(ev, &guard);
             if let Some(iev) = input {
                 if !matches!(iev, InputEvent::Number(_)) {
                     guard.prefix_num.clear();
