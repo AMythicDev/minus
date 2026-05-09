@@ -112,7 +112,7 @@ pub struct Screen {
     pub(crate) line_count: usize,
     pub(crate) max_line_length: usize,
     /// Unterminated lines
-    /// Keeps track of the number of lines at the last of [Self::formatted_lines] which are not
+    /// Keeps track of the number of lines at the last of [`Self::formatted_lines`] which are not
     /// terminated by a newline
     pub(crate) unterminated: usize,
     /// Whether to Line wrap lines

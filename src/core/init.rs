@@ -55,7 +55,7 @@ use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 ///
 /// * If the size of the data is less than the available number of rows in the terminal
 ///   then it displays everything on the main stdout screen at once and quits. This
-///   behaviour can be turned off if [`Pager::set_run_no_overflow`](true) is called
+///   behaviour can be turned off if [`Pager::set_run_no_overflow`] is called
 ///   by the main application
 // Sorry... this behaviour would have been cool to have in async mode, just think about it!!! Many
 // implementations were proposed but none were perfect
@@ -64,7 +64,7 @@ use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 // using your library... your only weapon
 // So we just don't take any more proposals about this. It is really frustating to
 // to thoroughly test each implementation and fix out all rough edges around it
-///   Next it initializes the runtime and calls [`start_reactor`] and a [`event reader`]` which is
+///   Next it initializes the runtime and calls [`start_reactor`] and a [`event reader`] which is
 ///   selected based on the enabled feature set:-
 ///
 /// # Errors

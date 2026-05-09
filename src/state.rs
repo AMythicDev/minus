@@ -110,8 +110,8 @@ pub struct PagerState {
     ///
     /// See [`SearchMode`] for available options
     ///
-    /// **WARNING: This item has been deprecated in favour of [SearchState::search_mode] availlable
-    /// by the [PagerState::search_state] field. Any new code should prefer using it instead of this one.**
+    /// **WARNING: This item has been deprecated in favour of [`SearchState::search_mode`] availlable
+    /// by the [`PagerState::search_state`] field. Any new code should prefer using it instead of this one.**
     #[cfg(feature = "search")]
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_mode: SearchMode,
@@ -148,7 +148,7 @@ pub struct PagerState {
     pub(crate) run_no_overflow: bool,
     pub(crate) lines_to_row_map: LinesRowMap,
     /// Value for follow mode.
-    /// See [follow_output](crate::pager::Pager::follow_output) for more info on follow mode.
+    /// See [`follow_output`](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
 }
 
@@ -209,7 +209,8 @@ impl PagerState {
 
     /// Generate the initial [`PagerState`]
     ///
-    /// [`init_core`](crate::minus_core::init::init_core) calls this functions for creating the PagerState.
+    /// [`init_core`](crate::minus_core::init::init_core) calls this functions for creating the
+    /// `PagerState`.
     ///
     /// This function creates a default [`PagerState`] and fetches all events present in the receiver
     /// to create the initial state. This is done before starting the pager so that

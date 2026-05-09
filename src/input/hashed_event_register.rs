@@ -92,7 +92,7 @@ impl Hash for EventWrapper {
 pub struct HashedEventRegister<S>(HashMap<EventWrapper, EventReturnType, S>);
 
 impl HashedEventRegister<RandomState> {
-    /// Create a new [HashedEventRegister] with the default hasher
+    /// Create a new [`HashedEventRegister`] with the default hasher
     #[must_use]
     pub fn with_default_hasher() -> Self {
         Self::new(RandomState::new())
@@ -100,7 +100,7 @@ impl HashedEventRegister<RandomState> {
 }
 
 impl Default for HashedEventRegister<RandomState> {
-    /// Create a new [HashedEventRegister] with the default hasher and insert the default bindings
+    /// Create a new [`HashedEventRegister`] with the default hasher and insert the default bindings
     fn default() -> Self {
         let mut event_register = Self::new(RandomState::new());
         super::generate_default_bindings(&mut event_register);
@@ -124,7 +124,7 @@ impl<S> HashedEventRegister<S>
 where
     S: BuildHasher,
 {
-    /// Create a new HashedEventRegister with the Hasher `s`
+    /// Create a new `HashedEventRegister` with the Hasher `s`
     pub fn new(s: S) -> Self {
         Self(HashMap::with_hasher(s))
     }
@@ -196,7 +196,7 @@ where
 {
     /// Add all elemnts of `desc` as key bindings that minus should respond to with the callback `cb`
     ///
-    /// You should prefer using the [add_key_events_checked](HashedEventRegister::add_key_events_checked)
+    /// You should prefer using the [`add_key_events_checked`](HashedEventRegister::add_key_events_checked)
     /// over this one.
     ///
     /// # Example
@@ -225,7 +225,7 @@ where
 
     /// Add all elemnts of `desc` as key bindings that minus should respond to with the callback `cb`.
     ///
-    /// Prefer using this over [add_key_events](HashedEventRegister::add_key_events).
+    /// Prefer using this over [`add_key_events`](HashedEventRegister::add_key_events).
     ///
     /// # Panics
     ///
@@ -283,7 +283,7 @@ where
 {
     /// Add all elemnts of `desc` as mouse bindings that minus should respond to with the callback `cb`
     ///
-    /// You should prefer using the [add_mouse_events_checked](HashedEventRegister::add_mouse_events_checked)
+    /// You should prefer using the [`add_mouse_events_checked`](HashedEventRegister::add_mouse_events_checked)
     /// over this one.
     ///
     /// # Example
@@ -312,7 +312,7 @@ where
 
     /// Add all elemnts of `desc` as mouse bindings that minus should respond to with the callback `cb`.
     ///
-    /// Prefer using this over [add_mouse_events](HashedEventRegister::add_mouse_events).
+    /// Prefer using this over [`add_mouse_events`](HashedEventRegister::add_mouse_events).
     ///
     /// # Panics
     /// This will panic if you the keybinding has been previously defined, unless the `remap`

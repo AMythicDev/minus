@@ -13,28 +13,28 @@ pub static RUNMODE: parking_lot::Mutex<RunMode> = parking_lot::const_mutex(RunMo
 
 use commands::Command;
 
-/// A [VecDeque] to hold [Command]s to be executed after the current command has been executed
+/// A [`VecDeque`] to hold [Command]s to be executed after the current command has been executed
 ///
-/// Many [Command]s in minus require additional commands to be executed once the current command's
-/// main objective has ben completed. For example the [SetLineNumbers](Command::SetLineNumbers)
+/// Many [`Command`]s in minus require additional commands to be executed once the current command's
+/// main objective has ben completed. For example the [`SetLineNumbers`](Command::SetLineNumbers)
 /// requires the text data to be reformatted and repainted on the screen. Hence it can push that
 /// command to this to be executed once it itself has completed executing.
 ///
 /// This also takes into account [RUNMODE] before inserting data. The means that it will ensure that
 /// [RUNMODE] is not uninitialized before pushing any data into the queue. Hence it is best used
-/// case is while declaring handlers for [Command::UserInput].
+/// case is while declaring handlers for [`Command::UserInput`].
 ///
 /// This is a FIFO type hence the command that enters first gets executed first.
 pub struct CommandQueue(VecDeque<Command>);
 
 impl CommandQueue {
-    /// Create a new CommandQueue with default size of 10.
+    /// Create a new `CommandQueue` with default size of 10.
     pub fn new() -> Self {
         Self(VecDeque::with_capacity(10))
     }
-    /// Create a new CommandQueue with zero memory allocation.
+    /// Create a new `CommandQueue` with zero memory allocation.
     ///
-    /// This is useful when we have to pass this type to [handle_event](ev_handler::handle_event)
+    /// This is useful when we have to pass this type to [`handle_event`](ev_handler::handle_event)
     /// but it is sure that this won't be used.
     pub fn new_zero() -> Self {
         Self(VecDeque::with_capacity(0))

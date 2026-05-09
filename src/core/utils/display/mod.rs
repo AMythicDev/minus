@@ -143,7 +143,7 @@ pub fn write_prompt(out: &mut impl Write, text: &str, rows: u16) -> Result<(), M
 
 /// Completely redraws the screen
 ///
-/// The function will first print out the lines from the current upper_mark. This is handled inside the [`write_lines`]
+/// The function will first print out the lines from the current upper mark. This is handled inside the [`write_lines`]
 /// function.
 ///
 /// Then it will check if there is any message to display.
@@ -212,9 +212,9 @@ pub fn draw_append_text(
 
 /// Write the lines to the terminal
 ///
-/// Note: Although this function can take any type that implements [Write] however it assumes that
-/// it behaves like a terminal i.e it must set rows and cols in [PagerState].
-/// If you want to write directly to a file without this preassumption, then use the [write_lines]
+/// Note: Although this function can take any type that implements [`Write`] however it assumes that
+/// it behaves like a terminal i.e it must set rows and cols in [`PagerState`].
+/// If you want to write directly to a file without this preassumption, then use the [`write_lines`]
 /// function.
 ///
 /// Draws (at most) `rows -1` lines, where the first line to display is

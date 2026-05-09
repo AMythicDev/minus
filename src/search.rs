@@ -17,7 +17,7 @@
 //! approach eliminates the need to re run the search of text after confirming the query.
 //!
 //! Running Incremental search can be controlled by a function. The function should take
-//! reference to [SearchOpts] as the only argument and return a bool as output. This way we can impose a
+//! reference to [`SearchOpts`] as the only argument and return a bool as output. This way we can impose a
 //! condition so that incremental search does not get really resource intensive for really vague queries
 //! This also allows applications can control whether they want incremental search to run.
 //! By default minus uses a default condition where incremental search runs only when length of search
@@ -106,27 +106,27 @@ impl PartialEq for SearchMode {
 
 /// Options controlling the behaviour of search overall
 ///
-/// Although it isn't much important for most use cases but it alongside [IncrementalSearchOpts] are the key components
+/// Although it isn't much important for most use cases but it alongside [`IncrementalSearchOpts`] are the key components
 /// when applications want to customize the incremental seaech condition.
 ///
 /// Most of the fields have self-explanatory names so it should be very easy to get started using
 /// this
 #[allow(clippy::module_name_repetitions)]
 pub struct SearchOpts<'a> {
-    /// A [crossterm Event](Event) on which to respond
+    /// A [`crossterm Event`](Event) on which to respond
     pub ev: Option<Event>,
     /// Current string query
     pub string: String,
-    /// Status of the input prompt. See [InputStatus]
+    /// Status of the input prompt. See [`InputStatus`]
     pub input_status: InputStatus,
     /// Specifies the terminal column number that the cursor on at the prompt site.
     /// It can range between 1 and `string.len() + 1`
     pub cursor_position: u16,
-    /// Direction of search. See [SearchMode].
+    /// Direction of search. See [`SearchMode`].
     pub search_mode: SearchMode,
     /// Column numbers where each new word start
     pub word_index: Vec<u16>,
-    /// Search character, either `/` or `?` depending on [SearchMode]
+    /// Search character, either `/` or `?` depending on [`SearchMode`]
     pub search_char: char,
     /// Number of rows available in the terminal
     pub rows: u16,
@@ -145,11 +145,11 @@ pub struct SearchOpts<'a> {
 pub struct IncrementalSearchOpts<'a> {
     /// Current status of line numbering
     pub line_numbers: LineNumbers,
-    /// Value of [PagerState::upper_mark] before starting of search prompt
+    /// Value of [`PagerState::upper_mark`] before starting of search prompt
     pub initial_upper_mark: usize,
-    /// Reference to [PagerState::screen]
+    /// Reference to [`PagerState::screen`]
     pub screen: &'a Screen,
-    /// Value of [PagerState::upper_mark] before starting of search prompt
+    /// Value of [`PagerState::upper_mark`] before starting of search prompt
     pub initial_left_mark: usize,
 }
 
@@ -214,19 +214,19 @@ impl InputStatus {
     }
 }
 
-/// Return type of [fetch_input]
+/// Return type of [`fetch_input`]
 pub(crate) struct FetchInputResult {
     /// Original search query
     pub(crate) string: String,
     /// Incremental search cache if available
     pub(crate) incremental_search_result: Option<IncrementalSearchCache>,
-    /// Cached pre-compiled [Regex] if available
+    /// Cached pre-compiled [`Regex`] if available
     pub(crate) compiled_regex: Option<Regex>,
 }
 
 impl FetchInputResult {
     /// Create an empty `FetchInputResult` with string set to empty string and
-    /// incremental_search_cache and compiled_regex set to `None`.
+    /// `incremental_search_cache` and `compiled_regex` set to `None`.
     const fn new_empty() -> Self {
         Self {
             string: String::new(),
@@ -243,7 +243,7 @@ pub(crate) struct IncrementalSearchCache {
     /// Index from `search_idx` where a search match after current upper mark may be found
     /// NOTE: There is no guarantee that this will stay within the bounds of `search_idx`
     pub(crate) search_mark: usize,
-    /// Indices of formatted_lines where search matches have been found
+    /// Indices of `formatted_lines` where search matches have been found
     pub(crate) search_idx: BTreeSet<usize>,
     /// Index of the line from which to display the text.
     /// This will be set to the index of line which is after the current upper mark and will
@@ -361,7 +361,7 @@ where
 
 /// Respond to keyboard events
 ///
-/// This souuld be called exactly once for each event by [fetch_input]
+/// This souuld be called exactly once for each event by [`fetch_input`]
 #[allow(clippy::too_many_lines)]
 fn handle_key_press<O, F>(
     out: &mut O,
@@ -561,8 +561,8 @@ where
 /// Fetch the search query
 ///
 /// The function will change the prompt to `/` for Forward search or `?` for Reverse search.
-/// Next it fetches and handles all events from the terminal screen until [SearchOpts::input_status] isn't
-/// set to either [InputStatus::Cancelled] or [InputStatus::Confirmed] by pressing `Esc` or
+/// Next it fetches and handles all events from the terminal screen until [`SearchOpts::input_status`] isn't
+/// set to either [`InputStatus::Cancelled`] or [`InputStatus::Confirmed`] by pressing `Esc` or
 /// `Enter` respectively.
 /// Finally we return
 #[cfg(feature = "search")]
@@ -781,7 +781,7 @@ impl fmt::Display for HighlightMatchesArgs<'_, '_> {
 /// `Some(3)` which is index of 34.
 ///
 /// If `jump` causes the index to overflow the length of the `search_idx`, the function will set it
-/// to wrap to the start of `search_idx`. Also if search_idx is empty, this will simply return None.
+/// to wrap to the start of `search_idx`. Also if `search_idx` is empty, this will simply return None.
 ///
 /// Setting `jump` equal to 0 causes a slight change in behaviour: it will also return the index of
 /// element if that element is equal to the current upper mark. In the above example lets say that

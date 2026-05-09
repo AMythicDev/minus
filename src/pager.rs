@@ -26,8 +26,8 @@ use crate::search::SearchOpts;
 ///
 /// before or while the pager is running.
 ///
-/// [Pager] also implements the [std::fmt::Write] trait which means you can directly call [write!] and
-/// [writeln!] macros on it. For example, you can easily do this
+/// [`Pager`] also implements the [`std::fmt::Write`] trait which means you can directly call [`write!`] and
+/// [`writeln!`] macros on it. For example, you can easily do this
 ///
 /// ```
 /// use minus::Pager;
@@ -190,7 +190,7 @@ impl Pager {
     /// ```
     #[deprecated(
         since = "5.7.0",
-        note = "Add a callback for [PostPagerExit](crate::hooks::Hook::PostPagerExit) hook. See [hooks](crate::hooks) for more info."
+        note = "Add a callback for [`PostPagerExit`](crate::hooks::Hook::PostPagerExit) hook. See [`hooks`](crate::hooks) for more info."
     )]
     pub fn set_exit_strategy(&self, es: ExitStrategy) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::SetExitStrategy(es))?)
@@ -247,41 +247,41 @@ impl Pager {
 
     /// Set a custom input classifer type.
     ///
-    /// An input classifier type is a type that implements the [InputClassifier]
-    /// trait. It only has one required function, [InputClassifier::classify_input]
-    /// which matches user input events and maps them to a [InputEvent]s.
+    /// An input classifier type is a type that implements the [`InputClassifier`]
+    /// trait. It only has one required function, [`InputClassifier::classify_input`]
+    /// which matches user input events and maps them to a [`InputEvent`]s.
     /// When the pager encounters a user input, it calls the input classifier with
-    /// the event and [PagerState] as parameters.
+    /// the event and [`PagerState`] as parameters.
     ///
     /// Previously, whenever any application wanted to change the default key/mouse bindings
-    /// they neededd to create a new type, implement the [InputClassifier] type by copying and
-    /// pasting the default minus's implementation of it available in the [DefaultInputClassifier]
+    /// they neededd to create a new type, implement the [`InputClassifier`] type by copying and
+    /// pasting the default minus's implementation of it available in the [`DefaultInputClassifier`]
     /// and change the parts they wanted to change. This is not only unergonomic but also
     /// extreemely prone to bugs. Hence a newer and much simpler method was developed.
     /// This method is still allowed to avoid breaking backwards compatiblity but will be dropped
     /// in the next major release.
     ///
-    /// With the newer method, minus already provides a type called [HashedEventRegister]
-    /// which implementing the [InputClassifier] and is based on a
-    /// [HashMap] storing all the key/mouse bindings and its associated callback function.
+    /// With the newer method, minus already provides a type called [`HashedEventRegister`]
+    /// which implementing the [`InputClassifier`] and is based on a
+    /// [`HashMap`] storing all the key/mouse bindings and its associated callback function.
     /// This allows easy addition/updation/deletion of the default bindings with simple functions
-    /// like [HashedEventRegister::add_key_events] and [HashedEventRegister::add_mouse_events]
+    /// like [`HashedEventRegister::add_key_events`] and [`HashedEventRegister::add_mouse_events`]
     ///
-    /// See the [input] module for information about implementing it.
+    /// See the [`input`] module for information about implementing it.
     ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
     /// could not be sent to the receiver
     ///
-    /// [HashedEventRegister::add_key_events]: input::HashedEventRegister::add_key_events
-    /// [HashedEventRegister::add_mouse_events]: input::HashedEventRegister::add_mouse_events
-    /// [HashMap]: std::collections::HashMap
-    /// [PagerState]: crate::state::PagerState
-    /// [InputEvent]: input::InputEvent
-    /// [InputClassifier]: input::InputClassifier
-    /// [InputClassifier::classify_input]: input::InputClassifier
-    /// [HashedEventRegister]: input::HashedEventRegister
-    /// [DefaultInputClassifier]: input::DefaultInputClassifier
+    /// [`HashedEventRegister::add_key_events`]: input::HashedEventRegister::add_key_events
+    /// [`HashedEventRegister::add_mouse_events`]: input::HashedEventRegister::add_mouse_events
+    /// [`HashMap`]: std::collections::HashMap
+    /// [`PagerState`]: crate::state::PagerState
+    /// [`InputEvent`]: input::InputEvent
+    /// [`InputClassifier`]: input::InputClassifier
+    /// [`InputClassifier::classify_input`]: input::InputClassifier
+    /// [`HashedEventRegister`]: input::HashedEventRegister
+    /// [`DefaultInputClassifier`]: input::DefaultInputClassifier
     pub fn set_input_classifier(
         &self,
         handler: Box<dyn input::InputClassifier + Send + Sync>,
@@ -396,7 +396,7 @@ impl Pager {
     /// When set to true, minus ensures that the user's screen always follows the end part of the
     /// output. By default it is turned off.
     ///
-    /// This is similar to [InputEvent::FollowOutput](crate::input::InputEvent::FollowOutput) except that
+    /// This is similar to [`InputEvent::FollowOutput`](crate::input::InputEvent::FollowOutput) except that
     /// this is used to control it from the application's side.
     ///
     /// # Errors

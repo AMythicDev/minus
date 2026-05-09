@@ -10,8 +10,9 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 #![warn(clippy::nursery)]
-#![allow(clippy::doc_markdown)]
 #![cfg_attr(doctest, doc = include_str!("../README.md"))]
+// XXX: Remove this once v5.7 is released
+#![allow(deprecated)]
 
 //! `minus`: A library for asynchronous terminal [paging], written in Rust.
 //!
@@ -21,7 +22,7 @@
 //! When getting started with minus, the two most important concepts to get familier with are:
 //! * The [Pager] type: which acts as a bridge between your application and minus. It is used
 //!   to pass data and configure minus before and after starting the pager.
-//! * Initialization functions: This includes the [dynamic_paging] and [page_all] functions which
+//! * Initialization functions: This includes the [`dynamic_paging`] and [`page_all`] functions which
 //!   take a [Pager] as argument. They are responsible for generating the initial state and starting
 //!   the pager.
 //!
@@ -162,7 +163,7 @@
 //! | p                   | Go to the next previous match (alternate keybinding)                            |
 //!
 //! End-applications are free to change these bindings to better suit their needs. See docs for
-//! [Pager::set_input_classifier] function and [input] module.
+//! [`Pager::set_input_classifier`] function and [`input`] module.
 //!
 //! ## Key Bindings Available at Search Prompt
 //!

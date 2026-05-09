@@ -8,9 +8,9 @@
 //! # Newer (Recommended) Method
 //! ## Description
 //! This method offers a much improved and ergonomic API for defining bindings and callbacks.
-//! You use the [HashedEventRegister] for registering bindings and their associated callback.
-//! It provides functions like [add_key_events](HashedEventRegister::add_key_events) and
-//! [add_mouse_events](HashedEventRegister::add_mouse_events) which take `&[&str]` as its first
+//! You use the [`HashedEventRegister`] for registering bindings and their associated callback.
+//! It provides functions like [`add_key_events`](HashedEventRegister::add_key_events) and
+//! [`add_mouse_events`](HashedEventRegister::add_mouse_events) which take `&[&str]` as its first
 //! argument and a callback `cb` as its second argument and maps all `&str` in the `&[&str]` to
 //! same callback function `cb`. Each `&str` of the `&[&str]` contains a description of the
 //! key/mouse binding needed to activate it. For example `c-c` means pressing a `Ctrl+c` on the
@@ -146,7 +146,7 @@
 //!
 //! Sometimes you want to execute arbitrary code when a key/mouse action is pressed like fetching
 //! more data from a server but not necessarily sending it to minus. In these types of scenarios,
-//! the [InputEvent::Ignore] is most likely your true friend. When this is returned by a callback
+//! you can leverage [`InputEvent::Ignore`]. When this is returned by a callback
 //! function, minus will execute your code but not do anything special for the event on its part.
 //! ```no_test
 //! input_register.add_key_events(&["f"], |_, ps| {
@@ -200,7 +200,7 @@ pub enum InputEvent {
     Exit,
     /// The terminal was resized. Contains the new number of rows.
     UpdateTermArea(usize, usize),
-    /// Sent by movement keys like `Up` `Down`, `PageUp`, 'PageDown', 'g', `G` etc.
+    /// Sent by movement keys like `Up` `Down`, `PageUp`, `PageDown`, 'g', `G` etc.
     /// Contains the new value for the upper mark.
     UpdateUpperMark(usize),
     /// `Ctrl+L`, inverts the line number display. Contains the new value.
@@ -250,7 +250,7 @@ pub enum InputEvent {
     /// When set to true, minus ensures that the user's screen always follows the end part of the
     /// output. By default it is turned off.
     ///
-    /// This is similar to [Pager::follow_output](crate::pager::Pager::follow_output) except that
+    /// This is similar to [`Pager::follow_output`](crate::pager::Pager::follow_output) except that
     /// this is used to control it from the user's side.
     FollowOutput(bool),
 }
