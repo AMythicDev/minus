@@ -597,3 +597,45 @@ mod draw_for_change_tests {
         assert_eq!(out, res);
     }
 }
+
+#[cfg(test)]
+mod horizontal_scroll_bounds_tests {
+    use std::fmt::write;
+
+    use super::super::get_horizontal_scroll_bounds;
+
+    #[test]
+    fn basic_bounds_no_line_numbers() {
+        let line = "0123456789";
+        let bounds = get_horizontal_scroll_bounds(line, 5, 2, false, 10);
+        assert_eq!(bounds, (0, 2, 7));
+    }
+
+    #[test]
+    fn basic_bounds_with_line_numbers() {
+        let line = format!(
+            "{:5}{}10.{} 0123456789",
+            "",
+            crossterm::style::Attribute::Bold,
+            crossterm::style::Attribute::Reset
+        );
+
+        let bounds = get_horizontal_scroll_bounds(&line, 5, 2, true, 10);
+        // left: (17, 19, 19)
+        assert_eq!(bounds, (17, 19, 19));
+    }
+
+    #[test]
+    fn non_ascii_bounds() {
+        let line = "├── 0123456789";
+        let bounds = get_horizontal_scroll_bounds(line, 5, 1, false, 10);
+        assert_eq!(bounds, (0, 3, 6));
+    }
+
+    #[test]
+    fn overflow_bounds() {
+        let line = "0123";
+        let bounds = get_horizontal_scroll_bounds(line, 10, 0, false, 10);
+        assert_eq!(bounds, (0, 0, 4));
+    }
+}

@@ -324,9 +324,40 @@ pub fn write_lines_in_horizontal_scroll(
     line_numbers: bool,
     line_count: usize,
 ) -> crate::Result {
+    for line in lines {
+        let (first_end, second_start, second_end) =
+            get_horizontal_scroll_bounds(line, cols, start, line_numbers, line_count);
+
+        if start < line.len() {
+            if line_numbers {
+                writeln!(
+                    out,
+                    "\r{}{}",
+                    &line[0..first_end],
+                    &line[second_start..second_end]
+                )?;
+            } else {
+                writeln!(out, "\r{}", &line[second_start..second_end])?;
+            }
+        } else {
+            writeln!(out, "\r")?;
+        }
+    }
+    Ok(())
+}
+
+#[must_use]
+pub fn get_horizontal_scroll_bounds(
+    line: &str,
+    cols: usize,
+    start: usize,
+    line_numbers: bool,
+    line_count: usize,
+) -> (usize, usize, usize) {
+    // Length of the bold+reset sequence that wraps the line numbers
     let line_number_ascii_seq_len = if line_numbers { 8 } else { 0 };
     let line_number_padding = if line_numbers {
-        minus_core::utils::digits(line_count) + LineNumbers::EXTRA_PADDING + 3
+        minus_core::utils::digits(line_count) + LineNumbers::EXTRA_PADDING + 2
     } else {
         0
     };
@@ -336,52 +367,44 @@ pub fn write_lines_in_horizontal_scroll(
         start
     };
 
-    for line in lines {
-        let end = shifted_start + cols.min(line.len().saturating_sub(shifted_start))
-            - line_number_padding;
+    let end = if line_numbers {
+        shifted_start
+            + cols
+                .saturating_sub(line_number_padding)
+                .min(line.len().saturating_sub(shifted_start))
+    } else {
+        shifted_start + cols.min(line.len().saturating_sub(shifted_start))
+    };
 
-        if start < line.len() {
-            if line_numbers {
-                // make sure "line_number_padding + line_number_ascii_seq_len" not overflow
-                let first_end = (line_number_padding + line_number_ascii_seq_len).min(line.len());
-                // make sure "shifted_start" not downflow
-                let second_start = shifted_start.min(line.len() - 1).max(0);
-                // make sure end not overflow
-                let second_end = end.min(line.len());
- 
-                // check char boundary, for example "▲" takes up 3 bytes,
-                // we must promise that second_start points to the first
-                // byte or the fourth byte;
-                let mut i = second_start;
-                while i < second_end && line.is_char_boundary(i) == false {
-                    i += 1;
-                }
-                let second_start = i;
-                writeln!(
-                    out,
-                    "\r{}{}",
-                    &line[0..first_end],
-                    &line[second_start..second_end]
-                )?;
-            } else {
-                // make sure "shifted_start" not overflow
-                let resolved_start = shifted_start.min(line.len() - 1);
-                // make sure end not overflow
-                let resolved_end = end.min(line.len());
+    if line_numbers {
+        // make sure "line_number_padding + line_number_ascii_seq_len" not overflow
+        let first_end = (line_number_padding + line_number_ascii_seq_len).min(line.len());
+        // make sure "shifted_start" not downflow
+        let second_start = shifted_start.min(line.len());
+        // make sure end not overflow
+        let second_end = end.min(line.len());
 
-                // check char boundary like above
-                let mut i = resolved_start;
-                while i < resolved_end && line.is_char_boundary(i) == false {
-                    i += 1;
-                }
-                let resolved_start = i;
-                writeln!(out, "\r{}", &line[resolved_start..resolved_end])?;
-            }
-        } else {
-            writeln!(out, "\r")?;
+        // check char boundary, for example "▲" takes up 3 bytes,
+        // we must promise that second_start points to the first
+        // byte or the fourth byte;
+        let mut i = second_start;
+        while i < second_end && !line.is_char_boundary(i) {
+            i += 1;
         }
+        (first_end, i, second_end)
+    } else {
+        // make sure "shifted_start" not overflow
+        let resolved_start = shifted_start.min(line.len());
+        // make sure end not overflow
+        let resolved_end = end.min(line.len());
+
+        // check char boundary like above
+        let mut i = resolved_start;
+        while i < resolved_end && !line.is_char_boundary(i) {
+            i += 1;
+        }
+        (0, i, resolved_end)
     }
-    Ok(())
 }
 
 /// Write lines to the the output
