@@ -600,8 +600,6 @@ mod draw_for_change_tests {
 
 #[cfg(test)]
 mod horizontal_scroll_bounds_tests {
-    use std::fmt::write;
-
     use super::super::get_horizontal_scroll_bounds;
 
     #[test]

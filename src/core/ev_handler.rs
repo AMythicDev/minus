@@ -46,7 +46,9 @@ pub fn handle_event(
         }
         Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.screen.line_wrapping => {
             let padding = if p.line_numbers.is_on() {
-                crate::minus_core::utils::digits(p.screen.line_count()) + crate::LineNumbers::EXTRA_PADDING + 2
+                crate::minus_core::utils::digits(p.screen.line_count())
+                    + crate::LineNumbers::EXTRA_PADDING
+                    + 2
             } else {
                 0
             };
