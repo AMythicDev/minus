@@ -188,6 +188,10 @@ impl Pager {
     /// let pager = Pager::new();
     /// pager.set_exit_strategy(ExitStrategy::ProcessQuit).expect("Failed to communicate with the pager");
     /// ```
+    #[deprecated(
+        since = "5.7.0",
+        note = "Add a callback for [PostPagerExit](crate::hooks::Hook::PostPagerExit) hook. See [hooks](crate::hooks) for more info."
+    )]
     pub fn set_exit_strategy(&self, es: ExitStrategy) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::SetExitStrategy(es))?)
     }
@@ -305,6 +309,10 @@ impl Pager {
     /// let pager = Pager::new();
     /// pager.add_exit_callback(Box::new(hello)).expect("Failed to communicate with the pager");
     /// ```
+    #[deprecated(
+        since = "5.7.0",
+        note = "Add a callback for [PostPagerExit](crate::hooks::Hook::PostPagerExit) hook. See [hooks](crate::hooks) for more info."
+    )]
     pub fn add_exit_callback(
         &self,
         cb: Box<dyn FnMut() + Send + Sync + 'static>,

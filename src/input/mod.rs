@@ -187,6 +187,8 @@ pub use crossterm::event as crossterm_event;
 use crate::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+
+#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
 pub use hashed_event_register::HashedEventRegister;
 
 /// Events handled by the `minus` pager.
@@ -228,11 +230,13 @@ pub enum InputEvent {
     /// **WARNING: This has been deprecated in favour of `MoveToNextMatch`. This will likely be
     /// removed in the next major release.**
     #[cfg(feature = "search")]
+    #[deprecated = "Use [InputEvent::MoveToNextMatch(1)](InputEvent::MoveToNextMatch) for the same effect."]
     NextMatch,
     /// Get to the previous match in forward mode
     ///
     /// **WARNING: This has been deprecated in favour of `MoveToPrevMatch`. This will likely be
     /// removed in the next major release.**
+    #[deprecated = "Use [InputEvent::MoveToPrevMatch(1)](InputEvent::MoveToPrevMatch) for the same effect."]
     #[cfg(feature = "search")]
     PrevMatch,
     /// Move to the next nth match in the given direction
@@ -258,11 +262,13 @@ pub enum InputEvent {
 /// If you are using the legacy method, see the sources of [`DefaultInputClassifier`] on how to
 /// inplement this trait.
 #[allow(clippy::module_name_repetitions)]
+#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
 pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
 }
 
 /// Insert the default set of actions into the [`HashedEventRegister`]
+#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
 #[allow(clippy::too_many_lines)]
 pub fn generate_default_bindings<S>(map: &mut HashedEventRegister<S>)
 where
@@ -405,6 +411,7 @@ where
 /// The default set of input definitions
 ///
 /// **This is kept only for legacy purposes and may not be well updated with all the latest changes**
+#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
 pub struct DefaultInputClassifier;
 
 impl InputClassifier for DefaultInputClassifier {
