@@ -585,14 +585,13 @@ pub(crate) fn format_line(
     // actual line display when wrapping the lines
     let padding = len_line_number + LineNumbers::EXTRA_PADDING + 1;
 
-    let cols_avail = if line_numbers {
-        cols.saturating_sub(padding + 2)
-    } else {
-        cols
-    };
-
     // Wrap the line and return an iterator over all the rows
     let enumerated_rows = if line_wrapping {
+        let cols_avail = if line_numbers {
+            cols.saturating_sub(padding + 2)
+        } else {
+            cols
+        };
         textwrap::wrap(line, cols_avail)
     } else {
         vec![Cow::from(line)]

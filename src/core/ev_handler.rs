@@ -45,7 +45,13 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::SetUpperMark(um)));
         }
         Command::UserInput(InputEvent::UpdateLeftMark(lm)) if !p.screen.line_wrapping => {
-            if lm.saturating_add(p.cols) > p.screen.get_max_line_length() && lm > p.left_mark {
+            let padding = if p.line_numbers.is_on() {
+                crate::minus_core::utils::digits(p.screen.line_count()) + crate::LineNumbers::EXTRA_PADDING + 2
+            } else {
+                0
+            };
+            let max_scrollable = p.screen.get_max_line_length().saturating_add(padding);
+            if lm.saturating_add(p.cols) > max_scrollable && lm > p.left_mark {
                 return;
             }
             p.left_mark = lm;
