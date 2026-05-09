@@ -25,6 +25,11 @@ static MOUSE_ACTIONS: LazyLock<HashMap<&str, MouseEventKind>> = LazyLock::new(||
     map
 });
 
+/// Parse a mouse input description
+///
+/// # Panics
+/// This function will panic if the description is not valid. See the [`input`](crate::input) module
+/// docs on how to write descriptions.
 pub fn parse_mouse_event(text: &str) -> MouseEvent {
     let token_list = super::parse_tokens(text);
     gen_mouse_event_from_tokenlist(&token_list, text)
