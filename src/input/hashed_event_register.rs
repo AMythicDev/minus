@@ -193,6 +193,16 @@ impl HashedEventRegister {
             self.0.remove(k);
         }
     }
+
+    /// Clear all keyboard bindings
+    pub fn clear_all_keys(&mut self) {
+        self.0.retain(|k, _| {
+            !matches!(
+                k,
+                EventWrapper::ExactMatchEvent(Event::Key(..)) | EventWrapper::WildEvent
+            )
+        });
+    }
 }
 
 // ###############################
@@ -230,5 +240,11 @@ impl HashedEventRegister {
         for k in mouse {
             self.0.remove(k);
         }
+    }
+
+    /// Clear all mouse bindings
+    pub fn clear_all_mouse(&mut self) {
+        self.0
+            .retain(|k, _| !matches!(k, EventWrapper::ExactMatchEvent(Event::Mouse(..))));
     }
 }

@@ -33,6 +33,8 @@ pub enum IoCommand {
 pub enum InputType {
     Key(Vec<EventWrapper>),
     Mouse(Vec<EventWrapper>),
+    AllKeys,
+    AllMouses,
     Resize,
     Wild,
 }

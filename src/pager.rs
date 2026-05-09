@@ -369,6 +369,12 @@ impl Pager {
 
     /// Clear key bindings
     ///
+    /// If any element of `desc` contains `*`, all key bindings will be cleared.
+    ///
+    /// # Panics
+    /// This function panics if any item of `desc` does not follow the syntax for defining key
+    /// events as described in the [input](crate::input) module.
+    ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
     /// could not be sent to the receiver
@@ -376,18 +382,42 @@ impl Pager {
     /// # Example
     /// ```
     /// use minus::Pager;
-    /// use minus::input::crossterm_event::{Event, KeyEvent, KeyCode, KeyModifiers};
     ///
     /// let pager = Pager::new();
-    /// pager.clear_keys(vec![Event::Key(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)).into()]).unwrap();
+    /// pager.clear_keys(["q"]).unwrap();
+    /// // Clear all key bindings
+    /// pager.clear_keys(["*"]).unwrap();
     /// ```
-    pub fn clear_keys(&self, desc: Vec<EventWrapper>) -> Result<(), MinusError> {
-        Ok(self
-            .tx
-            .send(Command::RemoveInputBinding(InputType::Key(desc)))?)
+    pub fn clear_keys<I, S>(&self, desc: I) -> Result<(), MinusError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut all = false;
+        let mut desc_vec = Vec::new();
+        for s in desc {
+            let s = s.as_ref();
+            if s.contains('*') {
+                all = true;
+                break;
+            }
+            desc_vec.push(Event::Key(definitions::keydefs::parse_key_event(s)).into());
+        }
+
+        if all {
+            Ok(self
+                .tx
+                .send(Command::RemoveInputBinding(InputType::AllKeys))?)
+        } else {
+            Ok(self
+                .tx
+                .send(Command::RemoveInputBinding(InputType::Key(desc_vec)))?)
+        }
     }
 
     /// Clear mouse bindings
+    ///
+    /// If any element of `desc` contains `*`, all mouse bindings will be cleared.
     ///
     /// # Panics
     /// This function panics if any item of `desc` does not follow the syntax for defining mouse
@@ -395,17 +425,42 @@ impl Pager {
     ///
     /// # Errors
     /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
     ///
+    /// # Example
     /// ```
     /// use minus::Pager;
     ///
-    /// // let pager = Pager::new();
-    /// // pager.clear_mouse(vec![...]).unwrap();
+    /// let pager = Pager::new();
+    /// pager.clear_mouse(["scroll:up"]).unwrap();
+    /// // Clear all mouse bindings
+    /// pager.clear_mouse(["*"]).unwrap();
     /// ```
-    pub fn clear_mouse(&self, desc: Vec<EventWrapper>) -> Result<(), MinusError> {
-        Ok(self
-            .tx
-            .send(Command::RemoveInputBinding(InputType::Mouse(desc)))?)
+    pub fn clear_mouse<I, S>(&self, desc: I) -> Result<(), MinusError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let mut all = false;
+        let mut desc_vec = Vec::new();
+        for s in desc {
+            let s = s.as_ref();
+            if s.contains('*') {
+                all = true;
+                break;
+            }
+            desc_vec.push(Event::Mouse(definitions::mousedefs::parse_mouse_event(s)).into());
+        }
+
+        if all {
+            Ok(self
+                .tx
+                .send(Command::RemoveInputBinding(InputType::AllMouses))?)
+        } else {
+            Ok(self
+                .tx
+                .send(Command::RemoveInputBinding(InputType::Mouse(desc_vec)))?)
+        }
     }
 
     /// Clear resize event callback

@@ -273,10 +273,13 @@ pub fn handle_event(
             InputType::Mouse(desc) => p.input_register.map_mouse_ev(desc, cb),
             InputType::Resize => p.input_register.map_resize(cb),
             InputType::Wild => p.input_register.map_wild_event(cb),
+            InputType::AllKeys | InputType::AllMouses => unreachable!(),
         },
         Command::RemoveInputBinding(et) => match et {
             InputType::Key(desc) => p.input_register.clear_keys(&desc),
             InputType::Mouse(desc) => p.input_register.clear_mouse(&desc),
+            InputType::AllKeys => p.input_register.clear_all_keys(),
+            InputType::AllMouses => p.input_register.clear_all_mouse(),
             InputType::Resize => p.input_register.clear_resize(),
             InputType::Wild => p.input_register.clear_wild_event(),
         },
