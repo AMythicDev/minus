@@ -274,7 +274,7 @@ impl Pager {
             .map(|s| Event::Key(definitions::keydefs::parse_key_event(s.as_ref())).into())
             .collect::<Vec<EventWrapper>>();
         Ok(self.tx.send(Command::AddInputBinding(
-            InputType::Key(desc_strs),
+            InputType::KeyMouse(desc_strs),
             Box::new(cb),
         ))?)
     }
@@ -312,7 +312,7 @@ impl Pager {
             .map(|s| Event::Mouse(definitions::mousedefs::parse_mouse_event(s.as_ref())).into())
             .collect::<Vec<EventWrapper>>();
         Ok(self.tx.send(Command::AddInputBinding(
-            InputType::Mouse(desc_strs),
+            InputType::KeyMouse(desc_strs),
             Box::new(cb),
         ))?)
     }
@@ -411,7 +411,7 @@ impl Pager {
         } else {
             Ok(self
                 .tx
-                .send(Command::RemoveInputBinding(InputType::Key(desc_vec)))?)
+                .send(Command::RemoveInputBinding(InputType::KeyMouse(desc_vec)))?)
         }
     }
 
@@ -459,7 +459,7 @@ impl Pager {
         } else {
             Ok(self
                 .tx
-                .send(Command::RemoveInputBinding(InputType::Mouse(desc_vec)))?)
+                .send(Command::RemoveInputBinding(InputType::KeyMouse(desc_vec)))?)
         }
     }
 

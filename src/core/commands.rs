@@ -31,8 +31,7 @@ pub enum IoCommand {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum InputType {
-    Key(Vec<EventWrapper>),
-    Mouse(Vec<EventWrapper>),
+    KeyMouse(Vec<EventWrapper>),
     AllKeys,
     AllMouses,
     Resize,

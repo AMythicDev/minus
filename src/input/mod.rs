@@ -51,6 +51,7 @@ pub(crate) mod definitions;
 pub(crate) mod hashed_event_register;
 
 pub use crossterm::event as crossterm_event;
+pub use definitions::{keydefs::parse_key_event, mousedefs::parse_mouse_event};
 
 #[cfg(feature = "search")]
 use crate::search::SearchMode;

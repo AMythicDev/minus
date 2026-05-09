@@ -55,6 +55,11 @@ impl Default for KeySeq {
     }
 }
 
+/// Parse a key input description
+///
+/// # Panics
+/// This function will panic if the description is not valid. See the [`input`](crate::input) module
+/// docs on how to write descriptions.
 pub fn parse_key_event(text: &str) -> KeyEvent {
     let token_list = super::parse_tokens(text);
 
