@@ -155,6 +155,23 @@ impl HashedEventRegister {
     pub(crate) fn classify_input(&self, ev: Event, ps: &crate::PagerState) -> Option<InputEvent> {
         self.get(&ev).map(|c| c(ev, ps))
     }
+
+    pub fn map_km_parsed(
+        &mut self,
+        desc: Vec<EventWrapper>,
+        cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
+    ) {
+        let v = Arc::new(cb);
+        for k in desc {
+            self.0.insert(k, v.clone());
+        }
+    }
+
+    pub fn clear_km_parsed(&mut self, desc: &[EventWrapper]) {
+        for k in desc {
+            self.0.remove(k);
+        }
+    }
 }
 
 // ###############################
@@ -173,24 +190,6 @@ impl HashedEventRegister {
                 Event::Key(super::definitions::keydefs::parse_key_event(k)).into(),
                 v.clone(),
             );
-        }
-    }
-
-    pub fn map_keys_ev(
-        &mut self,
-        desc: Vec<EventWrapper>,
-        cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
-    ) {
-        let v = Arc::new(cb);
-        for k in desc {
-            self.0.insert(k, v.clone());
-        }
-    }
-
-    /// Removes the callback associated with the all the elements of `desc`.
-    pub fn clear_keys(&mut self, desc: &[EventWrapper]) {
-        for k in desc {
-            self.0.remove(k);
         }
     }
 
@@ -221,24 +220,6 @@ impl HashedEventRegister {
                 Event::Mouse(super::definitions::mousedefs::parse_mouse_event(k)).into(),
                 v.clone(),
             );
-        }
-    }
-
-    pub fn map_mouse_ev(
-        &mut self,
-        desc: Vec<EventWrapper>,
-        cb: impl Fn(Event, &PagerState) -> InputEvent + Send + Sync + 'static,
-    ) {
-        let v = Arc::new(cb);
-        for k in desc {
-            self.0.insert(k, v.clone());
-        }
-    }
-
-    /// Removes the callback associated with the all the elements of `desc`.
-    pub fn clear_mouse(&mut self, mouse: &[EventWrapper]) {
-        for k in mouse {
-            self.0.remove(k);
         }
     }
 
