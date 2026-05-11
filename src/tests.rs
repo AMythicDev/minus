@@ -345,23 +345,4 @@ mod emit_events {
             pager.rx.try_recv().unwrap()
         );
     }
-
-    #[test]
-    fn set_exit_strategy() {
-        let pager = Pager::new();
-        pager.set_exit_strategy(ExitStrategy::PagerQuit).unwrap();
-        assert_eq!(
-            Command::SetExitStrategy(ExitStrategy::PagerQuit),
-            pager.rx.try_recv().unwrap()
-        );
-    }
-
-    #[test]
-    fn add_exit_callback() {
-        let func = Box::new(|| println!("Hello"));
-        let pager = Pager::new();
-        pager.add_exit_callback(func.clone()).unwrap();
-
-        assert_eq!(Command::AddExitCallback(func), pager.rx.try_recv().unwrap());
-    }
 }

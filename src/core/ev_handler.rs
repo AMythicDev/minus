@@ -83,10 +83,40 @@ pub fn handle_event(
                 return;
             }
 
-            if let Some(selection) = p.selection_from_coordinates(x, y)
+            let writable_rows = p.rows.saturating_sub(1);
+            if writable_rows == 0 {
+                return;
+            }
+
+            let row_count = p.screen.formatted_lines_count();
+            let max_upper_mark = row_count.saturating_sub(writable_rows);
+            let mut should_redraw = false;
+            let mut selection_y = usize::from(y);
+
+            if y == 0 {
+                let next_upper_mark = p.upper_mark.saturating_sub(1);
+                if next_upper_mark != p.upper_mark {
+                    p.upper_mark = next_upper_mark;
+                    should_redraw = true;
+                }
+                selection_y = 0;
+            } else if selection_y >= writable_rows {
+                let next_upper_mark = p.upper_mark.saturating_add(1).min(max_upper_mark);
+                if next_upper_mark != p.upper_mark {
+                    p.upper_mark = next_upper_mark;
+                    should_redraw = true;
+                }
+                selection_y = writable_rows.saturating_sub(1);
+            }
+
+            if let Some(selection) = p.selection_from_coordinates(x, selection_y as u16)
                 && p.selection != Some(selection)
             {
                 p.selection = Some(selection);
+                should_redraw = true;
+            }
+
+            if should_redraw {
                 command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
             }
         }
@@ -413,9 +443,9 @@ pub fn handle_io_command(
 
 #[cfg(test)]
 mod tests {
-    use super::super::commands::Command;
+    use super::super::commands::{Command, IoCommand};
     use super::handle_event;
-    use crate::{PagerState, minus_core::CommandQueue};
+    use crate::{PagerState, input::InputEvent, minus_core::CommandQueue, state::Selection};
     use std::sync::{Arc, atomic::AtomicBool};
 
     const TEST_STR: &str = "This is some sample text";
@@ -524,5 +554,110 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert_eq!(ps.exit_callbacks.len(), 1);
+    }
+
+    #[test]
+    fn update_selection_scrolls_up_at_top_edge() {
+        let mut ps = PagerState::new().unwrap();
+        ps.rows = 5;
+        ps.screen.orig_text = (0..10).map(|idx| format!("line {idx}\n")).collect();
+        ps.format_lines();
+        ps.upper_mark = 3;
+        ps.selection_anchor = Some(Selection {
+            absolute_row: 3,
+            col: 0,
+        });
+        ps.selection = ps.selection_anchor;
+        let mut command_queue = CommandQueue::new_zero();
+
+        handle_event(
+            Command::UserInput(InputEvent::UpdateSelection { x: 0, y: 0 }),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        assert_eq!(ps.upper_mark, 2);
+        assert_eq!(
+            ps.selection,
+            Some(Selection {
+                absolute_row: 2,
+                col: 0,
+            })
+        );
+        assert_eq!(
+            command_queue.pop_front(),
+            Some(Command::Io(IoCommand::RedrawDisplay))
+        );
+    }
+
+    #[test]
+    fn update_selection_scrolls_down_at_bottom_edge() {
+        let mut ps = PagerState::new().unwrap();
+        ps.rows = 5;
+        ps.screen.orig_text = (0..10).map(|idx| format!("line {idx}\n")).collect();
+        ps.format_lines();
+        ps.upper_mark = 3;
+        ps.selection_anchor = Some(Selection {
+            absolute_row: 3,
+            col: 0,
+        });
+        ps.selection = ps.selection_anchor;
+        let mut command_queue = CommandQueue::new_zero();
+
+        handle_event(
+            Command::UserInput(InputEvent::UpdateSelection { x: 0, y: 4 }),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        assert_eq!(ps.upper_mark, 4);
+        assert_eq!(
+            ps.selection,
+            Some(Selection {
+                absolute_row: 7,
+                col: 0,
+            })
+        );
+        assert_eq!(
+            command_queue.pop_front(),
+            Some(Command::Io(IoCommand::RedrawDisplay))
+        );
+    }
+
+    #[test]
+    fn update_selection_clamps_scroll_at_bottom_bound() {
+        let mut ps = PagerState::new().unwrap();
+        ps.rows = 5;
+        ps.screen.orig_text = (0..6).map(|idx| format!("line {idx}\n")).collect();
+        ps.format_lines();
+        ps.upper_mark = 2;
+        ps.selection_anchor = Some(Selection {
+            absolute_row: 2,
+            col: 0,
+        });
+        ps.selection = ps.selection_anchor;
+        let mut command_queue = CommandQueue::new_zero();
+
+        handle_event(
+            Command::UserInput(InputEvent::UpdateSelection { x: 0, y: 10 }),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        assert_eq!(ps.upper_mark, 2);
+        assert_eq!(
+            ps.selection,
+            Some(Selection {
+                absolute_row: 5,
+                col: 0,
+            })
+        );
+        assert_eq!(
+            command_queue.pop_front(),
+            Some(Command::Io(IoCommand::RedrawDisplay))
+        );
     }
 }
