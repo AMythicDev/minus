@@ -23,6 +23,8 @@ use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 /// - Call search related functions
 #[cfg_attr(not(feature = "search"), allow(unused_mut))]
 #[allow(clippy::too_many_lines)]
+// TODO: Remove it in next major release
+#[allow(deprecated)]
 pub fn handle_event(
     ev: Command,
     p: &mut PagerState,
@@ -58,6 +60,41 @@ pub fn handle_event(
             }
             p.left_mark = lm;
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+        }
+        Command::UserInput(InputEvent::StartSelection { x, y }) => {
+            #[cfg(feature = "search")]
+            if p.search_state.search_term.is_some() {
+                return;
+            }
+
+            if let Some(selection) = p.selection_from_coordinates(x, y) {
+                p.selection_anchor = Some(selection);
+                p.selection = Some(selection);
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+            }
+        }
+        Command::UserInput(InputEvent::UpdateSelection { x, y }) => {
+            #[cfg(feature = "search")]
+            if p.search_state.search_term.is_some() {
+                return;
+            }
+
+            if p.selection_anchor.is_none() {
+                return;
+            }
+
+            if let Some(selection) = p.selection_from_coordinates(x, y)
+                && p.selection != Some(selection)
+            {
+                p.selection = Some(selection);
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+            }
+        }
+        Command::UserInput(InputEvent::ClearSelection) => {
+            if p.selection.is_some() || p.selection_anchor.is_some() {
+                p.clear_selection();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+            }
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
@@ -316,13 +353,13 @@ pub fn handle_io_command(
             let AppendStyle::PartialUpdate(bounds) = append_style else {
                 unreachable!();
             };
-            let fmt_lines = p.screen.get_formatted_lines_with_bounds(bounds.0, bounds.1);
+            let fmt_lines = p.render_rows_for_display(bounds.0, bounds.1);
             display::draw_append_text(
                 out,
                 p.rows,
                 prev_unterminated,
                 prev_fmt_lines_count,
-                fmt_lines,
+                &fmt_lines,
             )?;
         }
         #[cfg(feature = "search")]

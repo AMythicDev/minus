@@ -67,7 +67,7 @@ pub fn draw_for_change(
     // need this value whatever the value of delta be.
     let normalized_delta = delta.min(writable_rows);
 
-    let lines = match (*new_upper_mark).cmp(&ps.upper_mark) {
+    let (start, end) = match (*new_upper_mark).cmp(&ps.upper_mark) {
         Ordering::Greater => {
             // Scroll down `normalized_delta` lines, and put the cursor one line above, where the old prompt would present.
             // Clear it off and start displaying new dta.
@@ -87,10 +87,9 @@ pub fn draw_for_change(
             queue!(out, Clear(ClearType::CurrentLine))?;
 
             if delta < writable_rows {
-                ps.screen
-                    .get_formatted_lines_with_bounds(lower_bound, new_lower_bound)
+                (lower_bound, new_lower_bound)
             } else {
-                ps.screen.get_formatted_lines_with_bounds(
+                (
                     *new_upper_mark,
                     new_upper_mark.saturating_add(normalized_delta),
                 )
@@ -103,7 +102,7 @@ pub fn draw_for_change(
             )?;
             term::move_cursor(out, 0, 0, false)?;
 
-            ps.screen.get_formatted_lines_with_bounds(
+            (
                 *new_upper_mark,
                 new_upper_mark.saturating_add(normalized_delta),
             )
@@ -111,15 +110,8 @@ pub fn draw_for_change(
         Ordering::Equal => return Ok(()),
     };
 
-    write_lines(
-        out,
-        lines,
-        ps.cols,
-        ps.screen.line_wrapping,
-        ps.left_mark,
-        ps.line_numbers.is_on(),
-        ps.screen.line_count(),
-    )?;
+    let lines = ps.render_rows_for_display(start, end);
+    write_raw_lines(out, &lines, Some("\r"))?;
 
     ps.upper_mark = *new_upper_mark;
 
@@ -284,20 +276,8 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
         ps.upper_mark = line_count.saturating_sub(writable_rows);
     }
 
-    // Add \r to ensure cursor is placed at the beginning of each row
-    let display_lines: &[String] = ps
-        .screen
-        .get_formatted_lines_with_bounds(ps.upper_mark, lower_mark);
-
-    write_lines(
-        out,
-        display_lines,
-        ps.cols,
-        ps.screen.line_wrapping,
-        ps.left_mark,
-        ps.line_numbers.is_on(),
-        ps.screen.line_count(),
-    )
+    let display_lines = ps.render_rows_for_display(ps.upper_mark, lower_mark);
+    write_raw_lines(out, &display_lines, Some("\r"))
 }
 
 pub fn write_lines(

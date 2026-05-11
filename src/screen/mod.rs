@@ -128,20 +128,11 @@ impl Screen {
     pub const fn formatted_lines_count(&self) -> usize {
         self.formatted_lines.len()
     }
+
     /// Get the number of [`Lines`](std::str::Lines) in the text.
     #[must_use]
     pub const fn line_count(&self) -> usize {
         self.line_count
-    }
-    /// Returns all the [Rows] within the bounds
-    pub(crate) fn get_formatted_lines_with_bounds(&self, start: usize, end: usize) -> &[Row] {
-        if start >= self.formatted_lines_count() || start > end {
-            &[]
-        } else if end >= self.formatted_lines_count() {
-            &self.formatted_lines[start..]
-        } else {
-            &self.formatted_lines[start..end]
-        }
     }
 
     /// Get the length of the longest [Line] in the text.

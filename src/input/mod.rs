@@ -188,7 +188,10 @@ use crate::search::SearchMode;
 use crate::{LineNumbers, PagerState};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
 
-#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
+#[cfg_attr(
+    docsrs,
+    deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."
+)]
 pub use hashed_event_register::HashedEventRegister;
 
 /// Events handled by the `minus` pager.
@@ -216,6 +219,12 @@ pub enum InputEvent {
     ///
     /// Sent by keys like `l`, `h`, `right`, `left` etc.
     UpdateLeftMark(usize),
+    /// Start a mouse selection at the given screen coordinates.
+    StartSelection { x: u16, y: u16 },
+    /// Update the current mouse selection to the given screen coordinates.
+    UpdateSelection { x: u16, y: u16 },
+    /// Clear the current mouse selection.
+    ClearSelection,
     /// Tells the event hadler to not do anything for this event
     ///
     /// This is extremely useful when you want to execute arbitrary code on events without
@@ -262,13 +271,20 @@ pub enum InputEvent {
 /// If you are using the legacy method, see the sources of [`DefaultInputClassifier`] on how to
 /// inplement this trait.
 #[allow(clippy::module_name_repetitions)]
-#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
+#[cfg_attr(
+    docsrs,
+    deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."
+)]
 pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
 }
 
 /// Insert the default set of actions into the [`HashedEventRegister`]
-#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
+#[allow(clippy::module_name_repetitions)]
+#[cfg_attr(
+    docsrs,
+    deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."
+)]
 #[allow(clippy::too_many_lines)]
 pub fn generate_default_bindings<S>(map: &mut HashedEventRegister<S>)
 where
@@ -369,6 +385,18 @@ where
     map.add_mouse_events(&["scroll:down"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
     });
+    map.add_mouse_events(&["left:down"], |ev, _| {
+        let Event::Mouse(MouseEvent { column, row, .. }) = ev else {
+            unreachable!();
+        };
+        InputEvent::StartSelection { x: column, y: row }
+    });
+    map.add_mouse_events(&["left:drag"], |ev, _| {
+        let Event::Mouse(MouseEvent { column, row, .. }) = ev else {
+            unreachable!();
+        };
+        InputEvent::UpdateSelection { x: column, y: row }
+    });
 
     map.add_key_events(&["c-s-h", "c-h"], |_, ps| {
         InputEvent::HorizontalScroll(!ps.screen.line_wrapping)
@@ -411,7 +439,10 @@ where
 /// The default set of input definitions
 ///
 /// **This is kept only for legacy purposes and may not be well updated with all the latest changes**
-#[deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."]
+#[cfg_attr(
+    docsrs,
+    deprecated = "See [#163](https://github.com/AMythicDev/minus/pull/163)."
+)]
 pub struct DefaultInputClassifier;
 
 impl InputClassifier for DefaultInputClassifier {

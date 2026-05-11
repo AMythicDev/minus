@@ -10,7 +10,10 @@ use crate::{
     input::{self, HashedEventRegister},
     minus_core::{
         self, CommandQueue,
-        utils::{LinesRowMap, display::AppendStyle},
+        utils::{
+            LinesRowMap,
+            display::{self, AppendStyle},
+        },
     },
     screen::{self, Screen},
 };
@@ -75,6 +78,12 @@ impl Default for SearchState {
     }
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Selection {
+    pub absolute_row: usize,
+    pub col: usize,
+}
+
 /// Holds all information and configuration about the pager during
 /// its run time.
 ///
@@ -129,6 +138,7 @@ pub struct PagerState {
     #[cfg_attr(docsrs, cfg(feature = "search"))]
     pub search_state: SearchState,
     pub screen: Screen,
+    pub selection: Option<Selection>,
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
     /// The input classifier to be called when a input is detected
@@ -150,6 +160,7 @@ pub struct PagerState {
     /// Value for follow mode.
     /// See [`follow_output`](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
+    pub(crate) selection_anchor: Option<Selection>,
 }
 
 impl PagerState {
@@ -187,6 +198,7 @@ impl PagerState {
             hooks: Hooks::new(),
             message: None,
             screen: Screen::default(),
+            selection: None,
             displayed_prompt: String::new(),
             show_prompt: true,
             #[cfg(feature = "static_output")]
@@ -201,6 +213,7 @@ impl PagerState {
             prefix_num: String::new(),
             lines_to_row_map: LinesRowMap::new(),
             follow_output: false,
+            selection_anchor: None,
         };
 
         state.format_prompt();
@@ -356,6 +369,122 @@ impl PagerState {
         }
     }
 
+    pub(crate) fn selection_from_coordinates(&self, x: u16, y: u16) -> Option<Selection> {
+        let writable_rows = self.rows.saturating_sub(1);
+        let row_count = self.screen.formatted_lines_count();
+
+        if row_count == 0 || usize::from(y) >= writable_rows {
+            return None;
+        }
+
+        let absolute_row = self
+            .upper_mark
+            .saturating_add(usize::from(y))
+            .min(row_count - 1);
+        let mut col = usize::from(x).saturating_sub(self.line_number_padding());
+        if !self.screen.line_wrapping {
+            col = col.saturating_add(self.left_mark);
+        }
+
+        Some(Selection { absolute_row, col })
+    }
+
+    pub(crate) const fn clear_selection(&mut self) {
+        self.selection = None;
+        self.selection_anchor = None;
+    }
+
+    pub(crate) fn render_rows_for_display(&self, start: usize, end: usize) -> Vec<String> {
+        (start..end)
+            .filter_map(|absolute_row| self.render_row_for_display(absolute_row))
+            .collect()
+    }
+
+    fn render_row_for_display(&self, absolute_row: usize) -> Option<String> {
+        let raw_row = self.screen.formatted_lines.get(absolute_row)?;
+        let Some((start_col, end_col)) = self.selection_bounds_for_row(absolute_row) else {
+            return Some(if self.screen.line_wrapping {
+                raw_row.clone()
+            } else {
+                self.crop_row_for_horizontal_scroll(raw_row)
+            });
+        };
+
+        let prefix_width = self.line_number_padding();
+        if self.screen.line_wrapping {
+            return Some(highlight_visible_range(
+                raw_row,
+                prefix_width.saturating_add(start_col),
+                prefix_width.saturating_add(end_col),
+            ));
+        }
+
+        let row = self.crop_row_for_horizontal_scroll(raw_row);
+        let visible_start = start_col.saturating_sub(self.left_mark);
+        let visible_end = end_col.saturating_sub(self.left_mark);
+        Some(highlight_visible_range(
+            &row,
+            prefix_width.saturating_add(visible_start),
+            prefix_width.saturating_add(visible_end),
+        ))
+    }
+
+    fn crop_row_for_horizontal_scroll(&self, row: &str) -> String {
+        let (first_end, second_start, second_end) = display::get_horizontal_scroll_bounds(
+            row,
+            self.cols,
+            self.left_mark,
+            self.line_numbers.is_on(),
+            self.screen.line_count(),
+        );
+
+        if self.left_mark < row.len() {
+            if self.line_numbers.is_on() {
+                format!("{}{}", &row[..first_end], &row[second_start..second_end])
+            } else {
+                row[second_start..second_end].to_string()
+            }
+        } else {
+            String::new()
+        }
+    }
+
+    const fn line_number_padding(&self) -> usize {
+        if self.line_numbers.is_on() {
+            minus_core::utils::digits(self.screen.line_count()) + LineNumbers::EXTRA_PADDING + 2
+        } else {
+            0
+        }
+    }
+
+    fn selection_bounds_for_row(&self, absolute_row: usize) -> Option<(usize, usize)> {
+        let s_start = self.selection_anchor?;
+        let s_end = self.selection?;
+        let (start, end) = if s_start.absolute_row > s_end.absolute_row
+            || (s_start.absolute_row == s_end.absolute_row && s_start.col > s_end.col)
+        {
+            (s_end, s_start)
+        } else {
+            (s_start, s_end)
+        };
+
+        if absolute_row < start.absolute_row || absolute_row > end.absolute_row {
+            return None;
+        }
+
+        let start_col = if absolute_row == start.absolute_row {
+            start.col
+        } else {
+            0
+        };
+        let end_col = if absolute_row == end.absolute_row {
+            end.col.saturating_add(1)
+        } else {
+            usize::MAX
+        };
+        Some((start_col, end_col))
+    }
+
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
         let old_lc = self.screen.line_count();
         let old_lc_dgts = minus_core::utils::digits(old_lc);
@@ -386,4 +515,55 @@ impl PagerState {
         let total_rows = self.screen.formatted_lines_count();
         AppendStyle::PartialUpdate((total_rows - append_result.rows_formatted, total_rows))
     }
+}
+
+fn highlight_visible_range(line: &str, start: usize, end: usize) -> String {
+    const REVERSE: &str = "\x1b[7m";
+    const RESET: &str = "\x1b[27m";
+
+    if start >= end {
+        return line.to_string();
+    }
+
+    let bytes = line.as_bytes();
+    let mut out = String::with_capacity(line.len() + REVERSE.len() + RESET.len());
+    let mut byte_idx = 0;
+    let mut visible_idx = 0;
+    let mut highlighted = false;
+
+    while byte_idx < bytes.len() {
+        if bytes[byte_idx] == b'\x1b' && bytes.get(byte_idx + 1) == Some(&b'[') {
+            let esc_start = byte_idx;
+            byte_idx += 2;
+            while byte_idx < bytes.len() {
+                let byte = bytes[byte_idx];
+                byte_idx += 1;
+                if (0x40..=0x7e).contains(&byte) {
+                    break;
+                }
+            }
+            out.push_str(&line[esc_start..byte_idx]);
+            continue;
+        }
+
+        if !highlighted && visible_idx == start {
+            out.push_str(REVERSE);
+            highlighted = true;
+        }
+        if highlighted && visible_idx == end {
+            out.push_str(RESET);
+            highlighted = false;
+        }
+
+        let ch = line[byte_idx..].chars().next().unwrap();
+        out.push(ch);
+        visible_idx += 1;
+        byte_idx += ch.len_utf8();
+    }
+
+    if highlighted {
+        out.push_str(RESET);
+    }
+
+    out
 }
