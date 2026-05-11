@@ -638,7 +638,7 @@ mod tests {
     fn update_selection_clamps_scroll_at_bottom_bound() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..10).fold(String::new(), |mut t, idx| {
+        ps.screen.orig_text = (0..6).fold(String::new(), |mut t, idx| {
             let _ = writeln!(t, "line {idx}");
             t
         });
