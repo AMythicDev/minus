@@ -282,7 +282,7 @@ fn exit_callback() {
 
 mod emit_events {
     // Check functions emit correct events on function calls
-    use crate::{ExitStrategy, LineNumbers, Pager, minus_core::commands::Command};
+    use crate::{LineNumbers, Pager, minus_core::commands::Command};
 
     const TEST_STR: &str = "This is sample text";
     #[test]

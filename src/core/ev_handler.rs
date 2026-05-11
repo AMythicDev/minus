@@ -109,6 +109,7 @@ pub fn handle_event(
                 selection_y = writable_rows.saturating_sub(1);
             }
 
+            #[allow(clippy::cast_possible_truncation)]
             if let Some(selection) = p.selection_from_coordinates(x, selection_y as u16)
                 && p.selection != Some(selection)
             {
@@ -446,6 +447,7 @@ mod tests {
     use super::super::commands::{Command, IoCommand};
     use super::handle_event;
     use crate::{PagerState, input::InputEvent, minus_core::CommandQueue, state::Selection};
+    use std::fmt::Write;
     use std::sync::{Arc, atomic::AtomicBool};
 
     const TEST_STR: &str = "This is some sample text";
@@ -560,7 +562,10 @@ mod tests {
     fn update_selection_scrolls_up_at_top_edge() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..10).map(|idx| format!("line {idx}\n")).collect();
+        ps.screen.orig_text = (0..10).fold(String::new(), |mut t, idx| {
+            let _ = writeln!(t, "line {idx}");
+            t
+        });
         ps.format_lines();
         ps.upper_mark = 3;
         ps.selection_anchor = Some(Selection {
@@ -595,7 +600,10 @@ mod tests {
     fn update_selection_scrolls_down_at_bottom_edge() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..10).map(|idx| format!("line {idx}\n")).collect();
+        ps.screen.orig_text = (0..10).fold(String::new(), |mut t, idx| {
+            let _ = writeln!(t, "line {idx}");
+            t
+        });
         ps.format_lines();
         ps.upper_mark = 3;
         ps.selection_anchor = Some(Selection {
@@ -630,7 +638,10 @@ mod tests {
     fn update_selection_clamps_scroll_at_bottom_bound() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..6).map(|idx| format!("line {idx}\n")).collect();
+        ps.screen.orig_text = (0..10).fold(String::new(), |mut t, idx| {
+            let _ = writeln!(t, "line {idx}");
+            t
+        });
         ps.format_lines();
         ps.upper_mark = 2;
         ps.selection_anchor = Some(Selection {
