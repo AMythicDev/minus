@@ -225,6 +225,9 @@ pub enum InputEvent {
     UpdateSelection { x: u16, y: u16 },
     /// Clear the current mouse selection.
     ClearSelection,
+    /// Copy the current selection.
+    #[cfg(feature = "clipboard")]
+    CopySelection,
     /// Tells the event hadler to not do anything for this event
     ///
     /// This is extremely useful when you want to execute arbitrary code on events without
@@ -397,6 +400,12 @@ where
         };
         InputEvent::UpdateSelection { x: column, y: row }
     });
+
+    #[cfg(feature = "clipboard")]
+    {
+        map.add_mouse_events(&["left:up"], |_, _| InputEvent::CopySelection);
+        map.add_key_events(&["y"], |_, _| InputEvent::CopySelection);
+    }
 
     map.add_key_events(&["c-s-h", "c-h"], |_, ps| {
         InputEvent::HorizontalScroll(!ps.screen.line_wrapping)

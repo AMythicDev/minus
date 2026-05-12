@@ -127,6 +127,19 @@ pub fn handle_event(
                 command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
             }
         }
+
+        #[cfg(feature = "clipboard")]
+        Command::UserInput(InputEvent::CopySelection) => {
+            if let Some(text) = p.extract_selection()
+                && let Ok(mut clipboard) = arboard::Clipboard::new()
+            {
+                let _ = clipboard.set_text(text);
+            }
+            if p.selection.is_some() || p.selection_anchor.is_some() {
+                p.clear_selection();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+            }
+        }
         Command::UserInput(InputEvent::RestorePrompt) => {
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
@@ -666,6 +679,31 @@ mod tests {
                 col: 0,
             })
         );
+        assert_eq!(
+            command_queue.pop_front(),
+            Some(Command::Io(IoCommand::RedrawDisplay))
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "clipboard")]
+    fn copy_selection_clears_selection_and_redraws() {
+        let mut ps = PagerState::new().unwrap();
+        ps.selection = Some(Selection {
+            absolute_row: 0,
+            col: 0,
+        });
+        let mut command_queue = CommandQueue::new_zero();
+
+        handle_event(
+            Command::UserInput(InputEvent::CopySelection),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        assert_eq!(ps.selection, None);
+        assert_eq!(ps.selection_anchor, None);
         assert_eq!(
             command_queue.pop_front(),
             Some(Command::Io(IoCommand::RedrawDisplay))

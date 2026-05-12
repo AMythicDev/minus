@@ -36,4 +36,13 @@ impl LinesRowMap {
     pub fn get(&self, ln: usize) -> Option<&usize> {
         self.0.get(ln)
     }
+
+    #[allow(dead_code)]
+    pub fn row_to_line(&self, row: usize) -> Option<usize> {
+        match self.0.binary_search(&row) {
+            Ok(line) => Some(line),
+            Err(0) => None,
+            Err(next_line) => Some(next_line - 1),
+        }
+    }
 }

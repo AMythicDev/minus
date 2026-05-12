@@ -239,6 +239,43 @@ fn test_mouse_nav() {
             handle_input(ev, &pager)
         );
     }
+
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            row: 3,
+            column: 7,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::StartSelection { x: 7, y: 3 }),
+            handle_input(ev, &pager)
+        );
+    }
+
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Drag(crossterm::event::MouseButton::Left),
+            row: 4,
+            column: 9,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(
+            Some(InputEvent::UpdateSelection { x: 9, y: 4 }),
+            handle_input(ev, &pager)
+        );
+    }
+
+    #[cfg(feature = "clipboard")]
+    {
+        let ev = Event::Mouse(MouseEvent {
+            kind: MouseEventKind::Up(crossterm::event::MouseButton::Left),
+            row: 4,
+            column: 9,
+            modifiers: KeyModifiers::NONE,
+        });
+        assert_eq!(Some(InputEvent::CopySelection), handle_input(ev, &pager));
+    }
 }
 
 #[test]
@@ -351,6 +388,17 @@ fn test_misc_events() {
             state: KeyEventState::NONE,
         });
         assert_eq!(Some(InputEvent::Number('5')), handle_input(ev, &pager));
+    }
+
+    #[cfg(feature = "clipboard")]
+    {
+        let ev = Event::Key(KeyEvent {
+            code: KeyCode::Char('y'),
+            modifiers: KeyModifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        });
+        assert_eq!(Some(InputEvent::CopySelection), handle_input(ev, &pager));
     }
 }
 

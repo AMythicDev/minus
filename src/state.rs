@@ -1,5 +1,6 @@
 //! Contains types that hold run-time information of the pager.
 
+#![allow(dead_code)]
 #[cfg(feature = "search")]
 use crate::search::{SearchMode, SearchOpts};
 
@@ -394,6 +395,36 @@ impl PagerState {
         self.selection_anchor = None;
     }
 
+    pub(crate) fn extract_selection(&self) -> Option<String> {
+        let (start, end) = self.normalized_selection()?;
+        let lines = self.screen.orig_text.lines().collect::<Vec<_>>();
+        let start_line = self.lines_to_row_map.row_to_line(start.absolute_row)?;
+        let end_line = self.lines_to_row_map.row_to_line(end.absolute_row)?;
+
+        let mut selected = Vec::with_capacity(end_line.saturating_sub(start_line) + 1);
+        for line_idx in start_line..=end_line {
+            let line = *lines.get(line_idx)?;
+            let line_len = line.chars().count();
+            let start_col = if line_idx == start_line {
+                self.selection_col_in_line(start, line_idx, line)
+                    .min(line_len)
+            } else {
+                0
+            };
+            let end_col = if line_idx == end_line {
+                self.selection_col_in_line(end, line_idx, line)
+                    .saturating_add(1)
+                    .min(line_len)
+            } else {
+                line_len
+            };
+
+            selected.push(slice_chars(line, start_col, end_col).to_string());
+        }
+
+        Some(selected.join("\n"))
+    }
+
     pub(crate) fn render_rows_for_display(&self, start: usize, end: usize) -> Vec<String> {
         (start..end)
             .filter_map(|absolute_row| self.render_row_for_display(absolute_row))
@@ -458,15 +489,7 @@ impl PagerState {
     }
 
     fn selection_bounds_for_row(&self, absolute_row: usize) -> Option<(usize, usize)> {
-        let s_start = self.selection_anchor?;
-        let s_end = self.selection?;
-        let (start, end) = if s_start.absolute_row > s_end.absolute_row
-            || (s_start.absolute_row == s_end.absolute_row && s_start.col > s_end.col)
-        {
-            (s_end, s_start)
-        } else {
-            (s_start, s_end)
-        };
+        let (start, end) = self.normalized_selection()?;
 
         if absolute_row < start.absolute_row || absolute_row > end.absolute_row {
             return None;
@@ -483,6 +506,52 @@ impl PagerState {
             usize::MAX
         };
         Some((start_col, end_col))
+    }
+
+    fn normalized_selection(&self) -> Option<(Selection, Selection)> {
+        let s_start = self.selection_anchor?;
+        let s_end = self.selection?;
+
+        Some(
+            if s_start.absolute_row > s_end.absolute_row
+                || (s_start.absolute_row == s_end.absolute_row && s_start.col > s_end.col)
+            {
+                (s_end, s_start)
+            } else {
+                (s_start, s_end)
+            },
+        )
+    }
+
+    fn selection_col_in_line(&self, selection: Selection, line_idx: usize, line: &str) -> usize {
+        if !self.screen.line_wrapping {
+            return selection.col;
+        }
+
+        let Some(&line_start_row) = self.lines_to_row_map.get(line_idx) else {
+            return selection.col;
+        };
+        let row_in_line = selection.absolute_row.saturating_sub(line_start_row);
+        let cols_avail = self.wrapped_cols_available();
+        let wrapped_rows = textwrap::wrap(line, cols_avail.max(1));
+        let preceding_chars = wrapped_rows
+            .iter()
+            .take(row_in_line)
+            .map(|row| row.chars().count())
+            .sum::<usize>();
+
+        preceding_chars.saturating_add(selection.col)
+    }
+
+    const fn wrapped_cols_available(&self) -> usize {
+        if self.line_numbers.is_on() {
+            let padding = minus_core::utils::digits(self.screen.line_count())
+                + LineNumbers::EXTRA_PADDING
+                + 1;
+            self.cols.saturating_sub(padding + 2)
+        } else {
+            self.cols
+        }
     }
 
     pub(crate) fn append_str(&mut self, text: &str) -> AppendStyle {
@@ -515,6 +584,19 @@ impl PagerState {
         let total_rows = self.screen.formatted_lines_count();
         AppendStyle::PartialUpdate((total_rows - append_result.rows_formatted, total_rows))
     }
+}
+
+fn slice_chars(line: &str, start: usize, end: usize) -> &str {
+    let start_byte = line
+        .char_indices()
+        .nth(start)
+        .map_or(line.len(), |(idx, _)| idx);
+    let end_byte = line
+        .char_indices()
+        .nth(end)
+        .map_or(line.len(), |(idx, _)| idx);
+
+    &line[start_byte..end_byte]
 }
 
 fn highlight_visible_range(line: &str, start: usize, end: usize) -> String {
@@ -566,4 +648,48 @@ fn highlight_visible_range(line: &str, start: usize, end: usize) -> String {
     }
 
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PagerState, Selection};
+    use crate::LineNumbers;
+
+    #[test]
+    #[allow(clippy::cast_possible_truncation)]
+    fn extract_selection_uses_logical_text_coordinates() {
+        let mut ps = PagerState::new().unwrap();
+        ps.line_numbers = LineNumbers::Enabled;
+        ps.screen.line_wrapping = false;
+        ps.left_mark = 3;
+        ps.screen.orig_text = "abcdefghij\nklmnopqrst\nuvwxyz\n".to_string();
+        ps.format_lines();
+
+        let padding = ps.line_number_padding() as u16;
+        ps.selection_anchor = ps.selection_from_coordinates(padding + 1, 0);
+        ps.selection = ps.selection_from_coordinates(padding + 1, 2);
+
+        assert_eq!(
+            ps.extract_selection().as_deref(),
+            Some("efghij\nklmnopqrst\nuvwxy")
+        );
+    }
+
+    #[test]
+    fn extract_selection_across_wrapped_rows() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 6;
+        ps.screen.orig_text = "abcdefghi\njklmnop\n".to_string();
+        ps.format_lines();
+        ps.selection_anchor = Some(Selection {
+            absolute_row: 0,
+            col: 2,
+        });
+        ps.selection = Some(Selection {
+            absolute_row: 2,
+            col: 3,
+        });
+
+        assert_eq!(ps.extract_selection().as_deref(), Some("cdefghi\njklm"));
+    }
 }
