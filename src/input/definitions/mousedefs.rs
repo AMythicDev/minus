@@ -106,6 +106,15 @@ mod tests {
                 column: 0,
             }
         );
+        assert_eq!(
+            parse_mouse_event("left:up"),
+            MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left),
+                modifiers: KeyModifiers::NONE,
+                row: 0,
+                column: 0,
+            }
+        );
 
         assert_eq!(
             parse_mouse_event("mid:up"),

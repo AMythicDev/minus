@@ -110,7 +110,7 @@ impl Debug for Command {
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
-            Self::Io(c) => write!(f, "Internal({c:?})"),
+            Self::Io(c) => write!(f, "Io({c:?})"),
         }
     }
 }
