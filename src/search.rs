@@ -340,6 +340,27 @@ fn incremental_preview(
         }
     }
 
+    // visible_lines places the first search march as its first element. However if the match is
+    // near the EOF, it might not fill up completely and show blank lines on the display.
+    // We fix this by filling visible_lines by as many rows such that a pageful of data can be
+    // displayed.
+    if let Some(um) = upper_mark
+        && visible_lines.len() < writable_rows
+        && iso.screen.formatted_lines_count() > writable_rows
+    {
+        let start = iso
+            .screen
+            .formatted_lines_count()
+            .saturating_sub(writable_rows);
+        let to_insert = um.saturating_sub(start);
+        let shift = visible_lines.len();
+        visible_lines.resize(writable_rows, String::new());
+        visible_lines.rotate_left(shift);
+        for i in 0..to_insert {
+            visible_lines[i] = iso.screen.formatted_lines[start + i].clone();
+        }
+    }
+
     if upper_mark.is_none() {
         for (line_idx, line) in iso
             .screen
