@@ -421,16 +421,6 @@ pub fn handle_io_command(
             cvar.notify_one();
 
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
-            // If we have incremental search cache directly use it and return
-            if let Some(incremental_search_result) = search_result.incremental_search_result {
-                p.search_state.search_term = search_result.compiled_regex;
-                p.upper_mark = incremental_search_result.upper_mark;
-                p.search_state.search_mark = 0;
-                p.search_state.search_idx = incremental_search_result.search_idx;
-                p.format_lines();
-                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
-                return Ok(());
-            }
 
             // If we only have compiled regex cached, use that otherwise compile the original
             // string query if its not empty

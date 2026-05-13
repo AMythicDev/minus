@@ -23,7 +23,7 @@ pub type TextBlock<'a> = &'a str;
 pub type OwnedTextBlock = String;
 
 pub(crate) struct FormattedRow<'a> {
-    row: Cow<'a, str>,
+    pub(crate) row: Cow<'a, str>,
     show_line_numbers: bool,
     line_number: Option<usize>,
     padding: usize,
@@ -656,56 +656,6 @@ where
         row_count += 1;
     }
     row_count
-}
-
-/// Formats the given `line`
-///
-/// - `line`: The line to format
-/// - `line_numbers`: tells whether to format the line with line numbers.
-/// - `len_line_number`: is the number of digits that number of lines in [`Screen::orig_text`]
-///   occupy. For example, this will be 2 if number of lines in [`Screen::line_count`] is 50 and 3
-///   if the number of lines in [`Screen::line_count`] is 500. This is used for calculating the
-///   padding of each displayed line.
-/// - `idx`: is the position index where the line is placed in [`Screen::orig_text`].
-/// - `formatted_idx`: is the position index where the line will be placed in the resulting
-///   [`Screen::formatted_lines`]
-/// - `cols`: Number of columns in the terminal
-/// - `search_term`: Contains the regex if a search is active
-#[allow(clippy::too_many_arguments)]
-#[allow(dead_code)]
-pub(crate) fn formatted_line(
-    line: Line<'_>,
-    len_line_number: usize,
-    idx: usize,
-    line_numbers: LineNumbers,
-    cols: usize,
-    line_wrapping: bool,
-    #[cfg(feature = "search")] formatted_idx: usize,
-    #[cfg(feature = "search")] search_idx: &mut BTreeSet<usize>,
-    #[cfg(feature = "search")] search_term: Option<&regex::Regex>,
-) -> Rows {
-    let rows = format_line(
-        line,
-        len_line_number,
-        idx,
-        line_numbers,
-        cols,
-        line_wrapping,
-    );
-    let mut formatted_rows = Vec::with_capacity(256);
-
-    #[cfg(feature = "search")]
-    {
-        let rows = format_search_rows(rows, search_term);
-        collect_rows(&mut formatted_rows, rows, formatted_idx, search_idx);
-    }
-
-    #[cfg(not(feature = "search"))]
-    {
-        collect_rows(&mut formatted_rows, rows);
-    }
-
-    formatted_rows
 }
 
 pub(crate) fn format_lines_into(

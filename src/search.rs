@@ -54,7 +54,7 @@
 use crate::minus_core::utils::{LinesRowMap, display, term};
 use crate::screen::Screen;
 use crate::{LineNumbers, PagerState};
-use crate::{error::MinusError, input::HashedEventRegister, screen};
+use crate::{error::MinusError, input::HashedEventRegister, minus_core::utils, screen};
 use crossterm::{
     cursor::{self, MoveTo},
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -134,7 +134,6 @@ pub struct SearchOpts<'a> {
     pub cols: u16,
     /// Options specifically controlling incremental search
     pub incremental_search_options: Option<IncrementalSearchOpts<'a>>,
-    incremental_search_cache: Option<IncrementalSearchCache>,
     compiled_regex: Option<Regex>,
 }
 
@@ -148,8 +147,12 @@ pub struct IncrementalSearchOpts<'a> {
     pub screen: &'a Screen,
     /// Cached map from logical lines to formatted rows.
     pub lines_to_row_map: &'a LinesRowMap,
-    /// Value of [PagerState::upper_mark] before starting of search prompt
+    /// Value of [`PagerState::upper_mark`] before starting of search prompt
     pub initial_left_mark: usize,
+    /// Value of [`PagerState::cols`]
+    cols: usize,
+    /// Value of [`PagerState::rows`] - 1 and 0 if rows is 0.
+    writable_rows: usize,
 }
 
 impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
@@ -160,7 +163,15 @@ impl<'a> From<&'a PagerState> for IncrementalSearchOpts<'a> {
             screen: &ps.screen,
             lines_to_row_map: &ps.lines_to_row_map,
             initial_left_mark: ps.left_mark,
+            cols: ps.cols,
+            writable_rows: ps.rows.saturating_sub(1),
         }
+    }
+}
+
+impl IncrementalSearchOpts<'_> {
+    const fn line_number_digits(&self) -> usize {
+        utils::digits(self.screen.line_count())
     }
 }
 
@@ -187,7 +198,6 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             rows: ps.rows.try_into().unwrap(),
             cols: ps.cols.try_into().unwrap(),
             incremental_search_options: Some(incremental_search_options),
-            incremental_search_cache: None,
             compiled_regex: None,
             search_mode: ps.search_state.search_mode,
         }
@@ -218,8 +228,6 @@ impl InputStatus {
 pub(crate) struct FetchInputResult {
     /// Original search query
     pub(crate) string: String,
-    /// Incremental search cache if available
-    pub(crate) incremental_search_result: Option<IncrementalSearchCache>,
     /// Cached pre-compiled [`Regex`] if available
     pub(crate) compiled_regex: Option<Regex>,
 }
@@ -230,20 +238,9 @@ impl FetchInputResult {
     const fn new_empty() -> Self {
         Self {
             string: String::new(),
-            incremental_search_result: None,
             compiled_regex: None,
         }
     }
-}
-
-/// A cache for storing all the new data obtained by running incremental search
-pub(crate) struct IncrementalSearchCache {
-    /// Indices of formatted_lines where search matches have been found
-    pub(crate) search_idx: BTreeSet<usize>,
-    /// Index of the line from which to display the text.
-    /// This will be set to the index of line which is after the current upper mark and will
-    /// have a search match for sure
-    pub(crate) upper_mark: usize,
 }
 
 fn line_matches_query(line: &str, query: &Regex) -> bool {
@@ -251,69 +248,65 @@ fn line_matches_query(line: &str, query: &Regex) -> bool {
     query.is_match(stripped.as_ref())
 }
 
-fn incremental_preview(
+fn preview_line(
     iso: &IncrementalSearchOpts<'_>,
     query: &Regex,
-    cols: usize,
-    rows: usize,
-) -> Option<(Vec<String>, usize)> {
-    fn preview_line(
-        iso: &IncrementalSearchOpts<'_>,
-        query: &Regex,
-        cols: usize,
-        line_number_digits: usize,
-        line_idx: usize,
-        line: &str,
-        visible_lines: &mut Vec<String>,
-        upper_mark: &mut Option<usize>,
-        writable_rows: usize,
-        wrapped: bool,
-    ) -> Option<()> {
-        // Skip all lines that don't have any match
-        if upper_mark.is_none() && !line_matches_query(line, query) {
-            return Some(());
-        }
-
-        let row_start = *iso.lines_to_row_map.get(line_idx).unwrap_or(&0);
-        let mut search_idx = BTreeSet::new();
-        let mut formatted_rows = screen::formatted_line(
-            line,
-            line_number_digits,
-            line_idx,
-            iso.line_numbers,
-            cols,
-            iso.screen.line_wrapping,
-            row_start,
-            &mut search_idx,
-            Some(query),
-        );
-
-        if upper_mark.is_none() {
-            let match_row = *search_idx
-                .iter()
-                .find(|idx| wrapped || **idx >= iso.initial_upper_mark)?;
-            let skip_rows = match_row.saturating_sub(row_start);
-            *upper_mark = Some(match_row);
-            visible_lines.extend(formatted_rows.drain(skip_rows..));
-        } else {
-            visible_lines.append(&mut formatted_rows);
-        }
-
-        if visible_lines.len() >= writable_rows {
-            visible_lines.truncate(writable_rows);
-        }
-
-        Some(())
+    line_idx: usize,
+    line: &str,
+    visible_lines: &mut Vec<String>,
+    upper_mark: &mut Option<usize>,
+    wrapped: bool,
+) {
+    // Skip all lines that don't have any match
+    if upper_mark.is_none() && !line_matches_query(line, query) {
+        return;
     }
 
-    let writable_rows = rows.saturating_sub(1);
-    if writable_rows == 0 {
+    let row_start = *iso.lines_to_row_map.get(line_idx).unwrap_or(&0);
+    let mut match_row_idx = None;
+    let mut formatted_rows = screen::format_line(
+        line,
+        iso.line_number_digits(),
+        line_idx,
+        iso.line_numbers,
+        iso.cols,
+        iso.screen.line_wrapping,
+    )
+    .enumerate()
+    .map(|(i, fr)| {
+        let h = highlight_matches_args(&fr.row, query, false);
+        let match_row = format!("{h}");
+        if h.is_match && (wrapped || line_idx + i > iso.initial_upper_mark) {
+            match_row_idx = Some(line_idx + i);
+        }
+        match_row
+    })
+    .collect::<Vec<String>>();
+
+    if upper_mark.is_none() {
+        if match_row_idx.is_none() {
+            return;
+        }
+        let match_row_idx = match_row_idx.unwrap();
+        let skip_rows = match_row_idx.saturating_sub(row_start);
+        *upper_mark = Some(match_row_idx);
+        visible_lines.extend(formatted_rows.drain(skip_rows..));
+    } else {
+        visible_lines.append(&mut formatted_rows);
+    }
+
+    if visible_lines.len() >= iso.writable_rows {
+        visible_lines.truncate(iso.writable_rows);
+    }
+}
+
+fn incremental_preview(iso: &IncrementalSearchOpts<'_>, query: &Regex) -> Option<Vec<String>> {
+    if iso.writable_rows == 0 {
         return None;
     }
 
     let start_line_idx = iso.lines_to_row_map.row_to_line(iso.initial_upper_mark)?;
-    let line_number_digits = crate::minus_core::utils::digits(iso.screen.line_count());
-    let mut visible_lines = Vec::with_capacity(writable_rows);
+    let mut visible_lines = Vec::with_capacity(iso.writable_rows);
     let mut upper_mark = None;
 
     for (line_idx, line) in iso
@@ -326,16 +319,13 @@ fn incremental_preview(
         preview_line(
             iso,
             query,
-            cols,
-            line_number_digits,
             line_idx,
             line,
             &mut visible_lines,
             &mut upper_mark,
-            writable_rows,
             false,
-        )?;
-        if visible_lines.len() >= writable_rows {
+        );
+        if visible_lines.len() >= iso.writable_rows {
             break;
         }
     }
@@ -345,19 +335,23 @@ fn incremental_preview(
     // We fix this by filling visible_lines by as many rows such that a pageful of data can be
     // displayed.
     if let Some(um) = upper_mark
-        && visible_lines.len() < writable_rows
-        && iso.screen.formatted_lines_count() > writable_rows
+        && visible_lines.len() < iso.writable_rows
+        && iso.screen.formatted_lines_count() > iso.writable_rows
     {
         let start = iso
             .screen
             .formatted_lines_count()
-            .saturating_sub(writable_rows);
+            .saturating_sub(iso.writable_rows);
         let to_insert = um.saturating_sub(start);
         let shift = visible_lines.len();
-        visible_lines.resize(writable_rows, String::new());
+        visible_lines.resize(iso.writable_rows, String::new());
         visible_lines.rotate_left(shift);
-        for i in 0..to_insert {
-            visible_lines[i] = iso.screen.formatted_lines[start + i].clone();
+        for (d, s) in visible_lines
+            .iter_mut()
+            .zip(iso.screen.formatted_lines.iter().skip(start))
+            .take(to_insert)
+        {
+            d.clone_from(s);
         }
     }
 
@@ -372,22 +366,23 @@ fn incremental_preview(
             preview_line(
                 iso,
                 query,
-                cols,
-                line_number_digits,
                 line_idx,
                 line,
                 &mut visible_lines,
                 &mut upper_mark,
-                writable_rows,
                 true,
-            )?;
-            if visible_lines.len() >= writable_rows {
+            );
+            if visible_lines.len() >= iso.writable_rows {
                 break;
             }
         }
     }
 
-    upper_mark.map(|upper_mark| (visible_lines, upper_mark))
+    if upper_mark.is_some() {
+        Some(visible_lines)
+    } else {
+        None
+    }
 }
 
 /// Runs the incremental search
@@ -402,13 +397,13 @@ fn run_incremental_search<'a, F, O>(
     out: &mut O,
     so: &'a SearchOpts<'a>,
     incremental_search_condition: F,
-) -> crate::Result<Option<IncrementalSearchCache>>
+) -> crate::Result<()>
 where
     O: Write,
     F: Fn(&'a SearchOpts) -> bool,
 {
     let Some(iso) = so.incremental_search_options.as_ref() else {
-        return Ok(None);
+        return Ok(());
     };
     let screen = iso.screen;
     let line_numbers = iso.line_numbers;
@@ -440,26 +435,16 @@ where
     // If the query prior to the current one had a successful incremental search run and now the
     // current query isn't a valid regex or the incremental search condition has returned false
     // then
-    if so.incremental_search_cache.is_some() && !should_proceed {
-        reset_screen(out, so)?;
-        return Ok(None);
-    }
-
-    // Return immediately if search query isn't valid or incremental search condition is false
-    // NOTE: This must come after the reset screen display code in above statement, otherwise this
-    // will cover all the cases of the above statement's condition and hence the terminal will ever
-    // get reset
     if !should_proceed {
-        return Ok(None);
+        reset_screen(out, so)?;
+        return Ok(());
     }
 
     let query = so.compiled_regex.as_ref().unwrap();
 
-    let Some((visible_lines, upper_mark)) =
-        incremental_preview(iso, query, so.cols.into(), so.rows.into())
-    else {
+    let Some(visible_lines) = incremental_preview(iso, query) else {
         reset_screen(out, so)?;
-        return Ok(None);
+        return Ok(());
     };
 
     // Draw the incrementally searched lines from upper mark
@@ -475,14 +460,7 @@ where
         iso.screen.line_count(),
     )?;
 
-    // Return the results obtained by running incremental search so that they can be stored as a
-    // cache.
-    let mut search_idx = BTreeSet::new();
-    search_idx.insert(upper_mark);
-    Ok(Some(IncrementalSearchCache {
-        upper_mark,
-        search_idx,
-    }))
+    Ok(())
 }
 
 /// Respond to keyboard events
@@ -518,8 +496,7 @@ where
         // Cache the compiled regex if the regex is valid
         so.compiled_regex = Regex::new(&so.string).ok();
 
-        so.incremental_search_cache =
-            run_incremental_search(out, so, incremental_search_condition)?;
+        run_incremental_search(out, so, incremental_search_condition)?;
 
         // Update prompt
         term::move_cursor(out, 0, so.rows, false)?;
@@ -742,7 +719,6 @@ pub(crate) fn fetch_input(
         // in the cache
         InputStatus::Confirmed => FetchInputResult {
             string: search_opts.string,
-            incremental_search_result: search_opts.incremental_search_cache,
             compiled_regex: search_opts.compiled_regex,
         },
     };
@@ -968,7 +944,6 @@ mod tests {
                 rows: 25,
                 cols: 100,
                 incremental_search_options: None,
-                incremental_search_cache: None,
                 compiled_regex: None,
                 search_mode: sm,
             }
