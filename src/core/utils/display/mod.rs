@@ -6,7 +6,7 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 
-use std::{cmp::Ordering, convert::TryInto, io::Write};
+use std::{cmp::Ordering, convert::TryInto, fmt::Display, io::Write};
 
 use super::term;
 use crate::screen::Row;
@@ -219,9 +219,9 @@ pub fn draw_append_text(
 /// the number of lines of text data. This rule is disobeyed in only one special case which is if number of lines of
 /// text is less than available rows. In this situation, upper mark is always 0.
 #[allow(clippy::too_many_arguments)]
-pub fn write_text_checked(
+pub fn write_text_checked<L: Display + AsRef<str>>(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[L],
     mut upper_mark: usize,
     rows: usize,
     cols: usize,
@@ -246,8 +246,7 @@ pub fn write_text_checked(
         lower_mark = upper_mark.saturating_add(writable_rows.min(line_count));
     }
 
-    // Add \r to ensure cursor is placed at the beginning of each row
-    let display_lines: &[String] = &lines[upper_mark..lower_mark];
+    let display_lines = &lines[upper_mark..lower_mark];
 
     term::move_cursor(out, 0, 0, false)?;
     term::clear_entire_screen(out, false)?;
@@ -280,9 +279,9 @@ pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Resul
     write_raw_lines(out, &display_lines, Some("\r"))
 }
 
-pub fn write_lines(
+pub fn write_lines<L: Display + AsRef<str>>(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[L],
     cols: usize,
     line_wrapping: bool,
     left_mark: usize,
@@ -296,28 +295,29 @@ pub fn write_lines(
     }
 }
 
-pub fn write_lines_in_horizontal_scroll(
+pub fn write_lines_in_horizontal_scroll<L: Display + AsRef<str>>(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[L],
     cols: usize,
     start: usize,
     line_numbers: bool,
     line_count: usize,
 ) -> crate::Result {
     for line in lines {
+        let line_str = line.as_ref();
         let (first_end, second_start, second_end) =
-            get_horizontal_scroll_bounds(line, cols, start, line_numbers, line_count);
+            get_horizontal_scroll_bounds(line_str, cols, start, line_numbers, line_count);
 
-        if start < line.len() {
+        if start < line.as_ref().len() {
             if line_numbers {
                 writeln!(
                     out,
                     "\r{}{}",
-                    &line[0..first_end],
-                    &line[second_start..second_end]
+                    &line_str[0..first_end],
+                    &line_str[second_start..second_end]
                 )?;
             } else {
-                writeln!(out, "\r{}", &line[second_start..second_end])?;
+                writeln!(out, "\r{}", &line_str[second_start..second_end])?;
             }
         } else {
             writeln!(out, "\r")?;
@@ -393,9 +393,9 @@ pub fn get_horizontal_scroll_bounds(
 /// `initial` tells any extra text to be inserted before each line. For functions that use this
 /// function over terminals, this should be set to `\r` to avoid broken display.
 /// The `\r` resets the cursor to the start of the line.
-pub fn write_raw_lines(
+pub fn write_raw_lines<L: Display>(
     out: &mut impl Write,
-    lines: &[String],
+    lines: &[L],
     initial: Option<&str>,
 ) -> Result<(), MinusError> {
     for line in lines {

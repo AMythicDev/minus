@@ -247,7 +247,7 @@ impl PagerState {
         Ok(ps)
     }
 
-    pub(crate) fn format_lines(&mut self) {
+    pub(crate) fn reformat_display(&mut self) {
         let format_result = screen::format_lines_into(
             &mut self.screen.formatted_lines,
             &self.screen.orig_text,
@@ -579,7 +579,7 @@ impl PagerState {
         );
 
         if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
-            self.format_lines();
+            self.reformat_display();
             return AppendStyle::FullRedraw;
         }
 
@@ -665,7 +665,7 @@ mod tests {
         ps.screen.line_wrapping = false;
         ps.left_mark = 3;
         ps.screen.orig_text = "abcdefghij\nklmnopqrst\nuvwxyz\n".to_string();
-        ps.format_lines();
+        ps.reformat_display();
 
         let padding = ps.line_number_padding() as u16;
         ps.selection_anchor = ps.selection_from_coordinates(padding + 1, 0);
@@ -682,7 +682,7 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         ps.cols = 6;
         ps.screen.orig_text = "abcdefghi\njklmnop\n".to_string();
-        ps.format_lines();
+        ps.reformat_display();
         ps.selection_anchor = Some(Selection {
             absolute_row: 0,
             col: 2,

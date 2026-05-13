@@ -35,7 +35,7 @@ pub fn handle_event(
         Command::SetData(text) => {
             p.screen.orig_text = text;
             p.screen.line_count = p.screen.orig_text.lines().count();
-            p.format_lines();
+            p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
@@ -149,13 +149,13 @@ pub fn handle_event(
         Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
             p.cols = c;
-            p.format_lines();
+            p.reformat_display();
             // Readjust the text wrapping for the new number of columns
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::UpdateLineNumber(l)) => {
             p.line_numbers = l;
-            p.format_lines();
+            p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Number(n)) => {
@@ -278,7 +278,7 @@ pub fn handle_event(
 
         Command::UserInput(InputEvent::HorizontalScroll(val)) => {
             p.screen.line_wrapping = val;
-            p.format_lines();
+            p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
 
@@ -316,7 +316,7 @@ pub fn handle_event(
         }
         Command::SetLineNumbers(ln) => {
             p.line_numbers = ln;
-            p.format_lines();
+            p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::SetExitStrategy(es) => {
@@ -336,7 +336,7 @@ pub fn handle_event(
         }
         Command::LineWrapping(lw) => {
             p.screen.line_wrapping = lw;
-            p.format_lines();
+            p.reformat_display();
         }
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
@@ -420,8 +420,6 @@ pub fn handle_io_command(
             drop(active);
             cvar.notify_one();
 
-            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
-
             // If we only have compiled regex cached, use that otherwise compile the original
             // string query if its not empty
             p.search_state.search_term = if search_result.compiled_regex.is_some() {
@@ -436,11 +434,19 @@ pub fn handle_io_command(
                 }
                 compiled_regex
             } else {
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
                 return Ok(());
             };
 
-            p.format_lines();
+            p.reformat_display();
+            p.upper_mark = *p
+                .search_state
+                .search_idx
+                .iter()
+                .nth(p.search_state.search_mark)
+                .unwrap();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
     }
     Ok(())
@@ -570,7 +576,7 @@ mod tests {
             let _ = writeln!(t, "line {idx}");
             t
         });
-        ps.format_lines();
+        ps.reformat_display();
         ps.upper_mark = 3;
         ps.selection_anchor = Some(Selection {
             absolute_row: 3,
@@ -608,7 +614,7 @@ mod tests {
             let _ = writeln!(t, "line {idx}");
             t
         });
-        ps.format_lines();
+        ps.reformat_display();
         ps.upper_mark = 3;
         ps.selection_anchor = Some(Selection {
             absolute_row: 3,
@@ -646,7 +652,7 @@ mod tests {
             let _ = writeln!(t, "line {idx}");
             t
         });
-        ps.format_lines();
+        ps.reformat_display();
         ps.upper_mark = 2;
         ps.selection_anchor = Some(Selection {
             absolute_row: 2,

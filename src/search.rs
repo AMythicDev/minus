@@ -62,6 +62,7 @@ use crossterm::{
     terminal::{Clear, ClearType},
 };
 use regex::Regex;
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::{
     convert::{TryFrom, TryInto},
@@ -248,12 +249,12 @@ fn line_matches_query(line: &str, query: &Regex) -> bool {
     query.is_match(stripped.as_ref())
 }
 
-fn preview_line(
+fn preview_line<'a>(
     iso: &IncrementalSearchOpts<'_>,
     query: &Regex,
     line_idx: usize,
-    line: &str,
-    visible_lines: &mut Vec<String>,
+    line: &'a str,
+    visible_lines: &mut Vec<Cow<'a, str>>,
     upper_mark: &mut Option<usize>,
     wrapped: bool,
 ) {
@@ -275,13 +276,16 @@ fn preview_line(
     .enumerate()
     .map(|(i, fr)| {
         let h = highlight_matches_args(&fr.row, query, false);
-        let match_row = format!("{h}");
-        if h.is_match && (wrapped || line_idx + i > iso.initial_upper_mark) {
-            match_row_idx = Some(line_idx + i);
+        if h.is_match {
+            if wrapped || line_idx + i > iso.initial_upper_mark {
+                match_row_idx = Some(line_idx + i);
+            }
+            Cow::Owned(format!("{h}"))
+        } else {
+            fr.row
         }
-        match_row
     })
-    .collect::<Vec<String>>();
+    .collect::<Vec<Cow<str>>>();
 
     if upper_mark.is_none() {
         if match_row_idx.is_none() {
@@ -300,13 +304,16 @@ fn preview_line(
     }
 }
 
-fn incremental_preview(iso: &IncrementalSearchOpts<'_>, query: &Regex) -> Option<Vec<String>> {
+fn incremental_preview<'a>(
+    iso: &IncrementalSearchOpts<'a>,
+    query: &'a Regex,
+) -> Option<Vec<Cow<'a, str>>> {
     if iso.writable_rows == 0 {
         return None;
     }
 
     let start_line_idx = iso.lines_to_row_map.row_to_line(iso.initial_upper_mark)?;
-    let mut visible_lines = Vec::with_capacity(iso.writable_rows);
+    let mut visible_lines: Vec<Cow<str>> = Vec::with_capacity(iso.writable_rows);
     let mut upper_mark = None;
 
     for (line_idx, line) in iso
@@ -344,15 +351,16 @@ fn incremental_preview(iso: &IncrementalSearchOpts<'_>, query: &Regex) -> Option
             .saturating_sub(iso.writable_rows);
         let to_insert = um.saturating_sub(start);
         let shift = visible_lines.len();
-        visible_lines.resize(iso.writable_rows, String::new());
-        visible_lines.rotate_left(shift);
-        for (d, s) in visible_lines
-            .iter_mut()
-            .zip(iso.screen.formatted_lines.iter().skip(start))
+        for l in iso
+            .screen
+            .formatted_lines
+            .iter()
+            .skip(start)
             .take(to_insert)
         {
-            d.clone_from(s);
+            visible_lines.push(Cow::Borrowed(l.as_str()));
         }
+        visible_lines.rotate_left(shift);
     }
 
     if upper_mark.is_none() {
@@ -907,7 +915,7 @@ pub(crate) fn next_nth_match(
     let position_of_next_match = if jump == 0 {
         start_idx
     } else {
-        start_idx.saturating_add(jump).saturating_sub(1) % search_idx.len()
+        start_idx.saturating_add(jump - 1) % search_idx.len()
     };
 
     Some(position_of_next_match)
