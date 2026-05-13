@@ -8,7 +8,7 @@ documentation = "https://docs.rs/minus"
 repository = "https://github.com/AMythicDev/minus"
 description = "An asynchronous data feedable terminal paging library for Rust"
 keywords = ["pager", "asynchronous", "dynamic", "less", "more"]
-categories = ["Text processing", "Command-line interface", "Asynchronous"]
+categories = ["asynchronous", "command-line-interface"]
 
 [package.metadata.docs.rs]
 all-features = true
