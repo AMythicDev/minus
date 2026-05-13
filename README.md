@@ -50,6 +50,7 @@ downloaded from the internet.
 - Both keyboard and mouse support  
     Key bindings highly inspired by Vim and other modern text editors
 - Clutter free line numbering
+- Text selection and clipboard support
 - Horizontal scrolling
     Scroll not only up or down but also left and right.  
     **NOTE: ANSI escape codes are broken when scrolling horizontally which means as you scroll along the axis, you may see broken
@@ -71,14 +72,10 @@ Add minus as a dependency in your `Cargo.toml` file and enable features as you l
 
 * If you want search support inside the pager, you need to enable the `search` feature
 
-```toml
-[dependencies.minus]
-version = "5.6"
-features = [
-    # Enable features you want. For example
-    "dynamic_output",
-    "search",
-]
+* If you want clipboard support using `aboard` inside the pager, you need to enable the `clipboard` feature
+
+```bash
+cargo add minus
 ```
 
 ## Examples

@@ -7,7 +7,7 @@ use crate::search::{SearchMode, SearchOpts, next_nth_match};
 use crate::{
     LineNumbers,
     error::{MinusError, TermError},
-    hooks::Hooks,
+    hooks::{Hook, Hooks},
     input::{self, HashedEventRegister},
     minus_core::{
         self, CommandQueue,
@@ -216,6 +216,14 @@ impl PagerState {
             follow_output: false,
             selection_anchor: None,
         };
+
+        state.hooks.add_callback(
+            Hook::PostPagerExit,
+            1,
+            Box::new(|_| {
+                std::process::exit(0);
+            }),
+        );
 
         state.format_prompt();
         Ok(state)

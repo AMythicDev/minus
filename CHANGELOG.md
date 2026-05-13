@@ -1,6 +1,33 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.7.0 [2026-05-13]
+### Added
+* [#164](https://github.com/arijit79/minus/pull/164): Added mouse-based text selection and copy support.
+* [#158](https://github.com/arijit79/minus/pull/158): Added less-like keybindings, including home/end navigation and `N`.
+* [#162](https://github.com/AMythicDev/minus/pull/162): Add callback based support for hooking into various events.
+
+### Fixed
+* [#159](https://github.com/arijit79/minus/pull/159): Improved search QoL, including search highlighting behavior.
+* [#144](https://github.com/arijit79/minus/pull/144): Fixed horizontal scrolling edge cases and character-boundary handling.
+* [#162](https://github.com/arijit79/minus/pull/162): Fixed hooks-related cleanup and stdout handling regressions.
+* Fixed dynamic paging cleanup and startup regressions.
+* Fixed search behavior when navigating matches near the current view.
+
+### Performance
+* Reused allocated screen buffers to reduce churn during formatting and search updates.
+* Improved text appending and horizontal scroll rendering paths.
+
+### Docs
+* Updated deprecation warnings and README link formatting.
+* Improved CI/build and lint configuration.
+
+### Changes
+* Renamed `InternalCommand` to `IoCommand` and cleaned up command queue handling.
+* Split stdout-related event handling into a separate command path.
+* Update to `crossterm` v0.29.0 and `thiserror` v2.0.18
+* Update to Rust edition 2024
+
 ## v5.6.1 [2024-03-31]
 ### Fixed
 * [#133](https://github.com/pull/133): Updated the `flake.nix` file.
