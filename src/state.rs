@@ -2,7 +2,7 @@
 
 #![allow(dead_code)]
 #[cfg(feature = "search")]
-use crate::search::{SearchMode, SearchOpts};
+use crate::search::{SearchMode, SearchOpts, next_nth_match};
 
 use crate::{
     LineNumbers,
@@ -247,7 +247,7 @@ impl PagerState {
         Ok(ps)
     }
 
-    pub(crate) fn format_lines(&mut self) {
+    pub(crate) fn reformat_display(&mut self) {
         let format_result = screen::format_lines_into(
             &mut self.screen.formatted_lines,
             &self.screen.orig_text,
@@ -261,6 +261,8 @@ impl PagerState {
         #[cfg(feature = "search")]
         {
             self.search_state.search_idx = format_result.append_search_idx;
+            self.search_state.search_mark =
+                next_nth_match(&self.search_state.search_idx, self.upper_mark, 0).unwrap_or(0);
         }
         self.lines_to_row_map = format_result.lines_to_row_map;
         self.screen.max_line_length = format_result.max_line_length;
@@ -577,7 +579,7 @@ impl PagerState {
         );
 
         if self.line_numbers.is_on() && (new_lc_dgts != old_lc_dgts && old_lc_dgts != 0) {
-            self.format_lines();
+            self.reformat_display();
             return AppendStyle::FullRedraw;
         }
 
@@ -663,7 +665,7 @@ mod tests {
         ps.screen.line_wrapping = false;
         ps.left_mark = 3;
         ps.screen.orig_text = "abcdefghij\nklmnopqrst\nuvwxyz\n".to_string();
-        ps.format_lines();
+        ps.reformat_display();
 
         let padding = ps.line_number_padding() as u16;
         ps.selection_anchor = ps.selection_from_coordinates(padding + 1, 0);
@@ -680,7 +682,7 @@ mod tests {
         let mut ps = PagerState::new().unwrap();
         ps.cols = 6;
         ps.screen.orig_text = "abcdefghi\njklmnop\n".to_string();
-        ps.format_lines();
+        ps.reformat_display();
         ps.selection_anchor = Some(Selection {
             absolute_row: 0,
             col: 2,

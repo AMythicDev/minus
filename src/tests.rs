@@ -195,7 +195,7 @@ mod pager_append_str {
         );
 
         ps.screen.orig_text = TEST.to_string();
-        ps.format_lines();
+        ps.reformat_display();
 
         assert_eq!(ps.screen.orig_text, TEST.to_owned());
         assert_eq!(
@@ -231,7 +231,7 @@ mod pager_append_str {
         let row1_ptr = ps.screen.formatted_lines[1].as_ptr();
 
         ps.screen.orig_text = "short\nlines".to_string();
-        ps.format_lines();
+        ps.reformat_display();
 
         assert_eq!(ps.screen.formatted_lines, vec!["short", "lines"]);
         assert_eq!(ps.screen.formatted_lines.as_ptr(), vec_ptr);
@@ -252,7 +252,7 @@ mod pager_append_str {
         let row1_ptr = ps.screen.formatted_lines[1].as_ptr();
 
         ps.screen.orig_text = "one\ntwo\nthree".to_string();
-        ps.format_lines();
+        ps.reformat_display();
 
         assert_eq!(ps.screen.formatted_lines, vec!["one", "two", "three"]);
         assert_eq!(ps.screen.formatted_lines.as_ptr(), vec_ptr);

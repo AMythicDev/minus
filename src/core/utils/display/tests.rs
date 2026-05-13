@@ -17,7 +17,7 @@ fn short_no_line_numbers() {
     let mut pager = PagerState::new().unwrap();
 
     pager.screen.orig_text = lines.to_string();
-    pager.format_lines();
+    pager.reformat_display();
 
     let mut out = Vec::with_capacity(lines.len());
 
@@ -53,7 +53,7 @@ fn long_no_line_numbers() {
     // One extra line for prompt
     pager.rows = 4;
     pager.screen.orig_text = lines.to_string();
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
@@ -67,7 +67,7 @@ fn long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     pager.screen.orig_text = "Another line\nThird line\nFourth line\nFifth line\n".to_string();
     pager.upper_mark = 1;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
@@ -99,7 +99,7 @@ fn short_with_line_numbers() {
     let mut pager = PagerState::new().unwrap();
     pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
@@ -134,7 +134,7 @@ fn long_with_line_numbers() {
     pager.rows = 4;
     pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
@@ -186,7 +186,7 @@ fn big_line_numbers_are_padded() {
     pager.rows = 11;
     pager.screen.orig_text = lines;
     pager.line_numbers = LineNumbers::AlwaysOn;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
 
@@ -229,7 +229,7 @@ fn draw_short_no_line_numbers() {
     let mut pager = PagerState::new().unwrap();
     pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::AlwaysOff;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
 
@@ -264,7 +264,7 @@ fn draw_long_no_line_numbers() {
     let mut pager = PagerState::new().unwrap();
     pager.rows = 3;
     pager.screen.orig_text = lines.to_string();
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
 
@@ -310,7 +310,7 @@ fn draw_short_with_line_numbers() {
     let mut pager = PagerState::new().unwrap();
     pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
     assert!(
@@ -345,7 +345,7 @@ fn draw_long_with_line_numbers() {
     pager.rows = 3;
     pager.screen.orig_text = lines.to_string();
     pager.line_numbers = LineNumbers::Enabled;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
 
@@ -399,7 +399,7 @@ fn draw_big_line_numbers_are_padded() {
     pager.upper_mark = 95;
     pager.screen.orig_text = lines;
     pager.line_numbers = LineNumbers::Enabled;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
 
@@ -426,7 +426,7 @@ fn draw_wrapping_line_numbers() {
     pager.cols = 30;
     pager.upper_mark = 2;
     pager.line_numbers = LineNumbers::Enabled;
-    pager.format_lines();
+    pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
 
@@ -457,7 +457,7 @@ fn test_draw_no_overflow() {
     let mut out = Vec::with_capacity(TEXT.len());
     let mut pager = PagerState::new().unwrap();
     pager.screen.orig_text = TEXT.to_string();
-    pager.format_lines();
+    pager.reformat_display();
     draw_full(&mut out, &mut pager).unwrap();
     assert!(
         String::from_utf8(out)
@@ -488,7 +488,7 @@ mod draw_for_change_tests {
         let mut ps = PagerState::new().unwrap();
         ps.upper_mark = 0;
         ps.screen.orig_text = lines;
-        ps.format_lines();
+        ps.reformat_display();
         ps.format_prompt();
         ps
     }
