@@ -903,16 +903,15 @@ pub(crate) fn nth_match(
         (_, SearchMode::Unknown) => unreachable!(),
     };
 
-    let mut start_idx = nearest_idx.unwrap_or(0) as isize;
-    let match_pos = if jump == 0 {
-        start_idx as usize
-    } else {
+    let mut start_idx = nearest_idx.unwrap_or(0).cast_signed();
+    if jump > 0 {
         start_idx += jump - 1;
-        start_idx = start_idx % (search_idx.len() as isize);
-        start_idx as usize
-    };
+    } else if jump < 0 {
+        start_idx += jump + 1;
+    }
 
-    Some(match_pos)
+    start_idx %= search_idx.len().cast_signed();
+    Some(start_idx.cast_unsigned())
 }
 
 #[cfg(test)]

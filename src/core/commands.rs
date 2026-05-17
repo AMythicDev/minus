@@ -124,12 +124,6 @@ impl Debug for Command {
             Self::AddInputBinding(et, _) => write!(f, "AddInputBinding({et:?})"),
             Self::RemoveInputBinding(et) => write!(f, "RemoveInputBinding({et:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
-            Self::AddKeyBinding(desc, _, remap) => write!(f, "AddKeyBinding({desc:?}, {remap})"),
-            Self::AddMouseBinding(desc, _, remap) => {
-                write!(f, "AddMouseBinding({desc:?}, {remap})")
-            }
-            Self::RemoveKeyBinding(desc) => write!(f, "RemoveKeyBinding({desc:?})"),
-            Self::RemoveMouseBinding(desc) => write!(f, "RemoveMouseBinding({desc:?})"),
             Self::Io(c) => write!(f, "Io({c:?})"),
         }
     }

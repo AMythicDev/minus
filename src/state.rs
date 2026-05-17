@@ -8,7 +8,7 @@ use crate::{
     LineNumbers,
     error::{MinusError, TermError},
     hooks::{Hook, Hooks},
-    input::{self, HashedEventRegister},
+    input::HashedEventRegister,
     minus_core::{
         self, CommandQueue,
         utils::{

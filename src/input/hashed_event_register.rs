@@ -90,7 +90,7 @@ impl Hash for EventWrapper {
 pub struct HashedEventRegister(HashMap<EventWrapper, EventReturnType, RandomState>);
 
 impl Default for HashedEventRegister {
-    /// Create a new [HashedEventRegister] with the default hasher and insert the default bindings
+    /// Create a new [`HashedEventRegister`] with the default hasher and insert the default bindings
     fn default() -> Self {
         let mut event_register = Self::new();
         super::generate_default_bindings(&mut event_register);
@@ -102,7 +102,7 @@ impl Default for HashedEventRegister {
 // GENERAL FUNCTIONS
 // ####################
 impl HashedEventRegister {
-    /// Create a new HashedEventRegister with the Hasher `s`
+    /// Create a new `HashedEventRegister`
     pub fn new() -> Self {
         Self(HashMap::new())
     }
