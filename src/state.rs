@@ -454,14 +454,11 @@ impl PagerState {
 
         let prefix_width = self.line_number_padding();
         if self.screen.line_wrapping {
-            return Some(
-                highlight_visible_range(
-                    Cow::Borrowed(raw_row),
-                    prefix_width.saturating_add(start_col),
-                    prefix_width.saturating_add(end_col),
-                )
-                .into(),
-            );
+            return Some(highlight_visible_range(
+                Cow::Borrowed(raw_row),
+                prefix_width.saturating_add(start_col),
+                prefix_width.saturating_add(end_col),
+            ));
         }
 
         let row = self.crop_row_for_horizontal_scroll(raw_row);
