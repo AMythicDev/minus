@@ -104,26 +104,8 @@ pub enum InputEvent {
     /// `/`, Searching for certain pattern of text
     #[cfg(feature = "search")]
     Search(SearchMode),
-    /// Get to the next match in forward mode
-    ///
-    /// **WARNING: This has been deprecated in favour of `MoveToNextMatch`. This will likely be
-    /// removed in the next major release.**
     #[cfg(feature = "search")]
-    #[deprecated = "Use [InputEvent::MoveToNextMatch(1)](InputEvent::MoveToNextMatch) for the same effect."]
-    NextMatch,
-    /// Get to the previous match in forward mode
-    ///
-    /// **WARNING: This has been deprecated in favour of `MoveToPrevMatch`. This will likely be
-    /// removed in the next major release.**
-    #[deprecated = "Use [InputEvent::MoveToPrevMatch(1)](InputEvent::MoveToPrevMatch) for the same effect."]
-    #[cfg(feature = "search")]
-    PrevMatch,
-    /// Move to the next nth match in the given direction
-    #[cfg(feature = "search")]
-    MoveToNextMatch(usize),
-    /// Move to the previous nth match in the given direction
-    #[cfg(feature = "search")]
-    MoveToPrevMatch(usize),
+    GoToMatch(isize),
     /// Control follow mode.
     ///
     /// When set to true, minus ensures that the user's screen always follows the end part of the
@@ -208,23 +190,22 @@ pub(crate) fn generate_default_bindings(map: &mut HashedEventRegister) {
         map.map_keys(&["/"], |_, _| InputEvent::Search(SearchMode::Forward));
         map.map_keys(&["?"], |_, _| InputEvent::Search(SearchMode::Reverse));
         map.map_keys(&["n"], |_, ps| {
-            let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
-
+            let position = ps.prefix_num.parse::<isize>().unwrap_or(1);
             if ps.search_state.search_mode == SearchMode::Forward {
-                InputEvent::MoveToNextMatch(position)
+                InputEvent::GoToMatch(position)
             } else if ps.search_state.search_mode == SearchMode::Reverse {
-                InputEvent::MoveToPrevMatch(position)
+                InputEvent::GoToMatch(-position)
             } else {
                 InputEvent::Ignore
             }
         });
         map.map_keys(&["p", "s-n"], |_, ps| {
-            let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
+            let position = ps.prefix_num.parse::<isize>().unwrap_or(1);
 
             if ps.search_state.search_mode == SearchMode::Forward {
-                InputEvent::MoveToPrevMatch(position)
+                InputEvent::GoToMatch(-position)
             } else if ps.search_state.search_mode == SearchMode::Reverse {
-                InputEvent::MoveToNextMatch(position)
+                InputEvent::GoToMatch(position)
             } else {
                 InputEvent::Ignore
             }

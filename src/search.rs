@@ -876,53 +876,42 @@ impl fmt::Display for HighlightMatchesArgs<'_, '_> {
     }
 }
 
-/// Return a index of an element from `search_idx` that will contain a search match and
-/// will be after the `upper_mark`
-///
-/// `jump` denotes how many indexes to jump through. For example if `search_idx` is
-/// `[5, 17, 25, 34, 42]` and `upper_mark` is at 7 and `jump` is set to 1 then this will
-/// return `Some(1)` which is the index of 17. If `n `is set to 3 it will return
-/// `Some(3)` which is index of 34.
-///
-/// If `jump` causes the index to overflow the length of the `search_idx`, the function will set it
-/// to wrap to the start of `search_idx`. Also if `search_idx` is empty, this will simply return None.
-///
-/// Setting `jump` equal to 0 causes a slight change in behaviour: it will also return the index of
-/// element if that element is equal to the current upper mark. In the above example lets say that
-/// `upper_mark` is at 17 and `jump` is set to 0 then this will return `Some(1)` as the
-/// `upper_mark` and element at index  are equal i.e 17.
 #[must_use]
-pub(crate) fn next_nth_match(
+#[allow(clippy::cast_possible_truncation)]
+pub(crate) fn nth_match(
     search_idx: &BTreeSet<usize>,
     upper_mark: usize,
-    jump: usize,
+    jump: isize,
+    direction: SearchMode,
 ) -> Option<usize> {
     if search_idx.is_empty() {
         return None;
     }
 
-    // Find the index of the match that's exactly after the upper_mark.
-    // If there isn't one, wrap to the first match in the file.
-    let nearest_idx = search_idx.iter().position(|i| {
-        if jump == 0 {
-            *i >= upper_mark
-        } else {
-            *i > upper_mark
-        }
-    });
-
-    let start_idx = nearest_idx.unwrap_or(0);
-    let position_of_next_match = if jump == 0 {
-        start_idx
-    } else {
-        start_idx.saturating_add(jump - 1) % search_idx.len()
+    let nearest_idx = match (jump, direction) {
+        (1.., _) => search_idx.iter().position(|i| *i > upper_mark),
+        (0, SearchMode::Forward) => search_idx.iter().position(|i| *i >= upper_mark),
+        (0, SearchMode::Reverse) => search_idx.iter().position(|i| *i <= upper_mark),
+        (..=-1, _) => search_idx.iter().position(|i| *i < upper_mark),
+        (_, SearchMode::Unknown) => unreachable!(),
     };
 
-    Some(position_of_next_match)
+    let mut start_idx = nearest_idx.unwrap_or(0) as isize;
+    let match_pos = if jump == 0 {
+        start_idx as usize
+    } else {
+        start_idx += jump - 1;
+        start_idx = start_idx % (search_idx.len() as isize);
+        start_idx as usize
+    };
+
+    Some(match_pos)
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::SearchMode;
+
     mod input_handling {
         use crate::{
             SearchMode,
@@ -1215,7 +1204,7 @@ mod tests {
         let mut upper_mark = 0;
         let mut search_mark;
         for (i, v) in search_idx.iter().enumerate() {
-            search_mark = super::next_nth_match(&search_idx, upper_mark, 1);
+            search_mark = super::nth_match(&search_idx, upper_mark, 1, SearchMode::Forward);
             assert_eq!(search_mark, Some(i));
             let next_upper_mark = *search_idx.iter().nth(search_mark.unwrap()).unwrap();
             assert_eq!(next_upper_mark, *v);
@@ -1228,7 +1217,7 @@ mod tests {
         use std::collections::BTreeSet;
 
         use crate::PagerState;
-        use crate::search::{INVERT, NORMAL, highlight_line_matches, next_nth_match};
+        use crate::search::{INVERT, NORMAL, highlight_line_matches, nth_match};
         use crossterm::style::Attribute;
         use regex::Regex;
 
