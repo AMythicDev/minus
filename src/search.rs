@@ -887,7 +887,6 @@ impl fmt::Display for HighlightMatchesArgs<'_, '_> {
 /// - If `jump` is 0, the returned index will be at `upper_mark` if it contains a search match or
 ///   the next match immediately after `upper_mark` (after in this context depends on the direction).
 #[must_use]
-#[allow(clippy::cast_possible_truncation)]
 pub(crate) fn nth_match(
     search_idx: &BTreeSet<usize>,
     upper_mark: usize,
@@ -901,19 +900,25 @@ pub(crate) fn nth_match(
     let nearest_idx = match (jump, direction) {
         (1.., _) => search_idx.iter().position(|i| *i > upper_mark),
         (0, SearchMode::Forward) => search_idx.iter().position(|i| *i >= upper_mark),
-        (0, SearchMode::Reverse) => search_idx.iter().position(|i| *i <= upper_mark),
-        (..=-1, _) => search_idx.iter().position(|i| *i < upper_mark),
+        (0, SearchMode::Reverse) => search_idx.iter().rposition(|i| *i <= upper_mark),
+        (..=-1, _) => search_idx.iter().rposition(|i| *i < upper_mark),
         (_, SearchMode::Unknown) => unreachable!(),
     };
 
-    let mut start_idx = nearest_idx.unwrap_or(0).cast_signed();
+    let last_idx = search_idx.len().saturating_sub(1).cast_signed();
+    let fallback_idx = match (jump, direction) {
+        (1.., _) | (0, SearchMode::Forward) => last_idx,
+        (..=-1, _) | (0, SearchMode::Reverse) => 0,
+        (_, SearchMode::Unknown) => unreachable!(),
+    };
+    let mut start_idx = nearest_idx.map_or(fallback_idx, |idx| idx.cast_signed());
     if jump > 0 {
         start_idx += jump - 1;
     } else if jump < 0 {
         start_idx += jump + 1;
     }
 
-    start_idx = start_idx.clamp(0, search_idx.len().cast_signed());
+    start_idx = start_idx.clamp(0, last_idx);
 
     Some(start_idx.cast_unsigned())
 }
@@ -1207,19 +1212,105 @@ mod tests {
         }
     }
 
+    fn search_idx() -> std::collections::BTreeSet<usize> {
+        std::collections::BTreeSet::from([2, 10, 15, 17, 50])
+    }
+
     #[test]
-    fn test_next_match() {
-        // A sample index for mocking actual search index matches
-        let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
-        let mut upper_mark = 0;
-        let mut search_mark;
-        for (i, v) in search_idx.iter().enumerate() {
-            search_mark = super::nth_match(&search_idx, upper_mark, 1, SearchMode::Forward);
-            assert_eq!(search_mark, Some(i));
-            let next_upper_mark = *search_idx.iter().nth(search_mark.unwrap()).unwrap();
-            assert_eq!(next_upper_mark, *v);
-            upper_mark = next_upper_mark;
-        }
+    fn nth_match_returns_none_for_empty_search_index() {
+        let search_idx = std::collections::BTreeSet::new();
+        assert_eq!(
+            super::nth_match(&search_idx, 10, 1, SearchMode::Forward),
+            None
+        );
+    }
+
+    #[test]
+    fn nth_match_zero_jump_forward_returns_match_at_upper_mark() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 10, 0, SearchMode::Forward),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn nth_match_zero_jump_forward_returns_next_match_after_upper_mark() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 11, 0, SearchMode::Forward),
+            Some(2)
+        );
+    }
+
+    #[test]
+    fn nth_match_zero_jump_reverse_returns_match_at_upper_mark() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 10, 0, SearchMode::Reverse),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn nth_match_zero_jump_reverse_returns_previous_match_before_upper_mark() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 11, 0, SearchMode::Reverse),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn nth_match_positive_jump_moves_strictly_ahead_of_upper_mark() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 10, 1, SearchMode::Forward),
+            Some(2)
+        );
+        assert_eq!(
+            super::nth_match(&search_idx, 10, 2, SearchMode::Forward),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn nth_match_negative_jump_moves_strictly_before_upper_mark() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 17, -1, SearchMode::Reverse),
+            Some(2)
+        );
+        assert_eq!(
+            super::nth_match(&search_idx, 17, -2, SearchMode::Reverse),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn nth_match_clamps_to_first_match_when_reverse_search_has_no_previous_match() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 1, 0, SearchMode::Reverse),
+            Some(0)
+        );
+        assert_eq!(
+            super::nth_match(&search_idx, 1, -1, SearchMode::Reverse),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn nth_match_clamps_to_last_match_when_forward_search_has_no_later_match() {
+        let search_idx = search_idx();
+        assert_eq!(
+            super::nth_match(&search_idx, 100, 0, SearchMode::Forward),
+            Some(4)
+        );
+        assert_eq!(
+            super::nth_match(&search_idx, 100, 1, SearchMode::Forward),
+            Some(4)
+        );
     }
 
     #[allow(clippy::trivial_regex)]
