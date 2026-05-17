@@ -883,6 +883,16 @@ impl fmt::Display for HighlightMatchesArgs<'_, '_> {
     }
 }
 
+/// Returns the position of the nth search match relative to `upper_mark`.
+///
+/// This function will return the index of the nth search match present in
+/// [`PagerState::search_state::search_idx`] relative to `upper_mark`.
+/// - If `jump` is a strictly positive value, the returned index will be strictly `jump` matches
+///   ahead `upper_mark`.
+/// - If `jump` is a strictly negative value, the returned index will be strictly `jump` matches
+///   before.`upper_mark`.
+/// - If `jump` is 0, the returned index will be at `upper_mark` if it contains a search match or
+///   the next match immediately after `upper_mark` (after in this context depends on the direction).
 #[must_use]
 #[allow(clippy::cast_possible_truncation)]
 pub(crate) fn nth_match(
@@ -910,7 +920,8 @@ pub(crate) fn nth_match(
         start_idx += jump + 1;
     }
 
-    start_idx %= search_idx.len().cast_signed();
+    start_idx = start_idx.clamp(0, search_idx.len().cast_signed());
+
     Some(start_idx.cast_unsigned())
 }
 
