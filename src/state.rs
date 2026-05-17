@@ -23,6 +23,7 @@ use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
 use std::{
+    borrow::Cow,
     collections::hash_map::RandomState,
     convert::TryInto,
     io::stdout,
@@ -435,17 +436,17 @@ impl PagerState {
         Some(selected.join("\n"))
     }
 
-    pub(crate) fn render_rows_for_display(&self, start: usize, end: usize) -> Vec<String> {
+    pub(crate) fn render_rows_for_display(&self, start: usize, end: usize) -> Vec<Cow<'_, str>> {
         (start..end)
             .filter_map(|absolute_row| self.render_row_for_display(absolute_row))
             .collect()
     }
 
-    fn render_row_for_display(&self, absolute_row: usize) -> Option<String> {
+    fn render_row_for_display(&self, absolute_row: usize) -> Option<Cow<'_, str>> {
         let raw_row = self.screen.formatted_lines.get(absolute_row)?;
         let Some((start_col, end_col)) = self.selection_bounds_for_row(absolute_row) else {
             return Some(if self.screen.line_wrapping {
-                raw_row.clone()
+                raw_row.into()
             } else {
                 self.crop_row_for_horizontal_scroll(raw_row)
             });
@@ -453,24 +454,27 @@ impl PagerState {
 
         let prefix_width = self.line_number_padding();
         if self.screen.line_wrapping {
-            return Some(highlight_visible_range(
-                raw_row,
-                prefix_width.saturating_add(start_col),
-                prefix_width.saturating_add(end_col),
-            ));
+            return Some(
+                highlight_visible_range(
+                    Cow::Borrowed(raw_row),
+                    prefix_width.saturating_add(start_col),
+                    prefix_width.saturating_add(end_col),
+                )
+                .into(),
+            );
         }
 
         let row = self.crop_row_for_horizontal_scroll(raw_row);
         let visible_start = start_col.saturating_sub(self.left_mark);
         let visible_end = end_col.saturating_sub(self.left_mark);
         Some(highlight_visible_range(
-            &row,
+            row,
             prefix_width.saturating_add(visible_start),
             prefix_width.saturating_add(visible_end),
         ))
     }
 
-    fn crop_row_for_horizontal_scroll(&self, row: &str) -> String {
+    fn crop_row_for_horizontal_scroll<'a>(&self, row: &'a str) -> Cow<'a, str> {
         let (first_end, second_start, second_end) = display::get_horizontal_scroll_bounds(
             row,
             self.cols,
@@ -481,12 +485,12 @@ impl PagerState {
 
         if self.left_mark < row.len() {
             if self.line_numbers.is_on() {
-                format!("{}{}", &row[..first_end], &row[second_start..second_end])
+                format!("{}{}", &row[..first_end], &row[second_start..second_end]).into()
             } else {
-                row[second_start..second_end].to_string()
+                row[second_start..second_end].into()
             }
         } else {
-            String::new()
+            Cow::Borrowed("")
         }
     }
 
@@ -597,24 +601,24 @@ impl PagerState {
 }
 
 fn slice_chars(line: &str, start: usize, end: usize) -> &str {
-    let start_byte = line
+    let mut indices = line
         .char_indices()
-        .nth(start)
-        .map_or(line.len(), |(idx, _)| idx);
-    let end_byte = line
-        .char_indices()
-        .nth(end)
-        .map_or(line.len(), |(idx, _)| idx);
+        .map(|(idx, _)| idx)
+        .chain(std::iter::once(line.len()));
+    let start_byte = indices.nth(start).unwrap_or(line.len());
+    let end_byte = indices
+        .nth(end.saturating_sub(start + 1))
+        .unwrap_or(line.len());
 
     &line[start_byte..end_byte]
 }
 
-fn highlight_visible_range(line: &str, start: usize, end: usize) -> String {
+fn highlight_visible_range(line: Cow<str>, start: usize, end: usize) -> Cow<str> {
     const REVERSE: &str = "\x1b[7m";
     const RESET: &str = "\x1b[27m";
 
     if start >= end {
-        return line.to_string();
+        return line;
     }
 
     let bytes = line.as_bytes();
@@ -657,7 +661,7 @@ fn highlight_visible_range(line: &str, start: usize, end: usize) -> String {
         out.push_str(RESET);
     }
 
-    out
+    out.into()
 }
 
 #[cfg(test)]

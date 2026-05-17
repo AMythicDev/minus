@@ -9,7 +9,6 @@ use crossterm::{
 use std::{cmp::Ordering, convert::TryInto, fmt::Display, io::Write};
 
 use super::term;
-use crate::screen::Row;
 use crate::{LineNumbers, PagerState, error::MinusError, minus_core};
 
 /// How should the incoming text be drawn on the screen
@@ -156,12 +155,12 @@ pub fn draw_full(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusE
     out.flush().map_err(MinusError::Draw)
 }
 
-pub fn draw_append_text(
+pub fn draw_append_text<L: Display + AsRef<str>>(
     out: &mut impl Write,
     rows: usize,
     prev_unterminated: usize,
     prev_fmt_lines_count: usize,
-    fmt_text: &[Row],
+    fmt_text: &[L],
 ) -> Result<(), MinusError> {
     if prev_fmt_lines_count < rows {
         // Move the cursor to the very next line after the last displayed line
