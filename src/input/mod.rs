@@ -218,13 +218,13 @@ pub(crate) fn generate_default_bindings(map: &mut HashedEventRegister) {
     map.map_mouse(&["scroll:down"], |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(5))
     });
-    map.add_mouse_events(&["left:down"], |ev, _| {
+    map.map_mouse(&["left:down"], |ev, _| {
         let Event::Mouse(MouseEvent { column, row, .. }) = ev else {
             unreachable!();
         };
         InputEvent::StartSelection { x: column, y: row }
     });
-    map.add_mouse_events(&["left:drag"], |ev, _| {
+    map.map_mouse(&["left:drag"], |ev, _| {
         let Event::Mouse(MouseEvent { column, row, .. }) = ev else {
             unreachable!();
         };
@@ -233,8 +233,8 @@ pub(crate) fn generate_default_bindings(map: &mut HashedEventRegister) {
 
     #[cfg(feature = "clipboard")]
     {
-        map.add_mouse_events(&["left:up"], |_, _| InputEvent::CopySelection);
-        map.add_key_events(&["y"], |_, _| InputEvent::CopySelection);
+        map.map_mouse(&["left:up"], |_, _| InputEvent::CopySelection);
+        map.map_keys(&["y"], |_, _| InputEvent::CopySelection);
     }
 
     map.map_keys(&["c-s-h", "c-h"], |_, ps| {
