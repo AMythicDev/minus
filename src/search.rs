@@ -918,7 +918,7 @@ pub(crate) fn nth_match(
         (..=-1, _) | (0, SearchMode::Reverse) => 0,
         (_, SearchMode::Unknown) => unreachable!(),
     };
-    let mut start_idx = nearest_idx.map_or(fallback_idx, |idx| idx.cast_signed());
+    let mut start_idx = nearest_idx.map_or(fallback_idx, usize::cast_signed);
     if jump > 0 {
         start_idx += jump - 1;
     } else if jump < 0 {

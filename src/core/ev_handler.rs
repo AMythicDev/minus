@@ -23,8 +23,6 @@ use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 /// - Call search related functions
 #[cfg_attr(not(feature = "search"), allow(unused_mut))]
 #[allow(clippy::too_many_lines)]
-// TODO: Remove it in next major release
-#[allow(deprecated)]
 pub fn handle_event(
     ev: Command,
     p: &mut PagerState,
