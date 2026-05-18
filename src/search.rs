@@ -250,7 +250,7 @@ fn line_matches_query(line: &str, query: &Regex) -> bool {
 }
 
 fn preview_line<'a>(
-    iso: &IncrementalSearchOpts<'_>,
+    iso: &IncrementalSearchOpts<'a>,
     query: &Regex,
     line_idx: usize,
     line: &'a str,
@@ -265,27 +265,31 @@ fn preview_line<'a>(
 
     let row_start = *iso.lines_to_row_map.get(line_idx).unwrap_or(&0);
     let mut match_row_idx = None;
-    let mut formatted_rows = screen::format_line(
+    let formatted_rows = screen::format_line(
         line,
         iso.line_number_digits(),
         line_idx,
         iso.line_numbers,
         iso.cols,
         iso.screen.line_wrapping,
-    )
-    .enumerate()
-    .map(|(i, fr)| {
-        let h = highlight_matches_args(&fr.row, query, false);
-        if h.is_match {
-            if wrapped || line_idx + i > iso.initial_upper_mark {
-                match_row_idx = Some(line_idx + i);
+    );
+
+    let mut formatted_rows = screen::format_search_rows(formatted_rows, Some(query))
+        .enumerate()
+        .map(|(i, (sfr, is_match))| {
+            if is_match {
+                if wrapped || row_start + i >= iso.initial_upper_mark {
+                    match_row_idx = Some(row_start + i);
+                }
+                Cow::Owned(sfr.to_string())
+            } else {
+                iso.screen.formatted_lines.get(row_start + i).map_or_else(
+                    || Cow::Owned(sfr.to_string()),
+                    |s| Cow::Borrowed(s.as_str()),
+                )
             }
-            Cow::Owned(format!("{h}"))
-        } else {
-            fr.row
-        }
-    })
-    .collect::<Vec<Cow<str>>>();
+        })
+        .collect::<Vec<Cow<str>>>();
 
     if upper_mark.is_none() {
         if match_row_idx.is_none() {
@@ -312,7 +316,11 @@ fn incremental_preview<'a>(
         return None;
     }
 
-    let start_line_idx = iso.lines_to_row_map.row_to_line(iso.initial_upper_mark)?;
+    let start_line_idx = iso
+        .lines_to_row_map
+        .row_to_line(iso.initial_upper_mark)?
+        .saturating_sub(1);
+
     let mut visible_lines: Vec<Cow<str>> = Vec::with_capacity(iso.writable_rows);
     let mut upper_mark = None;
 
@@ -343,7 +351,6 @@ fn incremental_preview<'a>(
     // displayed.
     if let Some(um) = upper_mark
         && visible_lines.len() < iso.writable_rows
-        && iso.screen.formatted_lines_count() > iso.writable_rows
     {
         let start = iso
             .screen
@@ -351,15 +358,15 @@ fn incremental_preview<'a>(
             .saturating_sub(iso.writable_rows);
         let to_insert = um.saturating_sub(start);
         let shift = visible_lines.len();
-        for l in iso
-            .screen
-            .formatted_lines
-            .iter()
-            .skip(start)
-            .take(to_insert)
-        {
-            visible_lines.push(Cow::Borrowed(l.as_str()));
-        }
+
+        visible_lines.extend(
+            iso.screen
+                .formatted_lines
+                .iter()
+                .skip(start)
+                .take(to_insert)
+                .map(Into::into),
+        );
         visible_lines.rotate_left(shift);
     }
 
