@@ -158,6 +158,8 @@ impl Screen {
         // We check if number of digits in current line count change during this text push.
         let old_lc = self.line_count();
 
+        let formatted_lines_count = self.formatted_lines.len();
+
         // Conditionally appends to [`self.formatted_lines`] or changes the last unterminated rows of
         // [`self.formatted_lines`]
         //
@@ -172,8 +174,6 @@ impl Screen {
             } else {
                 self.orig_text.lines().last()
             };
-
-            let formatted_lines_count = self.formatted_lines.len();
 
             let append_opts = FormatOpts {
                 buffer: &mut self.formatted_lines,
