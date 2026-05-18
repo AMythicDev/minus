@@ -13,7 +13,7 @@ use crossterm::event::Event;
 use std::fmt;
 
 #[cfg(feature = "search")]
-use crate::search::SearchOpts;
+use crate::minus_core::commands::IncrementalSearchCondition;
 
 /// A communication bridge between the main application and the pager.
 ///
@@ -542,9 +542,9 @@ impl Pager {
     #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
     pub fn set_incremental_search_condition(
         &self,
-        cb: Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>,
+        cb: IncrementalSearchCondition,
     ) -> crate::Result {
-        self.tx.send(Command::IncrementalSearchCondition(cb))?;
+        self.tx.send(Command::SetIncrementalSearchCondition(cb))?;
         Ok(())
     }
 

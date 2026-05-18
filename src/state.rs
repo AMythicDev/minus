@@ -2,7 +2,10 @@
 
 #![allow(dead_code)]
 #[cfg(feature = "search")]
-use crate::search::{SearchMode, SearchOpts, nth_match};
+use crate::{
+    minus_core::commands::IncrementalSearchCondition,
+    search::{SearchMode, SearchOpts, nth_match},
+};
 
 use crate::{
     LineNumbers,
@@ -52,8 +55,7 @@ pub struct SearchState {
     /// Function to run before running an incremental search.
     ///
     /// If the function returns a `false`, the incremental search is cancelled.
-    pub(crate) incremental_search_condition:
-        Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>,
+    pub(crate) incremental_search_condition: IncrementalSearchCondition,
 }
 
 #[cfg(feature = "search")]

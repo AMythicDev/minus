@@ -264,7 +264,9 @@ pub fn handle_event(
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
-        Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
+        Command::SetIncrementalSearchCondition(cb) => {
+            p.search_state.incremental_search_condition = cb;
+        }
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
         Command::RemoveHook(hook, id) => {

@@ -17,7 +17,7 @@
 //! approach eliminates the need to re run the search of text after confirming the query.
 //!
 //! Running Incremental search can be controlled by a function. The function should take reference
-//! to [SearchOpts] and `&str` containing the currently entered query as arguments and return a bool
+//! to [`SearchOpts`] and `&str` containing the currently entered query as arguments and return a bool
 //! as output. This way we can impose a condition so that incremental search does not get really
 //! resource intensive for really vague queries This also allows applications can control whether
 //! they want incremental search to run. By default minus uses a default condition where incremental
@@ -54,14 +54,13 @@
 use crate::minus_core::utils::{LinesRowMap, display, term};
 use crate::screen::Screen;
 use crate::{LineNumbers, PagerState};
-use crate::{error::MinusError, input::HashedEventRegister, minus_core::utils, screen};
+use crate::{error::MinusError, minus_core::utils, screen};
 use crossterm::{
     cursor,
     style::Attribute,
     terminal::{Clear, ClearType},
 };
 use regex::Regex;
-use std::borrow::Cow;
 use rustyline::completion::Completer;
 use rustyline::highlight::{CmdKind, Highlighter};
 use rustyline::hint::Hinter;
@@ -112,7 +111,7 @@ impl PartialEq for SearchMode {
 /// this
 #[allow(clippy::module_name_repetitions)]
 pub struct SearchOpts<'a> {
-    /// Direction of search. See [SearchMode].
+    /// Direction of search. See [`SearchMode`].
     pub search_mode: SearchMode,
     /// Number of rows available in the terminal
     pub rows: u16,
@@ -176,7 +175,7 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
     }
 }
 
-/// Return type of [fetch_input]
+/// Return type of [`fetch_input`]
 pub(crate) struct FetchInputResult {
     /// Original search query
     pub(crate) string: String,
@@ -344,129 +343,6 @@ fn incremental_preview<'a>(
     }
 }
 
-fn line_matches_query(line: &str, query: &Regex) -> bool {
-    let stripped = ANSI_REGEX.replace_all(line, "");
-    query.is_match(stripped.as_ref())
-}
-
-fn incremental_preview(
-    iso: &IncrementalSearchOpts<'_>,
-    query: &Regex,
-    cols: usize,
-    rows: usize,
-) -> Option<(Vec<String>, usize)> {
-    fn preview_line(
-        iso: &IncrementalSearchOpts<'_>,
-        query: &Regex,
-        cols: usize,
-        line_number_digits: usize,
-        line_idx: usize,
-        line: &str,
-        visible_lines: &mut Vec<String>,
-        upper_mark: &mut Option<usize>,
-        writable_rows: usize,
-        wrapped: bool,
-    ) -> Option<()> {
-        // Skip all lines that don't have any match
-        if upper_mark.is_none() && !line_matches_query(line, query) {
-            return Some(());
-        }
-
-        let row_start = *iso.lines_to_row_map.get(line_idx).unwrap_or(&0);
-        let mut search_idx = BTreeSet::new();
-        let mut formatted_rows = screen::formatted_line(
-            line,
-            line_number_digits,
-            line_idx,
-            iso.line_numbers,
-            cols,
-            iso.screen.line_wrapping,
-            row_start,
-            &mut search_idx,
-            Some(query),
-        );
-
-        if upper_mark.is_none() {
-            let match_row = *search_idx
-                .iter()
-                .find(|idx| wrapped || **idx >= iso.initial_upper_mark)?;
-            let skip_rows = match_row.saturating_sub(row_start);
-            *upper_mark = Some(match_row);
-            visible_lines.extend(formatted_rows.drain(skip_rows..));
-        } else {
-            visible_lines.append(&mut formatted_rows);
-        }
-
-        if visible_lines.len() >= writable_rows {
-            visible_lines.truncate(writable_rows);
-        }
-
-        Some(())
-    }
-
-    let writable_rows = rows.saturating_sub(1);
-    if writable_rows == 0 {
-        return None;
-    }
-
-    let start_line_idx = iso.lines_to_row_map.row_to_line(iso.initial_upper_mark)?;
-    let line_number_digits = crate::minus_core::utils::digits(iso.screen.line_count());
-    let mut visible_lines = Vec::with_capacity(writable_rows);
-    let mut upper_mark = None;
-
-    for (line_idx, line) in iso
-        .screen
-        .orig_text
-        .lines()
-        .enumerate()
-        .skip(start_line_idx)
-    {
-        preview_line(
-            iso,
-            query,
-            cols,
-            line_number_digits,
-            line_idx,
-            line,
-            &mut visible_lines,
-            &mut upper_mark,
-            writable_rows,
-            false,
-        )?;
-        if visible_lines.len() >= writable_rows {
-            break;
-        }
-    }
-
-    if upper_mark.is_none() {
-        for (line_idx, line) in iso
-            .screen
-            .orig_text
-            .lines()
-            .enumerate()
-            .take(start_line_idx)
-        {
-            preview_line(
-                iso,
-                query,
-                cols,
-                line_number_digits,
-                line_idx,
-                line,
-                &mut visible_lines,
-                &mut upper_mark,
-                writable_rows,
-                true,
-            )?;
-            if visible_lines.len() >= writable_rows {
-                break;
-            }
-        }
-    }
-
-    upper_mark.map(|upper_mark| (visible_lines, upper_mark))
-}
-
 /// Runs the incremental search
 ///
 /// It will return if `Ok(SomeIncrementalSearchCache)` if there was a successful run of incremental
@@ -549,10 +425,10 @@ where
 // HACK: GET the bare `Write` trait to be `Send` + `Sync` without leaving the lock
 struct ThreadSafeWriter<'a>(*mut (dyn Write + 'a));
 
-unsafe impl<'a> Send for ThreadSafeWriter<'a> {}
-unsafe impl<'a> Sync for ThreadSafeWriter<'a> {}
+unsafe impl Send for ThreadSafeWriter<'_> {}
+unsafe impl Sync for ThreadSafeWriter<'_> {}
 
-impl<'a> Write for ThreadSafeWriter<'a> {
+impl Write for ThreadSafeWriter<'_> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         unsafe { (*self.0).write(buf) }
     }
@@ -567,23 +443,21 @@ struct SearchHelper<'a> {
     incremental_search_condition: &'a (dyn Fn(&SearchOpts, &str) -> bool + Send + Sync),
 }
 
-impl<'a> Helper for SearchHelper<'a> {}
+impl Helper for SearchHelper<'_> {}
 
-impl<'a> Highlighter for SearchHelper<'a> {
+impl Highlighter for SearchHelper<'_> {
     fn highlight<'l>(&self, line: &'l str, _pos: usize) -> Cow<'l, str> {
         let mut out = self.out.lock().unwrap();
         let mut so = self.search_opts.lock().unwrap();
 
         so.compiled_regex = Regex::new(line).ok();
 
-        if let Ok(Some(cache)) =
-            run_incremental_search(&mut *out, &*so, line, self.incremental_search_condition)
-        {
-            so.incremental_search_cache = Some(cache);
-        }
+        let _ = run_incremental_search(&mut *out, &so, line, self.incremental_search_condition);
 
         let _ = term::move_cursor(&mut *out, 0, so.rows, false);
         let _ = out.flush();
+        drop(out);
+        drop(so);
 
         Cow::Borrowed(line)
     }
@@ -593,7 +467,7 @@ impl<'a> Highlighter for SearchHelper<'a> {
     }
 }
 
-impl<'a> Validator for SearchHelper<'a> {
+impl Validator for SearchHelper<'_> {
     fn validate(&self, _ctx: &mut ValidationContext) -> rustyline::Result<ValidationResult> {
         Ok(ValidationResult::Valid(None))
     }
@@ -602,14 +476,14 @@ impl<'a> Validator for SearchHelper<'a> {
     }
 }
 
-impl<'a> Hinter for SearchHelper<'a> {
+impl Hinter for SearchHelper<'_> {
     type Hint = String;
     fn hint(&self, _line: &str, _pos: usize, _ctx: &Context<'_>) -> Option<String> {
         None
     }
 }
 
-impl<'a> Completer for SearchHelper<'a> {
+impl Completer for SearchHelper<'_> {
     type Candidate = String;
 }
 
@@ -639,7 +513,7 @@ pub(crate) fn fetch_input(
 
     let mut readline = Editor::<SearchHelper<'_>, _>::new().unwrap();
     let search_opts = SearchOpts::from(ps);
-    let writer_ptr = out as *mut dyn std::io::Write;
+    let writer_ptr: *mut dyn std::io::Write = std::ptr::from_mut(out);
     readline.set_helper(Some(SearchHelper {
         out: Mutex::new(ThreadSafeWriter(writer_ptr)),
         search_opts: Mutex::new(search_opts),
@@ -667,31 +541,14 @@ pub(crate) fn fetch_input(
             let mut so = helper.search_opts.lock().unwrap();
             Ok(FetchInputResult {
                 compiled_regex: so.compiled_regex.take(),
-                incremental_search_result: so.incremental_search_cache.take(),
                 string: str,
             })
         }
-        Err(ReadlineError::Interrupted) | Err(ReadlineError::Eof) => {
-            let mut out_lock = helper.out.lock().unwrap();
-            let so = helper.search_opts.lock().unwrap();
-            if let Some(iso) = &so.incremental_search_options {
-                let _ = display::write_text_checked(
-                    &mut *out_lock,
-                    &iso.screen.formatted_lines,
-                    iso.initial_upper_mark,
-                    so.rows.into(),
-                    so.cols.into(),
-                    iso.screen.line_wrapping,
-                    iso.initial_left_mark,
-                    iso.line_numbers,
-                    iso.screen.line_count(),
-                );
-            }
+        Err(ReadlineError::Io(e)) => Err(MinusError::from(e)),
+        Err(ReadlineError::Errno(_) | ReadlineError::Signal(_)) => todo!(),
+        Err(ReadlineError::Interrupted | ReadlineError::Eof | _) => {
             Ok(FetchInputResult::new_empty())
         }
-        Err(ReadlineError::Io(e)) => Err(MinusError::from(e)),
-        Err(ReadlineError::Errno(_)) | Err(ReadlineError::Signal(_)) => todo!(),
-        Err(_) => Ok(FetchInputResult::new_empty()),
     }
 }
 
@@ -887,6 +744,14 @@ pub(crate) fn nth_match(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
+    use super::SearchMode;
+
+    fn search_idx() -> std::collections::BTreeSet<usize> {
+        BTreeSet::from([2, 10, 15, 17, 50])
+    }
+
     #[test]
     fn nth_match_returns_none_for_empty_search_index() {
         let search_idx = std::collections::BTreeSet::new();
@@ -984,22 +849,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_next_match_wraps_to_top() {
-        let search_idx = std::collections::BTreeSet::from([2, 10, 15, 17, 50]);
-
-        assert_eq!(super::next_nth_match(&search_idx, 60, 1), Some(0));
-        assert_eq!(super::next_nth_match(&search_idx, 60, 3), Some(2));
-        assert_eq!(super::next_nth_match(&search_idx, 50, 1), Some(0));
-        assert_eq!(super::next_nth_match(&search_idx, 50, 0), Some(4));
-    }
-
     #[allow(clippy::trivial_regex)]
     mod highlighting {
-        use std::collections::BTreeSet;
-
-        use crate::PagerState;
-        use crate::search::{INVERT, NORMAL, highlight_line_matches, nth_match};
+        use crate::search::{INVERT, NORMAL, highlight_line_matches};
         use crossterm::style::Attribute;
         use regex::Regex;
 
