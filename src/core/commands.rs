@@ -38,6 +38,10 @@ pub enum InputType {
     Wild,
 }
 
+#[cfg(feature = "search")]
+pub type IncrementalSearchCondition =
+    Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>;
+
 /// Different events that can be encountered while the pager is running
 #[non_exhaustive]
 #[allow(private_interfaces)]
@@ -67,7 +71,7 @@ pub enum Command {
     #[cfg(feature = "static_output")]
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
-    IncrementalSearchCondition(Box<dyn Fn(&SearchOpts, &str) -> bool + Send + Sync + 'static>),
+    SetIncrementalSearchCondition(IncrementalSearchCondition),
 
     // Input
     AddInputBinding(InputType, input::InputEventBoxed),
@@ -93,7 +97,9 @@ impl PartialEq for Command {
             | (Self::AddHook(..), Self::AddHook(..)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
-            (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
+            (Self::SetIncrementalSearchCondition(_), Self::SetIncrementalSearchCondition(_)) => {
+                true
+            }
             (Self::AddInputBinding(et_a, _), Self::AddInputBinding(et_b, _)) => et_a == et_b,
             (Self::RemoveInputBinding(et_a), Self::RemoveInputBinding(et_b)) => et_a == et_b,
             (Self::Io(a), Self::Io(b)) => a == b,
@@ -114,7 +120,7 @@ impl Debug for Command {
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             #[cfg(feature = "search")]
-            Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
+            Self::SetIncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
             Self::AddHook(h, id, _) => write!(f, "AddHook({h:?}, {id})"),
             Self::RemoveHook(h, id) => write!(f, "RemoveHook({h:?}, {id})"),
