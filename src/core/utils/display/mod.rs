@@ -43,12 +43,13 @@ pub fn draw_for_change(
     // Calculate the lower_bound for current and new upper marks
     // by adding either the rows or line_count depending on the minimality
     let lower_bound = ps.upper_mark.saturating_add(writable_rows.min(line_count));
-    let new_lower_bound = new_upper_mark.saturating_add(writable_rows.min(line_count));
+    let mut new_lower_bound = new_upper_mark.saturating_add(writable_rows.min(line_count));
 
     // If the lower_bound is greater than the available line count, we set it to such a value
     // so that the last page can be displayed entirely, i.e never scroll past the last line
     if new_lower_bound > line_count {
         *new_upper_mark = line_count.saturating_sub(writable_rows);
+        new_lower_bound = line_count;
     }
 
     let delta = new_upper_mark.abs_diff(ps.upper_mark);
