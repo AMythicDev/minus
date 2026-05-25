@@ -1,6 +1,15 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.7.1 [2026-05-21]
+### Fixed
+* Fixed a crash when using `G` or `End` keys.
+* Fixed duplicate entries in `lines_to_row_map` for unterminated lines.
+* Fixed line numbers not showing in incremental previews.
+
+### Performance
+* Fixed selection borrowing to avoid unnecessary cloning.
+
 ## v5.7.0 [2026-05-13]
 ### Added
 * [#164](https://github.com/arijit79/minus/pull/164): Added mouse-based text selection and copy support.
