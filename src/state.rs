@@ -325,12 +325,21 @@ impl PagerState {
 
         // Calculate how much extra padding in the middle we need between
         // the prompt/message and the indicators on the right
+        // NOTE: Count chars of prompt_str as they can be non-ASCII
         let prefix_len = prefix_str.len();
-        let extra_space = self
-            .cols
-            .saturating_sub(search_len + prefix_len + follow_mode_str.len() + prompt_str.len());
-        let dsp_prompt: &str = if extra_space == 0 {
-            &prompt_str[..self.cols - search_len - prefix_len - follow_mode_str.len()]
+        let extra_space = self.cols.saturating_sub(
+            search_len + prefix_len + follow_mode_str.len() + prompt_str.chars().count(),
+        );
+
+        let byte_idx = prompt_str
+            .char_indices()
+            .nth(search_len + prefix_len + follow_mode_str.len());
+
+        // The if-case is especially frequent under non-tty conditions
+        let dsp_prompt: &str = if extra_space == 0
+            && let Some((idx, _)) = byte_idx
+        {
+            &prompt_str[..idx]
         } else {
             prompt_str
         };
