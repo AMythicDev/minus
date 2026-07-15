@@ -1,6 +1,10 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.7.2 [2026-07-15]
+### Fixed
+* Fixed crash when prompt contains non-ASCII characters and used in non-TTY environments
+
 ## v5.7.1 [2026-05-21]
 ### Fixed
 * Fixed a crash when using `G` or `End` keys.
