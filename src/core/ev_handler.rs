@@ -10,9 +10,9 @@ use parking_lot::{Condvar, Mutex};
 use super::CommandQueue;
 use super::commands::{Command, IoCommand};
 use super::utils::display::{self, AppendStyle};
-use crate::ExitStrategy;
 #[cfg(feature = "search")]
 use crate::search;
+use crate::{ExitStrategy, minus_core::commands::InputType};
 use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 
 /// Respond based on the type of command
@@ -23,8 +23,6 @@ use crate::{PagerState, error::MinusError, hooks::Hook, input::InputEvent};
 /// - Call search related functions
 #[cfg_attr(not(feature = "search"), allow(unused_mut))]
 #[allow(clippy::too_many_lines)]
-// TODO: Remove it in next major release
-#[allow(deprecated)]
 pub fn handle_event(
     ev: Command,
     p: &mut PagerState,
@@ -171,69 +169,18 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::FetchSearchQuery));
         }
         #[cfg(feature = "search")]
-        Command::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
-            if p.search_state.search_term.is_some() =>
-        {
+        Command::UserInput(InputEvent::GoToMatch(n)) if p.search_state.search_term.is_some() => {
             // Move to next search match after the current upper_mark
-            let position_of_next_match =
-                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
-            if let Some(pnm) = position_of_next_match {
-                p.search_state.search_mark = pnm;
-                let upper_mark = *p
-                    .search_state
-                    .search_idx
-                    .iter()
-                    .nth(p.search_state.search_mark)
-                    .unwrap();
-                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
-                p.format_prompt();
-                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
-            }
-        }
-        #[cfg(feature = "search")]
-        Command::UserInput(InputEvent::PrevMatch | InputEvent::MoveToPrevMatch(1))
-            if p.search_state.search_term.is_some() =>
-        {
-            // If no matches, return immediately
-            if p.search_state.search_idx.is_empty() {
-                return;
-            }
-            // Decrement the s_mark and get the preceding index
-            p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-            if let Some(y) = p
-                .search_state
-                .search_idx
-                .iter()
-                .nth(p.search_state.search_mark)
-            {
-                // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
-                if *y < p.upper_mark {
-                    command_queue.push_back(Command::UserInput(InputEvent::UpdateUpperMark(*y)));
-                    p.format_prompt();
-                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
-                }
-            }
-        }
-        #[cfg(feature = "search")]
-        Command::UserInput(InputEvent::MoveToNextMatch(n))
-            if p.search_state.search_term.is_some() =>
-        {
-            // Move to next nth search match after the current upper_mark
-            let position_of_next_match =
-                search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
-            if let Some(pnm) = position_of_next_match {
-                p.search_state.search_mark = pnm;
+            let match_pos =
+                search::nth_match(&p.search_state.search_idx, p.upper_mark, n, p.search_mode);
+            if let Some(pm) = match_pos {
+                p.search_state.search_mark = pm;
                 let mut upper_mark = *p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
                     .unwrap();
-
-                // Ensure there is enough text available after location corresponding to
-                // position_of_next_match so that we can display a pagefull of data. If not,
-                // reduce it so that a pagefull of text can be accommodated.
-                // NOTE: Add 1 to total number of lines to avoid off-by-one errors
                 while p.upper_mark.saturating_add(p.rows)
                     > p.screen.formatted_lines_count().saturating_add(1)
                 {
@@ -245,34 +192,10 @@ pub fn handle_event(
                         .nth(p.search_state.search_mark)
                         .unwrap();
                 }
-                command_queue
-                    .push_back(Command::UserInput(InputEvent::UpdateUpperMark(upper_mark)));
+
+                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
                 p.format_prompt();
                 command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
-            }
-        }
-        #[cfg(feature = "search")]
-        Command::UserInput(InputEvent::MoveToPrevMatch(n))
-            if p.search_state.search_term.is_some() =>
-        {
-            // If no matches, return immediately
-            if p.search_state.search_idx.is_empty() {
-                return;
-            }
-            // Decrement the s_mark and get the preceding index
-            p.search_state.search_mark = p.search_state.search_mark.saturating_sub(n);
-            if let Some(y) = p
-                .search_state
-                .search_idx
-                .iter()
-                .nth(p.search_state.search_mark)
-            {
-                // If the index is less than or equal to the upper_mark, then set y to the new upper_mark
-                if *y < p.upper_mark {
-                    command_queue.push_back(Command::Io(IoCommand::SetUpperMark(*y)));
-                    p.format_prompt();
-                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
-                }
             }
         }
 
@@ -341,8 +264,9 @@ pub fn handle_event(
         #[cfg(feature = "static_output")]
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
-        Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
-        Command::SetInputClassifier(clf) => p.input_classifier = clf,
+        Command::SetIncrementalSearchCondition(cb) => {
+            p.search_state.incremental_search_condition = cb;
+        }
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
         Command::RemoveHook(hook, id) => {
@@ -358,6 +282,19 @@ pub fn handle_event(
             p.format_prompt();
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
+        Command::AddInputBinding(et, cb) => match et {
+            InputType::KeyMouse(desc) => p.input_register.map_km_parsed(desc, cb),
+            InputType::Resize => p.input_register.map_resize(cb),
+            InputType::Wild => p.input_register.map_wild_event(cb),
+            InputType::AllKeys | InputType::AllMouses => unreachable!(),
+        },
+        Command::RemoveInputBinding(et) => match et {
+            InputType::KeyMouse(desc) => p.input_register.clear_km_parsed(&desc),
+            InputType::AllKeys => p.input_register.clear_all_keys(),
+            InputType::AllMouses => p.input_register.clear_all_mouse(),
+            InputType::Resize => p.input_register.clear_resize(),
+            InputType::Wild => p.input_register.clear_wild_event(),
+        },
         Command::UserInput(_) => {}
         Command::Io(_) => unreachable!(),
     }

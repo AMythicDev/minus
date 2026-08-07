@@ -25,6 +25,12 @@ static MOUSE_ACTIONS: LazyLock<HashMap<&str, MouseEventKind>> = LazyLock::new(||
     map
 });
 
+/// Parse a mouse input description
+///
+/// # Panics
+/// This function will panic if the description is not valid. See the [`input`](crate::input) module
+/// docs on how to write descriptions.
+#[must_use]
 pub fn parse_mouse_event(text: &str) -> MouseEvent {
     let token_list = super::parse_tokens(text);
     gen_mouse_event_from_tokenlist(&token_list, text)
@@ -42,26 +48,24 @@ fn gen_mouse_event_from_tokenlist(token_list: &[Token], text: &str) -> MouseEven
                 token_iter.next();
                 assert!(
                     !(token_iter.peek() == Some(&&Token::Separator)),
-                    "'{}': Multiple separators found consecutively",
-                    text
+                    "'{text}': Multiple separators found consecutively",
                 );
             }
             Token::SingleChar(c) => {
                 token_iter.next();
                 MODIFIERS.get(c).map_or_else(
                     || {
-                        panic!("'{}': Invalid keymodifier '{}' given", text, c);
+                        panic!("'{text}': Invalid keymodifier '{c}' given");
                     },
                     |m| {
                         if token_iter.next() == Some(&Token::Separator) {
                             assert!(
                                 !modifiers.contains(*m),
-                                "'{}': Multiple instances of same modifier given",
-                                text
+                                "'{text}': Multiple instances of same modifier given",
                             );
                             modifiers.insert(*m);
                         } else {
-                            panic!("'{}' Invalid key input sequence given", text);
+                            panic!("'{text}' Invalid key input sequence given");
                         }
                     },
                 );
@@ -69,12 +73,12 @@ fn gen_mouse_event_from_tokenlist(token_list: &[Token], text: &str) -> MouseEven
             Token::MultipleChar(c) => {
                 let c = c.to_ascii_lowercase().clone();
                 MOUSE_ACTIONS.get(c.as_str()).map_or_else(
-                    || panic!("'{}': Invalid key input sequence given", text),
+                    || panic!("'{text}': Invalid key input sequence given"),
                     |k| {
                         if kind.is_none() {
                             kind = Some(*k);
                         } else {
-                            panic!("'{}': Invalid key input sequence given", text);
+                            panic!("'{text}': Invalid key input sequence given");
                         }
                     },
                 );
@@ -83,7 +87,7 @@ fn gen_mouse_event_from_tokenlist(token_list: &[Token], text: &str) -> MouseEven
         }
     }
     MouseEvent {
-        kind: kind.unwrap_or_else(|| panic!("No MouseEventKind found for '{}", text)),
+        kind: kind.unwrap_or_else(|| panic!("No MouseEventKind found for '{text}")),
         modifiers,
         row: 0,
         column: 0,

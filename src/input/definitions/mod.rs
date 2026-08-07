@@ -1,5 +1,3 @@
-#![allow(clippy::uninlined_format_args)]
-
 pub mod keydefs;
 pub mod mousedefs;
 
@@ -9,14 +7,12 @@ use std::{collections::HashMap, sync::LazyLock};
 fn parse_tokens(mut text: &str) -> Vec<Token> {
     assert!(
         text.is_ascii(),
-        "'{}': Non ascii sequence found in input sequence",
-        text
+        "'{text}': Non ascii sequence found in input sequence",
     );
     text = text.trim();
     assert!(
         text.chars().any(|c| !c.is_whitespace()),
-        "'{}': Whitespace character found in input sequence",
-        text
+        "'{text}': Whitespace character found in input sequence",
     );
 
     let mut token_list = Vec::with_capacity(text.len());

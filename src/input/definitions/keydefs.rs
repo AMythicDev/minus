@@ -55,6 +55,12 @@ impl Default for KeySeq {
     }
 }
 
+/// Parse a key input description
+///
+/// # Panics
+/// This function will panic if the description is not valid. See the [`input`](crate::input) module
+/// docs on how to write descriptions.
+#[must_use]
 pub fn parse_key_event(text: &str) -> KeyEvent {
     let token_list = super::parse_tokens(text);
 
@@ -73,8 +79,7 @@ impl KeySeq {
                     token_iter.next();
                     assert!(
                         !(token_iter.peek() == Some(&&Token::Separator)),
-                        "'{}': Multiple separators found consecutively",
-                        text
+                        "'{text}': Multiple separators found consecutively",
                     );
                 }
                 Token::SingleChar(c) => {
@@ -83,30 +88,29 @@ impl KeySeq {
                         if token_iter.next() == Some(&Token::Separator) {
                             assert!(
                                 !ks.modifiers.contains(*m),
-                                "'{}': Multiple instances of same modifier given",
-                                text
+                                "'{text}': Multiple instances of same modifier given",
                             );
                             ks.modifiers.insert(*m);
                         } else if ks.code.is_none() {
                             ks.code = Some(KeyCode::Char(*c));
                         } else {
-                            panic!("'{}' Invalid key input sequence given", text);
+                            panic!("'{text}' Invalid key input sequence given");
                         }
                     } else if ks.code.is_none() {
                         ks.code = Some(KeyCode::Char(*c));
                     } else {
-                        panic!("'{}': Invalid key input sequence given", text);
+                        panic!("'{text}': Invalid key input sequence given");
                     }
                 }
                 Token::MultipleChar(c) => {
                     let c = c.to_ascii_lowercase().clone();
                     SPECIAL_KEYS.get(c.as_str()).map_or_else(
-                        || panic!("'{}': Invalid key input sequence given", text),
+                        || panic!("'{text}': Invalid key input sequence given"),
                         |key| {
                             if ks.code.is_none() {
                                 ks.code = Some(*key);
                             } else {
-                                panic!("'{}': Invalid key input sequence given", text);
+                                panic!("'{text}': Invalid key input sequence given");
                             }
                         },
                     );

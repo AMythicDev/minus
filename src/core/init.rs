@@ -75,7 +75,7 @@ use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 /// [`event reader`]: event_reader
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::too_many_lines)]
-pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
+pub fn init_core(pager: Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
     #[cfg(not(test))]
     let mut out = stdout();
     #[cfg(test)]
@@ -144,8 +144,8 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
     let ps_mutex = Arc::new(Mutex::new(ps));
 
-    let evtx = pager.tx.clone();
-    let rx = pager.rx.clone();
+    let evtx = pager.tx;
+    let rx = pager.rx;
 
     let p1 = ps_mutex.clone();
 
@@ -344,7 +344,7 @@ fn event_reader(
             let ev = event::read().map_err(|e| MinusError::HandleEvent(e.into()))?;
             let mut guard = ps.lock();
             // Get the events
-            let input = guard.input_classifier.classify_input(ev, &guard);
+            let input = guard.input_register.classify_input(ev, &guard);
             if let Some(iev) = input {
                 if !matches!(iev, InputEvent::Number(_)) {
                     guard.prefix_num.clear();

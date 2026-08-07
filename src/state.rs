@@ -2,13 +2,16 @@
 
 #![allow(dead_code)]
 #[cfg(feature = "search")]
-use crate::search::{SearchMode, SearchOpts, next_nth_match};
+use crate::{
+    minus_core::commands::IncrementalSearchCondition,
+    search::{SearchMode, SearchOpts, nth_match},
+};
 
 use crate::{
     LineNumbers,
     error::{MinusError, TermError},
     hooks::{Hook, Hooks},
-    input::{self, HashedEventRegister},
+    input::HashedEventRegister,
     minus_core::{
         self, CommandQueue,
         utils::{
@@ -24,7 +27,6 @@ use parking_lot::Mutex;
 use std::collections::BTreeSet;
 use std::{
     borrow::Cow,
-    collections::hash_map::RandomState,
     convert::TryInto,
     io::stdout,
     sync::{Arc, atomic::AtomicBool},
@@ -53,15 +55,15 @@ pub struct SearchState {
     /// Function to run before running an incremental search.
     ///
     /// If the function returns a `false`, the incremental search is cancelled.
-    pub(crate) incremental_search_condition:
-        Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+    pub(crate) incremental_search_condition: IncrementalSearchCondition,
 }
 
 #[cfg(feature = "search")]
 impl Default for SearchState {
     fn default() -> Self {
-        let incremental_search_condition = Box::new(|so: &SearchOpts| {
-            so.string.len() > 1
+        let incremental_search_condition = Box::new(|so: &SearchOpts, line: &str| {
+            line.len() > 1
+                // TODO: Do perf tests after [pr:#159] and check if this can be lifted off
                 && so
                     .incremental_search_options
                     .as_ref()
@@ -88,13 +90,6 @@ pub struct Selection {
 
 /// Holds all information and configuration about the pager during
 /// its run time.
-///
-/// This type is exposed so that end-applications can implement the
-/// [`InputClassifier`](input::InputClassifier) trait which requires the `PagerState` to be passed
-/// as a parameter
-///
-/// Various fields are made public so that their values can be accessed while implementing the
-/// trait.
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
     /// Configuration for line numbers. See [`LineNumbers`]
@@ -143,8 +138,8 @@ pub struct PagerState {
     pub selection: Option<Selection>,
     /// The prompt displayed at the bottom wrapped to available terminal width
     pub(crate) prompt: String,
-    /// The input classifier to be called when a input is detected
-    pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
+    /// Callbacks to run when inputs from user are received
+    pub(crate) input_register: HashedEventRegister,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
@@ -195,7 +190,7 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
-            input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
+            input_register: HashedEventRegister::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,
@@ -270,8 +265,13 @@ impl PagerState {
         #[cfg(feature = "search")]
         {
             self.search_state.search_idx = format_result.append_search_idx;
-            self.search_state.search_mark =
-                next_nth_match(&self.search_state.search_idx, self.upper_mark, 0).unwrap_or(0);
+            self.search_state.search_mark = nth_match(
+                &self.search_state.search_idx,
+                self.upper_mark,
+                0,
+                self.search_mode,
+            )
+            .unwrap_or(0);
         }
         self.lines_to_row_map = format_result.lines_to_row_map;
         self.screen.max_line_length = format_result.max_line_length;
