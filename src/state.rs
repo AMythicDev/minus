@@ -5,7 +5,7 @@
 use crate::search::{SearchMode, SearchOpts, next_nth_match};
 
 use crate::{
-    LineNumbers,
+    LineNumbers, OutputSink,
     error::{MinusError, TermError},
     hooks::{Hook, Hooks},
     input::{self, HashedEventRegister},
@@ -18,7 +18,7 @@ use crate::{
     },
     screen::{self, Screen},
 };
-use crossterm::{terminal, tty::IsTty};
+use crossterm::terminal;
 use parking_lot::Mutex;
 #[cfg(feature = "search")]
 use std::collections::BTreeSet;
@@ -26,7 +26,6 @@ use std::{
     borrow::Cow,
     collections::hash_map::RandomState,
     convert::TryInto,
-    io::stdout,
     sync::{Arc, atomic::AtomicBool},
 };
 
@@ -163,14 +162,24 @@ pub struct PagerState {
     /// See [`follow_output`](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
     pub(crate) selection_anchor: Option<Selection>,
+    /// The output sink configured for the pager.
+    pub output_sink: Arc<Mutex<Box<dyn OutputSink>>>,
 }
 
 impl PagerState {
     pub(crate) fn new() -> Result<Self, TermError> {
+        #[cfg(not(test))]
+        let default_sink: Box<dyn OutputSink> = Box::new(std::io::stdout());
+        #[cfg(test)]
+        let default_sink: Box<dyn OutputSink> = Box::new(Vec::new());
+
+        let output_sink = Arc::new(Mutex::new(default_sink));
+        let is_tty = output_sink.lock().is_tty();
+
         let (cols, rows) = if cfg!(test) {
             // In tests, set  number of columns to 80 and rows to 10
             (80, 10)
-        } else if stdout().is_tty() {
+        } else if is_tty {
             // If a proper terminal is present, get size and set it
             let size = terminal::size()?;
             (size.0 as usize, size.1 as usize)
@@ -216,6 +225,7 @@ impl PagerState {
             lines_to_row_map: LinesRowMap::new(),
             follow_output: false,
             selection_anchor: None,
+            output_sink,
         };
 
         state.hooks.add_callback(

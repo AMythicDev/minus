@@ -198,6 +198,7 @@ pub mod screen;
 #[cfg(feature = "search")]
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 pub mod search;
+pub mod sink;
 pub mod state;
 #[cfg(feature = "static_output")]
 mod static_pager;
@@ -213,6 +214,7 @@ pub use search::SearchMode;
 
 pub use error::MinusError;
 pub use pager::Pager;
+pub use sink::OutputSink;
 pub use state::PagerState;
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`

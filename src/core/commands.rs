@@ -6,7 +6,7 @@
 use std::fmt::Debug;
 
 use crate::{
-    ExitStrategy, LineNumbers,
+    ExitStrategy, LineNumbers, OutputSink,
     hooks::{Hook, HookCallback},
     input::{InputClassifier, InputEvent},
     minus_core::utils::display::AppendStyle,
@@ -49,6 +49,7 @@ pub enum Command {
     LineWrapping(bool),
     SetLineNumbers(LineNumbers),
     FollowOutput(bool),
+    SetOutputSink(Box<dyn OutputSink>),
 
     // Configuration options
     SetExitStrategy(ExitStrategy),
@@ -79,7 +80,8 @@ impl PartialEq for Command {
             (Self::SetRunNoOverflow(d1), Self::SetRunNoOverflow(d2)) => d1 == d2,
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
             | (Self::AddExitCallback(_), Self::AddExitCallback(_))
-            | (Self::AddHook(..), Self::AddHook(..)) => true,
+            | (Self::AddHook(..), Self::AddHook(..))
+            | (Self::SetOutputSink(_), Self::SetOutputSink(_)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
@@ -110,6 +112,7 @@ impl Debug for Command {
             Self::SetRunNoOverflow(val) => write!(f, "SetRunNoOverflow({val:?})"),
             Self::UserInput(input) => write!(f, "UserInput({input:?})"),
             Self::FollowOutput(follow_output) => write!(f, "FollowOutput({follow_output:?})"),
+            Self::SetOutputSink(_) => write!(f, "SetOutputSink"),
             Self::Io(c) => write!(f, "Io({c:?})"),
         }
     }

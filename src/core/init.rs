@@ -9,7 +9,7 @@
 //!   the [`Receiver`] held inside the [`Pager`] for events. Whenever a event is
 //!   detected, it reacts to it accordingly.
 use crate::{
-    Pager, PagerState,
+    OutputSink, Pager, PagerState,
     error::MinusError,
     hooks::Hook,
     input::InputEvent,
@@ -24,16 +24,12 @@ use crate::{
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use crossterm::event;
 use std::{
-    io::Write,
     panic,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
 };
-
-#[cfg(not(test))]
-use std::io::stdout;
 
 #[cfg(feature = "search")]
 use parking_lot::Condvar;
@@ -50,11 +46,11 @@ use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 /// and creates the initial state that to be stored inside the [`PagerState`]
 ///
 /// Then it checks if the minus is running in static mode and does some checks:-
-/// * If standard output is not a terminal screen, that is if it is a file or block
-///   device, minus will write all the data at once to the stdout and quit
+/// * If output sink is not a terminal screen, that is if it is a file or block
+///   device, minus will write all the data at once to the output sink and quit
 ///
 /// * If the size of the data is less than the available number of rows in the terminal
-///   then it displays everything on the main stdout screen at once and quits. This
+///   then it displays everything on the main screen at once and quits. This
 ///   behaviour can be turned off if [`Pager::set_run_no_overflow`] is called
 ///   by the main application
 // Sorry... this behaviour would have been cool to have in async mode, just think about it!!! Many
@@ -76,11 +72,6 @@ use super::{CommandQueue, RUNMODE, utils::display::draw_for_change};
 #[allow(clippy::module_name_repetitions)]
 #[allow(clippy::too_many_lines)]
 pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusError> {
-    #[cfg(not(test))]
-    let mut out = stdout();
-    #[cfg(test)]
-    let mut out = Vec::new();
-
     // Is the event reader running
     #[cfg(feature = "search")]
     let input_thread_running = Arc::new((Mutex::new(true), Condvar::new()));
@@ -96,20 +87,25 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     *super::RUNMODE.lock() = rm;
     ps.run_hooks(Hook::PrePagerStart);
 
+    let output_sink = ps.output_sink.clone();
+
     // Static mode checks
     #[cfg(all(feature = "static_output", not(test)))]
     if *RUNMODE.lock() == RunMode::Static {
-        use {super::utils::display::write_raw_lines, crossterm::tty::IsTty};
-        // If stdout is not a tty, write everything and quit
+        use super::utils::display::write_raw_lines;
+        let mut out = output_sink.lock();
+        // If output sink is not a tty, write everything and quit
         if !out.is_tty() {
-            write_raw_lines(&mut out, &[ps.screen.orig_text], None)?;
+            write_raw_lines(&mut *out, &[ps.screen.orig_text], None)?;
+            drop(out);
             *RUNMODE.lock() = RunMode::Uninitialized;
             return Ok(());
         }
         // If number of lines of text is less than available rows, write everything and quit
         // unless run_no_overflow is set to true
         if ps.screen.formatted_lines_count() <= ps.rows && !ps.run_no_overflow {
-            write_raw_lines(&mut out, &ps.screen.formatted_lines, Some("\r"))?;
+            write_raw_lines(&mut *out, &ps.screen.formatted_lines, Some("\r"))?;
+            drop(out);
             ps.exit();
             *RUNMODE.lock() = RunMode::Uninitialized;
             return Ok(());
@@ -118,7 +114,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
     // Setup terminal, adjust line wraps and get rows
     #[cfg(not(test))]
-    term::setup(&mut out)?;
+    term::setup(&mut *output_sink.lock())?;
 
     // Has the user quit
     let is_exited = Arc::new(AtomicBool::new(false));
@@ -126,18 +122,14 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
     {
         let panic_hook = panic::take_hook();
+        let panic_sink = output_sink.clone();
         panic::set_hook(Box::new(move |pinfo| {
             is_exited2.store(true, std::sync::atomic::Ordering::SeqCst);
-            // HACK: In test we don't care about the cleanup code so just use a separate buffer
-            // for panic handler.
-            #[cfg(test)]
-            let mut out2 = Vec::new();
-            #[cfg(not(test))]
-            let mut out2 = stdout();
-
             // While silently ignoring error is considered a bad practice, we are forced to do it here
             // as we cannot use the ? and panicking here will (probably?) cause an immediate abort
-            drop(term::cleanup(&mut out2, true));
+            let mut out2 = panic_sink.lock();
+            drop(term::cleanup(&mut *out2, true));
+            drop(out2);
             panic_hook(pinfo);
         }));
     }
@@ -155,11 +147,9 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
     std::thread::scope(|s| -> crate::Result {
         let is_exited3 = is_exited.clone();
         let is_exited4 = is_exited.clone();
-
-        #[cfg(test)]
-        let mut out2 = Vec::new();
-        #[cfg(not(test))]
-        let mut out2 = stdout();
+        let output_sink2 = output_sink.clone();
+        let ps_mutex2 = ps_mutex.clone();
+        let rx2 = rx.clone();
 
         let t1 = s.spawn(move || {
             let res = event_reader(
@@ -177,9 +167,9 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         });
         let t2 = s.spawn(move || {
             let res = start_reactor(
-                &rx,
-                &ps_mutex,
-                &mut out2,
+                &rx2,
+                &ps_mutex2,
+                &output_sink2,
                 #[cfg(feature = "search")]
                 &input_thread_running,
                 &is_exited4,
@@ -196,7 +186,8 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 
         if r1.is_err() || r2.is_err() {
             *RUNMODE.lock() = RunMode::Uninitialized;
-            term::cleanup(&mut out, true)?;
+            #[cfg(not(test))]
+            term::cleanup(&mut *output_sink.lock(), true)?;
         }
 
         r1?;
@@ -221,7 +212,7 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
 fn start_reactor(
     rx: &Receiver<Command>,
     ps: &Arc<Mutex<PagerState>>,
-    mut out_lock: impl Write,
+    output_sink: &Arc<Mutex<Box<dyn OutputSink>>>,
     #[cfg(feature = "search")] input_thread_running: &Arc<(Mutex<bool>, Condvar)>,
     is_exited: &Arc<AtomicBool>,
 ) -> Result<(), MinusError> {
@@ -229,12 +220,13 @@ fn start_reactor(
 
     {
         let mut p = ps.lock();
+        let mut out_lock = output_sink.lock();
 
-        draw_full(&mut out_lock, &mut p)?;
+        draw_full(&mut *out_lock, &mut p)?;
         p.run_hooks(Hook::PostPagerStart);
 
         if p.follow_output {
-            draw_for_change(&mut out_lock, &mut p, &mut (usize::MAX - 1))?;
+            draw_for_change(&mut *out_lock, &mut p, &mut (usize::MAX - 1))?;
         }
     }
 
@@ -243,7 +235,7 @@ fn start_reactor(
         #[cfg(feature = "dynamic_output")]
         RunMode::Dynamic => loop {
             if is_exited.load(Ordering::SeqCst) {
-                term::cleanup(&mut out_lock, true)?;
+                term::cleanup(&mut *output_sink.lock(), true)?;
                 ps.lock().run_hooks(Hook::PostPagerExit);
                 let mut rm = RUNMODE.lock();
                 *rm = RunMode::Uninitialized;
@@ -263,7 +255,7 @@ fn start_reactor(
 
                 handle_io_command(
                     ic,
-                    &mut out_lock,
+                    &mut *output_sink.lock(),
                     &mut p,
                     &mut command_queue,
                     #[cfg(feature = "search")]
@@ -280,7 +272,7 @@ fn start_reactor(
                     // Cleanup the screen
                     //
                     // This is not needed in dynamic paging because this is already handled by handle_event
-                    term::cleanup(&mut out_lock, true)?;
+                    term::cleanup(&mut *output_sink.lock(), true)?;
                     ps.lock().run_hooks(Hook::PostPagerExit);
 
                     let mut rm = RUNMODE.lock();
@@ -302,7 +294,7 @@ fn start_reactor(
 
                     handle_io_command(
                         ic,
-                        &mut out_lock,
+                        &mut *output_sink.lock(),
                         &mut p,
                         &mut command_queue,
                         #[cfg(feature = "search")]

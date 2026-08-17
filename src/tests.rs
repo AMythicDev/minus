@@ -345,4 +345,63 @@ mod emit_events {
             pager.rx.try_recv().unwrap()
         );
     }
+
+    #[test]
+    fn set_output_sink() {
+        let pager = Pager::new();
+        pager.set_output_sink(std::io::stderr()).unwrap();
+        assert_eq!(
+            Command::SetOutputSink(Box::new(std::io::stderr())),
+            pager.rx.try_recv().unwrap()
+        );
+    }
+}
+
+mod output_sink {
+    use crate::{OutputSink, Pager, PagerState};
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct MockSink {
+        buffer: Arc<Mutex<Vec<u8>>>,
+        is_tty: bool,
+    }
+
+    impl std::io::Write for MockSink {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.buffer.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl OutputSink for MockSink {
+        fn is_tty(&self) -> bool {
+            self.is_tty
+        }
+    }
+
+    #[test]
+    fn test_custom_output_sink_in_pagerstate() {
+        let sink = MockSink {
+            buffer: Arc::new(Mutex::new(Vec::new())),
+            is_tty: false,
+        };
+
+        let pager = Pager::new();
+        pager.set_output_sink(sink).unwrap();
+
+        let ps = PagerState::generate_initial_state(&pager.rx).unwrap();
+        assert!(!ps.output_sink.lock().is_tty());
+    }
+
+    #[test]
+    fn test_sink_implementations() {
+        assert!(!OutputSink::is_tty(&Vec::<u8>::new()));
+        assert!(!OutputSink::is_tty(&std::io::Cursor::new(Vec::<u8>::new())));
+        assert!(!OutputSink::is_tty(&std::io::sink()));
+    }
 }

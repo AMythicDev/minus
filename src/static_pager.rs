@@ -7,9 +7,9 @@ use crate::{Pager, error::MinusError};
 /// Display static information to the screen
 ///
 /// Since it is sure that fed data will never change, minus can do some checks like:-
-/// * If stdout is not a tty, minus not start a pager. It will simply print all the data and quit
+/// * If the output sink is not a tty, minus will not start a pager. It will simply print all the data and quit
 /// * If there are more rows in the terminal than the number of lines of data to display
-///   minus will not start a pager and simply display all data on the main stdout screen.
+///   minus will not start a pager and simply display all data on the main screen.
 ///   This behaviour can be turned off if
 ///   [`Pager::set_run_no_overflow(true)`](Pager::set_run_no_overflow) has been
 ///   called before starting
