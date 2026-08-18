@@ -94,6 +94,10 @@ pub struct Selection {
 ///
 /// Various fields are made public so that their values can be accessed while implementing the
 /// trait.
+#[cfg(feature = "clipboard")]
+#[cfg_attr(docsrs, cfg(feature = "clipboard"))]
+pub type ClipboardHandler = Box<dyn Fn(&str) + Send + Sync + 'static>;
+
 #[derive(Clone, Debug)]
 pub(crate) struct HelpState {
     pub(crate) screen: Screen,
@@ -153,6 +157,10 @@ pub struct PagerState {
     pub(crate) prompt: String,
     /// The input classifier to be called when a input is detected
     pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
+    /// Callback that writes selected text to the clipboard when set; without
+    /// it, `CopySelection` creates its own `arboard::Clipboard` handle.
+    #[cfg(feature = "clipboard")]
+    pub(crate) clipboard_handler: Option<ClipboardHandler>,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
@@ -216,6 +224,8 @@ impl PagerState {
             running: &minus_core::RUNMODE,
             left_mark: 0,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
+            #[cfg(feature = "clipboard")]
+            clipboard_handler: None,
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,
@@ -490,23 +500,24 @@ impl PagerState {
 
         let mut selected = Vec::with_capacity(end_line.saturating_sub(start_line) + 1);
         for line_idx in start_line..=end_line {
-            let line = *lines.get(line_idx)?;
+            let raw_line = *lines.get(line_idx)?;
+            let line = strip_ansi(raw_line);
             let line_len = line.chars().count();
             let start_col = if line_idx == start_line {
-                self.selection_col_in_line(start, line_idx, line)
+                self.selection_col_in_line(start, line_idx, &line)
                     .min(line_len)
             } else {
                 0
             };
             let end_col = if line_idx == end_line {
-                self.selection_col_in_line(end, line_idx, line)
+                self.selection_col_in_line(end, line_idx, &line)
                     .saturating_add(1)
                     .min(line_len)
             } else {
                 line_len
             };
 
-            selected.push(slice_chars(line, start_col, end_col).to_string());
+            selected.push(slice_chars(&line, start_col, end_col).to_string());
         }
 
         Some(selected.join("\n"))
@@ -701,27 +712,32 @@ fn highlight_visible_range(line: Cow<str>, start: usize, end: usize) -> Cow<str>
     let mut highlighted = false;
 
     while byte_idx < bytes.len() {
-        if bytes[byte_idx] == b'\x1b' && bytes.get(byte_idx + 1) == Some(&b'[') {
-            let esc_start = byte_idx;
-            byte_idx += 2;
-            while byte_idx < bytes.len() {
-                let byte = bytes[byte_idx];
-                byte_idx += 1;
-                if (0x40..=0x7e).contains(&byte) {
-                    break;
-                }
-            }
-            out.push_str(&line[esc_start..byte_idx]);
-            continue;
+        if highlighted && visible_idx == end {
+            out.push_str(RESET);
+            highlighted = false;
         }
-
         if !highlighted && visible_idx == start {
             out.push_str(REVERSE);
             highlighted = true;
         }
-        if highlighted && visible_idx == end {
-            out.push_str(RESET);
-            highlighted = false;
+
+        if bytes[byte_idx] == b'\x1b' && bytes.get(byte_idx + 1) == Some(&b'[') {
+            let esc_start = byte_idx;
+            byte_idx += 2;
+            let mut final_byte = 0;
+            while byte_idx < bytes.len() {
+                let byte = bytes[byte_idx];
+                byte_idx += 1;
+                if (0x40..=0x7e).contains(&byte) {
+                    final_byte = byte;
+                    break;
+                }
+            }
+            out.push_str(&line[esc_start..byte_idx]);
+            if highlighted && final_byte == b'm' {
+                out.push_str(REVERSE);
+            }
+            continue;
         }
 
         let ch = line[byte_idx..].chars().next().unwrap();
@@ -737,9 +753,66 @@ fn highlight_visible_range(line: Cow<str>, start: usize, end: usize) -> Cow<str>
     out.into()
 }
 
+pub(crate) fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\x1b' {
+            if i + 1 < bytes.len() {
+                match bytes[i + 1] {
+                    b'[' => {
+                        i += 2;
+                        while i < bytes.len() {
+                            let b = bytes[i];
+                            i += 1;
+                            if (0x40..=0x7e).contains(&b) {
+                                break;
+                            }
+                        }
+                    }
+                    b']' => {
+                        i += 2;
+                        while i < bytes.len() {
+                            if bytes[i] == 0x07 {
+                                i += 1;
+                                break;
+                            }
+                            if bytes[i] == b'\x1b' && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
+                                i += 2;
+                                break;
+                            }
+                            i += 1;
+                        }
+                    }
+                    _ => {
+                        i += 2;
+                    }
+                }
+            } else {
+                i += 1;
+            }
+        } else if bytes[i] == 0x9b {
+            i += 1;
+            while i < bytes.len() {
+                let b = bytes[i];
+                i += 1;
+                if (0x40..=0x7e).contains(&b) {
+                    break;
+                }
+            }
+        } else {
+            let ch = s[i..].chars().next().unwrap();
+            out.push(ch);
+            i += ch.len_utf8();
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{PagerState, Selection};
+    use super::{PagerState, Selection, highlight_visible_range, strip_ansi};
     use crate::LineNumbers;
 
     #[test]
@@ -759,6 +832,49 @@ mod tests {
         assert_eq!(
             ps.extract_selection().as_deref(),
             Some("efghij\nklmnopqrst\nuvwxy")
+        );
+    }
+
+    #[test]
+    fn extract_selection_with_ansi_styles() {
+        let mut ps = PagerState::new().unwrap();
+        ps.line_numbers = LineNumbers::Disabled;
+        ps.screen.line_wrapping = false;
+        ps.screen.orig_text =
+            "\x1b[31mhello\x1b[0m \x1b[1;32mworld\x1b[0m\n\x1b[34msecond\x1b[0m line\n".to_string();
+        ps.reformat_display();
+
+        // Select "hello world" from line 0
+        ps.selection_anchor = ps.selection_from_coordinates(0, 0);
+        ps.selection = ps.selection_from_coordinates(10, 0);
+        assert_eq!(ps.extract_selection().as_deref(), Some("hello world"));
+
+        // Select "world" from line 0
+        ps.selection_anchor = ps.selection_from_coordinates(6, 0);
+        ps.selection = ps.selection_from_coordinates(10, 0);
+        assert_eq!(ps.extract_selection().as_deref(), Some("world"));
+    }
+
+    #[test]
+    fn test_strip_ansi() {
+        assert_eq!(strip_ansi(""), "");
+        assert_eq!(strip_ansi("plain text"), "plain text");
+        assert_eq!(strip_ansi("\x1b[31mhello\x1b[0m"), "hello");
+        assert_eq!(strip_ansi("\x1b[1;38;2;255;0;0mRGB\x1b[0m text"), "RGB text");
+        assert_eq!(strip_ansi("\x1b]8;;https://example.com\x07link\x1b]8;;\x07"), "link");
+        assert_eq!(strip_ansi("\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\"), "link");
+    }
+
+    #[test]
+    fn test_highlight_visible_range_with_ansi_styles() {
+        use std::borrow::Cow;
+        // Selection across style reset and color change: "hello world"
+        let line = Cow::Borrowed("\x1b[31mhello\x1b[0m \x1b[32mworld\x1b[0m");
+        let highlighted = highlight_visible_range(line, 0, 11);
+        // Highlight should be active for "hello", re-asserted after \x1b[0m and \x1b[32m, and reset after 11
+        assert_eq!(
+            highlighted.as_ref(),
+            "\x1b[7m\x1b[31m\x1b[7mhello\x1b[0m\x1b[7m \x1b[32m\x1b[7mworld\x1b[27m\x1b[0m"
         );
     }
 

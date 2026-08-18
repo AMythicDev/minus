@@ -140,10 +140,12 @@ pub fn handle_event(
 
         #[cfg(feature = "clipboard")]
         Command::UserInput(InputEvent::CopySelection) => {
-            if let Some(text) = p.extract_selection()
-                && let Ok(mut clipboard) = arboard::Clipboard::new()
-            {
-                let _ = clipboard.set_text(text);
+            if let Some(text) = p.extract_selection() {
+                if let Some(handler) = p.clipboard_handler.as_ref() {
+                    handler(&text);
+                } else if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                    let _ = clipboard.set_text(text);
+                }
             }
             if p.selection.is_some() || p.selection_anchor.is_some() {
                 p.clear_selection();
@@ -371,6 +373,8 @@ pub fn handle_event(
         #[cfg(feature = "search")]
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
+        #[cfg(feature = "clipboard")]
+        Command::SetClipboardHandler(handler) => p.clipboard_handler = Some(handler),
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
         Command::RemoveHook(hook, id) => {
@@ -796,5 +800,34 @@ mod tests {
             command_queue.pop_front(),
             Some(Command::Io(IoCommand::RedrawDisplay))
         );
+    }
+
+    #[test]
+    #[cfg(feature = "clipboard")]
+    fn copy_selection_uses_clipboard_handler() {
+        let mut ps = PagerState::new().unwrap();
+        ps.screen.line_wrapping = false;
+        ps.screen.orig_text = "hello world\n".to_string();
+        ps.reformat_display();
+        ps.selection_anchor = ps.selection_from_coordinates(0, 0);
+        ps.selection = ps.selection_from_coordinates(10, 0);
+
+        let copied = Arc::new(std::sync::Mutex::new(None::<String>));
+        let copied_handler = copied.clone();
+        ps.clipboard_handler = Some(Box::new(move |text| {
+            *copied_handler.lock().unwrap() = Some(text.to_string());
+        }));
+
+        let mut command_queue = CommandQueue::new_zero();
+        handle_event(
+            Command::UserInput(InputEvent::CopySelection),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        assert_eq!(copied.lock().unwrap().as_deref(), Some("hello world"));
+        assert_eq!(ps.selection, None);
+        assert_eq!(ps.selection_anchor, None);
     }
 }
