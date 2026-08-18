@@ -54,6 +54,11 @@ pub struct SearchState {
     /// If the function returns a `false`, the incremental search is cancelled.
     pub(crate) incremental_search_condition:
         Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
+    /// Whether smart case search is enabled.
+    ///
+    /// When enabled, search queries containing no uppercase characters are case-insensitive,
+    /// while queries containing uppercase characters remain case-sensitive.
+    pub smart_case: bool,
 }
 
 #[cfg(feature = "search")]
@@ -75,6 +80,7 @@ impl Default for SearchState {
             search_idx: BTreeSet::new(),
             search_mark: 0,
             incremental_search_condition,
+            smart_case: false,
         }
     }
 }
@@ -412,10 +418,7 @@ impl PagerState {
         if self.help_state.is_some() {
             return;
         }
-        let help_text = self
-            .input_classifier
-            .format_help()
-            .unwrap_or_default();
+        let help_text = self.input_classifier.format_help().unwrap_or_default();
 
         let saved = HelpState {
             screen: std::mem::take(&mut self.screen),
@@ -434,7 +437,7 @@ impl PagerState {
         self.left_mark = 0;
         self.follow_output = false;
         self.line_numbers = LineNumbers::Disabled;
-        self.prompt = "HELP -- Press q, Enter, or Alt-h to return to pager".to_string();
+        self.prompt = "HELP -- Press q to return to pager".to_string();
         self.message = None;
         self.help_state = Some(saved);
         self.reformat_display();
@@ -465,6 +468,16 @@ impl PagerState {
         for func in &mut self.exit_callbacks {
             func();
         }
+    }
+
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+    /// Enable or disable smart case searching.
+    ///
+    /// When enabled, search queries containing no uppercase characters are case-insensitive,
+    /// while queries containing uppercase characters remain case-sensitive.
+    pub const fn set_smart_case(&mut self, smart_case: bool) {
+        self.search_state.smart_case = smart_case;
     }
 
     pub(crate) fn selection_from_coordinates(&self, x: u16, y: u16) -> Option<Selection> {
@@ -860,9 +873,18 @@ mod tests {
         assert_eq!(strip_ansi(""), "");
         assert_eq!(strip_ansi("plain text"), "plain text");
         assert_eq!(strip_ansi("\x1b[31mhello\x1b[0m"), "hello");
-        assert_eq!(strip_ansi("\x1b[1;38;2;255;0;0mRGB\x1b[0m text"), "RGB text");
-        assert_eq!(strip_ansi("\x1b]8;;https://example.com\x07link\x1b]8;;\x07"), "link");
-        assert_eq!(strip_ansi("\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\"), "link");
+        assert_eq!(
+            strip_ansi("\x1b[1;38;2;255;0;0mRGB\x1b[0m text"),
+            "RGB text"
+        );
+        assert_eq!(
+            strip_ansi("\x1b]8;;https://example.com\x07link\x1b]8;;\x07"),
+            "link"
+        );
+        assert_eq!(
+            strip_ansi("\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\"),
+            "link"
+        );
     }
 
     #[test]

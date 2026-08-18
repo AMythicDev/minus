@@ -265,6 +265,9 @@ pub enum InputEvent {
     /// This is similar to [`Pager::follow_output`](crate::pager::Pager::follow_output) except that
     /// this is used to control it from the user's side.
     FollowOutput(bool),
+    #[cfg(feature = "search")]
+    /// Toggle smart case searching mode.
+    ToggleSmartCase,
     /// Show help message in the prompt area.
     ShowHelp,
 }
@@ -360,11 +363,20 @@ where
     map.add_described_key_events(&["c-l"], "toggle line numbers", |_, ps| {
         InputEvent::UpdateLineNumber(!ps.line_numbers)
     });
-    map.add_described_key_events(&["end"], "bottom", |_, _| InputEvent::UpdateUpperMark(usize::MAX - 1));
+    map.add_described_key_events(&["end"], "bottom", |_, _| {
+        InputEvent::UpdateUpperMark(usize::MAX - 1)
+    });
     #[cfg(feature = "search")]
     {
-        map.add_described_key_events(&["/"], "search forward", |_, _| InputEvent::Search(SearchMode::Forward));
-        map.add_described_key_events(&["?"], "search backward", |_, _| InputEvent::Search(SearchMode::Reverse));
+        map.add_described_key_events(&["/"], "search forward", |_, _| {
+            InputEvent::Search(SearchMode::Forward)
+        });
+        map.add_described_key_events(&["?"], "search backward", |_, _| {
+            InputEvent::Search(SearchMode::Reverse)
+        });
+        map.add_described_key_events(&["m-i"], "toggle smart case", |_, _| {
+            InputEvent::ToggleSmartCase
+        });
         map.add_described_key_events(&["n"], "next match", |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
@@ -695,6 +707,12 @@ impl InputClassifier for DefaultInputClassifier {
                     Some(InputEvent::MoveToPrevMatch(position))
                 }
             }
+            #[cfg(feature = "search")]
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('i'),
+                modifiers: KeyModifiers::ALT,
+                ..
+            }) => Some(InputEvent::ToggleSmartCase),
             _ => None,
         }
     }

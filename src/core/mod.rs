@@ -36,8 +36,8 @@ impl CommandQueue {
     ///
     /// This is useful when we have to pass this type to [`handle_event`](ev_handler::handle_event)
     /// but it is sure that this won't be used.
-    pub fn new_zero() -> Self {
-        Self(VecDeque::with_capacity(0))
+    pub const fn new_zero() -> Self {
+        Self(VecDeque::new())
     }
     /// Returns true if the queue is empty.
     pub fn is_empty(&self) -> bool {
