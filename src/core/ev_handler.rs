@@ -204,15 +204,16 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                if let Some(&upper_mark) = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
-                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
-                p.format_prompt();
-                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+                {
+                    command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
+                    p.format_prompt();
+                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+                }
             }
         }
         #[cfg(feature = "search")]
@@ -248,32 +249,37 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let mut upper_mark = *p
+                if let Some(mut upper_mark) = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
-
-                // Ensure there is enough text available after location corresponding to
-                // position_of_next_match so that we can display a pagefull of data. If not,
-                // reduce it so that a pagefull of text can be accommodated.
-                // NOTE: Add 1 to total number of lines to avoid off-by-one errors
-                while p.upper_mark.saturating_add(p.rows)
-                    > p.screen.formatted_lines_count().saturating_add(1)
+                    .copied()
                 {
-                    p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-                    upper_mark = *p
-                        .search_state
-                        .search_idx
-                        .iter()
-                        .nth(p.search_state.search_mark)
-                        .unwrap();
+                    // Ensure there is enough text available after location corresponding to
+                    // position_of_next_match so that we can display a pagefull of data. If not,
+                    // reduce it so that a pagefull of text can be accommodated.
+                    // NOTE: Add 1 to total number of lines to avoid off-by-one errors
+                    while p.upper_mark.saturating_add(p.rows)
+                        > p.screen.formatted_lines_count().saturating_add(1)
+                    {
+                        p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
+                        if let Some(&new_mark) = p
+                            .search_state
+                            .search_idx
+                            .iter()
+                            .nth(p.search_state.search_mark)
+                        {
+                            upper_mark = new_mark;
+                        } else {
+                            break;
+                        }
+                    }
+                    command_queue
+                        .push_back(Command::UserInput(InputEvent::UpdateUpperMark(upper_mark)));
+                    p.format_prompt();
+                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
                 }
-                command_queue
-                    .push_back(Command::UserInput(InputEvent::UpdateUpperMark(upper_mark)));
-                p.format_prompt();
-                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
             }
         }
         #[cfg(feature = "search")]
@@ -482,12 +488,14 @@ pub fn handle_io_command(
             };
 
             p.reformat_display();
-            p.upper_mark = *p
+            if let Some(&upper_mark) = p
                 .search_state
                 .search_idx
                 .iter()
                 .nth(p.search_state.search_mark)
-                .unwrap();
+            {
+                p.upper_mark = upper_mark;
+            }
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
@@ -829,5 +837,46 @@ mod tests {
         assert_eq!(copied.lock().unwrap().as_deref(), Some("hello world"));
         assert_eq!(ps.selection, None);
         assert_eq!(ps.selection_anchor, None);
+    }
+
+    #[test]
+    #[cfg(feature = "search")]
+    fn search_navigation_with_no_matches_does_not_panic() {
+        let mut ps = PagerState::new().unwrap();
+        ps.search_state.search_term = Some(regex::Regex::new("nonexistent").unwrap());
+        ps.search_state.search_idx.clear();
+        let mut command_queue = CommandQueue::new_zero();
+
+        // NextMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::NextMatch),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        // PrevMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::PrevMatch),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        // MoveToNextMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::MoveToNextMatch(5)),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        // MoveToPrevMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::MoveToPrevMatch(5)),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
     }
 }
