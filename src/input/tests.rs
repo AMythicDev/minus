@@ -488,3 +488,50 @@ fn test_search_bindings() {
         );
     }
 }
+
+#[test]
+fn test_help_key() {
+    use crate::input::{HashedEventRegister, InputClassifier};
+
+    let pager = PagerState::new().unwrap();
+
+    // Default register does not have help bound (falls back to wild matcher -> Ignore)
+    let alt_h = Event::Key(KeyEvent {
+        code: KeyCode::Char('h'),
+        modifiers: KeyModifiers::ALT,
+        kind: crossterm::event::KeyEventKind::Press,
+        state: KeyEventState::NONE,
+    });
+    assert_eq!(pager.input_classifier.classify_input(alt_h.clone(), &pager), Some(InputEvent::Ignore));
+
+    // Attach default help key (alt-h / m-h)
+    let mut reg = HashedEventRegister::default();
+    reg.add_help_key(&[]);
+    assert_eq!(reg.classify_input(alt_h.clone(), &pager), Some(InputEvent::ShowHelp));
+
+    // Attach custom help key
+    let mut reg_custom = HashedEventRegister::default();
+    reg_custom.add_help_key(&["f1"]);
+    let f1 = Event::Key(KeyEvent {
+        code: KeyCode::F(1),
+        modifiers: KeyModifiers::NONE,
+        kind: crossterm::event::KeyEventKind::Press,
+        state: KeyEventState::NONE,
+    });
+    assert_eq!(reg_custom.classify_input(f1, &pager), Some(InputEvent::ShowHelp));
+
+    // Dynamic help generation with described keys and omitted empty descriptions
+    let mut reg_dynamic = HashedEventRegister::with_default_hasher();
+    reg_dynamic.add_described_key_events(&["q", "c-c"], "quit", |_, _| InputEvent::Exit);
+    reg_dynamic.add_described_key_events(&["j", "down"], "scroll down", |_, _| InputEvent::UpdateUpperMark(1));
+    // Undescribed key (empty description) should not appear in help text
+    reg_dynamic.add_key_events(&["x"], |_, _| InputEvent::Exit);
+
+    let help = reg_dynamic.format_help();
+    assert!(help.contains("q, Ctrl-c") || help.contains("Ctrl-c, q"));
+    assert!(help.contains("quit"));
+    assert!(help.contains("j, Down") || help.contains("Down, j"));
+    assert!(help.contains("scroll down"));
+    assert!(!help.contains(" x "));
+    assert!(help.contains("COMMAND SUMMARY"));
+}
