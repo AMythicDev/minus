@@ -196,6 +196,18 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::FetchSearchQuery));
         }
         #[cfg(feature = "search")]
+        Command::UserInput(InputEvent::ToggleSmartCase) => {
+            p.search_state.smart_case = !p.search_state.smart_case;
+            if let Some(ref term) = p.search_state.search_term {
+                let pat = term.as_str();
+                p.search_state.search_term = search::compile_regex(pat, p.search_state.smart_case);
+                p.reformat_display();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+            }
+            p.format_prompt();
+            command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+        }
+        #[cfg(feature = "search")]
         Command::UserInput(InputEvent::NextMatch | InputEvent::MoveToNextMatch(1))
             if p.search_state.search_term.is_some() =>
         {
@@ -378,6 +390,8 @@ pub fn handle_event(
         Command::SetRunNoOverflow(val) => p.run_no_overflow = val,
         #[cfg(feature = "search")]
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
+        #[cfg(feature = "search")]
+        Command::SetSmartCase(sc) => p.search_state.smart_case = sc,
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
         #[cfg(feature = "clipboard")]
         Command::SetClipboardHandler(handler) => p.clipboard_handler = Some(handler),
@@ -469,12 +483,13 @@ pub fn handle_io_command(
             drop(active);
             cvar.notify_one();
 
+            p.search_state.smart_case = search_result.smart_case;
             // If we only have compiled regex cached, use that otherwise compile the original
             // string query if its not empty
             p.search_state.search_term = if search_result.compiled_regex.is_some() {
                 search_result.compiled_regex
             } else if !search_result.string.is_empty() {
-                let compiled_regex = regex::Regex::new(&search_result.string).ok();
+                let compiled_regex = search::compile_regex(&search_result.string, p.search_state.smart_case);
                 if compiled_regex.is_none() {
                     command_queue.push_back(Command::SendMessage(
                         "Invalid regular expression. Press Enter".to_string(),
@@ -849,7 +864,7 @@ mod tests {
 
         // NextMatch with empty search_idx should not panic
         handle_event(
-            Command::UserInput(InputEvent::NextMatch),
+            Command::UserInput(InputEvent::MoveToNextMatch(1)),
             &mut ps,
             &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
@@ -857,7 +872,7 @@ mod tests {
 
         // PrevMatch with empty search_idx should not panic
         handle_event(
-            Command::UserInput(InputEvent::PrevMatch),
+            Command::UserInput(InputEvent::MoveToPrevMatch(1)),
             &mut ps,
             &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
@@ -878,5 +893,40 @@ mod tests {
             &mut command_queue,
             &Arc::new(AtomicBool::new(false)),
         );
+    }
+
+    #[test]
+    #[cfg(feature = "search")]
+    fn test_toggle_and_set_smart_case() {
+        let mut ps = PagerState::new().unwrap();
+        assert!(!ps.search_state.smart_case);
+        let mut command_queue = CommandQueue::new_zero();
+
+        // Toggle via UserInput
+        handle_event(
+            Command::UserInput(InputEvent::ToggleSmartCase),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.search_state.smart_case);
+
+        // Toggle again
+        handle_event(
+            Command::UserInput(InputEvent::ToggleSmartCase),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(!ps.search_state.smart_case);
+
+        // Explicit set
+        handle_event(
+            Command::SetSmartCase(true),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.search_state.smart_case);
     }
 }

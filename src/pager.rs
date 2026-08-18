@@ -386,6 +386,21 @@ impl Pager {
         Ok(())
     }
 
+    /// Enable or disable smart case searching
+    ///
+    /// When enabled, search queries containing no uppercase characters are case-insensitive,
+    /// while queries containing uppercase characters remain case-sensitive.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver end.
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+    pub fn set_smart_case(&self, smart_case: bool) -> crate::Result {
+        self.tx.send(Command::SetSmartCase(smart_case))?;
+        Ok(())
+    }
+
     /// Control whether to show the prompt
     ///
     /// Many applications don't want the prompt to be displayed at all. This function can be used to completely turn

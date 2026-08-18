@@ -142,7 +142,7 @@ where
     S: BuildHasher,
 {
     /// Create a new `HashedEventRegister` with the Hasher `s`
-    pub fn new(s: S) -> Self {
+    pub const fn new(s: S) -> Self {
         Self(HashMap::with_hasher(s))
     }
 
@@ -305,6 +305,9 @@ where
     }
 
     /// Add all elements of `keys` as key bindings with a description that minus should respond to with the callback `cb`, with conflict checking.
+    ///
+    /// # Panics
+    /// Panics if a key already exists and `remap` is `false`.
     pub fn add_described_key_events_checked(
         &mut self,
         keys: &[&str],
