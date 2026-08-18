@@ -10,6 +10,9 @@ use crate::{
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
+#[cfg(feature = "clipboard")]
+use crate::state::ClipboardHandler;
+
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
@@ -287,6 +290,24 @@ impl Pager {
         handler: Box<dyn input::InputClassifier + Send + Sync>,
     ) -> Result<(), MinusError> {
         Ok(self.tx.send(Command::SetInputClassifier(handler))?)
+    }
+
+    /// Set a callback that writes selected text to the clipboard.
+    ///
+    /// When set, the copy action (`y` or releasing the left mouse button over
+    /// a selection) writes the selected text through this callback instead of
+    /// creating a fresh `arboard::Clipboard` handle, so the application can
+    /// reuse an existing clipboard connection.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    #[cfg(feature = "clipboard")]
+    pub fn set_clipboard_handler(
+        &self,
+        handler: ClipboardHandler,
+    ) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::SetClipboardHandler(handler))?)
     }
 
     /// Adds a function that will be called when the user quits the pager
