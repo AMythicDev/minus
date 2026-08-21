@@ -1,7 +1,7 @@
 //! Proivdes the [Pager] type
 
 use crate::{
-    ExitStrategy, LineNumbers,
+    ExitStrategy, LineNumbers, OutputSink,
     error::MinusError,
     hooks::{Hook, HookCallback},
     input,
@@ -412,6 +412,28 @@ impl Pager {
     /// ```
     pub fn follow_output(&self, follow_output: bool) -> crate::Result {
         self.tx.send(Command::FollowOutput(follow_output))?;
+        Ok(())
+    }
+
+    /// Set the output sink for the pager.
+    ///
+    /// By default, minus writes all output to [`std::io::stdout`]. This function allows you
+    /// to redirect the pager to another output destination, such as [`std::io::stderr`] or `/dev/tty`
+    /// (via [`std::fs::File`]).
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver.
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new();
+    /// pager.set_output_sink(std::io::stderr()).unwrap();
+    /// ```
+    pub fn set_output_sink<S: OutputSink>(&self, sink: S) -> crate::Result {
+        self.tx.send(Command::SetOutputSink(Box::new(sink)))?;
         Ok(())
     }
 }

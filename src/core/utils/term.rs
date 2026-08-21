@@ -2,11 +2,11 @@
 
 #![allow(dead_code)]
 
+use crate::OutputSink;
 use crate::error::{CleanupError, MinusError, SetupError};
 use crossterm::{
     cursor, event, execute, queue,
     terminal::{self, Clear},
-    tty::IsTty,
 };
 use std::io;
 
@@ -18,14 +18,14 @@ use std::io;
 /// - Clear the entire screen and hide the cursor.
 ///
 /// # Errors
-/// The function will return with an error if `stdout` is not a terminal. It will qlso fail
-/// if it cannot executo commands on the terminal See [`SetupError`].
+/// The function will return with an error if `out` is not a terminal. It will also fail
+/// if it cannot execute commands on the terminal See [`SetupError`].
 ///
 /// [alternate screen]: ../../../crossterm/terminal/index.html#alternate-screen
 /// [raw mode]: ../../../crossterm/terminal/index.html#raw-mode
 // This function should be kept close to `cleanup` to help ensure both are
 // doing the opposite of the other.
-pub fn setup(out: &mut io::Stdout) -> std::result::Result<(), SetupError> {
+pub fn setup(out: &mut impl OutputSink) -> std::result::Result<(), SetupError> {
     if out.is_tty() {
         Ok(())
     } else {

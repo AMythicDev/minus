@@ -349,6 +349,17 @@ pub fn handle_event(
             p.hooks.remove_callback(hook, id);
         }
         Command::ShowPrompt(show) => p.show_prompt = show,
+        Command::SetOutputSink(sink) => {
+            #[cfg(not(test))]
+            if sink.is_tty()
+                && let Ok(size) = crossterm::terminal::size()
+            {
+                p.cols = size.0 as usize;
+                p.rows = size.1 as usize;
+                p.reformat_display();
+            }
+            *p.output_sink.lock() = sink;
+        }
         Command::FollowOutput(follow_output)
         | Command::UserInput(InputEvent::FollowOutput(follow_output)) => {
             p.follow_output = follow_output;
