@@ -33,12 +33,22 @@ pub fn handle_event(
 ) {
     match ev {
         Command::SetData(text) => {
+            if let Some(ref mut hs) = p.help_state {
+                hs.screen.orig_text = text;
+                hs.screen.line_count = hs.screen.orig_text.lines().count();
+                return;
+            }
             p.screen.orig_text = text;
             p.screen.line_count = p.screen.orig_text.lines().count();
             p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
+            if p.help_state.is_some() {
+                p.exit_help();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+                return;
+            }
             p.run_hooks(Hook::PrePagerExit);
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -130,10 +140,12 @@ pub fn handle_event(
 
         #[cfg(feature = "clipboard")]
         Command::UserInput(InputEvent::CopySelection) => {
-            if let Some(text) = p.extract_selection()
-                && let Ok(mut clipboard) = arboard::Clipboard::new()
-            {
-                let _ = clipboard.set_text(text);
+            if let Some(text) = p.extract_selection() {
+                if let Some(handler) = p.clipboard_handler.as_ref() {
+                    handler(&text);
+                } else if let Ok(mut clipboard) = arboard::Clipboard::new() {
+                    let _ = clipboard.set_text(text);
+                }
             }
             if p.selection.is_some() || p.selection_anchor.is_some() {
                 p.clear_selection();
@@ -141,10 +153,23 @@ pub fn handle_event(
             }
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
+            if p.help_state.is_some() {
+                p.exit_help();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+                return;
+            }
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
             p.format_prompt();
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+        }
+        Command::UserInput(InputEvent::ShowHelp) => {
+            if p.help_state.is_some() {
+                p.exit_help();
+            } else {
+                p.show_help();
+            }
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
@@ -179,15 +204,16 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, 1);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let upper_mark = *p
+                if let Some(&upper_mark) = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
-                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
-                p.format_prompt();
-                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+                {
+                    command_queue.push_back(Command::Io(IoCommand::SetUpperMark(upper_mark)));
+                    p.format_prompt();
+                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+                }
             }
         }
         #[cfg(feature = "search")]
@@ -223,32 +249,37 @@ pub fn handle_event(
                 search::next_nth_match(&p.search_state.search_idx, p.upper_mark, n);
             if let Some(pnm) = position_of_next_match {
                 p.search_state.search_mark = pnm;
-                let mut upper_mark = *p
+                if let Some(mut upper_mark) = p
                     .search_state
                     .search_idx
                     .iter()
                     .nth(p.search_state.search_mark)
-                    .unwrap();
-
-                // Ensure there is enough text available after location corresponding to
-                // position_of_next_match so that we can display a pagefull of data. If not,
-                // reduce it so that a pagefull of text can be accommodated.
-                // NOTE: Add 1 to total number of lines to avoid off-by-one errors
-                while p.upper_mark.saturating_add(p.rows)
-                    > p.screen.formatted_lines_count().saturating_add(1)
+                    .copied()
                 {
-                    p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
-                    upper_mark = *p
-                        .search_state
-                        .search_idx
-                        .iter()
-                        .nth(p.search_state.search_mark)
-                        .unwrap();
+                    // Ensure there is enough text available after location corresponding to
+                    // position_of_next_match so that we can display a pagefull of data. If not,
+                    // reduce it so that a pagefull of text can be accommodated.
+                    // NOTE: Add 1 to total number of lines to avoid off-by-one errors
+                    while p.upper_mark.saturating_add(p.rows)
+                        > p.screen.formatted_lines_count().saturating_add(1)
+                    {
+                        p.search_state.search_mark = p.search_state.search_mark.saturating_sub(1);
+                        if let Some(&new_mark) = p
+                            .search_state
+                            .search_idx
+                            .iter()
+                            .nth(p.search_state.search_mark)
+                        {
+                            upper_mark = new_mark;
+                        } else {
+                            break;
+                        }
+                    }
+                    command_queue
+                        .push_back(Command::UserInput(InputEvent::UpdateUpperMark(upper_mark)));
+                    p.format_prompt();
+                    command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
                 }
-                command_queue
-                    .push_back(Command::UserInput(InputEvent::UpdateUpperMark(upper_mark)));
-                p.format_prompt();
-                command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
             }
         }
         #[cfg(feature = "search")]
@@ -283,6 +314,11 @@ pub fn handle_event(
         }
 
         Command::AppendData(text) => {
+            if let Some(ref mut hs) = p.help_state {
+                hs.screen.orig_text.push_str(&text);
+                hs.screen.line_count = hs.screen.orig_text.lines().count();
+                return;
+            }
             let prev_unterminated = p.screen.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
             let append_style = p.append_str(text.as_str());
@@ -343,6 +379,8 @@ pub fn handle_event(
         #[cfg(feature = "search")]
         Command::IncrementalSearchCondition(cb) => p.search_state.incremental_search_condition = cb,
         Command::SetInputClassifier(clf) => p.input_classifier = clf,
+        #[cfg(feature = "clipboard")]
+        Command::SetClipboardHandler(handler) => p.clipboard_handler = Some(handler),
         Command::AddExitCallback(cb) => p.exit_callbacks.push(cb),
         Command::AddHook(hook, id, cb) => p.hooks.add_callback(hook, id, cb),
         Command::RemoveHook(hook, id) => {
@@ -450,12 +488,14 @@ pub fn handle_io_command(
             };
 
             p.reformat_display();
-            p.upper_mark = *p
+            if let Some(&upper_mark) = p
                 .search_state
                 .search_idx
                 .iter()
                 .nth(p.search_state.search_mark)
-                .unwrap();
+            {
+                p.upper_mark = upper_mark;
+            }
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
         }
@@ -546,6 +586,58 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert_eq!(ps.message.unwrap(), TEST_STR.to_string());
+    }
+
+    #[test]
+    fn show_help() {
+        let mut ps = PagerState::new().unwrap();
+        ps.screen.orig_text = "original text\n".to_string();
+        ps.reformat_display();
+        ps.upper_mark = 0;
+
+        let ev = Command::UserInput(InputEvent::ShowHelp);
+        let mut command_queue = CommandQueue::new_zero();
+
+        // Showing help sets the screen to the formatted help table
+        handle_event(
+            ev,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.help_state.is_some());
+        assert!(ps.screen.orig_text.contains("COMMAND SUMMARY"));
+        assert!(ps.prompt.contains("HELP"));
+
+        // Pressing help again toggles it off and restores original text
+        let ev2 = Command::UserInput(InputEvent::ShowHelp);
+        handle_event(
+            ev2,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.help_state.is_none());
+        assert_eq!(ps.screen.orig_text, "original text\n");
+
+        // Showing help then exiting with Exit returns to pager
+        handle_event(
+            Command::UserInput(InputEvent::ShowHelp),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.help_state.is_some());
+        let is_exited = Arc::new(AtomicBool::new(false));
+        handle_event(
+            Command::UserInput(InputEvent::Exit),
+            &mut ps,
+            &mut command_queue,
+            &is_exited,
+        );
+        assert!(ps.help_state.is_none());
+        assert_eq!(is_exited.load(std::sync::atomic::Ordering::SeqCst), false);
+        assert_eq!(ps.screen.orig_text, "original text\n");
     }
 
     #[test]
@@ -715,6 +807,76 @@ mod tests {
         assert_eq!(
             command_queue.pop_front(),
             Some(Command::Io(IoCommand::RedrawDisplay))
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "clipboard")]
+    fn copy_selection_uses_clipboard_handler() {
+        let mut ps = PagerState::new().unwrap();
+        ps.screen.line_wrapping = false;
+        ps.screen.orig_text = "hello world\n".to_string();
+        ps.reformat_display();
+        ps.selection_anchor = ps.selection_from_coordinates(0, 0);
+        ps.selection = ps.selection_from_coordinates(10, 0);
+
+        let copied = Arc::new(std::sync::Mutex::new(None::<String>));
+        let copied_handler = copied.clone();
+        ps.clipboard_handler = Some(Box::new(move |text| {
+            *copied_handler.lock().unwrap() = Some(text.to_string());
+        }));
+
+        let mut command_queue = CommandQueue::new_zero();
+        handle_event(
+            Command::UserInput(InputEvent::CopySelection),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        assert_eq!(copied.lock().unwrap().as_deref(), Some("hello world"));
+        assert_eq!(ps.selection, None);
+        assert_eq!(ps.selection_anchor, None);
+    }
+
+    #[test]
+    #[cfg(feature = "search")]
+    fn search_navigation_with_no_matches_does_not_panic() {
+        let mut ps = PagerState::new().unwrap();
+        ps.search_state.search_term = Some(regex::Regex::new("nonexistent").unwrap());
+        ps.search_state.search_idx.clear();
+        let mut command_queue = CommandQueue::new_zero();
+
+        // NextMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::NextMatch),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        // PrevMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::PrevMatch),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        // MoveToNextMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::MoveToNextMatch(5)),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+
+        // MoveToPrevMatch with empty search_idx should not panic
+        handle_event(
+            Command::UserInput(InputEvent::MoveToPrevMatch(5)),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
         );
     }
 }

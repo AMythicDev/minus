@@ -189,6 +189,7 @@
 #[cfg(feature = "dynamic_output")]
 mod dynamic_pager;
 pub mod error;
+pub mod help;
 pub mod hooks;
 pub mod input;
 #[path = "core/mod.rs"]
@@ -216,6 +217,10 @@ pub use error::MinusError;
 pub use pager::Pager;
 pub use sink::OutputSink;
 pub use state::PagerState;
+
+#[cfg(feature = "clipboard")]
+#[cfg_attr(docsrs, cfg(feature = "clipboard"))]
+pub use state::ClipboardHandler;
 
 /// A convenient type for `Vec<Box<dyn FnMut() + Send + Sync + 'static>>`
 pub type ExitCallbacks = Vec<Box<dyn FnMut() + Send + Sync + 'static>>;
