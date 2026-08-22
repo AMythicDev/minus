@@ -99,7 +99,7 @@ impl KeySeq {
                     }
                 }
                 Token::MultipleChar(c) => {
-                    let c = c.to_ascii_lowercase().clone();
+                    let c = c.to_ascii_lowercase();
                     SPECIAL_KEYS.get(c.as_str()).map_or_else(
                         || panic!("'{}': Invalid key input sequence given", text),
                         |key| {
@@ -312,6 +312,15 @@ fn test_parse_key_event() {
         KeyEvent {
             code: KeyCode::Char('h'),
             modifiers: KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            kind: crossterm::event::KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        }
+    );
+    assert_eq!(
+        parse_key_event("m-h"),
+        KeyEvent {
+            code: KeyCode::Char('h'),
+            modifiers: KeyModifiers::ALT,
             kind: crossterm::event::KeyEventKind::Press,
             state: KeyEventState::NONE,
         }

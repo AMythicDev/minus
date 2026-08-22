@@ -12,6 +12,9 @@ use crate::{
     minus_core::utils::display::AppendStyle,
 };
 
+#[cfg(feature = "clipboard")]
+use crate::state::ClipboardHandler;
+
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
@@ -54,6 +57,8 @@ pub enum Command {
     // Configuration options
     SetExitStrategy(ExitStrategy),
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
+    #[cfg(feature = "clipboard")]
+    SetClipboardHandler(ClipboardHandler),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     AddHook(Hook, u64, HookCallback),
     RemoveHook(Hook, u64),
@@ -82,6 +87,8 @@ impl PartialEq for Command {
             | (Self::AddExitCallback(_), Self::AddExitCallback(_))
             | (Self::AddHook(..), Self::AddHook(..))
             | (Self::SetOutputSink(_), Self::SetOutputSink(_)) => true,
+            #[cfg(feature = "clipboard")]
+            (Self::SetClipboardHandler(_), Self::SetClipboardHandler(_)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
@@ -102,6 +109,8 @@ impl Debug for Command {
             Self::LineWrapping(lw) => write!(f, "LineWrapping({lw:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
+            #[cfg(feature = "clipboard")]
+            Self::SetClipboardHandler(_) => write!(f, "SetClipboardHandler"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),

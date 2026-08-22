@@ -94,6 +94,19 @@ pub struct Selection {
 ///
 /// Various fields are made public so that their values can be accessed while implementing the
 /// trait.
+#[cfg(feature = "clipboard")]
+#[cfg_attr(docsrs, cfg(feature = "clipboard"))]
+pub type ClipboardHandler = Box<dyn Fn(&str) + Send + Sync + 'static>;
+
+#[derive(Clone, Debug)]
+pub(crate) struct HelpState {
+    pub(crate) screen: Screen,
+    pub(crate) upper_mark: usize,
+    pub(crate) left_mark: usize,
+    pub(crate) prompt: String,
+    pub(crate) follow_output: bool,
+    pub(crate) line_numbers: LineNumbers,
+}
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
     /// Configuration for line numbers. See [`LineNumbers`]
@@ -144,6 +157,10 @@ pub struct PagerState {
     pub(crate) prompt: String,
     /// The input classifier to be called when a input is detected
     pub(crate) input_classifier: Box<dyn input::InputClassifier + Sync + Send>,
+    /// Callback that writes selected text to the clipboard when set; without
+    /// it, `CopySelection` creates its own `arboard::Clipboard` handle.
+    #[cfg(feature = "clipboard")]
+    pub(crate) clipboard_handler: Option<ClipboardHandler>,
     /// Functions to run when the pager quits
     pub(crate) exit_callbacks: Vec<Box<dyn FnMut() + Send + Sync + 'static>>,
     /// Callbacks for hooks
@@ -162,6 +179,8 @@ pub struct PagerState {
     /// See [`follow_output`](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
     pub(crate) selection_anchor: Option<Selection>,
+    /// Saved state while help screen is active.
+    pub(crate) help_state: Option<HelpState>,
     /// The output sink configured for the pager.
     pub output_sink: Arc<Mutex<Box<dyn OutputSink>>>,
 }
@@ -205,6 +224,8 @@ impl PagerState {
             running: &minus_core::RUNMODE,
             left_mark: 0,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
+            #[cfg(feature = "clipboard")]
+            clipboard_handler: None,
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),
             message: None,
@@ -225,6 +246,7 @@ impl PagerState {
             lines_to_row_map: LinesRowMap::new(),
             follow_output: false,
             selection_anchor: None,
+            help_state: None,
             output_sink,
         };
 
@@ -337,13 +359,11 @@ impl PagerState {
         // the prompt/message and the indicators on the right
         // NOTE: Count chars of prompt_str as they can be non-ASCII
         let prefix_len = prefix_str.len();
-        let extra_space = self.cols.saturating_sub(
-            search_len + prefix_len + follow_mode_str.len() + prompt_str.chars().count(),
-        );
+        let indicators_len = search_len + prefix_len + follow_mode_str.len();
+        let available_space = self.cols.saturating_sub(indicators_len);
+        let extra_space = available_space.saturating_sub(prompt_str.chars().count());
 
-        let byte_idx = prompt_str
-            .char_indices()
-            .nth(search_len + prefix_len + follow_mode_str.len());
+        let byte_idx = prompt_str.char_indices().nth(available_space);
 
         // The if-case is especially frequent under non-tty conditions
         let dsp_prompt: &str = if extra_space == 0
@@ -385,6 +405,53 @@ impl PagerState {
         format_string.push_str(RESET);
 
         self.displayed_prompt = format_string;
+    }
+
+    /// Enter help mode, displaying the help table screen.
+    pub(crate) fn show_help(&mut self) {
+        if self.help_state.is_some() {
+            return;
+        }
+        let help_text = self
+            .input_classifier
+            .format_help()
+            .unwrap_or_default();
+
+        let saved = HelpState {
+            screen: std::mem::take(&mut self.screen),
+            upper_mark: self.upper_mark,
+            left_mark: self.left_mark,
+            prompt: std::mem::take(&mut self.prompt),
+            follow_output: self.follow_output,
+            line_numbers: self.line_numbers,
+        };
+
+        self.screen = Screen::default();
+        self.screen.orig_text = help_text;
+        self.screen.line_count = self.screen.orig_text.lines().count();
+        self.screen.line_wrapping = false;
+        self.upper_mark = 0;
+        self.left_mark = 0;
+        self.follow_output = false;
+        self.line_numbers = LineNumbers::Disabled;
+        self.prompt = "HELP -- Press q, Enter, or Alt-h to return to pager".to_string();
+        self.message = None;
+        self.help_state = Some(saved);
+        self.reformat_display();
+    }
+
+    /// Exit help mode, restoring the original document and scroll position.
+    pub(crate) fn exit_help(&mut self) {
+        if let Some(saved) = self.help_state.take() {
+            self.screen = saved.screen;
+            self.upper_mark = saved.upper_mark;
+            self.left_mark = saved.left_mark;
+            self.prompt = saved.prompt;
+            self.follow_output = saved.follow_output;
+            self.line_numbers = saved.line_numbers;
+            self.message = None;
+            self.reformat_display();
+        }
     }
 
     pub(crate) fn run_hooks(&mut self, hook: crate::hooks::Hook) {
@@ -433,23 +500,24 @@ impl PagerState {
 
         let mut selected = Vec::with_capacity(end_line.saturating_sub(start_line) + 1);
         for line_idx in start_line..=end_line {
-            let line = *lines.get(line_idx)?;
+            let raw_line = *lines.get(line_idx)?;
+            let line = strip_ansi(raw_line);
             let line_len = line.chars().count();
             let start_col = if line_idx == start_line {
-                self.selection_col_in_line(start, line_idx, line)
+                self.selection_col_in_line(start, line_idx, &line)
                     .min(line_len)
             } else {
                 0
             };
             let end_col = if line_idx == end_line {
-                self.selection_col_in_line(end, line_idx, line)
+                self.selection_col_in_line(end, line_idx, &line)
                     .saturating_add(1)
                     .min(line_len)
             } else {
                 line_len
             };
 
-            selected.push(slice_chars(line, start_col, end_col).to_string());
+            selected.push(slice_chars(&line, start_col, end_col).to_string());
         }
 
         Some(selected.join("\n"))
@@ -644,27 +712,32 @@ fn highlight_visible_range(line: Cow<str>, start: usize, end: usize) -> Cow<str>
     let mut highlighted = false;
 
     while byte_idx < bytes.len() {
-        if bytes[byte_idx] == b'\x1b' && bytes.get(byte_idx + 1) == Some(&b'[') {
-            let esc_start = byte_idx;
-            byte_idx += 2;
-            while byte_idx < bytes.len() {
-                let byte = bytes[byte_idx];
-                byte_idx += 1;
-                if (0x40..=0x7e).contains(&byte) {
-                    break;
-                }
-            }
-            out.push_str(&line[esc_start..byte_idx]);
-            continue;
+        if highlighted && visible_idx == end {
+            out.push_str(RESET);
+            highlighted = false;
         }
-
         if !highlighted && visible_idx == start {
             out.push_str(REVERSE);
             highlighted = true;
         }
-        if highlighted && visible_idx == end {
-            out.push_str(RESET);
-            highlighted = false;
+
+        if bytes[byte_idx] == b'\x1b' && bytes.get(byte_idx + 1) == Some(&b'[') {
+            let esc_start = byte_idx;
+            byte_idx += 2;
+            let mut final_byte = 0;
+            while byte_idx < bytes.len() {
+                let byte = bytes[byte_idx];
+                byte_idx += 1;
+                if (0x40..=0x7e).contains(&byte) {
+                    final_byte = byte;
+                    break;
+                }
+            }
+            out.push_str(&line[esc_start..byte_idx]);
+            if highlighted && final_byte == b'm' {
+                out.push_str(REVERSE);
+            }
+            continue;
         }
 
         let ch = line[byte_idx..].chars().next().unwrap();
@@ -680,9 +753,66 @@ fn highlight_visible_range(line: Cow<str>, start: usize, end: usize) -> Cow<str>
     out.into()
 }
 
+pub(crate) fn strip_ansi(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'\x1b' {
+            if i + 1 < bytes.len() {
+                match bytes[i + 1] {
+                    b'[' => {
+                        i += 2;
+                        while i < bytes.len() {
+                            let b = bytes[i];
+                            i += 1;
+                            if (0x40..=0x7e).contains(&b) {
+                                break;
+                            }
+                        }
+                    }
+                    b']' => {
+                        i += 2;
+                        while i < bytes.len() {
+                            if bytes[i] == 0x07 {
+                                i += 1;
+                                break;
+                            }
+                            if bytes[i] == b'\x1b' && i + 1 < bytes.len() && bytes[i + 1] == b'\\' {
+                                i += 2;
+                                break;
+                            }
+                            i += 1;
+                        }
+                    }
+                    _ => {
+                        i += 2;
+                    }
+                }
+            } else {
+                i += 1;
+            }
+        } else if bytes[i] == 0x9b {
+            i += 1;
+            while i < bytes.len() {
+                let b = bytes[i];
+                i += 1;
+                if (0x40..=0x7e).contains(&b) {
+                    break;
+                }
+            }
+        } else {
+            let ch = s[i..].chars().next().unwrap();
+            out.push(ch);
+            i += ch.len_utf8();
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{PagerState, Selection};
+    use super::{PagerState, Selection, highlight_visible_range, strip_ansi};
     use crate::LineNumbers;
 
     #[test]
@@ -706,6 +836,49 @@ mod tests {
     }
 
     #[test]
+    fn extract_selection_with_ansi_styles() {
+        let mut ps = PagerState::new().unwrap();
+        ps.line_numbers = LineNumbers::Disabled;
+        ps.screen.line_wrapping = false;
+        ps.screen.orig_text =
+            "\x1b[31mhello\x1b[0m \x1b[1;32mworld\x1b[0m\n\x1b[34msecond\x1b[0m line\n".to_string();
+        ps.reformat_display();
+
+        // Select "hello world" from line 0
+        ps.selection_anchor = ps.selection_from_coordinates(0, 0);
+        ps.selection = ps.selection_from_coordinates(10, 0);
+        assert_eq!(ps.extract_selection().as_deref(), Some("hello world"));
+
+        // Select "world" from line 0
+        ps.selection_anchor = ps.selection_from_coordinates(6, 0);
+        ps.selection = ps.selection_from_coordinates(10, 0);
+        assert_eq!(ps.extract_selection().as_deref(), Some("world"));
+    }
+
+    #[test]
+    fn test_strip_ansi() {
+        assert_eq!(strip_ansi(""), "");
+        assert_eq!(strip_ansi("plain text"), "plain text");
+        assert_eq!(strip_ansi("\x1b[31mhello\x1b[0m"), "hello");
+        assert_eq!(strip_ansi("\x1b[1;38;2;255;0;0mRGB\x1b[0m text"), "RGB text");
+        assert_eq!(strip_ansi("\x1b]8;;https://example.com\x07link\x1b]8;;\x07"), "link");
+        assert_eq!(strip_ansi("\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\"), "link");
+    }
+
+    #[test]
+    fn test_highlight_visible_range_with_ansi_styles() {
+        use std::borrow::Cow;
+        // Selection across style reset and color change: "hello world"
+        let line = Cow::Borrowed("\x1b[31mhello\x1b[0m \x1b[32mworld\x1b[0m");
+        let highlighted = highlight_visible_range(line, 0, 11);
+        // Highlight should be active for "hello", re-asserted after \x1b[0m and \x1b[32m, and reset after 11
+        assert_eq!(
+            highlighted.as_ref(),
+            "\x1b[7m\x1b[31m\x1b[7mhello\x1b[0m\x1b[7m \x1b[32m\x1b[7mworld\x1b[27m\x1b[0m"
+        );
+    }
+
+    #[test]
     fn extract_selection_across_wrapped_rows() {
         let mut ps = PagerState::new().unwrap();
         ps.cols = 6;
@@ -721,5 +894,23 @@ mod tests {
         });
 
         assert_eq!(ps.extract_selection().as_deref(), Some("cdefghi\njklm"));
+    }
+
+    #[test]
+    fn format_prompt_truncates_long_message_to_available_width() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let long_msg = "Help: q:quit | j/k:scroll | Space:page";
+        ps.message = Some(long_msg.to_string());
+        ps.format_prompt();
+
+        // Should truncate message to fit 20 cols
+        assert!(ps.displayed_prompt.contains(&long_msg[..20]));
+
+        // With follow mode [F] (3 chars), prompt should truncate to 17 chars
+        ps.follow_output = true;
+        ps.format_prompt();
+        assert!(ps.displayed_prompt.contains(&long_msg[..17]));
+        assert!(ps.displayed_prompt.contains("[F]"));
     }
 }

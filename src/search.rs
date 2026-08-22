@@ -652,10 +652,10 @@ where
         }
         Event::Key(KeyEvent {
             code: KeyCode::Char(c),
-            modifiers: KeyModifiers::NONE,
+            modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
             ..
         }) => {
-            // For any character key, without a modifier, insert it into so.string before
+            // For any character key, without a modifier (or with Shift), insert it into so.string before
             // current cursor position and update the line
             so.string
                 .insert(so.cursor_position.saturating_sub(1).into(), *c);
@@ -1020,6 +1020,32 @@ mod tests {
             handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.word_index, vec![1, 5, 6, 8, 9, 16, 17, 28, 29]);
             assert_eq!(&search_opts.string, "this is@complex-text_search?query");
+            assert_eq!(search_opts.input_status, InputStatus::Confirmed);
+        }
+
+        #[test]
+        fn input_uppercase_and_shifted_text() {
+            let mut search_opts = new_search_opts(SearchMode::Forward);
+            let mut out = Vec::with_capacity(1500);
+            for (i, c) in "Hello World".chars().enumerate() {
+                let modifiers = if c.is_uppercase() {
+                    KeyModifiers::SHIFT
+                } else {
+                    KeyModifiers::NONE
+                };
+                search_opts.ev = Some(Event::Key(KeyEvent {
+                    code: KeyCode::Char(c),
+                    kind: KeyEventKind::Press,
+                    modifiers,
+                    state: KeyEventState::NONE,
+                }));
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+                assert_eq!(search_opts.input_status, InputStatus::Active);
+                assert_eq!(search_opts.cursor_position as usize, i + 2);
+            }
+            search_opts.ev = Some(make_event_from_keycode(KeyCode::Enter));
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            assert_eq!(&search_opts.string, "Hello World");
             assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
 
