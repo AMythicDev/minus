@@ -265,6 +265,11 @@ pub enum InputEvent {
     /// This is similar to [`Pager::follow_output`](crate::pager::Pager::follow_output) except that
     /// this is used to control it from the user's side.
     FollowOutput(bool),
+    #[cfg(feature = "search")]
+    /// Toggle smart case searching mode.
+    ToggleSmartCase,
+    /// Show help message in the prompt area.
+    ShowHelp,
 }
 
 /// Classifies the input and returns the appropriate [`InputEvent`]
@@ -280,6 +285,11 @@ pub enum InputEvent {
 )]
 pub trait InputClassifier {
     fn classify_input(&self, ev: Event, ps: &PagerState) -> Option<InputEvent>;
+
+    /// Format dynamic help text from registered bindings, if supported.
+    fn format_help(&self) -> Option<String> {
+        None
+    }
 }
 
 /// Insert the default set of actions into the [`HashedEventRegister`]
@@ -293,20 +303,20 @@ pub fn generate_default_bindings<S>(map: &mut HashedEventRegister<S>)
 where
     S: std::hash::BuildHasher,
 {
-    map.add_key_events(&["q", "c-c"], |_, _| InputEvent::Exit);
+    map.add_described_key_events(&["q", "c-c"], "quit", |_, _| InputEvent::Exit);
 
-    map.add_key_events(&["up", "k"], |_, ps| {
+    map.add_described_key_events(&["up", "k"], "scroll up", |_, ps| {
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(position))
     });
-    map.add_key_events(&["down", "j"], |_, ps| {
+    map.add_described_key_events(&["down", "j"], "scroll down", |_, ps| {
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
     });
-    map.add_key_events(&["c-f"], |_, ps| {
+    map.add_described_key_events(&["c-f"], "toggle follow", |_, ps| {
         InputEvent::FollowOutput(!ps.follow_output)
     });
-    map.add_key_events(&["enter"], |_, ps| {
+    map.add_described_key_events(&["enter"], "scroll lines", |_, ps| {
         if ps.message.is_some() {
             InputEvent::RestorePrompt
         } else {
@@ -314,17 +324,17 @@ where
             InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(position))
         }
     });
-    map.add_key_events(&["u", "c-u"], |_, ps| {
+    map.add_described_key_events(&["u", "c-u"], "half-page up", |_, ps| {
         let half_screen = ps.rows / 2;
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(half_screen))
     });
-    map.add_key_events(&["d", "c-d"], |_, ps| {
+    map.add_described_key_events(&["d", "c-d"], "half-page down", |_, ps| {
         let half_screen = ps.rows / 2;
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(half_screen))
     });
-    map.add_key_events(&["g", "home"], |_, _| InputEvent::UpdateUpperMark(0));
+    map.add_described_key_events(&["g", "home"], "top", |_, _| InputEvent::UpdateUpperMark(0));
 
-    map.add_key_events(&["s-g", "G"], |_, ps| {
+    map.add_described_key_events(&["s-g", "G"], "bottom", |_, ps| {
         let mut position = ps
             .prefix_num
             .parse::<usize>()
@@ -344,21 +354,30 @@ where
             .unwrap_or(&(usize::MAX - 1));
         InputEvent::UpdateUpperMark(row_to_go)
     });
-    map.add_key_events(&["pageup"], |_, ps| {
+    map.add_described_key_events(&["pageup"], "page up", |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_sub(ps.rows - 1))
     });
-    map.add_key_events(&["pagedown", "space"], |_, ps| {
+    map.add_described_key_events(&["pagedown", "space"], "page down", |_, ps| {
         InputEvent::UpdateUpperMark(ps.upper_mark.saturating_add(ps.rows - 1))
     });
-    map.add_key_events(&["c-l"], |_, ps| {
+    map.add_described_key_events(&["c-l"], "toggle line numbers", |_, ps| {
         InputEvent::UpdateLineNumber(!ps.line_numbers)
     });
-    map.add_key_events(&["end"], |_, _| InputEvent::UpdateUpperMark(usize::MAX - 1));
+    map.add_described_key_events(&["end"], "bottom", |_, _| {
+        InputEvent::UpdateUpperMark(usize::MAX - 1)
+    });
     #[cfg(feature = "search")]
     {
-        map.add_key_events(&["/"], |_, _| InputEvent::Search(SearchMode::Forward));
-        map.add_key_events(&["?"], |_, _| InputEvent::Search(SearchMode::Reverse));
-        map.add_key_events(&["n"], |_, ps| {
+        map.add_described_key_events(&["/"], "search forward", |_, _| {
+            InputEvent::Search(SearchMode::Forward)
+        });
+        map.add_described_key_events(&["?"], "search backward", |_, _| {
+            InputEvent::Search(SearchMode::Reverse)
+        });
+        map.add_described_key_events(&["m-i"], "toggle smart case", |_, _| {
+            InputEvent::ToggleSmartCase
+        });
+        map.add_described_key_events(&["n"], "next match", |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
             if ps.search_state.search_mode == SearchMode::Forward {
@@ -369,7 +388,7 @@ where
                 InputEvent::Ignore
             }
         });
-        map.add_key_events(&["p", "s-n"], |_, ps| {
+        map.add_described_key_events(&["p", "s-n"], "previous match", |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 
             if ps.search_state.search_mode == SearchMode::Forward {
@@ -407,14 +426,14 @@ where
         map.add_key_events(&["y"], |_, _| InputEvent::CopySelection);
     }
 
-    map.add_key_events(&["c-s-h", "c-h"], |_, ps| {
+    map.add_described_key_events(&["c-s-h", "c-h"], "toggle line wrap", |_, ps| {
         InputEvent::HorizontalScroll(!ps.screen.line_wrapping)
     });
-    map.add_key_events(&["h", "left"], |_, ps| {
+    map.add_described_key_events(&["h", "left"], "scroll left", |_, ps| {
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateLeftMark(ps.left_mark.saturating_sub(position))
     });
-    map.add_key_events(&["l", "right"], |_, ps| {
+    map.add_described_key_events(&["l", "right"], "scroll right", |_, ps| {
         let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
         InputEvent::UpdateLeftMark(ps.left_mark.saturating_add(position))
     });
@@ -688,6 +707,12 @@ impl InputClassifier for DefaultInputClassifier {
                     Some(InputEvent::MoveToPrevMatch(position))
                 }
             }
+            #[cfg(feature = "search")]
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('i'),
+                modifiers: KeyModifiers::ALT,
+                ..
+            }) => Some(InputEvent::ToggleSmartCase),
             _ => None,
         }
     }

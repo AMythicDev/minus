@@ -135,6 +135,8 @@ pub struct SearchOpts<'a> {
     pub cols: u16,
     /// Options specifically controlling incremental search
     pub incremental_search_options: Option<IncrementalSearchOpts<'a>>,
+    /// Whether smart case search is enabled
+    pub smart_case: bool,
     compiled_regex: Option<Regex>,
 }
 
@@ -199,6 +201,7 @@ impl<'a> From<&'a PagerState> for SearchOpts<'a> {
             rows: ps.rows.try_into().unwrap(),
             cols: ps.cols.try_into().unwrap(),
             incremental_search_options: Some(incremental_search_options),
+            smart_case: ps.search_state.smart_case,
             compiled_regex: None,
             search_mode: ps.search_state.search_mode,
         }
@@ -231,6 +234,8 @@ pub(crate) struct FetchInputResult {
     pub(crate) string: String,
     /// Cached pre-compiled [`Regex`] if available
     pub(crate) compiled_regex: Option<Regex>,
+    /// Smart case setting at the time of search confirmation
+    pub(crate) smart_case: bool,
 }
 
 impl FetchInputResult {
@@ -240,7 +245,19 @@ impl FetchInputResult {
         Self {
             string: String::new(),
             compiled_regex: None,
+            smart_case: false,
         }
+    }
+}
+
+pub(crate) fn compile_regex(query: &str, smart_case: bool) -> Option<Regex> {
+    if smart_case && !query.chars().any(char::is_uppercase) {
+        regex::RegexBuilder::new(query)
+            .case_insensitive(true)
+            .build()
+            .ok()
+    } else {
+        Regex::new(query).ok()
     }
 }
 
@@ -509,7 +526,7 @@ where
 
     let refresh_display = |out: &mut O, so: &mut SearchOpts<'_>| -> Result<(), MinusError> {
         // Cache the compiled regex if the regex is valid
-        so.compiled_regex = Regex::new(&so.string).ok();
+        so.compiled_regex = compile_regex(&so.string, so.smart_case);
 
         run_incremental_search(out, so, incremental_search_condition)?;
 
@@ -651,11 +668,22 @@ where
             term::move_cursor(out, so.cursor_position, so.rows, true)?;
         }
         Event::Key(KeyEvent {
-            code: KeyCode::Char(c),
-            modifiers: KeyModifiers::NONE,
+            code: KeyCode::Char('i'),
+            modifiers: KeyModifiers::ALT,
             ..
         }) => {
-            // For any character key, without a modifier, insert it into so.string before
+            so.smart_case = !so.smart_case;
+            populate_word_index(so);
+            refresh_display(out, so)?;
+            term::move_cursor(out, so.cursor_position, so.rows, false)?;
+            out.flush()?;
+        }
+        Event::Key(KeyEvent {
+            code: KeyCode::Char(c),
+            modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+            ..
+        }) => {
+            // For any character key, without a modifier (or with Shift), insert it into so.string before
             // current cursor position and update the line
             so.string
                 .insert(so.cursor_position.saturating_sub(1).into(), *c);
@@ -735,6 +763,7 @@ pub(crate) fn fetch_input(
         InputStatus::Confirmed => FetchInputResult {
             string: search_opts.string,
             compiled_regex: search_opts.compiled_regex,
+            smart_case: search_opts.smart_case,
         },
     };
     Ok(fetch_input_result)
@@ -959,6 +988,7 @@ mod tests {
                 rows: 25,
                 cols: 100,
                 incremental_search_options: None,
+                smart_case: false,
                 compiled_regex: None,
                 search_mode: sm,
             }
@@ -1020,6 +1050,32 @@ mod tests {
             handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
             assert_eq!(search_opts.word_index, vec![1, 5, 6, 8, 9, 16, 17, 28, 29]);
             assert_eq!(&search_opts.string, "this is@complex-text_search?query");
+            assert_eq!(search_opts.input_status, InputStatus::Confirmed);
+        }
+
+        #[test]
+        fn input_uppercase_and_shifted_text() {
+            let mut search_opts = new_search_opts(SearchMode::Forward);
+            let mut out = Vec::with_capacity(1500);
+            for (i, c) in "Hello World".chars().enumerate() {
+                let modifiers = if c.is_uppercase() {
+                    KeyModifiers::SHIFT
+                } else {
+                    KeyModifiers::NONE
+                };
+                search_opts.ev = Some(Event::Key(KeyEvent {
+                    code: KeyCode::Char(c),
+                    kind: KeyEventKind::Press,
+                    modifiers,
+                    state: KeyEventState::NONE,
+                }));
+                handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+                assert_eq!(search_opts.input_status, InputStatus::Active);
+                assert_eq!(search_opts.cursor_position as usize, i + 2);
+            }
+            search_opts.ev = Some(make_event_from_keycode(KeyCode::Enter));
+            handle_key_press(&mut out, &mut search_opts, |_| false).unwrap();
+            assert_eq!(&search_opts.string, "Hello World");
             assert_eq!(search_opts.input_status, InputStatus::Confirmed);
         }
 
@@ -1213,6 +1269,27 @@ mod tests {
             }
             assert_eq!(out, result_out);
         }
+    }
+
+    #[test]
+    fn test_compile_regex_smart_case() {
+        // Smart case enabled + all lowercase -> case-insensitive
+        let re = super::compile_regex("hello", true).unwrap();
+        assert!(re.is_match("hello"));
+        assert!(re.is_match("HELLO"));
+        assert!(re.is_match("Hello"));
+
+        // Smart case enabled + contains uppercase -> case-sensitive
+        let re = super::compile_regex("Hello", true).unwrap();
+        assert!(re.is_match("Hello"));
+        assert!(!re.is_match("hello"));
+        assert!(!re.is_match("HELLO"));
+
+        // Smart case disabled + lowercase -> case-sensitive
+        let re = super::compile_regex("hello", false).unwrap();
+        assert!(re.is_match("hello"));
+        assert!(!re.is_match("HELLO"));
+        assert!(!re.is_match("Hello"));
     }
 
     #[test]

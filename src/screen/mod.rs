@@ -106,6 +106,7 @@ impl fmt::Display for SearchFormattedRow<'_, '_> {
 ///
 /// Most of the functions of this type are cheap as minus does a lot of caching of the analysis
 /// behind the scenes
+#[derive(Clone, Debug)]
 pub struct Screen {
     pub(crate) orig_text: OwnedTextBlock,
     pub(crate) formatted_lines: Rows,

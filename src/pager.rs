@@ -10,6 +10,9 @@ use crate::{
 use crossbeam_channel::{Receiver, Sender};
 use std::fmt;
 
+#[cfg(feature = "clipboard")]
+use crate::state::ClipboardHandler;
+
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
@@ -289,6 +292,21 @@ impl Pager {
         Ok(self.tx.send(Command::SetInputClassifier(handler))?)
     }
 
+    /// Set a callback that writes selected text to the clipboard.
+    ///
+    /// When set, the copy action (`y` or releasing the left mouse button over
+    /// a selection) writes the selected text through this callback instead of
+    /// creating a fresh `arboard::Clipboard` handle, so the application can
+    /// reuse an existing clipboard connection.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    #[cfg(feature = "clipboard")]
+    pub fn set_clipboard_handler(&self, handler: ClipboardHandler) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::SetClipboardHandler(handler))?)
+    }
+
     /// Adds a function that will be called when the user quits the pager
     ///
     /// Multiple functions can be stored for calling when the user quits. These functions
@@ -362,6 +380,21 @@ impl Pager {
         cb: Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>,
     ) -> crate::Result {
         self.tx.send(Command::IncrementalSearchCondition(cb))?;
+        Ok(())
+    }
+
+    /// Enable or disable smart case searching
+    ///
+    /// When enabled, search queries containing no uppercase characters are case-insensitive,
+    /// while queries containing uppercase characters remain case-sensitive.
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver end.
+    #[cfg(feature = "search")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
+    pub fn set_smart_case(&self, smart_case: bool) -> crate::Result {
+        self.tx.send(Command::SetSmartCase(smart_case))?;
         Ok(())
     }
 

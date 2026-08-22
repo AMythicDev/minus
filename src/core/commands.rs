@@ -12,6 +12,9 @@ use crate::{
     minus_core::utils::display::AppendStyle,
 };
 
+#[cfg(feature = "clipboard")]
+use crate::state::ClipboardHandler;
+
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
@@ -54,6 +57,8 @@ pub enum Command {
     // Configuration options
     SetExitStrategy(ExitStrategy),
     SetInputClassifier(Box<dyn InputClassifier + Send + Sync + 'static>),
+    #[cfg(feature = "clipboard")]
+    SetClipboardHandler(ClipboardHandler),
     AddExitCallback(Box<dyn FnMut() + Send + Sync + 'static>),
     AddHook(Hook, u64, HookCallback),
     RemoveHook(Hook, u64),
@@ -61,6 +66,8 @@ pub enum Command {
     SetRunNoOverflow(bool),
     #[cfg(feature = "search")]
     IncrementalSearchCondition(Box<dyn Fn(&SearchOpts) -> bool + Send + Sync + 'static>),
+    #[cfg(feature = "search")]
+    SetSmartCase(bool),
 
     Io(IoCommand),
 }
@@ -82,9 +89,13 @@ impl PartialEq for Command {
             | (Self::AddExitCallback(_), Self::AddExitCallback(_))
             | (Self::AddHook(..), Self::AddHook(..))
             | (Self::SetOutputSink(_), Self::SetOutputSink(_)) => true,
+            #[cfg(feature = "clipboard")]
+            (Self::SetClipboardHandler(_), Self::SetClipboardHandler(_)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
+            #[cfg(feature = "search")]
+            (Self::SetSmartCase(s1), Self::SetSmartCase(s2)) => s1 == s2,
             (Self::Io(a), Self::Io(b)) => a == b,
             _ => false,
         }
@@ -102,9 +113,13 @@ impl Debug for Command {
             Self::LineWrapping(lw) => write!(f, "LineWrapping({lw:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),
+            #[cfg(feature = "clipboard")]
+            Self::SetClipboardHandler(_) => write!(f, "SetClipboardHandler"),
             Self::ShowPrompt(show) => write!(f, "ShowPrompt({show:?})"),
             #[cfg(feature = "search")]
             Self::IncrementalSearchCondition(_) => write!(f, "IncrementalSearchCondition"),
+            #[cfg(feature = "search")]
+            Self::SetSmartCase(sc) => write!(f, "SetSmartCase({sc:?})"),
             Self::AddExitCallback(_) => write!(f, "AddExitCallback"),
             Self::AddHook(h, id, _) => write!(f, "AddHook({h:?}, {id})"),
             Self::RemoveHook(h, id) => write!(f, "RemoveHook({h:?}, {id})"),
