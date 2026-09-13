@@ -33,12 +33,22 @@ pub fn handle_event(
 ) {
     match ev {
         Command::SetData(text) => {
+            if let Some(ref mut hs) = p.help_state {
+                hs.screen.orig_text = text;
+                hs.screen.line_count = hs.screen.orig_text.lines().count();
+                return;
+            }
             p.screen.orig_text = text;
             p.screen.line_count = p.screen.orig_text.lines().count();
             p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::Exit) => {
+            if p.help_state.is_some() {
+                p.exit_help();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+                return;
+            }
             p.run_hooks(Hook::PrePagerExit);
             p.exit();
             is_exited.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -141,10 +151,23 @@ pub fn handle_event(
             }
         }
         Command::UserInput(InputEvent::RestorePrompt) => {
+            if p.help_state.is_some() {
+                p.exit_help();
+                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+                return;
+            }
             // Set the message to None and new messages to false as all messages have been shown
             p.message = None;
             p.format_prompt();
             command_queue.push_back(Command::Io(IoCommand::RedrawPrompt));
+        }
+        Command::UserInput(InputEvent::ShowHelp) => {
+            if p.help_state.is_some() {
+                p.exit_help();
+            } else {
+                p.show_help();
+            }
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
         Command::UserInput(InputEvent::UpdateTermArea(c, r)) => {
             p.rows = r;
@@ -283,6 +306,11 @@ pub fn handle_event(
         }
 
         Command::AppendData(text) => {
+            if let Some(ref mut hs) = p.help_state {
+                hs.screen.orig_text.push_str(&text);
+                hs.screen.line_count = hs.screen.orig_text.lines().count();
+                return;
+            }
             let prev_unterminated = p.screen.unterminated;
             let prev_fmt_lines_count = p.screen.formatted_lines_count();
             let append_style = p.append_str(text.as_str());
@@ -546,6 +574,58 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert_eq!(ps.message.unwrap(), TEST_STR.to_string());
+    }
+
+    #[test]
+    fn show_help() {
+        let mut ps = PagerState::new().unwrap();
+        ps.screen.orig_text = "original text\n".to_string();
+        ps.reformat_display();
+        ps.upper_mark = 0;
+
+        let ev = Command::UserInput(InputEvent::ShowHelp);
+        let mut command_queue = CommandQueue::new_zero();
+
+        // Showing help sets the screen to the formatted help table
+        handle_event(
+            ev,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.help_state.is_some());
+        assert!(ps.screen.orig_text.contains("COMMAND SUMMARY"));
+        assert!(ps.prompt.contains("HELP"));
+
+        // Pressing help again toggles it off and restores original text
+        let ev2 = Command::UserInput(InputEvent::ShowHelp);
+        handle_event(
+            ev2,
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.help_state.is_none());
+        assert_eq!(ps.screen.orig_text, "original text\n");
+
+        // Showing help then exiting with Exit returns to pager
+        handle_event(
+            Command::UserInput(InputEvent::ShowHelp),
+            &mut ps,
+            &mut command_queue,
+            &Arc::new(AtomicBool::new(false)),
+        );
+        assert!(ps.help_state.is_some());
+        let is_exited = Arc::new(AtomicBool::new(false));
+        handle_event(
+            Command::UserInput(InputEvent::Exit),
+            &mut ps,
+            &mut command_queue,
+            &is_exited,
+        );
+        assert!(ps.help_state.is_none());
+        assert_eq!(is_exited.load(std::sync::atomic::Ordering::SeqCst), false);
+        assert_eq!(ps.screen.orig_text, "original text\n");
     }
 
     #[test]

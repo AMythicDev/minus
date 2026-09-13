@@ -67,7 +67,7 @@ fn gen_mouse_event_from_tokenlist(token_list: &[Token], text: &str) -> MouseEven
                 );
             }
             Token::MultipleChar(c) => {
-                let c = c.to_ascii_lowercase().clone();
+                let c = c.to_ascii_lowercase();
                 MOUSE_ACTIONS.get(c.as_str()).map_or_else(
                     || panic!("'{}': Invalid key input sequence given", text),
                     |k| {

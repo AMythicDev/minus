@@ -94,6 +94,15 @@ pub struct Selection {
 ///
 /// Various fields are made public so that their values can be accessed while implementing the
 /// trait.
+#[derive(Clone, Debug)]
+pub(crate) struct HelpState {
+    pub(crate) screen: Screen,
+    pub(crate) upper_mark: usize,
+    pub(crate) left_mark: usize,
+    pub(crate) prompt: String,
+    pub(crate) follow_output: bool,
+    pub(crate) line_numbers: LineNumbers,
+}
 #[allow(clippy::module_name_repetitions)]
 pub struct PagerState {
     /// Configuration for line numbers. See [`LineNumbers`]
@@ -162,6 +171,8 @@ pub struct PagerState {
     /// See [`follow_output`](crate::pager::Pager::follow_output) for more info on follow mode.
     pub(crate) follow_output: bool,
     pub(crate) selection_anchor: Option<Selection>,
+    /// Saved state while help screen is active.
+    pub(crate) help_state: Option<HelpState>,
     /// The output sink configured for the pager.
     pub output_sink: Arc<Mutex<Box<dyn OutputSink>>>,
 }
@@ -225,6 +236,7 @@ impl PagerState {
             lines_to_row_map: LinesRowMap::new(),
             follow_output: false,
             selection_anchor: None,
+            help_state: None,
             output_sink,
         };
 
@@ -337,13 +349,11 @@ impl PagerState {
         // the prompt/message and the indicators on the right
         // NOTE: Count chars of prompt_str as they can be non-ASCII
         let prefix_len = prefix_str.len();
-        let extra_space = self.cols.saturating_sub(
-            search_len + prefix_len + follow_mode_str.len() + prompt_str.chars().count(),
-        );
+        let indicators_len = search_len + prefix_len + follow_mode_str.len();
+        let available_space = self.cols.saturating_sub(indicators_len);
+        let extra_space = available_space.saturating_sub(prompt_str.chars().count());
 
-        let byte_idx = prompt_str
-            .char_indices()
-            .nth(search_len + prefix_len + follow_mode_str.len());
+        let byte_idx = prompt_str.char_indices().nth(available_space);
 
         // The if-case is especially frequent under non-tty conditions
         let dsp_prompt: &str = if extra_space == 0
@@ -385,6 +395,53 @@ impl PagerState {
         format_string.push_str(RESET);
 
         self.displayed_prompt = format_string;
+    }
+
+    /// Enter help mode, displaying the help table screen.
+    pub(crate) fn show_help(&mut self) {
+        if self.help_state.is_some() {
+            return;
+        }
+        let help_text = self
+            .input_classifier
+            .format_help()
+            .unwrap_or_default();
+
+        let saved = HelpState {
+            screen: std::mem::take(&mut self.screen),
+            upper_mark: self.upper_mark,
+            left_mark: self.left_mark,
+            prompt: std::mem::take(&mut self.prompt),
+            follow_output: self.follow_output,
+            line_numbers: self.line_numbers,
+        };
+
+        self.screen = Screen::default();
+        self.screen.orig_text = help_text;
+        self.screen.line_count = self.screen.orig_text.lines().count();
+        self.screen.line_wrapping = false;
+        self.upper_mark = 0;
+        self.left_mark = 0;
+        self.follow_output = false;
+        self.line_numbers = LineNumbers::Disabled;
+        self.prompt = "HELP -- Press q, Enter, or Alt-h to return to pager".to_string();
+        self.message = None;
+        self.help_state = Some(saved);
+        self.reformat_display();
+    }
+
+    /// Exit help mode, restoring the original document and scroll position.
+    pub(crate) fn exit_help(&mut self) {
+        if let Some(saved) = self.help_state.take() {
+            self.screen = saved.screen;
+            self.upper_mark = saved.upper_mark;
+            self.left_mark = saved.left_mark;
+            self.prompt = saved.prompt;
+            self.follow_output = saved.follow_output;
+            self.line_numbers = saved.line_numbers;
+            self.message = None;
+            self.reformat_display();
+        }
     }
 
     pub(crate) fn run_hooks(&mut self, hook: crate::hooks::Hook) {
@@ -721,5 +778,23 @@ mod tests {
         });
 
         assert_eq!(ps.extract_selection().as_deref(), Some("cdefghi\njklm"));
+    }
+
+    #[test]
+    fn format_prompt_truncates_long_message_to_available_width() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 20;
+        let long_msg = "Help: q:quit | j/k:scroll | Space:page";
+        ps.message = Some(long_msg.to_string());
+        ps.format_prompt();
+
+        // Should truncate message to fit 20 cols
+        assert!(ps.displayed_prompt.contains(&long_msg[..20]));
+
+        // With follow mode [F] (3 chars), prompt should truncate to 17 chars
+        ps.follow_output = true;
+        ps.format_prompt();
+        assert!(ps.displayed_prompt.contains(&long_msg[..17]));
+        assert!(ps.displayed_prompt.contains("[F]"));
     }
 }
