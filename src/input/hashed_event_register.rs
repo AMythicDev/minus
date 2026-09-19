@@ -126,11 +126,7 @@ where
 
     fn format_help(&self) -> Option<String> {
         let h = self.format_help();
-        if h.is_empty() {
-            None
-        } else {
-            Some(h)
-        }
+        if h.is_empty() { None } else { Some(h) }
     }
 }
 
@@ -142,7 +138,7 @@ where
     S: BuildHasher,
 {
     /// Create a new `HashedEventRegister` with the Hasher `s`
-    pub fn new(s: S) -> Self {
+    pub const fn new(s: S) -> Self {
         Self(HashMap::with_hasher(s))
     }
 
@@ -257,6 +253,11 @@ where
     }
 
     /// Add all elements of `keys` as key bindings with a description that minus should respond to with the callback `cb`.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if you the keybinding has been previously defined, unless the `remap`
+    /// is set to true. This helps preventing accidental overrides of your keybindings.
     pub fn add_described_key_events(
         &mut self,
         keys: &[&str],
@@ -305,6 +306,11 @@ where
     }
 
     /// Add all elements of `keys` as key bindings with a description that minus should respond to with the callback `cb`, with conflict checking.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if you the keybinding has been previously defined, unless the `remap`
+    /// is set to true. This helps preventing accidental overrides of your keybindings.
     pub fn add_described_key_events_checked(
         &mut self,
         keys: &[&str],
@@ -342,37 +348,6 @@ where
             self.0
                 .remove(&Event::Key(super::definitions::keydefs::parse_key_event(k)).into());
         }
-    }
-
-    /// Add key binding(s) to show help in the pager prompt.
-    ///
-    /// If `desc` is empty, defaults to `&["m-h"]`.
-    ///
-    /// # Example
-    /// ```
-    /// use minus::input::HashedEventRegister;
-    ///
-    /// let mut input_register = HashedEventRegister::default();
-    /// // Bind default Meta/Alt-h key to show help
-    /// input_register.add_help_key(&[]);
-    /// // Or specify custom keys
-    /// input_register.add_help_key(&["f1"]);
-    /// ```
-    pub fn add_help_key(&mut self, desc: &[&str]) {
-        let keys = if desc.is_empty() { &["m-h"][..] } else { desc };
-        self.add_described_key_events(keys, "help", |_, _| InputEvent::ShowHelp);
-    }
-
-    /// Add key binding(s) to show help in the pager prompt with conflict checking.
-    ///
-    /// If `desc` is empty, defaults to `&["m-h"]`.
-    ///
-    /// # Panics
-    /// This will panic if any of the keybindings has been previously defined, unless `remap`
-    /// is set to true.
-    pub fn add_help_key_checked(&mut self, desc: &[&str], remap: bool) {
-        let keys = if desc.is_empty() { &["m-h"][..] } else { desc };
-        self.add_described_key_events_checked(keys, "help", |_, _| InputEvent::ShowHelp, remap);
     }
 }
 

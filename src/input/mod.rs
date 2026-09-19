@@ -360,11 +360,20 @@ where
     map.add_described_key_events(&["c-l"], "toggle line numbers", |_, ps| {
         InputEvent::UpdateLineNumber(!ps.line_numbers)
     });
-    map.add_described_key_events(&["end"], "bottom", |_, _| InputEvent::UpdateUpperMark(usize::MAX - 1));
+    map.add_described_key_events(&["end"], "bottom", |_, _| {
+        InputEvent::UpdateUpperMark(usize::MAX - 1)
+    });
+
+    map.add_described_key_events(&["m-h"], "help", |_, _| InputEvent::ShowHelp);
+
     #[cfg(feature = "search")]
     {
-        map.add_described_key_events(&["/"], "search forward", |_, _| InputEvent::Search(SearchMode::Forward));
-        map.add_described_key_events(&["?"], "search backward", |_, _| InputEvent::Search(SearchMode::Reverse));
+        map.add_described_key_events(&["/"], "search forward", |_, _| {
+            InputEvent::Search(SearchMode::Forward)
+        });
+        map.add_described_key_events(&["?"], "search backward", |_, _| {
+            InputEvent::Search(SearchMode::Reverse)
+        });
         map.add_described_key_events(&["n"], "next match", |_, ps| {
             let position = ps.prefix_num.parse::<usize>().unwrap_or(1);
 

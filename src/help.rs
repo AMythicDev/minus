@@ -1,8 +1,10 @@
 //! Help text and related definitions for the pager.
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use std::fmt::Write;
 
 /// Format a [`KeyEvent`] into a human-readable representation (e.g. `"Ctrl-c"`, `"Alt-h"`).
+#[must_use]
 pub fn format_key(ke: &KeyEvent) -> String {
     let mut s = String::new();
     if ke.modifiers.contains(KeyModifiers::CONTROL) {
@@ -38,7 +40,7 @@ pub fn format_key(ke: &KeyEvent) -> String {
         KeyCode::End => s.push_str("End"),
         KeyCode::Delete => s.push_str("Delete"),
         KeyCode::Insert => s.push_str("Insert"),
-        KeyCode::F(n) => s.push_str(&format!("F{n}")),
+        KeyCode::F(n) => write!(s, "F{n}").unwrap(),
         KeyCode::Null => s.push_str("Null"),
         _ => s.push_str("Unknown"),
     }
@@ -79,7 +81,7 @@ where
 
     for (desc, keys) in groups {
         let keys_str = keys.join(", ");
-        out.push_str(&format!("  {:<30} {}\n", keys_str, desc));
+        writeln!(out, "  {keys_str:<30} {desc}").unwrap();
     }
 
     out.push_str("\n  -- Press q, Enter, or Alt-h to return to pager --\n");

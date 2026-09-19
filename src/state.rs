@@ -402,10 +402,7 @@ impl PagerState {
         if self.help_state.is_some() {
             return;
         }
-        let help_text = self
-            .input_classifier
-            .format_help()
-            .unwrap_or_default();
+        let help_text = self.input_classifier.format_help().unwrap_or_default();
 
         let saved = HelpState {
             screen: std::mem::take(&mut self.screen),

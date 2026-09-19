@@ -624,7 +624,7 @@ mod tests {
             &is_exited,
         );
         assert!(ps.help_state.is_none());
-        assert_eq!(is_exited.load(std::sync::atomic::Ordering::SeqCst), false);
+        assert!(!is_exited.load(std::sync::atomic::Ordering::SeqCst));
         assert_eq!(ps.screen.orig_text, "original text\n");
     }
 

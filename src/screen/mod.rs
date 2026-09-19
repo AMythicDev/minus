@@ -214,7 +214,7 @@ impl Default for Screen {
         Self {
             line_wrapping: true,
             orig_text: String::with_capacity(100 * 1024),
-            formatted_lines: Vec::with_capacity(500 * 1024),
+            formatted_lines: Vec::with_capacity(1024),
             line_count: 0,
             max_line_length: 0,
             unterminated: 0,
