@@ -24,6 +24,7 @@ pub fn format_key(ke: &KeyEvent) -> String {
     }
 
     match ke.code {
+        KeyCode::Char(' ') => s.push_str("<Space>"),
         KeyCode::Char(c) => s.push(c),
         KeyCode::Enter => s.push_str("Enter"),
         KeyCode::Tab => s.push_str("Tab"),
@@ -75,7 +76,7 @@ where
     }
 
     let mut out = String::new();
-    out.push_str("                         COMMAND SUMMARY\n\n");
+    out.push_str("             COMMAND SUMMARY\n\n");
     out.push_str("  Key(s)                         Action\n");
     out.push_str("  ------                         ------\n");
 
@@ -84,7 +85,7 @@ where
         writeln!(out, "  {keys_str:<30} {desc}").unwrap();
     }
 
-    out.push_str("\n  -- Press q, Enter, or Alt-h to return to pager --\n");
+    out.push_str("\n  -- Press q to return to pager --\n");
     out
 }
 

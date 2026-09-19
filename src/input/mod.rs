@@ -364,7 +364,7 @@ where
         InputEvent::UpdateUpperMark(usize::MAX - 1)
     });
 
-    map.add_described_key_events(&["m-h"], "help", |_, _| InputEvent::ShowHelp);
+    map.add_described_key_events(&["s-m"], "help", |_, _| InputEvent::ShowHelp);
 
     #[cfg(feature = "search")]
     {
