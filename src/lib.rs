@@ -135,6 +135,7 @@
 //!
 //! | Action              | Description                                                                  |
 //! |---------------------|------------------------------------------------------------------------------|
+//! | Ctrl+m              | Show help                                                                    |
 //! | Ctrl+C/q            | Quit the pager                                                               |
 //! | \[n\] Arrow Up/k    | Scroll up by n number of line(s). If n is omitted, scroll up by 1 line       |
 //! | \[n\] Arrow Down/j  | Scroll down by n number of line(s). If n is omitted, scroll down by 1 line   |
@@ -158,7 +159,7 @@
 //! | Esc                 | Cancel search input                                                          |
 //! | n                   | Go to the next search match                                                  |
 //! | N                   | Go to the next previous match                                                |
-//! | p                   | Go to the next previous match (alternate keybinding)                            |
+//! | p                   | Go to the next previous match (alternate keybinding)                         |
 //!
 //! End-applications are free to change these bindings to better suit their needs. See docs for
 //! [`Pager::set_input_classifier`] function and [`input`] module.
