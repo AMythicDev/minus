@@ -1,6 +1,13 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## v5.8.0 [2026-09-19]
+### Added
+* [#164](https://github.com/arijit79/minus/pull/167): Introduce the `OutputSink` to allow custom output sinks like stderr, files, etc.
+* [#164](https://github.com/arijit79/minus/pull/167): Implemented the `OutputSink` trait on some `std` types like `io::Stdout`, `io::Stderr`, `io::File`
+    `io::Cursor`, `Vec<u8>`, `io::Sink` to use them directly without implementing them manually.
+* [#158](https://github.com/arijit79/minus/pull/168): Added a help screen for keybindings generated directly from keybinding help docs.
+
 ## v5.7.2 [2026-07-15]
 ### Fixed
 * Fixed crash when prompt contains non-ASCII characters and used in non-TTY environments
