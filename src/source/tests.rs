@@ -52,7 +52,8 @@ fn append_multiline_merges_first_line() {
     src.append("abc");
     src.append("def\nghi\n");
     assert_eq!(src.line_count(), 2);
-    assert_eq!(src.line(0).as_deref(), Some("abcdefghi"));
+    // The first line of the appended text merges into the unterminated last line
+    assert_eq!(src.line(0).as_deref(), Some("abcdef"));
     assert_eq!(src.line(1).as_deref(), Some("ghi"));
     assert!(src.last_line_terminated());
 }
@@ -206,15 +207,21 @@ fn shared_source_through_mutex_lock() {
     assert_eq!(dyn_source.line(0), None);
     assert!(dyn_source.last_line_terminated());
 
-    source.lock().append("abc\n");
+    source.lock().append("abc");
     assert_eq!(dyn_source.line_count(), 1);
     assert_eq!(dyn_source.line(0).as_deref(), Some("abc"));
+    assert!(!dyn_source.last_line_terminated());
 
     // Merging through the lock is visible through the trait object
-    source.lock().append("def");
+    source.lock().append("def\n");
     assert_eq!(dyn_source.line_count(), 1);
     assert_eq!(dyn_source.line(0).as_deref(), Some("abcdef"));
-    assert!(!dyn_source.last_line_terminated());
+    assert!(dyn_source.last_line_terminated());
+
+    // Appending a new line after a terminated one is visible too
+    source.lock().append("ghi\n");
+    assert_eq!(dyn_source.line_count(), 2);
+    assert_eq!(dyn_source.line(1).as_deref(), Some("ghi"));
 }
 
 #[test]

@@ -100,7 +100,7 @@ pub trait DataSource: Send + Sync + 'static {
     }
 }
 
-/// An in-memory [`DataSource`] thatborrow::Cow,  stores the text exactly once
+/// An in-memory [`DataSource`] that stores the text exactly once
 ///
 /// This is the default source minus uses: text fed through appends is stored here as a
 /// single [`String`] with a byte-offset index over the line starts, making random access to
