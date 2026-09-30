@@ -11,16 +11,6 @@ use std::{cmp::Ordering, convert::TryInto, fmt::Display, io::Write};
 use super::term;
 use crate::{LineNumbers, PagerState, error::MinusError, minus_core};
 
-/// How should the incoming text be drawn on the screen
-#[derive(Debug, PartialEq, Eq)]
-pub enum AppendStyle {
-    /// Draw only the region that needs to change
-    PartialUpdate((usize, usize)),
-
-    /// Redraw the entire screen
-    FullRedraw,
-}
-
 /// Handles drawing of screen based on movement
 ///
 /// Refreshing the entire terminal can be costly, especially on high resolution displays and this cost can turns out to be
@@ -154,52 +144,6 @@ pub fn draw_full(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusE
     }
 
     out.flush().map_err(MinusError::Draw)
-}
-
-pub fn draw_append_text<L: Display + AsRef<str>>(
-    out: &mut impl Write,
-    rows: usize,
-    prev_unterminated: usize,
-    prev_fmt_lines_count: usize,
-    fmt_text: &[L],
-) -> Result<(), MinusError> {
-    if prev_fmt_lines_count < rows {
-        // Move the cursor to the very next line after the last displayed line
-        term::move_cursor(
-            out,
-            0,
-            prev_fmt_lines_count
-                .saturating_sub(prev_unterminated)
-                .try_into()
-                .unwrap(),
-            false,
-        )?;
-        // available_rows -> Rows that are still unfilled
-        //      rows - number of lines displayed -1 (for prompt)
-        // For example if 20 rows are in total in a terminal
-        // and 10 rows are already occupied, then this will be equal to 9
-        let available_rows = rows.saturating_sub(
-            prev_fmt_lines_count
-                .saturating_sub(prev_unterminated)
-                .saturating_add(1),
-        );
-        // Minimum amount of text that an be appended
-        // If available_rows is less, than this will be available rows else it will be
-        // the length of the formatted text
-        //
-        // If number of rows in terminal is 23 with 20 rows filled and another 5 lines are given
-        // This woll be equal to 3 as available rows will be 3
-        // If in the above example only 2 lines need to be added, this will be equal to 2
-        let num_appendable = fmt_text.len().min(available_rows);
-        if num_appendable >= 1 {
-            crossterm::execute!(out, crossterm::terminal::Clear(ClearType::CurrentLine))?;
-        }
-        for line in &fmt_text[0..num_appendable] {
-            write!(out, "{line}\n\r")?;
-        }
-        out.flush()?;
-    }
-    Ok(())
 }
 
 /// Write the lines to the terminal

@@ -9,21 +9,16 @@ use crate::{
     ExitStrategy, LineNumbers, OutputSink,
     hooks::{Hook, HookCallback},
     input::{InputClassifier, InputEvent},
-    minus_core::utils::display::AppendStyle,
+    source::DataSource,
 };
 
 #[cfg(feature = "search")]
 use crate::search::SearchOpts;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum IoCommand {
     RedrawPrompt,
     RedrawDisplay,
-    /// Append text to the screen
-    ///
-    /// First item corresponds to the value of unterminated lines before the text is formatted while
-    /// the second value corresponds to the total number of rows before formatting.
-    DrawAppendedText(usize, usize, AppendStyle),
     SetUpperMark(usize),
     #[cfg(feature = "search")]
     FetchSearchQuery,
@@ -37,8 +32,7 @@ pub enum Command {
     UserInput(InputEvent),
 
     // Data related
-    AppendData(String),
-    SetData(String),
+    SetDataSource(Box<dyn DataSource>),
 
     // Prompt related
     SendMessage(String),
@@ -68,9 +62,7 @@ pub enum Command {
 impl PartialEq for Command {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::SetData(d1), Self::SetData(d2))
-            | (Self::AppendData(d1), Self::AppendData(d2))
-            | (Self::SetPrompt(d1), Self::SetPrompt(d2))
+            (Self::SetPrompt(d1), Self::SetPrompt(d2))
             | (Self::SendMessage(d1), Self::SendMessage(d2)) => d1 == d2,
             (Self::LineWrapping(d1), Self::LineWrapping(d2)) => d1 == d2,
             (Self::SetLineNumbers(d1), Self::SetLineNumbers(d2)) => d1 == d2,
@@ -81,7 +73,8 @@ impl PartialEq for Command {
             (Self::SetInputClassifier(_), Self::SetInputClassifier(_))
             | (Self::AddExitCallback(_), Self::AddExitCallback(_))
             | (Self::AddHook(..), Self::AddHook(..))
-            | (Self::SetOutputSink(_), Self::SetOutputSink(_)) => true,
+            | (Self::SetOutputSink(_), Self::SetOutputSink(_))
+            | (Self::SetDataSource(_), Self::SetDataSource(_)) => true,
             (Self::RemoveHook(h1, id1), Self::RemoveHook(h2, id2)) => h1 == h2 && id1 == id2,
             #[cfg(feature = "search")]
             (Self::IncrementalSearchCondition(_), Self::IncrementalSearchCondition(_)) => true,
@@ -94,8 +87,7 @@ impl PartialEq for Command {
 impl Debug for Command {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SetData(text) => write!(f, "SetData({text:?})"),
-            Self::AppendData(text) => write!(f, "AppendData({text:?})"),
+            Self::SetDataSource(_) => write!(f, "SetDataSource"),
             Self::SetPrompt(text) => write!(f, "SetPrompt({text:?})"),
             Self::SendMessage(text) => write!(f, "SendMessage({text:?})"),
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),

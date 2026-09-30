@@ -1,7 +1,7 @@
 #![allow(clippy::shadow_unrelated)]
 #![allow(clippy::cast_possible_truncation)]
 use super::{draw_for_change, draw_full, write_from_pagerstate, write_prompt};
-use crate::{LineNumbers, PagerState};
+use crate::{LineNumbers, PagerState, source::InMemorySource};
 use std::fmt::Write;
 
 // * In some places, where test lines are close to the row, 1 should be added
@@ -16,7 +16,7 @@ fn short_no_line_numbers() {
     let lines = "A line\nAnother line";
     let mut pager = PagerState::new().unwrap();
 
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.reformat_display();
 
     let mut out = Vec::with_capacity(lines.len());
@@ -52,7 +52,7 @@ fn long_no_line_numbers() {
     let mut pager = PagerState::new().unwrap();
     // One extra line for prompt
     pager.rows = 4;
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.reformat_display();
 
     assert!(write_from_pagerstate(&mut out, &mut pager).is_ok());
@@ -65,7 +65,7 @@ fn long_no_line_numbers() {
 
     // This ensures that asking for a position other than 0 works.
     let mut out = Vec::with_capacity(lines.len());
-    pager.screen.orig_text = "Another line\nThird line\nFourth line\nFifth line\n".to_string();
+    pager.data_source = Box::new(InMemorySource::from("Another line\nThird line\nFourth line\nFifth line\n"));
     pager.upper_mark = 1;
     pager.reformat_display();
 
@@ -97,7 +97,7 @@ fn short_with_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.line_numbers = LineNumbers::Enabled;
     pager.reformat_display();
 
@@ -132,7 +132,7 @@ fn long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.rows = 4;
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.line_numbers = LineNumbers::Enabled;
     pager.reformat_display();
 
@@ -184,7 +184,7 @@ fn big_line_numbers_are_padded() {
     let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 95;
     pager.rows = 11;
-    pager.screen.orig_text = lines;
+    pager.data_source = Box::new(InMemorySource::from(lines));
     pager.line_numbers = LineNumbers::AlwaysOn;
     pager.reformat_display();
 
@@ -227,7 +227,7 @@ fn draw_short_no_line_numbers() {
 
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.line_numbers = LineNumbers::AlwaysOff;
     pager.reformat_display();
 
@@ -263,7 +263,7 @@ fn draw_long_no_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.rows = 3;
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.reformat_display();
 
     assert!(draw_full(&mut out, &mut pager).is_ok());
@@ -308,7 +308,7 @@ fn draw_short_with_line_numbers() {
     let lines = "A line\nAnother line";
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.line_numbers = LineNumbers::Enabled;
     pager.reformat_display();
 
@@ -343,7 +343,7 @@ fn draw_long_with_line_numbers() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.rows = 3;
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.line_numbers = LineNumbers::Enabled;
     pager.reformat_display();
 
@@ -397,7 +397,7 @@ fn draw_big_line_numbers_are_padded() {
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
     pager.upper_mark = 95;
-    pager.screen.orig_text = lines;
+    pager.data_source = Box::new(InMemorySource::from(lines));
     pager.line_numbers = LineNumbers::Enabled;
     pager.reformat_display();
 
@@ -422,7 +422,7 @@ fn draw_wrapping_line_numbers() {
 
     let mut out = Vec::new();
     let mut pager = PagerState::new().unwrap();
-    pager.screen.orig_text = lines;
+    pager.data_source = Box::new(InMemorySource::from(lines));
     pager.cols = 30;
     pager.upper_mark = 2;
     pager.line_numbers = LineNumbers::Enabled;
@@ -441,7 +441,7 @@ fn draw_help_message() {
 
     let mut out = Vec::with_capacity(lines.len());
     let mut pager = PagerState::new().unwrap();
-    pager.screen.orig_text = lines.to_string();
+    pager.data_source = Box::new(InMemorySource::from(&lines));
     pager.line_numbers = LineNumbers::AlwaysOff;
     pager.format_prompt();
 
@@ -456,7 +456,7 @@ fn test_draw_no_overflow() {
     const TEXT: &str = "This is a line of text to the pager";
     let mut out = Vec::with_capacity(TEXT.len());
     let mut pager = PagerState::new().unwrap();
-    pager.screen.orig_text = TEXT.to_string();
+    pager.data_source = Box::new(InMemorySource::from(TEXT));
     pager.reformat_display();
     draw_full(&mut out, &mut pager).unwrap();
     assert!(
@@ -469,6 +469,7 @@ fn test_draw_no_overflow() {
 #[cfg(test)]
 mod draw_for_change_tests {
     use super::{draw_for_change, write_prompt};
+    use crate::source::InMemorySource;
     use crate::state::PagerState;
     use crossterm::{
         cursor::MoveTo,
@@ -487,7 +488,7 @@ mod draw_for_change_tests {
         };
         let mut ps = PagerState::new().unwrap();
         ps.upper_mark = 0;
-        ps.screen.orig_text = lines;
+        ps.data_source = Box::new(InMemorySource::from(lines));
         ps.reformat_display();
         ps.format_prompt();
         ps
