@@ -19,17 +19,7 @@ impl LinesRowMap {
         Self(Vec::new())
     }
 
-    pub fn append(&mut self, idx: &mut Self, clean_append: bool) {
-        if !clean_append {
-            self.0.pop();
-        }
-        self.0.append(&mut idx.0);
-    }
-
-    pub fn insert(&mut self, ln: usize, clean_append: bool) {
-        if !clean_append {
-            self.0.pop();
-        }
+    pub fn insert(&mut self, ln: usize) {
         self.0.push(ln);
     }
 

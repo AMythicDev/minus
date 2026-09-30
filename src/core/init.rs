@@ -15,7 +15,7 @@ use crate::{
     input::InputEvent,
     minus_core::{
         RunMode,
-        commands::Command,
+        commands::{Command, IoCommand},
         ev_handler::handle_event,
         utils::{display::draw_full, term},
     },
@@ -96,7 +96,11 @@ pub fn init_core(pager: &Pager, rm: RunMode) -> std::result::Result<(), MinusErr
         let mut out = output_sink.lock();
         // If output sink is not a tty, write everything and quit
         if !out.is_tty() {
-            write_raw_lines(&mut *out, &[ps.screen.orig_text], None)?;
+            let lines: Vec<String> = (0..ps.data_source.line_count())
+                .filter_map(|idx| ps.data_source.line(idx))
+                .map(std::borrow::Cow::into_owned)
+                .collect();
+            write_raw_lines(&mut *out, &lines, None)?;
             drop(out);
             *RUNMODE.lock() = RunMode::Uninitialized;
             return Ok(());
@@ -244,25 +248,46 @@ fn start_reactor(
             }
 
             let next_command = if command_queue.is_empty() {
-                rx.recv()
+                // A timeout instead of a blocking receive so that changes in the data source
+                // are polled while waiting for commands
+                rx.recv_timeout(std::time::Duration::from_millis(100)).ok()
             } else {
-                Ok(command_queue.pop_front().unwrap())
+                Some(command_queue.pop_front().unwrap())
             };
 
-            let mut p = ps.lock();
-            if let Ok(Command::Io(ic)) = next_command {
-                use crate::minus_core::ev_handler::handle_io_command;
+            let should_reformat = {
+                let mut p = ps.lock();
+                if let Some(Command::Io(ic)) = next_command {
+                    use crate::minus_core::ev_handler::handle_io_command;
 
-                handle_io_command(
-                    ic,
-                    &mut *output_sink.lock(),
-                    &mut p,
-                    &mut command_queue,
-                    #[cfg(feature = "search")]
-                    input_thread_running,
-                )?;
-            } else if let Ok(command) = next_command {
-                handle_event(command, &mut p, &mut command_queue, is_exited);
+                    handle_io_command(
+                        ic,
+                        &mut *output_sink.lock(),
+                        &mut p,
+                        &mut command_queue,
+                        #[cfg(feature = "search")]
+                        input_thread_running,
+                    )?;
+                } else if let Some(command) = next_command {
+                    handle_event(command, &mut p, &mut command_queue, is_exited);
+                }
+
+                // Poll the data source for changes and reformat when it differs from what
+                // minus has already formatted
+                command_queue.is_empty() && p.source_changed(p.data_source.as_ref())
+            };
+
+            if should_reformat {
+                let (follow, fmt_count) = {
+                    let mut p = ps.lock();
+                    p.reformat_display();
+                    (p.follow_output, p.screen.formatted_lines_count())
+                };
+                if follow {
+                    command_queue.push_back(Command::Io(IoCommand::SetUpperMark(fmt_count)));
+                } else {
+                    command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+                }
             }
         },
         #[cfg(feature = "static_output")]

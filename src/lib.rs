@@ -201,6 +201,7 @@ pub mod screen;
 #[cfg_attr(docsrs, doc(cfg(feature = "search")))]
 pub mod search;
 pub mod sink;
+pub mod source;
 pub mod state;
 #[cfg(feature = "static_output")]
 mod static_pager;

@@ -9,7 +9,7 @@ use parking_lot::{Condvar, Mutex};
 
 use super::CommandQueue;
 use super::commands::{Command, IoCommand};
-use super::utils::display::{self, AppendStyle};
+use super::utils::display::{self};
 use crate::ExitStrategy;
 #[cfg(feature = "search")]
 use crate::search;
@@ -32,14 +32,14 @@ pub fn handle_event(
     is_exited: &Arc<AtomicBool>,
 ) {
     match ev {
-        Command::SetData(text) => {
-            if let Some(ref mut hs) = p.help_state {
-                hs.screen.orig_text = text;
-                hs.screen.line_count = hs.screen.orig_text.lines().count();
+        Command::SetDataSource(source) => {
+            if let Some(hs) = &mut p.help_state {
+                // The help screen owns the data source while it is active; remember the new
+                // source so it takes effect when help exits
+                hs.data_source = source;
                 return;
             }
-            p.screen.orig_text = text;
-            p.screen.line_count = p.screen.orig_text.lines().count();
+            p.data_source = source;
             p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
@@ -305,34 +305,6 @@ pub fn handle_event(
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
 
-        Command::AppendData(text) => {
-            if let Some(ref mut hs) = p.help_state {
-                hs.screen.orig_text.push_str(&text);
-                hs.screen.line_count = hs.screen.orig_text.lines().count();
-                return;
-            }
-            let prev_unterminated = p.screen.unterminated;
-            let prev_fmt_lines_count = p.screen.formatted_lines_count();
-            let append_style = p.append_str(text.as_str());
-
-            if append_style == AppendStyle::FullRedraw {
-                command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
-                return;
-            }
-
-            command_queue.push_back(Command::Io(IoCommand::DrawAppendedText(
-                prev_unterminated,
-                prev_fmt_lines_count,
-                append_style,
-            )));
-
-            if p.follow_output {
-                command_queue.push_back(Command::Io(IoCommand::SetUpperMark(
-                    p.screen.formatted_lines_count(),
-                )));
-            }
-        }
-
         Command::SetPrompt(ref text) | Command::SendMessage(ref text) => {
             if let Command::SetPrompt(_) = ev {
                 p.prompt = text.clone();
@@ -432,19 +404,6 @@ pub fn handle_io_command(
             }
             p.upper_mark = um;
         }
-        IoCommand::DrawAppendedText(prev_unterminated, prev_fmt_lines_count, append_style) => {
-            let AppendStyle::PartialUpdate(bounds) = append_style else {
-                unreachable!();
-            };
-            let fmt_lines = p.render_rows_for_display(bounds.0, bounds.1);
-            display::draw_append_text(
-                out,
-                p.rows,
-                prev_unterminated,
-                prev_fmt_lines_count,
-                &fmt_lines,
-            )?;
-        }
         #[cfg(feature = "search")]
         IoCommand::FetchSearchQuery => {
             // Pause the main user input thread, read search query and then restart the main input thread
@@ -495,7 +454,7 @@ pub fn handle_io_command(
 mod tests {
     use super::super::commands::{Command, IoCommand};
     use super::handle_event;
-    use crate::{PagerState, input::InputEvent, minus_core::CommandQueue, state::Selection};
+    use crate::{PagerState, input::InputEvent, minus_core::CommandQueue, source::InMemorySource, state::Selection};
     use std::fmt::Write;
     use std::sync::{Arc, atomic::AtomicBool};
 
@@ -504,9 +463,9 @@ mod tests {
     // Tests for event emitting functions of Pager
     #[test]
     #[cfg(any(feature = "dynamic_output", feature = "static_output"))]
-    fn set_data() {
+    fn set_data_source() {
         let mut ps = PagerState::new().unwrap();
-        let ev = Command::SetData(TEST_STR.to_string());
+        let ev = Command::SetDataSource(Box::new(InMemorySource::from(TEST_STR)));
         let mut command_queue = CommandQueue::new_zero();
 
         handle_event(
@@ -520,24 +479,14 @@ mod tests {
     }
 
     #[test]
-    fn append_str() {
+    fn appended_lines_are_served_from_source() {
         let mut ps = PagerState::new().unwrap();
-        let ev1 = Command::AppendData(format!("{TEST_STR}\n"));
-        let ev2 = Command::AppendData(TEST_STR.to_string());
-        let mut command_queue = CommandQueue::new_zero();
+        let mut source = InMemorySource::new();
+        source.append(&format!("{TEST_STR}\n"));
+        source.append(TEST_STR);
+        ps.data_source = Box::new(source);
+        ps.reformat_display();
 
-        handle_event(
-            ev1,
-            &mut ps,
-            &mut command_queue,
-            &Arc::new(AtomicBool::new(false)),
-        );
-        handle_event(
-            ev2,
-            &mut ps,
-            &mut command_queue,
-            &Arc::new(AtomicBool::new(false)),
-        );
         assert_eq!(
             ps.screen.formatted_lines,
             vec![TEST_STR.to_string(), TEST_STR.to_string()]
@@ -579,7 +528,7 @@ mod tests {
     #[test]
     fn show_help() {
         let mut ps = PagerState::new().unwrap();
-        ps.screen.orig_text = "original text\n".to_string();
+        ps.data_source = Box::new(InMemorySource::from("original text\n"));
         ps.reformat_display();
         ps.upper_mark = 0;
 
@@ -594,7 +543,11 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert!(ps.help_state.is_some());
-        assert!(ps.screen.orig_text.contains("COMMAND SUMMARY"));
+        assert!(ps
+            .screen
+            .formatted_lines
+            .iter()
+            .any(|row| row.contains("COMMAND SUMMARY")));
         assert!(ps.prompt.contains("HELP"));
 
         // Pressing help again toggles it off and restores original text
@@ -606,7 +559,7 @@ mod tests {
             &Arc::new(AtomicBool::new(false)),
         );
         assert!(ps.help_state.is_none());
-        assert_eq!(ps.screen.orig_text, "original text\n");
+        assert_eq!(ps.screen.formatted_lines, vec!["original text".to_string()]);
 
         // Showing help then exiting with Exit returns to pager
         handle_event(
@@ -625,7 +578,7 @@ mod tests {
         );
         assert!(ps.help_state.is_none());
         assert!(!is_exited.load(std::sync::atomic::Ordering::SeqCst));
-        assert_eq!(ps.screen.orig_text, "original text\n");
+        assert_eq!(ps.screen.formatted_lines, vec!["original text".to_string()]);
     }
 
     #[test]
@@ -663,10 +616,10 @@ mod tests {
     fn update_selection_scrolls_up_at_top_edge() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..10).fold(String::new(), |mut t, idx| {
-            let _ = writeln!(t, "line {idx}");
-            t
-        });
+        ps.data_source = Box::new((0..10).fold(InMemorySource::new(), |mut s, idx| {
+            let _ = writeln!(s, "line {idx}");
+            s
+        }));
         ps.reformat_display();
         ps.upper_mark = 3;
         ps.selection_anchor = Some(Selection {
@@ -701,10 +654,10 @@ mod tests {
     fn update_selection_scrolls_down_at_bottom_edge() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..10).fold(String::new(), |mut t, idx| {
-            let _ = writeln!(t, "line {idx}");
-            t
-        });
+        ps.data_source = Box::new((0..10).fold(InMemorySource::new(), |mut s, idx| {
+            let _ = writeln!(s, "line {idx}");
+            s
+        }));
         ps.reformat_display();
         ps.upper_mark = 3;
         ps.selection_anchor = Some(Selection {
@@ -739,10 +692,10 @@ mod tests {
     fn update_selection_clamps_scroll_at_bottom_bound() {
         let mut ps = PagerState::new().unwrap();
         ps.rows = 5;
-        ps.screen.orig_text = (0..6).fold(String::new(), |mut t, idx| {
-            let _ = writeln!(t, "line {idx}");
-            t
-        });
+        ps.data_source = Box::new((0..6).fold(InMemorySource::new(), |mut s, idx| {
+            let _ = writeln!(s, "line {idx}");
+            s
+        }));
         ps.reformat_display();
         ps.upper_mark = 2;
         ps.selection_anchor = Some(Selection {
