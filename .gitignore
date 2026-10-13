@@ -7,3 +7,5 @@
 Cargo.lock
 
 .direnv/
+config.bat
+node_modules
