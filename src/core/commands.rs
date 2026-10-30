@@ -48,6 +48,7 @@ pub enum Command {
     // Screen output configurations
     LineWrapping(bool),
     SetLineNumbers(LineNumbers),
+    SetFrozenLines(usize),
     FollowOutput(bool),
     SetOutputSink(Box<dyn OutputSink>),
 
@@ -74,6 +75,7 @@ impl PartialEq for Command {
             | (Self::SendMessage(d1), Self::SendMessage(d2)) => d1 == d2,
             (Self::LineWrapping(d1), Self::LineWrapping(d2)) => d1 == d2,
             (Self::SetLineNumbers(d1), Self::SetLineNumbers(d2)) => d1 == d2,
+            (Self::SetFrozenLines(d1), Self::SetFrozenLines(d2)) => d1 == d2,
             (Self::ShowPrompt(d1), Self::ShowPrompt(d2)) => d1 == d2,
             (Self::SetExitStrategy(d1), Self::SetExitStrategy(d2)) => d1 == d2,
             #[cfg(feature = "static_output")]
@@ -99,6 +101,7 @@ impl Debug for Command {
             Self::SetPrompt(text) => write!(f, "SetPrompt({text:?})"),
             Self::SendMessage(text) => write!(f, "SendMessage({text:?})"),
             Self::SetLineNumbers(ln) => write!(f, "SetLineNumbers({ln:?})"),
+            Self::SetFrozenLines(n) => write!(f, "SetFrozenLines({n})"),
             Self::LineWrapping(lw) => write!(f, "LineWrapping({lw:?})"),
             Self::SetExitStrategy(es) => write!(f, "SetExitStrategy({es:?})"),
             Self::SetInputClassifier(_) => write!(f, "SetInputClassifier"),

@@ -466,6 +466,37 @@ fn test_draw_no_overflow() {
     );
 }
 
+#[test]
+fn frozen_lines_stay_at_top_while_scrolling() {
+    // The pager assumes a 80x10 terminal in tests
+    let mut pager = PagerState::new().unwrap();
+    pager.screen.orig_text = (0..20).fold(String::new(), |mut t, i| {
+        let _ = writeln!(t, "line {i:02}");
+        t
+    });
+    pager.reformat_display();
+    pager.frozen_lines = 2;
+
+    // Before any scrolling the header rows are shown followed by the content.
+    let mut out = Vec::new();
+    write_from_pagerstate(&mut out, &mut pager).unwrap();
+    let rendered = String::from_utf8(out).expect("Should have written valid UTF-8");
+    assert!(rendered.starts_with("\rline 00\n\rline 01\n"));
+    // upper_mark is clamped to the frozen region so the header is not scrolled away
+    assert_eq!(pager.upper_mark, 2);
+
+    // After scrolling down the two frozen header rows must still be rendered first.
+    pager.upper_mark = 6;
+    let mut out = Vec::new();
+    write_from_pagerstate(&mut out, &mut pager).unwrap();
+    let rendered = String::from_utf8(out).expect("Should have written valid UTF-8");
+    assert!(rendered.starts_with("\rline 00\n\rline 01\n"));
+    assert!(rendered.contains("line 06\n"));
+    // The header rows occupy 2 of the 9 writable rows, so 7 content rows are shown.
+    let content_rows = rendered.lines().skip(2).count();
+    assert_eq!(content_rows, 7);
+}
+
 #[cfg(test)]
 mod draw_for_change_tests {
     use super::{draw_for_change, write_prompt};

@@ -347,6 +347,10 @@ pub fn handle_event(
             p.reformat_display();
             command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
         }
+        Command::SetFrozenLines(n) => {
+            p.frozen_lines = n;
+            command_queue.push_back(Command::Io(IoCommand::RedrawDisplay));
+        }
         Command::SetExitStrategy(es) => {
             p.hooks.remove_callback(Hook::PostPagerExit, 1);
             if es == ExitStrategy::ProcessQuit {

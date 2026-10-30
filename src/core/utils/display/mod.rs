@@ -34,6 +34,19 @@ pub fn draw_for_change(
 ) -> Result<(), MinusError> {
     let line_count = ps.screen.formatted_lines_count();
 
+    // With a sticky header the scroll region excludes the frozen lines, which
+    // makes the partial scroll optimization below incorrect. Fall back to a full
+    // redraw, which renders the frozen header followed by the scrolled content.
+    if ps.frozen_lines > 0 {
+        let frozen = ps.frozen_lines.min(line_count);
+        let writable_rows = ps.rows.saturating_sub(1).saturating_sub(frozen);
+        let scrollable = line_count.saturating_sub(frozen);
+        let max_upper = frozen.saturating_add(scrollable.saturating_sub(writable_rows));
+        *new_upper_mark = (*new_upper_mark).clamp(frozen, max_upper);
+        ps.upper_mark = *new_upper_mark;
+        return draw_full(out, ps);
+    }
+
     // Reduce one row for prompt/messages
     //
     // NOTE This should be the value of rows that should be used throughout this function.
@@ -265,18 +278,29 @@ pub fn write_text_checked<L: Display + AsRef<str>>(
 pub fn write_from_pagerstate(out: &mut impl Write, ps: &mut PagerState) -> Result<(), MinusError> {
     let line_count = ps.screen.formatted_lines_count();
 
-    // Reduce one row for prompt/messages
-    let writable_rows = ps.rows.saturating_sub(1);
+    // Number of rows frozen at the top of the screen (sticky header)
+    let frozen = ps.frozen_lines.min(line_count);
 
-    // Calculate the lower_mark by adding either the rows or line_count depending
-    // on the minimality
-    let lower_mark = ps.upper_mark.saturating_add(writable_rows.min(line_count));
-    if lower_mark > line_count {
-        ps.upper_mark = line_count.saturating_sub(writable_rows);
+    // Reduce one row for prompt/messages and the frozen rows for the header
+    let writable_rows = ps.rows.saturating_sub(1).saturating_sub(frozen);
+
+    // Clamp the upper mark into the scrollable content region
+    let scrollable = line_count.saturating_sub(frozen);
+    let max_upper = frozen.saturating_add(scrollable.saturating_sub(writable_rows));
+    if ps.upper_mark < frozen {
+        ps.upper_mark = frozen;
+    }
+    if ps.upper_mark > max_upper {
+        ps.upper_mark = max_upper;
     }
 
-    let display_lines = ps.render_rows_for_display(ps.upper_mark, lower_mark);
-    write_raw_lines(out, &display_lines, Some("\r"))
+    let lower_mark = ps.upper_mark.saturating_add(writable_rows).min(line_count);
+
+    let header_lines = ps.render_rows_for_display(0, frozen);
+    write_raw_lines(out, &header_lines, Some("\r"))?;
+
+    let content_lines = ps.render_rows_for_display(ps.upper_mark, lower_mark);
+    write_raw_lines(out, &content_lines, Some("\r"))
 }
 
 pub fn write_lines<L: Display + AsRef<str>>(
