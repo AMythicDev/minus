@@ -122,6 +122,33 @@ impl Pager {
         Ok(self.tx.send(Command::SetLineNumbers(l))?)
     }
 
+    /// Set the number of lines at the top of the output that stay fixed while
+    /// the remaining content scrolls beneath them.
+    ///
+    /// This is useful for keeping a header row (or rows) visible while scrolling
+    /// through long output, similar to a sticky table header.
+    ///
+    /// Note that when `n > 0` scrolling falls back to a full redraw instead of
+    /// the incremental partial-scroll optimization, because the frozen region
+    /// makes the incremental path incorrect.
+    ///
+    /// Pass `0` to disable the sticky header (the default).
+    ///
+    /// # Errors
+    /// This function will return a [`Err(MinusError::Communication)`](MinusError::Communication) if the data
+    /// could not be sent to the receiver
+    ///
+    /// # Example
+    /// ```
+    /// use minus::Pager;
+    ///
+    /// let pager = Pager::new();
+    /// pager.set_frozen_lines(1).expect("Failed to communicate with the pager");
+    /// ```
+    pub fn set_frozen_lines(&self, n: usize) -> Result<(), MinusError> {
+        Ok(self.tx.send(Command::SetFrozenLines(n))?)
+    }
+
     /// Set the text displayed at the bottom prompt
     ///
     /// # Panics

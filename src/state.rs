@@ -125,6 +125,11 @@ pub struct PagerState {
     ///
     /// When this is `> 0`, this amount of text will be truncated from the left side
     pub left_mark: usize,
+    /// Number of lines at the top of the buffer that stay fixed (sticky) while
+    /// the remaining content scrolls beneath them.
+    ///
+    /// A value of `0` disables the sticky header and keeps the default behaviour.
+    pub frozen_lines: usize,
     /// Direction of search
     ///
     /// See [`SearchMode`] for available options
@@ -215,6 +220,7 @@ impl PagerState {
             prompt,
             running: &minus_core::RUNMODE,
             left_mark: 0,
+            frozen_lines: 0,
             input_classifier: Box::<HashedEventRegister<RandomState>>::default(),
             exit_callbacks: Vec::with_capacity(5),
             hooks: Hooks::new(),

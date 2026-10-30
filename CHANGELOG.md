@@ -1,6 +1,10 @@
 # Changelog
 This file documents all changes made to the project and is updated before each release.
 
+## Unreleased
+### Added
+* Add `Pager::set_frozen_lines` to keep the first `n` lines (e.g. a header) fixed while the rest of the output scrolls beneath them.
+
 ## v5.8.0 [2026-09-19]
 ### Added
 * [#164](https://github.com/arijit79/minus/pull/167): Introduce the `OutputSink` to allow custom output sinks like stderr, files, etc.

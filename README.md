@@ -57,6 +57,8 @@ downloaded from the internet.
     colors, emphasis etc. This is not a minus-specific problem but rather its how terminals behave and is inherently limited because of their design**
 - Follow output mode  
     This feature ensures that you always see the last line as the data is being pushed onto the pager's buffer.
+- Frozen (sticky) lines  
+    Keep the first `n` lines, such as a table header, fixed at the top while the rest of the output scrolls beneath them via [`Pager::set_frozen_lines`].
 - Full [regex](https://docs.rs/regex) based searching.  
 	Which also fully takes care of escape sequences. Also supports incremental searching of text as you type.
 - Tries to be very minimal on dependencies.
