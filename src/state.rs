@@ -618,11 +618,22 @@ impl PagerState {
         let row_in_line = selection.absolute_row.saturating_sub(line_start_row);
         let cols_avail = self.wrapped_cols_available();
         let wrapped_rows = textwrap::wrap(line, cols_avail.max(1));
-        let preceding_chars = wrapped_rows
-            .iter()
-            .take(row_in_line)
-            .map(|row| row.chars().count())
-            .sum::<usize>();
+        // Wrapping drops the whitespace at each break, so the preceding rows' lengths do not add up
+        // to this row's position in `line`. Find each row in order to get its real starting offset.
+        let mut row_start = 0;
+        for (idx, row) in wrapped_rows.iter().enumerate() {
+            let row = row.trim_end();
+            if let Some(found) = line.get(row_start..).and_then(|rest| rest.find(row)) {
+                row_start += found;
+            }
+            if idx == row_in_line {
+                break;
+            }
+            row_start += row.len();
+        }
+        let preceding_chars = line
+            .get(..row_start)
+            .map_or(0, |prefix| prefix.chars().count());
 
         preceding_chars.saturating_add(selection.col)
     }
@@ -775,6 +786,24 @@ mod tests {
         });
 
         assert_eq!(ps.extract_selection().as_deref(), Some("cdefghi\njklm"));
+    }
+
+    #[test]
+    fn extract_selection_across_wrapped_rows_with_spaces() {
+        let mut ps = PagerState::new().unwrap();
+        ps.cols = 6;
+        ps.screen.orig_text = "hello world foo\n".to_string();
+        ps.reformat_display();
+        ps.selection_anchor = Some(Selection {
+            absolute_row: 1,
+            col: 0,
+        });
+        ps.selection = Some(Selection {
+            absolute_row: 2,
+            col: 2,
+        });
+
+        assert_eq!(ps.extract_selection().as_deref(), Some("world foo"));
     }
 
     #[test]
